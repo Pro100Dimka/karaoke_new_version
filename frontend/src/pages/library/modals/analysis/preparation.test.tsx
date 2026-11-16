@@ -39,9 +39,9 @@ vi.mock('../recordings/RecordingPlayer', () => ({
 }));
 afterEach(cleanup);
 
-it.each([84, undefined])(
-  'shows the room result %s as the main score and the personal result separately',
-  (overallScore) => {
+it.each([[84, false], [undefined, false], [84, true], [undefined, true]] as const)(
+  'shows room result %s and the personal analysis of master=%s',
+  (overallScore, master) => {
     const recording: RecordingDto = {
       id: 'duet-take',
       songId: 'song',
@@ -57,14 +57,14 @@ it.each([84, undefined])(
     render(
       <PerformanceAnalysisModal
         analysis={{
-          recordingId: 'duet-take',
+          recordingId: master ? 'duet-master' : 'duet-take',
           score: 75,
           pitch: 70,
           rhythm: 80,
           stability: 75,
           summary: '',
         }}
-        recordings={[recording]}
+        recordings={[recording, { ...recording, id: 'duet-master', sourceRecordingId: recording.id }]}
         onDelete={vi.fn()}
         onCreateStudioMaster={vi.fn()}
         studioMaster={null}

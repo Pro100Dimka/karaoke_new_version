@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 from backend.domain_errors import ConflictError, DomainError
 from backend.history.domain import HistoryEvent
@@ -21,6 +22,12 @@ from backend.projects.domain import ProjectRevision
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.runtime import Clock, IdGenerator
 from backend.songs.domain import CoverState, Song, SongStatus, SourceState
+
+
+@dataclass(frozen=True, slots=True)
+class PackageImportResult:
+    song: Song
+    created: bool
 
 
 class ImportPackage:
@@ -45,11 +52,14 @@ class ImportPackage:
         archive_path: Path,
         *,
         decision: PackageImportDecision = PackageImportDecision.SAFE_ONLY,
-    ) -> Song:
+        ensure_not_cancelled: Callable[[], None] | None = None,
+    ) -> PackageImportResult:
         inspection = self._inspect.execute(archive_path)
         self._require_importable(inspection, decision)
         song_id = inspection.existing_song_id or inspection.manifest.song.song_id
         with self._operations.acquire(song_id, SongOperation.PACKAGE_IMPORT):
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
             published = None
             committed = False
             try:
@@ -58,14 +68,16 @@ class ImportPackage:
                     song_id, inspection.local_revision or inspection.manifest.revision
                 ):
                     published = self._publication.execute(archive_path, inspection, song_id)
+                if ensure_not_cancelled:
+                    ensure_not_cancelled()
                 if same_revision:
                     self._publication.supplement_same_revision(archive_path, inspection, song_id)
-                    song = self._activate_existing(song_id, inspection)
+                    result = PackageImportResult(self._activate_existing(song_id, inspection), False)
                 else:
                     assert published is not None
-                    song = self._commit(inspection, song_id, published)
+                    result = self._commit(inspection, song_id, published)
                 committed = True
-                return song
+                return result
             finally:
                 if published is not None:
                     finish = self._publication.complete if committed else self._publication.rollback
@@ -83,7 +95,7 @@ class ImportPackage:
         inspection: PackageInspection,
         song_id: str,
         published: PublishedPackageProject,
-    ) -> Song:
+    ) -> PackageImportResult:
         manifest = inspection.manifest
         now = self._clock.now()
         with self._uow.create() as transaction:
@@ -113,7 +125,7 @@ class ImportPackage:
             event = HistoryEvent(self._ids.new(), "PackageImported", now, "Song", song_id)
             transaction.history.add(event)
             transaction.commit()
-        return song
+        return PackageImportResult(song, existing is None)
 
     @staticmethod
     def _updated_song(

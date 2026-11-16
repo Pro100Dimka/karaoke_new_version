@@ -19,6 +19,7 @@ class AsioBackend final : public IAudioBackend {
     void stop() noexcept override;
     void close() noexcept override;
     [[nodiscard]] BackendSnapshot snapshot() const noexcept override;
+    bool refreshRuntimeLatency(RuntimeConfiguration& runtime) override;
 
   private:
     struct Impl;

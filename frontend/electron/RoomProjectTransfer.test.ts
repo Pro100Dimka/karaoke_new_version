@@ -134,15 +134,64 @@ it('rejects an active duplicate identity without losing the original cancellatio
   expect(await first).toBeInstanceOf(Error);
 });
 
-it('removes unconsumed downloads when their renderer is destroyed', async () => {
-  const { call, project, sender } = await setup();
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('archive')));
-  const file = (await call(ipcChannels.downloadRoomProject, project)) as string;
-  sender.emit('destroyed');
-  await vi.waitFor(async () => {
-    await expect(readFile(file)).rejects.toMatchObject({ code: 'ENOENT' });
-  });
-});
+it.each(['destroyed', 'render-process-gone', 'did-start-navigation'])(
+  'removes unconsumed downloads on renderer %s',
+  async (event) => {
+    const { call, project, sender } = await setup();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('archive')));
+    const file = (await call(
+      ipcChannels.downloadRoomProject,
+      project,
+    )) as string;
+    sender.emit('did-start-navigation', {
+      isMainFrame: false,
+      isSameDocument: false,
+    });
+    sender.emit('did-start-navigation', {
+      isMainFrame: true,
+      isSameDocument: true,
+    });
+    expect(await readFile(file, 'utf8')).toBe('archive');
+    sender.emit(event, { isMainFrame: true, isSameDocument: false });
+    await vi.waitFor(async () => {
+      await expect(readFile(file)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+  },
+);
+
+it.each(['destroyed', 'render-process-gone', 'did-start-navigation'])(
+  'aborts an active download on renderer %s',
+  async (event) => {
+    const { call, project, sender } = await setup();
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url, options: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            signal = options.signal ?? undefined;
+            signal?.addEventListener(
+              'abort',
+              () => reject(new Error('aborted')),
+              { once: true },
+            );
+          }),
+      ),
+    );
+    const download = call(ipcChannels.downloadRoomProject, project).catch(
+      (error) => error,
+    );
+    try {
+      await vi.waitFor(() => expect(signal).toBeDefined());
+      sender.emit(event, { isMainFrame: true, isSameDocument: false });
+      expect(signal?.aborted).toBe(true);
+      expect(await download).toBeInstanceOf(Error);
+    } finally {
+      await call(ipcChannels.cancelRoomProjectTransfer, project.transferId);
+      await download;
+    }
+  },
+);
 
 it('cancels failed HTTP response bodies', async () => {
   const { call, project } = await setup();

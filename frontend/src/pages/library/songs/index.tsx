@@ -41,6 +41,7 @@ import {
 import { useRoomLibraryCommands } from '../../../providers/application';
 import { routes } from '../../../shared/routes';
 import { canControlRoom } from '../../../application/room/roomModel';
+import { readText, writeText } from '../../../shared/storage/localStore';
 
 const activeJobStatuses = new Set<SongDto['status']>(['queued', 'processing']);
 
@@ -57,12 +58,8 @@ const useRememberedScroll = (
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
         restored.current = true;
-        try {
-          page.scrollTop =
-            Number(sessionStorage.getItem('adVoice.libraryScroll')) || 0;
-        } catch {
-          /* Keep the initial position. */
-        }
+        page.scrollTop =
+          Number(readText('adVoice.libraryScroll', 'session')) || 0;
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -70,15 +67,8 @@ const useRememberedScroll = (
   useLayoutEffect(() => {
     const page = pageRef.current;
     return () => {
-      try {
-        if (page)
-          sessionStorage.setItem(
-            'adVoice.libraryScroll',
-            String(page.scrollTop),
-          );
-      } catch {
-        /* Scroll restoration is optional. */
-      }
+      if (page)
+        writeText('adVoice.libraryScroll', String(page.scrollTop), 'session');
     };
   }, [pageRef]);
 };

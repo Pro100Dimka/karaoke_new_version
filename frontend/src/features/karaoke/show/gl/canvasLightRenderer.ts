@@ -46,8 +46,9 @@ export class CanvasLightRenderer {
     gradient.addColorStop(1, `rgba(${key},0)`);
     context.fillStyle = gradient;
     context.fillRect(0, 0, 128, 128);
-    if (this.stamps.size >= 64)
-      this.stamps.delete(this.stamps.keys().next().value!);
+    const oldest = this.stamps.keys().next().value;
+    if (this.stamps.size >= 64 && oldest !== undefined)
+      this.stamps.delete(oldest);
     this.stamps.set(key, stamp);
     return stamp;
   }
@@ -79,6 +80,7 @@ export class CanvasLightRenderer {
       const kind = sprites[offset + 3]!,
         intensity = sprites[offset + 7]!;
       if (kind === spriteKind.ring) {
+        context.globalAlpha = 1;
         const color = [
           sprites[offset + 4]!,
           sprites[offset + 5]!,

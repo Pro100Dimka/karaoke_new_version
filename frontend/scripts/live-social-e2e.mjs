@@ -417,6 +417,7 @@ try {
     report.checks.length > 0 &&
     report.checks.every((item) => item.passed) &&
     !report.error;
+  if (!report.passed) process.exitCode = 1;
   writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2));
   console.log(`report: ${out}`);
   process.exit();

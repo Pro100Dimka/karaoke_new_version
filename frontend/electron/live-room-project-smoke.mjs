@@ -1,18 +1,27 @@
 import { mkdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { roomSmokeIdentities } from './multi-electron-room-plan.mjs';
+import { allSongs } from '../scripts/smoke-catalog.mjs';
 
 const developerBackend =
   process.env.AD_VOICE_SMOKE_DEVELOPER_BACKEND ?? 'http://127.0.0.1:8767';
 const installedBackend =
   process.env.AD_VOICE_SMOKE_INSTALLED_BACKEND ?? 'http://127.0.0.1:8765';
 const roomServer =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
+  process.env.AD_VOICE_ROOM_SERVER_API ?? 'https://130.61.169.61';
+const identities = roomSmokeIdentities();
 
 const json = async (base, route, init = {}) => {
   const response = await fetch(`${base}${route}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...init.headers,
+      ...(base === roomServer
+        ? identities.headers(base, JSON.parse(init.body).participantId)
+        : {}),
+    },
   });
   if (!response.ok)
     throw new Error(
@@ -36,19 +45,21 @@ const waitForJob = async (base, jobId) => {
 };
 
 const unique = crypto.randomUUID().slice(0, 8);
-const hostId = `project-smoke-host-${unique}`;
-const guestId = `project-smoke-guest-${unique}`;
+const hostId = identities.create();
+const guestId = identities.create();
 const temporaryRoot = path.join(os.tmpdir(), `ad-voice-room-project-${unique}`);
 let roomId;
 let importedSongId;
+let importCreated = false;
+const installedIds = new Set();
 
 try {
   const [developerSongs, installedSongs] = await Promise.all([
-    json(developerBackend, '/songs?limit=200'),
-    json(installedBackend, '/songs?limit=200'),
+    allSongs((route) => json(developerBackend, route)),
+    allSongs((route) => json(installedBackend, route)),
   ]);
-  const installedIds = new Set(installedSongs.items.map((song) => song.songId));
-  const song = developerSongs.items.find(
+  for (const song of installedSongs) installedIds.add(song.songId);
+  const song = developerSongs.find(
     (candidate) =>
       candidate.status === 'Ready' &&
       candidate.activeRevision > 0 &&
@@ -106,6 +117,7 @@ try {
       headers: {
         'X-Participant-Id': hostId,
         'Content-Type': 'application/zip',
+        ...identities.headers(roomServer, hostId),
       },
       body: await import('node:fs').then(({ createReadStream }) =>
         createReadStream(exported.path),
@@ -123,7 +135,12 @@ try {
   );
   const downloadResponse = await fetch(
     `${roomServer}/rooms/${roomId}/projects/${encodeURIComponent(song.songId)}/${song.activeRevision}`,
-    { headers: { 'X-Participant-Id': guestId } },
+    {
+      headers: {
+        'X-Participant-Id': guestId,
+        ...identities.headers(roomServer, guestId),
+      },
+    },
   );
   if (!downloadResponse.ok)
     throw new Error(`Project download failed (${downloadResponse.status})`);
@@ -144,6 +161,7 @@ try {
   });
   const imported = await waitForJob(installedBackend, importJob.jobId);
   importedSongId = imported.songId;
+  importCreated = imported.created === true;
   const installedSong = await json(
     installedBackend,
     `/songs/${encodeURIComponent(importedSongId)}`,
@@ -174,7 +192,7 @@ try {
     }),
   );
 } finally {
-  if (importedSongId) {
+  if (importCreated && importedSongId && !installedIds.has(importedSongId)) {
     await json(
       installedBackend,
       `/songs/${encodeURIComponent(importedSongId)}`,

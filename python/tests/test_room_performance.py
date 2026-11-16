@@ -119,7 +119,14 @@ def test_restart_resets_scores_but_pause_resume_preserves_them(duet):
     client, code, _ = duet
     for participant in ("host", "guest"):
         client.post(
-            f"/rooms/{code}/readiness", json={"participantId": participant, "readiness": "Ready"}
+            f"/rooms/{code}/readiness",
+            json={
+                "selectionId": client.get(
+                    f"/rooms/{code}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": participant,
+                "readiness": "Ready",
+            },
         )
         client.post(
             f"/rooms/{code}/timing", json={"participantId": participant, "voiceLatencyMs": 20}

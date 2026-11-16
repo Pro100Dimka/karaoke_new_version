@@ -84,7 +84,11 @@ interface DesktopApi {
     participantId: string,
     gain: number,
   ): Promise<void>;
-  setRoomVoiceParticipantEffect(participantId: string, effect: import('./contracts/models').RoomVoiceEffect, value: number): Promise<void>;
+  setRoomVoiceParticipantEffect(
+    participantId: string,
+    effect: import('./contracts/models').RoomVoiceEffect,
+    value: number,
+  ): Promise<void>;
   keyboardLightingCapabilities(): Promise<KeyboardLightingCapabilities>;
   setKeyboardLighting(request: KeyboardLightingRequest): Promise<void>;
   uploadRoomProject(
@@ -150,6 +154,7 @@ interface DesktopApi {
   onSocialInbox(listener: (message: unknown) => void): () => void;
   onBackendEvent(listener: (event: unknown) => void): () => void;
   onAppVisibility(listener: (onScreen: boolean) => void): () => void;
+  onAppFocus(listener: (focused: boolean) => void): () => void;
 }
 interface SocialPresenceUpdate {
   displayName: string;

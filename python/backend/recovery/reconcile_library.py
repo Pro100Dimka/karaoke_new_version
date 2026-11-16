@@ -55,15 +55,13 @@ class ReconcileLibrary:
         return tuple(issues)
 
     def _all_songs(self) -> tuple[Song, ...]:
+        songs: list[Song] = []
         with self._uow.create() as transaction:
-            songs = transaction.songs.list(
-                search=None,
-                status=None,
-                sort="createdAt",
-                descending=False,
-                limit=10_000,
-                offset=0,
-            )
+            while page := transaction.songs.list(
+                search=None, status=None, sort="createdAt", descending=False,
+                limit=10_000, offset=len(songs),
+            ):
+                songs.extend(page)
         return tuple(songs)
 
     def _song_issues(self, song: Song) -> list[ReconciliationIssue]:

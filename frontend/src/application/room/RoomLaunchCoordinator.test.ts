@@ -83,3 +83,25 @@ it('keeps one project transfer across a connection recovery for the same selecti
   launch.observe({ ...snapshot(), connectionStatus: 'reconnecting' }, []);
   expect(project.prepare).toHaveBeenCalledOnce();
 });
+
+it.each([false, true])(
+  'can open the same song in a new selection (replacing playback: %s)',
+  (replacingPlayback) => {
+    vi.useFakeTimers();
+    const { launch, view } = setup();
+    const playing = { ...snapshot(), selectionId: 1 };
+    launch.observe(playing, [localSong]);
+    vi.advanceTimersByTime(400);
+    const stopped = { ...playing, playbackState: 'stopped' as const };
+    launch.recordPlaybackTransition(playing, stopped);
+    launch.observe(stopped, [localSong]);
+    vi.advanceTimersByTime(400);
+    expect(view.navigate).toHaveBeenCalledOnce();
+    const next = { ...stopped, selectionId: 2 };
+    launch.selectionChanged(next);
+    if (replacingPlayback) launch.recordPlaybackTransition(playing, next);
+    launch.observe(next, [localSong]);
+    vi.advanceTimersByTime(400);
+    expect(view.navigate).toHaveBeenCalledTimes(2);
+  },
+);

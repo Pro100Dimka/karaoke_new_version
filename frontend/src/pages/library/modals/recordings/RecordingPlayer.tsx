@@ -2,7 +2,9 @@ import { observeOperation } from '../../../../shared/errors';
 import { pythonClient } from '../../../../services/pythonClient';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { audioClient as preview } from '../../../../services/audioClient';
-import { useState } from 'react';
+import { observer } from 'mobx-react-lite';
+import { runInAction } from 'mobx';
+import { store } from '../../../../providers/store';
 import {
   AnimatedBorder,
   Button,
@@ -72,9 +74,9 @@ export const RecordingPlayer = ({
   );
 };
 
-const RecordingVolume = () => {
+const RecordingVolume = observer(() => {
   useLocale();
-  const [volume, setVolume] = useState(1);
+  const volume = store.playback.previewVolume;
   return (
     <RotaryKnob
       diameter={58}
@@ -92,13 +94,13 @@ const RecordingVolume = () => {
           'errors.previewVolume',
           preview.setPreviewVolume(value),
         ).then(
-          () => setVolume(value),
+          () => runInAction(() => { store.playback.previewVolume = value; }),
           () => undefined,
         );
       }}
     />
   );
-};
+});
 
 const RecordingTransport = ({
   media,

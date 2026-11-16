@@ -101,21 +101,34 @@ def test_failed_new_model_does_not_delete_working_version(client, tmp_path: Path
     assert version_two["state"] == "Failed"
 
 
-def test_failed_redownload_preserves_verified_same_version(client, tmp_path, monkeypatch):
+@pytest.mark.parametrize("switch_selection", [False, True])
+def test_failed_redownload_preserves_verified_same_version(client, tmp_path, monkeypatch, switch_selection):
     declare(client, "asr", "retry", b"verified-weights", tmp_path / "source.bin")
     first = client.post("/models/asr/retry/download")
     assert wait_for_job(client, first.json()["jobId"])["state"] == "Succeeded"
     assert client.post("/models/asr/retry/select").status_code == 200
+    if switch_selection:
+        declare(client, "asr", "new", b"new-weights", tmp_path / "new.bin")
+        newer = client.post("/models/asr/new/download").json()["jobId"]
+        assert wait_for_job(client, newer)["state"] == "Succeeded"
+    original = HttpDownloader.download
 
     def failed_download(*args, **kwargs):
+        if switch_selection:
+            assert client.post("/models/asr/new/select").status_code == 200
+            return original(*args, **kwargs)
         raise OSError("network unavailable")
 
     monkeypatch.setattr(HttpDownloader, "download", failed_download)
     second = client.post("/models/asr/retry/download")
-    assert wait_for_job(client, second.json()["jobId"])["state"] == "Failed"
+    assert wait_for_job(client, second.json()["jobId"])["state"] == (
+        "Succeeded" if switch_selection else "Failed"
+    )
     model = next(item for item in client.get("/models").json() if item["version"] == "retry")
     assert model["state"] == "Ready"
-    assert model["selected"] is True
+    assert model["selected"] is (not switch_selection)
+    selected = [item["version"] for item in client.get("/models").json() if item["selected"]]
+    assert selected == (["new"] if switch_selection else ["retry"])
     assert Path(model["localPath"]).read_bytes() == b"verified-weights"
 
 

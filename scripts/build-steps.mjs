@@ -40,7 +40,7 @@ if (profileRoot) {
   });
 }
 const audio = path.join(root, "AudioService");
-const quote = (value) => (/\s/.test(value) ? `"${value}"` : value);
+const quote = (value) => `"${value}"`;
 const running = new Set();
 
 if (mode === "start" || mode === "dev") {
@@ -229,7 +229,10 @@ const frontendLane = async () => {
 };
 
 const scope = process.argv[3] ?? "all";
-const targets = process.argv.slice(4).map((value) => value.replaceAll("\\", "/"));
+const checkArguments = process.argv.slice(4).map((value) => value.replaceAll("\\", "/"));
+const workerOptions = checkArguments.filter((value) => value.startsWith("--workers="));
+const targets = checkArguments.filter((value) => !value.startsWith("--workers="));
+const workers = Number(workerOptions[0]?.slice("--workers=".length) ?? 1);
 const targetRules = {
   frontend: { directory: frontend, pattern: /^(?:src|electron|scripts)\/[\w./-]+\.test\.(?:tsx?|mjs)$/ },
   backend: { directory: path.join(root, "python"), pattern: /^tests\/[\w./-]+\.py(?:::[\w.-]+)*$/ },
@@ -243,8 +246,10 @@ if (mode === "check") {
     const file = path.resolve(rule.directory, target.split("::")[0]);
     return path.relative(rule.directory, file).startsWith("..") || !existsSync(file);
   });
-  if ((scope !== "all" && !rule) || (scope === "all" && targets.length) || invalidTarget) {
-    console.error("Usage: check.bat [frontend|backend|audio|all] [test files or native test names]. Targets must stay inside the selected project area.");
+  const invalidWorkers = workerOptions.length > 1 || (workerOptions.length > 0 &&
+    (scope !== "backend" || !targets.length || !["--workers=1", "--workers=2", "--workers=3", "--workers=4"].includes(workerOptions[0])));
+  if ((scope !== "all" && !rule) || (scope === "all" && targets.length) || invalidTarget || invalidWorkers) {
+    console.error("Usage: check.bat [frontend|backend|audio|all] [test files or native test names]. Focused backend checks also accept --workers=1 through --workers=4. Targets must stay inside the selected project area.");
     process.exit(2);
   }
   console.log(targets.length
@@ -264,7 +269,7 @@ const checks = {
       .map(([command, files]) => () => run(`${command} ${files.map(quote).join(" ")}`)));
   },
   backend: () => exec("backend", targets.length
-    ? `${quote(python)} -m pytest -q ${targets.map(quote).join(" ")}`
+    ? `${quote(python)} -m pytest -q${workers > 1 ? ` -n ${workers} --dist=load` : ""} ${targets.map(quote).join(" ")}`
     : `${quote(python)} scripts/run_checks.py --require-dev-tools`,
   { cwd: path.join(root, "python") }),
   audio: async () => {

@@ -4,9 +4,9 @@ export const formatTime = (seconds: number): string => {
 };
 
 export const formatPreciseTime = (seconds: number): string => {
-  const safe = Math.max(0, seconds);
-  const minutes = Math.floor(safe / 60);
-  const remaining = (safe % 60).toFixed(2).padStart(5, '0');
+  const safe = Math.max(0, Math.round(seconds * 100));
+  const minutes = Math.floor(safe / 6000);
+  const remaining = ((safe % 6000) / 100).toFixed(2).padStart(5, '0');
   return `${minutes}:${remaining}`;
 };
 

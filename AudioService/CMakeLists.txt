@@ -212,6 +212,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
     add_test(NAME audioservice_runtime_install COMMAND "${CMAKE_COMMAND}"
         "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DCONFIG=$<CONFIG>" "-DMSVC_RUNTIME=${MSVC}"
         "-DAUDIO_FILENAME=$<TARGET_FILE_NAME:AudioService>"
+        "-DRELAY_FILENAME=$<TARGET_FILE_NAME:NativeVoiceRelay>"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/VerifyRuntimeInstall.cmake")
 endif()
 

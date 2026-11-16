@@ -214,6 +214,7 @@ export const ConsoleFrame = ({
         data-hidden={!shown || undefined}
         data-ad-paused={!shown || undefined}
         aria-hidden={!shown}
+        inert={!shown}
         data-dock={panel.detached ? undefined : dock}
         data-orientation={vertical ? 'vertical' : 'horizontal'}
         ref={frameRef}

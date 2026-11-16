@@ -15,5 +15,8 @@ class ControlServer {
     std::atomic<bool> stop_{false};
 #ifdef _WIN32
     void* stopEvent_{nullptr};
+#else
+    int stopRead_{-1};
+    int stopWrite_{-1};
 #endif
 };

@@ -20,6 +20,7 @@
 #include <mmreg.h>
 #include <ks.h>
 #include <ksmedia.h>
+#include <wrl/client.h>
 
 #include <algorithm>
 #include <atomic>
@@ -27,6 +28,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -244,6 +246,46 @@ struct CapturePacket { long long firstFrame; unsigned frames; double receivedAt,
 
 struct Result { bool ok; double physical, renderLead, captureAge, residual, confidence; };
 
+struct AudioThread {
+    HANDLE task{nullptr};
+    AudioThread() {
+        check(CoInitializeEx(nullptr, COINIT_MULTITHREADED), "audio thread COM");
+        DWORD index = 0;
+        task = AvSetMmThreadCharacteristicsW(L"Pro Audio", &index);
+    }
+    ~AudioThread() {
+        if (task) AvRevertMmThreadCharacteristics(task);
+        CoUninitialize();
+    }
+};
+
+struct Measurement {
+    Stream& cap;
+    Stream& ren;
+    AudioThread audioThread;
+    Microsoft::WRL::ComPtr<IAudioRenderClient> render;
+    Microsoft::WRL::ComPtr<IAudioCaptureClient> capture;
+    Microsoft::WRL::ComPtr<IAudioClock> clock;
+    std::jthread worker;
+
+    ~Measurement() {
+        if (worker.joinable()) {
+            worker.request_stop();
+            SetEvent(cap.event);
+            worker.join();
+        }
+        ren.client->Stop(); cap.client->Stop();
+        ren.client->Reset(); cap.client->Reset();
+    }
+};
+
+bool signalled(HANDLE event) {
+    const auto result = WaitForSingleObject(event, 200);
+    if (result == WAIT_FAILED)
+        check(HRESULT_FROM_WIN32(GetLastError()), "audio event wait");
+    return result == WAIT_OBJECT_0;
+}
+
 Result runOnce(Stream& cap, Stream& ren) {
     const unsigned rate = ren.format.rate;
     if (cap.format.rate != rate) throw std::runtime_error("capture and render rates differ");
@@ -260,94 +302,97 @@ Result runOnce(Stream& cap, Stream& ren) {
     std::vector<CapturePacket> packets;
     std::vector<float> recorded;
     blocks.reserve(4096); packets.reserve(4096); recorded.reserve(static_cast<size_t>(RunSeconds * rate * 1.5));
-    std::atomic<bool> stop{false};
-    IAudioRenderClient* rc = nullptr;
-    IAudioCaptureClient* cc = nullptr;
-    IAudioClock* clock = nullptr;
-    check(ren.client->GetService(IID_PPV_ARGS(&rc)), "render client");
-    check(cap.client->GetService(IID_PPV_ARGS(&cc)), "capture client");
-    check(ren.client->GetService(IID_PPV_ARGS(&clock)), "audio clock");
-    UINT64 clockFrequency = 0;
-    clock->GetFrequency(&clockFrequency);
-    long long written = 0;
+    std::exception_ptr captureError;
+    std::atomic<bool> captureFailed{false};
+    {
+        Measurement measurement{cap, ren};
+        auto& rc = measurement.render;
+        auto& cc = measurement.capture;
+        auto& clock = measurement.clock;
+        check(ren.client->GetService(IID_PPV_ARGS(rc.GetAddressOf())), "render client");
+        check(cap.client->GetService(IID_PPV_ARGS(cc.GetAddressOf())), "capture client");
+        check(ren.client->GetService(IID_PPV_ARGS(clock.GetAddressOf())), "audio clock");
+        UINT64 clockFrequency = 0;
+        check(clock->GetFrequency(&clockFrequency), "audio clock frequency");
+        if (clockFrequency == 0) throw std::runtime_error("audio clock frequency is zero");
+        long long written = 0;
 
-    auto renderPass = [&](bool prefill) {
-        UINT32 available = ren.bufferFrames;
-        if (!ren.exclusive) {
-            UINT32 padding = 0;
-            check(ren.client->GetCurrentPadding(&padding), "padding");
-            available = ren.bufferFrames - padding;
-            // Like AudioService: keep one engine period queued, not the whole buffer.
-            const UINT32 target = ren.periodFrames ? ren.periodFrames : ren.bufferFrames / 2;
-            available = padding >= target ? 0 : std::min(available, target - padding);
-        }
-        if (!available) return;
-        BYTE* data = nullptr;
-        check(rc->GetBuffer(available, &data), "render GetBuffer");
-        const unsigned bytes = ren.format.container / 8, ch = ren.format.channels;
-        for (UINT32 f = 0; f < available; ++f) {
-            const long long frame = written + f;
-            float v = 0.0f;
-            if (!prefill && frame >= chirpFrame && frame - chirpFrame < static_cast<long long>(train.size()))
-                v = train[static_cast<size_t>(frame - chirpFrame)];
-            for (unsigned c = 0; c < ch; ++c) ren.format.write(data + (f * ch + c) * bytes, v);
-        }
-        check(rc->ReleaseBuffer(available, 0), "render ReleaseBuffer");
-        const double released = nowSeconds();
-        UINT64 pos = 0, qpc = 0;
-        double clockQpc = 0, clockPos = -1;
-        if (SUCCEEDED(clock->GetPosition(&pos, &qpc))) {
-            clockQpc = qpc / 1e7;
-            clockPos = static_cast<double>(pos) * rate / static_cast<double>(clockFrequency);
-        }
-        blocks.push_back({written, available, released, clockQpc, clockPos});
-        written += available;
-    };
-
-    std::thread capture([&] {
-        CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-        DWORD task = 0;
-        HANDLE mm = AvSetMmThreadCharacteristicsW(L"Pro Audio", &task);
-        long long frames = 0;
-        while (!stop) {
-            if (WaitForSingleObject(cap.event, 200) != WAIT_OBJECT_0) continue;
-            for (;;) {
-                BYTE* data = nullptr; UINT32 n = 0; DWORD flags = 0; UINT64 devPos = 0, qpc = 0;
-                const HRESULT hr = cc->GetBuffer(&data, &n, &flags, &devPos, &qpc);
-                if (hr == AUDCLNT_S_BUFFER_EMPTY) break;
-                check(hr, "capture GetBuffer");
-                if (n == 0) { cc->ReleaseBuffer(0); break; }
-                const double received = nowSeconds();
-                const unsigned bytes = cap.format.container / 8, ch = cap.format.channels;
-                for (UINT32 f = 0; f < n; ++f)
-                    recorded.push_back((flags & AUDCLNT_BUFFERFLAGS_SILENT) ? 0.0f
-                                                                           : cap.format.read(data + f * ch * bytes));
-                packets.push_back({frames, n, received, qpc / 1e7, static_cast<long long>(devPos),
-                                   (flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) != 0});
-                frames += n;
-                cc->ReleaseBuffer(n);
+        auto renderPass = [&](bool prefill) {
+            UINT32 available = ren.bufferFrames;
+            if (!ren.exclusive) {
+                UINT32 padding = 0;
+                check(ren.client->GetCurrentPadding(&padding), "padding");
+                available = ren.bufferFrames - padding;
+                // Like AudioService: keep one engine period queued, not the whole buffer.
+                const UINT32 target = ren.periodFrames ? ren.periodFrames : ren.bufferFrames / 2;
+                available = padding >= target ? 0 : std::min(available, target - padding);
             }
-        }
-        if (mm) AvRevertMmThreadCharacteristics(mm);
-        CoUninitialize();
-    });
+            if (!available) return;
+            BYTE* data = nullptr;
+            check(rc->GetBuffer(available, &data), "render GetBuffer");
+            const unsigned bytes = ren.format.container / 8, ch = ren.format.channels;
+            for (UINT32 f = 0; f < available; ++f) {
+                const long long frame = written + f;
+                float v = 0.0f;
+                if (!prefill && frame >= chirpFrame && frame - chirpFrame < static_cast<long long>(train.size()))
+                    v = train[static_cast<size_t>(frame - chirpFrame)];
+                for (unsigned c = 0; c < ch; ++c) ren.format.write(data + (f * ch + c) * bytes, v);
+            }
+            check(rc->ReleaseBuffer(available, 0), "render ReleaseBuffer");
+            const double released = nowSeconds();
+            UINT64 pos = 0, qpc = 0;
+            double clockQpc = 0, clockPos = -1;
+            if (SUCCEEDED(clock->GetPosition(&pos, &qpc))) {
+                clockQpc = qpc / 1e7;
+                clockPos = static_cast<double>(pos) * rate / static_cast<double>(clockFrequency);
+            }
+            blocks.push_back({written, available, released, clockQpc, clockPos});
+            written += available;
+        };
 
-    DWORD task = 0;
-    HANDLE mm = AvSetMmThreadCharacteristicsW(L"Pro Audio", &task);
-    renderPass(true);
-    check(cap.client->Start(), "capture Start");
-    check(ren.client->Start(), "render Start");
-    while (written < totalFrames) {
-        if (WaitForSingleObject(ren.event, 200) != WAIT_OBJECT_0) continue;
-        renderPass(false);
+        measurement.worker = std::jthread([&](std::stop_token stop) {
+            try {
+                AudioThread audioThread;
+                long long frames = 0;
+                while (!stop.stop_requested()) {
+                    if (!signalled(cap.event)) continue;
+                    while (!stop.stop_requested()) {
+                        BYTE* data = nullptr; UINT32 n = 0; DWORD flags = 0; UINT64 devPos = 0, qpc = 0;
+                        const HRESULT hr = cc->GetBuffer(&data, &n, &flags, &devPos, &qpc);
+                        if (hr == AUDCLNT_S_BUFFER_EMPTY) break;
+                        check(hr, "capture GetBuffer");
+                        if (n == 0) { check(cc->ReleaseBuffer(0), "capture ReleaseBuffer"); break; }
+                        const double received = nowSeconds();
+                        const unsigned bytes = cap.format.container / 8, ch = cap.format.channels;
+                        for (UINT32 f = 0; f < n; ++f)
+                            recorded.push_back((flags & AUDCLNT_BUFFERFLAGS_SILENT) ? 0.0f
+                                                                                   : cap.format.read(data + f * ch * bytes));
+                        packets.push_back({frames, n, received, qpc / 1e7, static_cast<long long>(devPos),
+                                           (flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) != 0});
+                        frames += n;
+                        check(cc->ReleaseBuffer(n), "capture ReleaseBuffer");
+                    }
+                }
+            } catch (...) {
+                captureError = std::current_exception();
+                captureFailed.store(true, std::memory_order_release);
+                SetEvent(ren.event);
+            }
+        });
+
+        const double deadline = nowSeconds() + RunSeconds + 2.0;
+        renderPass(true);
+        check(cap.client->Start(), "capture Start");
+        check(ren.client->Start(), "render Start");
+        while (written < totalFrames) {
+            if (captureFailed.load(std::memory_order_acquire)) break;
+            if (nowSeconds() >= deadline) throw std::runtime_error("audio measurement deadline exceeded");
+            if (!signalled(ren.event)) continue;
+            renderPass(false);
+        }
+        if (!captureFailed.load(std::memory_order_acquire)) Sleep(300);
     }
-    Sleep(300);
-    stop = true;
-    capture.join();
-    ren.client->Stop(); cap.client->Stop();
-    ren.client->Reset(); cap.client->Reset();
-    if (mm) AvRevertMmThreadCharacteristics(mm);
-    rc->Release(); cc->Release(); clock->Release();
+    if (captureError) std::rethrow_exception(captureError);
 
     // Hand-over time of the first chirp frame: its block's release time, advanced by its offset.
     const auto block = std::find_if(blocks.begin(), blocks.end(), [&](const RenderBlock& b) {

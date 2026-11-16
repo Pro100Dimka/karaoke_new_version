@@ -271,6 +271,11 @@ export class RoomVoiceCoordinator {
             report.voiceRoute === lastRoute
           )
             return;
+          const beforePublication = this.scope.getRoom();
+          const publicationIsCurrent = () =>
+            active &&
+            this.scope.isCurrent() &&
+            this.scope.getRoom() === beforePublication;
           const updated = await room.setVoiceLatency(
             this.scope.code,
             latency,
@@ -278,11 +283,11 @@ export class RoomVoiceCoordinator {
             mixMeasured,
             ...(report.voiceRoute === 'direct' ? ['direct' as const] : []),
           );
-          if (!active || !this.scope.isCurrent()) return;
+          if (!publicationIsCurrent()) return;
           await this.audio.setRoomPlayoutDelay(
             updated.roomPlayoutDelayMs ?? 10,
           );
-          if (!active || !this.scope.isCurrent()) return;
+          if (!publicationIsCurrent()) return;
           lastPublished = latency;
           lastStagesPublished = stages;
           lastMixMeasured = mixMeasured;

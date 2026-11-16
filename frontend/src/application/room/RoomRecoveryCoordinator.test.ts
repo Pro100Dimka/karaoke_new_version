@@ -157,7 +157,12 @@ it('does not apply a snapshot that waited on AudioService after the session chan
 
 it('resumes project reconciliation when Python becomes ready without another server event', async () => {
   let deliver!: (room: RoomStateDto) => void;
-  let current: RoomStateDto = { ...snapshot(), songId: 'song', revision: 1 };
+  let current: RoomStateDto = {
+    ...snapshot(),
+    songId: 'song',
+    revision: 1,
+    selectionId: 1,
+  };
   const scope: RoomSessionScope = {
     code: 'room-a',
     generation: 1,
@@ -200,6 +205,12 @@ it('resumes project reconciliation when Python becomes ready without another ser
   recovery.setPythonReady(true);
   await vi.waitFor(() =>
     expect(ports.project.reconcileReadiness).toHaveBeenCalledOnce(),
+  );
+  deliver({ ...current, selectionId: 3 });
+  await vi.waitFor(() =>
+    expect(ports.launch.selectionChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ selectionId: 3 }),
+    ),
   );
   recovery.stop();
 });

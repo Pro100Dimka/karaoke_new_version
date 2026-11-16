@@ -2,14 +2,22 @@ import { subscribeAudioFocus } from './application';
 import { QueryProvider } from '../test/QueryProvider';
 import { act, render, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const audio = vi.hoisted(() => ({
   suspend: vi.fn(async () => undefined),
   resume: vi.fn(async () => undefined),
+  pendingTake: vi.fn(() => false),
 }));
 const desktop = vi.hoisted(() => ({
   listener: undefined as ((state: WindowState) => void) | undefined,
+  focusListener: undefined as ((focused: boolean) => void) | undefined,
+  onAppFocus: vi.fn((listener: (focused: boolean) => void) => {
+    desktop.focusListener = listener;
+    return () => {
+      desktop.focusListener = undefined;
+    };
+  }),
   onWindowState: vi.fn((listener: (state: WindowState) => void) => {
     desktop.listener = listener;
     return () => {
@@ -24,11 +32,15 @@ vi.mock('../services/audioClient', () => ({
     resumeSession: audio.resume,
   },
 }));
+vi.mock('../services/recordingCoordinator', () => ({
+  recordingCoordinator: { hasPendingTake: audio.pendingTake },
+}));
 
 vi.mock('../services/desktopClient', () => ({
   desktopClient: {
     setAppIcon: vi.fn(async () => undefined),
     onWindowState: desktop.onWindowState,
+    onAppFocus: desktop.onAppFocus,
   },
 }));
 
@@ -57,6 +69,31 @@ const AudioFocus = ({ settingsOpen = false }: { settingsOpen?: boolean }) => {
 };
 
 describe('ASIO background release', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    audio.pendingTake.mockReset().mockReturnValue(false);
+  });
+  it('keeps an unfinished recording running after blur and minimize', async () => {
+    audio.pendingTake.mockReturnValue(true);
+    try {
+      render(
+        <QueryProvider application>
+          <AudioFocus />
+        </QueryProvider>,
+      );
+      await act(async () => {
+        desktop.focusListener?.(false);
+        desktop.listener?.({
+          maximized: false,
+          fullscreen: false,
+          minimized: true,
+        });
+      });
+      expect(audio.suspend).not.toHaveBeenCalled();
+    } finally {
+      audio.pendingTake.mockReturnValue(false);
+    }
+  });
   it('releases ASIO after the app loses focus and restores it on return', async () => {
     render(
       <QueryProvider application>
@@ -64,10 +101,10 @@ describe('ASIO background release', () => {
       </QueryProvider>,
     );
 
-    act(() => window.dispatchEvent(new Event('blur')));
+    act(() => desktop.focusListener?.(false));
     await waitFor(() => expect(audio.suspend).toHaveBeenCalledOnce());
 
-    act(() => window.dispatchEvent(new Event('focus')));
+    act(() => desktop.focusListener?.(true));
     await waitFor(() => expect(audio.resume).toHaveBeenCalledOnce());
   });
 
@@ -86,6 +123,60 @@ describe('ASIO background release', () => {
         minimized: true,
       }),
     );
+    act(() => desktop.focusListener?.(false));
     await waitFor(() => expect(audio.suspend).toHaveBeenCalled());
+  });
+
+  it('keeps ASIO active while a detached panel owns focus, including main-window minimize', async () => {
+    render(
+      <QueryProvider application>
+        <AudioFocus />
+      </QueryProvider>,
+    );
+    await act(async () => {
+      window.dispatchEvent(new Event('blur'));
+      desktop.focusListener?.(true);
+      desktop.listener?.({
+        maximized: false,
+        fullscreen: false,
+        minimized: true,
+      });
+    });
+    expect(audio.suspend).not.toHaveBeenCalled();
+  });
+
+  it('cancels a queued release when focus returns before it starts', async () => {
+    render(
+      <QueryProvider application>
+        <AudioFocus />
+      </QueryProvider>,
+    );
+    await act(async () => {
+      desktop.focusListener?.(false);
+      desktop.focusListener?.(true);
+    });
+    expect(audio.suspend).not.toHaveBeenCalled();
+    expect(audio.resume).not.toHaveBeenCalled();
+  });
+
+  it('rechecks recording ownership before executing a queued release', async () => {
+    render(
+      <QueryProvider application>
+        <AudioFocus />
+      </QueryProvider>,
+    );
+    try {
+      await act(async () => {
+        desktop.focusListener?.(false);
+        audio.pendingTake.mockReturnValue(true);
+      });
+      await act(async () => {
+        desktop.focusListener?.(true);
+      });
+      expect(audio.suspend).not.toHaveBeenCalled();
+      expect(audio.resume).not.toHaveBeenCalled();
+    } finally {
+      audio.pendingTake.mockReturnValue(false);
+    }
   });
 });

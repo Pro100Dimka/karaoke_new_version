@@ -220,8 +220,14 @@ def test_release_prunes_build_only_python_artifacts_without_removing_runtime_fil
     (dev_package / "__init__.py").write_text("", encoding="utf-8")
     (site_packages / "pytest-1.0.dist-info").mkdir()
     retired = [tmp_path / "kaggle"]
-    for package in ("gradio_client", "kaggle", "kagglesdk"):
-        retired.extend((site_packages / package, site_packages / f"{package}-1.0.dist-info"))
+    for package, distribution in (
+        ("gradio_client", "gradio_client"),
+        ("kaggle", "kaggle"),
+        ("kagglesdk", "kagglesdk"),
+        ("xdist", "pytest_xdist"),
+        ("execnet", "execnet"),
+    ):
+        retired.extend((site_packages / package, site_packages / f"{distribution}-1.0.dist-info"))
     for directory in retired:
         directory.mkdir()
         (directory / "obsolete.py").write_text("", encoding="utf-8")

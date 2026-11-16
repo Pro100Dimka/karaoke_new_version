@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  spawn: vi.fn(() => ({ unref: () => undefined })),
+  spawn: vi.fn(),
 }));
 vi.mock('electron', () => ({
   app: {
@@ -13,6 +14,7 @@ vi.mock('electron', () => ({
     getVersion: () => '1.1.3',
     getPath: () => tmpdir(),
     once: vi.fn(),
+    removeListener: vi.fn(),
   },
 }));
 vi.mock('node:child_process', async (importOriginal) => {
@@ -26,6 +28,13 @@ vi.mock('node:child_process', async (importOriginal) => {
 const { startAutoUpdate } = await import('./AutoUpdate');
 
 const roots: string[] = [];
+beforeEach(() => {
+  mocks.spawn.mockImplementation(() => {
+    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+    queueMicrotask(() => child.emit('spawn'));
+    return child;
+  });
+});
 afterEach(async () => {
   vi.useRealTimers();
   await Promise.all(
@@ -49,7 +58,7 @@ const release = {
   ],
 };
 
-it('launches while the update downloads in the background and installs the cached update next time', async () => {
+it.each(['spawn', 'error'])('opens the application unless the cached installer starts (%s)', async (outcome) => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] });
   const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
   roots.push(directory);
@@ -88,7 +97,13 @@ it('launches while the update downloads in the background and installs the cache
   finishDownload();
   await vi.waitFor(() => expect(ready).toHaveBeenCalledWith('1.1.5'));
   expect(updater.requiresLaunchCheck()).toBe(true);
-  expect(await updater.beforeLaunch(() => undefined)).toBe(true);
+  if (outcome === 'error') mocks.spawn.mockImplementationOnce(() => {
+    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+    child.on('error', () => {});
+    queueMicrotask(() => child.emit('error', new Error('EACCES')));
+    return child;
+  });
+  expect(await updater.beforeLaunch(() => undefined)).toBe(outcome === 'spawn');
   expect(mocks.spawn).toHaveBeenCalledWith(
     path.join(directory, 'AD-Voice-Setup-1.1.5.exe'),
     expect.arrayContaining(['/SILENT']),
@@ -127,7 +142,7 @@ it('does not hold startup on a slow update check when automatic installation is 
   }
 });
 
-it('with updates off only offers the new version, and installs it when asked', async () => {
+it.each(['spawn', 'error', 'cancel'])('offers updates and launches only after close approval (%s)', async (outcome) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
   roots.push(directory);
   mocks.spawn.mockClear();
@@ -139,10 +154,12 @@ it('with updates off only offers the new version, and installs it when asked', a
   const available = vi.fn();
   const percents: number[] = [];
   const quit = vi.fn();
+  const installFailed = vi.fn();
   const updater = startAutoUpdate({
     ready: vi.fn(),
     log: vi.fn(),
     quit,
+    installFailed,
     fetchImpl: fetchImpl as unknown as typeof fetch,
     directory,
     automatic: () => false,
@@ -160,5 +177,16 @@ it('with updates off only offers the new version, and installs it when asked', a
   expect(updater.install()).toBe(true);
   await vi.waitFor(() => expect(quit).toHaveBeenCalled());
   expect(percents.at(-1)).toBe(100);
+  expect(mocks.spawn).not.toHaveBeenCalled();
+  if (outcome === 'cancel') updater.cancelInstall();
+  if (outcome === 'error') mocks.spawn.mockImplementationOnce(() => {
+    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+    child.on('error', () => {});
+    queueMicrotask(() => child.emit('error', new Error('EACCES')));
+    return child;
+  });
+  expect(await updater.prepareQuit()).toBe(outcome !== 'error');
+  expect(mocks.spawn).toHaveBeenCalledTimes(outcome === 'cancel' ? 0 : 1);
+  expect(installFailed).toHaveBeenCalledTimes(outcome === 'error' ? 1 : 0);
   updater.stop();
 });

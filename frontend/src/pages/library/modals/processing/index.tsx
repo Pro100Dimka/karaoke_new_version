@@ -164,6 +164,7 @@ export const ProcessingModal = observer(
       : tr('processingDiskUnavailable');
 
     const songOf = (job: ProcessingJobDto) => songsById.get(job.songId);
+    const failureSong = failure && songOf(failure);
     const details = (job: ProcessingJobDto) => {
       if (['failed', 'interrupted'].includes(job.state)) {
         setFailure(job);
@@ -348,9 +349,9 @@ export const ProcessingModal = observer(
           }}
           onRetry={
             failure &&
-            songOf(failure) &&
+            failureSong &&
             !['queued', 'processing', 'importing'].includes(
-              songOf(failure)!.status,
+              failureSong.status,
             )
               ? () => void retry(failure)
               : undefined

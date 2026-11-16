@@ -218,7 +218,7 @@ export const registerRoomProjectTransferHandlers = (
       throw new Error('Room project transfer owner is closed');
     if (!owners.has(owner)) {
       owners.add(owner);
-      owner.once('destroyed', () => {
+      const releaseOwner = () => {
         for (const transfer of transfers.values())
           if (transfer.owner === owner) transfer.controller.abort();
         for (const [file, fileOwner] of downloads) {
@@ -228,6 +228,12 @@ export const registerRoomProjectTransferHandlers = (
             console.error('Room archive cleanup failed', error),
           );
         }
+      };
+      owner.once('destroyed', releaseOwner);
+      owner.on('render-process-gone', releaseOwner);
+      owner.on('did-start-navigation', (navigation) => {
+        if (navigation.isMainFrame && !navigation.isSameDocument)
+          releaseOwner();
       });
     }
     const controller = new AbortController();

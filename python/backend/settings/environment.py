@@ -147,6 +147,7 @@ class EnvironmentSettingsStore:
         if definition.key == "AD_VOICE_AUDD_TOKEN":
             with httpx.Client(transport=self._transport, timeout=8) as client:
                 response = client.post("https://api.audd.io/", data={"api_token": value})
+            response.raise_for_status()
             payload = response.json()
             error_code = (payload.get("error") or {}).get("error_code")
             if error_code in {900, 901}:

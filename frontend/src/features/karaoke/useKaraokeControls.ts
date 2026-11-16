@@ -204,5 +204,37 @@ export const useKaraokeControls = ({
       void toggleMonitoring();
   }, [ready]);
 
-  return { seek, changeSpeed, changeKey, changeGain, toggleMonitoring };
+  const setShowNotes = useCallback(
+    (value: boolean) => updatePreferences({ karaokeShowNotes: value }),
+    [updatePreferences],
+  );
+  const setShowLyrics = useCallback(
+    (value: boolean) => updatePreferences({ karaokeShowLyrics: value }),
+    [updatePreferences],
+  );
+  const setAutoHideConsole = useCallback(
+    (value: boolean) => updatePreferences({ karaokeAutoHideConsole: value }),
+    [updatePreferences],
+  );
+  const setEffectValues = useCallback(
+    (value: typeof preferences.karaokeEffects) =>
+      updatePreferences({ karaokeEffects: value }),
+    [updatePreferences],
+  );
+  return {
+    seek,
+    changeSpeed,
+    changeKey,
+    changeGain,
+    toggleMonitoring,
+    showNotes: preferences.karaokeShowNotes,
+    showLyrics: preferences.karaokeShowLyrics,
+    autoHideConsole: preferences.karaokeAutoHideConsole,
+    noiseSuppression: preferences.noiseSuppression,
+    effectValues: preferences.karaokeEffects,
+    setShowNotes,
+    setShowLyrics,
+    setAutoHideConsole,
+    setEffectValues,
+  };
 };

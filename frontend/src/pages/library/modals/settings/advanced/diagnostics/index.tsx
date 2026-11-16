@@ -136,9 +136,9 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       icon="stethoscope"
       title={tr('diagnostics')}
       style={{
-        background: 'unset!important',
+        background: 'unset',
         height: '100%',
-        boxShadow: 'unset!important',
+        boxShadow: 'unset',
       }}
       description={tr('diagnosticsHint')}
     >

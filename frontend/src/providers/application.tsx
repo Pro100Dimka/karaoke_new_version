@@ -23,6 +23,7 @@ import {
 } from '../services/backendEvents';
 import { desktopClient } from '../services/desktopClient';
 import { pythonClient } from '../services/pythonClient';
+import { recordingCoordinator } from '../services/recordingCoordinator';
 import { roomClient } from '../services/roomClient';
 import { participantId } from '../services/roomMappers';
 import {
@@ -248,45 +249,58 @@ export const useRoomVoice = (): RoomVoiceCoordinator | null => {
 
 export const subscribeAudioFocus = (settingsOpen: () => boolean) => {
   let suspended = false;
+  let desired = false;
+  let appFocused = true;
+  let minimized = false;
+  let active = true;
   let transition = Promise.resolve();
   const canSuspend = () =>
     store.preferences.releaseAsioInBackground &&
     store.preferences.audio.backend === 'ASIO' &&
     store.online.room === null;
   const setSuspended = (next: boolean) => {
-    if (suspended === next) return;
-    suspended = next;
+    if (desired === next) return;
+    desired = next;
     transition = transition
-      .then(() =>
-        next ? audioClient.suspendSession() : audioClient.resumeSession(),
-      )
+      .then(async () => {
+        if (!active || desired !== next || suspended === next) return;
+        if (next && (!canSuspend() || recordingCoordinator.hasPendingTake())) {
+          desired = false;
+          return;
+        }
+        await (next
+          ? audioClient.suspendSession()
+          : audioClient.resumeSession());
+        suspended = next;
+      })
       .then(() => clearOperationFailure('errors.audioFocus'))
       .catch((error: unknown) => {
         suspended = false;
+        desired = false;
         reportOperationFailure('errors.audioFocus', error);
       });
   };
-  const suspend = () => {
-    if (canSuspend() && !settingsOpen()) setSuspended(true);
+  const syncFocus = () => {
+    setSuspended(
+      !appFocused &&
+        canSuspend() &&
+        (minimized || !settingsOpen()) &&
+        !recordingCoordinator.hasPendingTake(),
+    );
   };
-  const resume = () => setSuspended(false);
-  const stopAsio = reaction(
-    canSuspend,
-    (enabled) => {
-      if (!enabled) resume();
-    },
-    { fireImmediately: true },
-  );
-  window.addEventListener('blur', suspend);
-  window.addEventListener('focus', resume);
+  const stopAsio = reaction(canSuspend, syncFocus, { fireImmediately: true });
+  const stopFocus = desktopClient.onAppFocus((focused) => {
+    appFocused = focused;
+    syncFocus();
+  });
   const stopWindow = desktopClient.onWindowState?.((state) => {
-    if (state.minimized && canSuspend()) setSuspended(true);
-    else if (!state.minimized) resume();
+    minimized = state.minimized;
+    syncFocus();
   });
   return () => {
+    active = false;
     stopAsio();
     stopWindow?.();
-    window.removeEventListener('blur', suspend);
-    window.removeEventListener('focus', resume);
+    stopFocus();
   };
 };

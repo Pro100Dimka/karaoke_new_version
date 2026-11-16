@@ -69,47 +69,57 @@ describe('room project download', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(download).toHaveBeenCalledOnce();
   });
-  it('preserves local byte progress when an authoritative room snapshot arrives mid-download', () => {
-    const previous = {
-      code: 'room',
-      hostId: 'host',
-      role: 'participant' as const,
-      participants: [
-        {
-          id: 'guest',
-          name: 'Guest',
-          role: 'participant' as const,
-          connected: true,
-          self: true,
-          readiness: 'downloading' as const,
-          transferProgress: 10,
-          muted: false,
-          volume: 1,
-        },
-      ],
-      playbackLocked: false,
-      transferId: 'transfer-1',
-      transferProgress: 37,
-      transferBytes: 27,
-      transferTotalBytes: 100,
-      transferError: false,
-    };
-    const snapshot = {
-      ...previous,
-      transferId: undefined,
-      transferProgress: 10,
-      transferBytes: undefined,
-      transferTotalBytes: undefined,
-    };
+  it.each([true, false])(
+    'keeps byte progress only for the same selection (%s)',
+    (sameSelection) => {
+      const previous = {
+        selectionId: 1,
+        code: 'room',
+        hostId: 'host',
+        role: 'participant' as const,
+        participants: [
+          {
+            id: 'guest',
+            name: 'Guest',
+            role: 'participant' as const,
+            connected: true,
+            self: true,
+            readiness: 'downloading' as const,
+            transferProgress: 10,
+            muted: false,
+            volume: 1,
+          },
+        ],
+        playbackLocked: false,
+        transferId: 'transfer-1',
+        transferProgress: 37,
+        transferBytes: 27,
+        transferTotalBytes: 100,
+        transferError: false,
+      };
+      const snapshot = {
+        ...previous,
+        selectionId: sameSelection ? 1 : 2,
+        transferId: undefined,
+        transferProgress: 10,
+        transferBytes: undefined,
+        transferTotalBytes: undefined,
+      };
 
-    expect(preserveLocalRoomTransfer(previous, snapshot)).toMatchObject({
-      transferId: 'transfer-1',
-      transferProgress: 37,
-      transferBytes: 27,
-      transferTotalBytes: 100,
-      transferError: false,
-    });
-  });
+      const actual = preserveLocalRoomTransfer(previous, snapshot);
+      if (!sameSelection) {
+        expect(actual).toBe(snapshot);
+        return;
+      }
+      expect(actual).toMatchObject({
+        transferId: 'transfer-1',
+        transferProgress: 37,
+        transferBytes: 27,
+        transferTotalBytes: 100,
+        transferError: false,
+      });
+    },
+  );
 
   it('keeps the failed transfer visible so the user can retry it', () => {
     expect(

@@ -50,19 +50,19 @@ void ipcMapsDiagnosticRoomInputCommand() {
 }
 
 void ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay() {
-    struct DiagnosticEnvironment {
-        std::string previous;
-        DiagnosticEnvironment() {
-            char* value = nullptr;
-            std::size_t length = 0;
-            if (_dupenv_s(&value, &length, "AD_VOICE_ROOM_E2E") == 0 && value != nullptr)
-                previous = value;
-            std::free(value);
+    ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", nullptr};
+    {
+        const ScopedEnvironment enabled{"AD_VOICE_ROOM_E2E", "1"};
+        {
+            const ScopedEnvironment disabled{"AD_VOICE_ROOM_E2E", nullptr};
+            expect(!ScopedEnvironment::read("AD_VOICE_ROOM_E2E"),
+                   "a nested diagnostic guard can remove a variable temporarily");
         }
-        ~DiagnosticEnvironment() {
-            _putenv_s("AD_VOICE_ROOM_E2E", previous.c_str());
-        }
-    } environment;
+        expect(ScopedEnvironment::read("AD_VOICE_ROOM_E2E") == std::optional<std::string>{"1"},
+               "removing a nested guard restores its caller's enabled value");
+    }
+    expect(!ScopedEnvironment::read("AD_VOICE_ROOM_E2E"),
+           "the diagnostic guard restores an originally absent variable");
     AudioService service{std::make_unique<FakeAudioBackend>()};
     service.network().prepare(48'000, 1, 24'000, 120, GenerationId{1});
     service.network().setRoomPlayoutDelay(55.0F);
@@ -116,7 +116,7 @@ void ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay() {
              "a stopped trace exports all diagnostic lanes"},
     };
     for (const auto& step : steps) {
-        _putenv_s("AD_VOICE_ROOM_E2E", step.environmentEnabled ? "1" : "");
+        environment.set(step.environmentEnabled ? "1" : nullptr);
         const auto response = service.handleLine("1|SetDiagnosticRoomInput|" + step.arguments);
         const auto status = service.network().diagnosticPacketTrace().status();
         expect(response.status == step.status && status.active == step.active &&

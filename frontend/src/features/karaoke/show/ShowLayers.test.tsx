@@ -1,8 +1,96 @@
 import { renderHook } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import type { PitchFrame } from '../../../contracts/models';
 import type { LyricLine } from '../karaokeLyrics';
 import { useShowEngine } from './ShowLayers';
+import { ShowEngine } from './showEngine';
+import { StageFxRenderer } from './stageFxRenderer';
+import { CanvasLightRenderer } from './gl/canvasLightRenderer';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+it.each([
+  'failed',
+  'error',
+  'messageerror',
+  'constructor',
+  'transfer',
+  'post',
+  'frame',
+])('restores stage effects on the main thread after worker %s', (failure) => {
+  vi.stubGlobal(
+    'OffscreenCanvas',
+    vi.fn(function () {
+      return { width: 1, height: 1 };
+    }),
+  );
+  let draw: FrameRequestCallback | undefined;
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    draw = callback;
+    return 1;
+  });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+  const worker = {
+    onmessage: (_event: { data: { type: string } }) => undefined,
+    onerror: () => undefined,
+    onmessageerror: () => undefined,
+    terminate: vi.fn(),
+    postMessage: vi.fn((message: { type: string }) => {
+      if (
+        failure === 'post' ||
+        (failure === 'frame' && message.type === 'frame')
+      )
+        throw new Error('Worker send failed');
+    }),
+  };
+  vi.stubGlobal(
+    'Worker',
+    vi.fn(function () {
+      if (failure === 'constructor') throw new Error('Worker unavailable');
+      return worker;
+    }),
+  );
+  const host = document.createElement('div');
+  const canvas = document.createElement('canvas');
+  canvas.className = 'stageCanvas';
+  canvas.style.opacity = '0.8';
+  canvas.transferControlToOffscreen = vi.fn(() => {
+    if (failure === 'transfer') throw new Error('Transfer failed');
+    return new OffscreenCanvas(1, 1);
+  });
+  const paint = vi
+    .spyOn(CanvasLightRenderer, 'create')
+    .mockReturnValue(undefined);
+  host.append(canvas);
+  const renderer = new StageFxRenderer(canvas, new ShowEngine(), host);
+  try {
+    const notify = {
+      failed: () => worker.onmessage({ data: { type: 'failed' } }),
+      error: () => worker.onerror(),
+      messageerror: () => worker.onmessageerror(),
+      frame: () => {
+        worker.onmessage({ data: { type: 'ready' } });
+        renderer.start();
+        draw?.(0);
+      },
+    };
+    if (failure in notify) notify[failure as keyof typeof notify]();
+    const replacement = host.querySelector('canvas.stageCanvas');
+    expect(replacement).not.toBe(canvas);
+    expect(replacement?.getAttribute('style')).toContain('opacity: 0.8');
+    expect(paint).toHaveBeenCalledWith(replacement);
+    if (failure !== 'constructor')
+      expect(worker.terminate).toHaveBeenCalledOnce();
+    worker.onmessage({ data: { type: 'ready' } });
+    expect(paint).toHaveBeenCalledOnce();
+  } finally {
+    renderer.stop();
+  }
+  expect(host.querySelector('canvas')).toBeNull();
+});
 
 vi.mock('../../../app/backdrop/spectrumEvents', () => ({
   subscribeSpectrum: () => () => undefined,
@@ -54,3 +142,62 @@ it('resets a new room performance without scoring buffered frames from the previ
   });
   expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.05);
 });
+
+it.each([false, true])(
+  'scores final captured voice once after pause or EOF (earlier capture: %s)',
+  (earlierCapture) => {
+    const notes = [{ id: 'note', start: 0, end: 1, pitch: 69 }];
+    const lines: LyricLine[] = [];
+    const settings = { intensity: 'full' as const, reducedMotion: true };
+    const first: PitchFrame = {
+      sequence: 1,
+      epoch: 1,
+      positionSeconds: 0.025,
+      durationSeconds: 0.05,
+      pitchHz: 440,
+      audioActive: true,
+    };
+    const { result, rerender } = renderHook(
+      ({ playing, frames }: { playing: boolean; frames: PitchFrame[] }) =>
+        useShowEngine({
+          notes,
+          lines,
+          settings,
+          position: 0.2,
+          pitchHz: undefined,
+          playing,
+          pitchFrames: frames,
+          ignoreSilence: true,
+          performanceId: 1,
+        }),
+      {
+        initialProps: { playing: true, frames: earlierCapture ? [first] : [] },
+      },
+    );
+    const last = { ...first, sequence: 2, positionSeconds: 0.075 };
+    const silence = {
+      ...first,
+      sequence: 3,
+      positionSeconds: 0.125,
+      pitchHz: undefined,
+      audioActive: false,
+    };
+    rerender({ playing: false, frames: [first, last, silence] });
+    expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.1);
+    expect(result.current.state.playing).toBe(false);
+    rerender({ playing: false, frames: [first, last, silence] });
+    expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.1);
+    rerender({ playing: false, frames: [{ ...last, epoch: 2, sequence: 4 }] });
+    expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.1);
+    rerender({
+      playing: true,
+      frames: [{ ...last, epoch: 2, sequence: 4, positionSeconds: 0.175 }],
+    });
+    expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.15);
+    rerender({
+      playing: false,
+      frames: [{ ...last, sequence: 5, positionSeconds: 0.225 }],
+    });
+    expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.15);
+  },
+);

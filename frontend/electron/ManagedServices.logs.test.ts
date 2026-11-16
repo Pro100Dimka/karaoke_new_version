@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, assert, expect, it, vi } from 'vitest';
 import { join } from 'node:path';
 import type { ServiceObserver } from './ServiceProcess';
 
@@ -161,7 +161,9 @@ it('sends service output and automatic audio diagnostics without losing backend 
     1000,
   );
   expect(diagnostics).toHaveBeenCalledOnce();
-  expect(JSON.parse(diagnostics.mock.calls[0]![0])).toMatchObject({
+  const report = diagnostics.mock.calls[0];
+  assert(report);
+  expect(JSON.parse(report[0])).toMatchObject({
     reason: 'stderr',
     status: 0,
     diagnostics: 'SessionState: Running\nPlaybackState: 3\n',

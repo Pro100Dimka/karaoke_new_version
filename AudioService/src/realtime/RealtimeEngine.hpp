@@ -215,6 +215,7 @@ class RealtimeEngine final : public IAudioCallback {
     }
     // Control thread: drain the performance segment, then pause or finalize its writer.
     RecordingResult finishRecording(RecordingState nextState);
+    [[nodiscard]] RecordingState recordingState() const noexcept { return recording_.state(); }
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
     void playReferenceTone(float frequencyHz, std::uint32_t durationFrames, float gain) noexcept;
     /** Test-only deterministic capture source; the command handler guards access by environment. */
@@ -245,6 +246,7 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] RealtimeSnapshot snapshot() const noexcept;
     [[nodiscard]] MicGapTimeline micGapTimeline() const noexcept;
     void onRenderSubmitted(MonotonicTicks submittedAt) noexcept override;
+    /** Fatal events awaiting control-thread recovery; ordinary events remain in the trace. */
     [[nodiscard]] PendingBackendEvent pendingBackendEvent() const noexcept;
     void acknowledgeBackendEvent(std::uint64_t sequence) noexcept;
     [[nodiscard]] SessionFrame sessionFrame() const noexcept {

@@ -28,6 +28,9 @@ vi.mock('electron', () => ({
     isVisible() {
       return this.visible;
     }
+    isFocused() {
+      return true;
+    }
     isMinimized() {
       return false;
     }

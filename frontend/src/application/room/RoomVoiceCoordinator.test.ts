@@ -109,8 +109,8 @@ it('re-registers voice once after reconnect and keeps personal controls scoped t
 
   expect(audio.joinVoiceSession).toHaveBeenCalledOnce();
   expect(audio.joinVoiceSession).toHaveBeenCalledWith('room-a', 'self', 50);
-  expect(audio.setRoomPlayoutDelay.mock.invocationCallOrder[0]!).toBeLessThan(
-    audio.joinVoiceSession.mock.invocationCallOrder[0]!,
+  expect(audio.setRoomPlayoutDelay.mock.invocationCallOrder[0]).toBeLessThan(
+    audio.joinVoiceSession.mock.invocationCallOrder[0] ?? -Infinity,
   );
   expect(audio.synchronizeRoomClock).toHaveBeenLastCalledWith(50);
   expect(audio.setRoomPlayoutDelay).toHaveBeenLastCalledWith(84);

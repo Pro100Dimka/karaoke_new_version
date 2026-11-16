@@ -1,11 +1,15 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { RollFxRenderer } from './rollFxRenderer';
 import { ShowEngine } from './showEngine';
+import { CanvasLightRenderer } from './gl/canvasLightRenderer';
+import { LightBatch, spriteKind } from './gl/lightBatch';
 
 const context = () =>
   new Proxy(
     {
       arc: vi.fn(),
+      stroke: vi.fn(),
+      fillRect: vi.fn(),
       getTransform: () => ({ a: 1 }),
       createRadialGradient: () => ({ addColorStop: vi.fn() }),
     },
@@ -44,10 +48,11 @@ const setup = () => {
     page: { left: 0, top: 0 },
     ratio: 1,
   });
-  const markerY = () =>
-    paints[0]!.arc.mock.calls.find((call) => call[2] === 6)?.[1];
+  const paint = paints[0];
+  if (!paint) throw new Error('The roll must create its drawing context');
+  const markerY = () => paint.arc.mock.calls.find((call) => call[2] === 6)?.[1];
   const draw = (now: number) => {
-    paints[0]!.arc.mockClear();
+    paint.arc.mockClear();
     renderer.draw(now);
     return markerY();
   };
@@ -69,6 +74,28 @@ const setup = () => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('draws rings independently of the preceding bokeh opacity', () => {
+  const { renderer } = setup();
+  try {
+    const canvas = new OffscreenCanvas(200, 200);
+    const paint = canvas.getContext('2d');
+    const lights = CanvasLightRenderer.create(canvas);
+    if (!paint || !lights) throw new Error('Canvas renderer must be available');
+    const opacity: number[] = [];
+    vi.spyOn(paint, 'stroke').mockImplementation(() => {
+      opacity.push(paint.globalAlpha);
+    });
+    const batch = new LightBatch(2);
+    batch.sprite(20, 20, 10, spriteKind.bokeh, [1, 0, 0], 0.1);
+    batch.sprite(20, 20, 10, spriteKind.ring, [1, 0, 0], 1, 1, 0.1);
+    lights.render(batch, { width: 200, height: 200 }, {});
+    expect(opacity).toEqual([1]);
+    lights.dispose();
+  } finally {
+    renderer.stop();
+  }
+});
+
 it('draws captured pitch changes continuously while retaining the original observations', () => {
   const { engine, renderer, draw, observe } = setup();
   observe(1, 440);
@@ -77,8 +104,8 @@ it('draws captured pitch changes continuously while retaining the original obser
   const next = draw(16);
   const settled = draw(180);
   expect(first).toBeDefined();
-  expect(next).toBeGreaterThan(settled!);
-  expect(next).toBeLessThan(first!);
+  expect(next).toBeGreaterThan(settled);
+  expect(next).toBeLessThan(first);
   expect(engine.voiceHistory.at(-1)?.pitchHz).toBe(880);
   renderer.stop();
 });

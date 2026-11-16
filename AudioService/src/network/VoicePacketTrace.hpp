@@ -65,7 +65,7 @@ class VoicePacketTrace {
         Received, WrongSession, SelfEcho, Duplicate, UnknownParticipant, OldGeneration,
         EpochReset, ReorderAccepted, ReorderLate, ReorderDuplicate, ReorderOverflow,
         ReorderRebase, DecodeEmpty, InitialSkip, ExcludedWait, BeyondCeiling,
-        QueueLate, Retimed, Queued, QueueFull, Count
+        QueueLate, Retimed, Queued, QueueFull, RetiredEpoch, Count
     };
     enum class DecodedKind : std::uint8_t { None, Real, PcmLoss, OpusPlc, Count };
     struct ReceiveEvent {

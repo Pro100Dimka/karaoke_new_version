@@ -54,15 +54,15 @@ interface PerformanceAnalysisModalProps {
 /** The song's own takes (masters are shown beside their source), plus the analysed one if it is not among them. */
 const takeList = (
   recordings: readonly RecordingDto[],
-  analysis: AnalysisDto,
+  recordingId: string,
 ): readonly RecordingDto[] => {
   const takes = recordings.filter((recording) => !recording.sourceRecordingId);
-  return recordings.some((recording) => recording.id === analysis.recordingId)
+  return takes.some((recording) => recording.id === recordingId)
     ? takes
     : [
         ...takes,
         {
-          id: analysis.recordingId,
+          id: recordingId,
           filePath: '',
           songId: '',
           displayName: '',
@@ -96,9 +96,11 @@ export const PerformanceAnalysisModal = ({
 }: PerformanceAnalysisModalProps) => {
   useLocale();
   const guarded = useGuardedAction();
-  const [viewedId, setViewedId] = useState(analysis?.recordingId);
-  useEffect(() => setViewedId(analysis?.recordingId), [analysis?.recordingId]);
-  const list = analysis ? takeList(recordings, analysis) : recordings;
+  const analyzedTakeId = recordings.find((recording) => recording.id === analysis?.recordingId)
+    ?.sourceRecordingId ?? analysis?.recordingId;
+  const [viewedId, setViewedId] = useState(analyzedTakeId);
+  useEffect(() => setViewedId(analyzedTakeId), [analyzedTakeId]);
+  const list = analyzedTakeId ? takeList(recordings, analyzedTakeId) : recordings;
   if (!analysis && !pending && !failure) return null;
   const viewed =
     list.find(
@@ -106,7 +108,7 @@ export const PerformanceAnalysisModal = ({
         recording.id === (viewedId ?? pending?.recordingId ?? recordingId),
     ) ?? list[0];
   if (!viewed && analysis) return null;
-  const active = viewed?.id === analysis?.recordingId;
+  const active = viewed?.id === analyzedTakeId;
   const roomPerformance = viewed?.roomPerformance;
   const overallScore = roomPerformance
     ? roomPerformance.overallScore

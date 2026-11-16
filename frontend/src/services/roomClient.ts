@@ -199,10 +199,11 @@ export const roomClient: RoomClient = {
     });
   },
 
-  async setRoomReadiness(code, readiness, progress) {
+  async setRoomReadiness(code, readiness, selectionId, progress) {
     return requestRoom('POST', `/rooms/${roomPath(code)}/readiness`, {
       participantId,
       readiness,
+      selectionId,
       progress,
     });
   },

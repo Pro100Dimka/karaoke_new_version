@@ -41,9 +41,9 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
       padding="none"
       className="advancedAboutCard"
       style={{
-        background: 'unset!important',
+        background: 'unset',
         height: '100%',
-        boxShadow: 'unset!important',
+        boxShadow: 'unset',
       }}
     >
       <Planet className="advancedAboutPlanet">

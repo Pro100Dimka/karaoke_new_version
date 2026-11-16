@@ -53,7 +53,13 @@ def test_concurrent_readiness_reports_are_never_lost(monkeypatch) -> None:
         def ready(participant_id: str) -> None:
             client.post(
                 f"/rooms/{room_id}/readiness",
-                json={"participantId": participant_id, "readiness": "Ready"},
+                json={
+                    "selectionId": client.get(
+                        f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                    ).json()["selectionId"],
+                    "participantId": participant_id,
+                    "readiness": "Ready",
+                },
             )
 
         threads = [threading.Thread(target=ready, args=(p,)) for p in _READY_REPORTS]

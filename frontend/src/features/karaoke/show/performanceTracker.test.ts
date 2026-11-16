@@ -386,11 +386,22 @@ describe('performance tracker', () => {
     expect(scores[1]).toBe(0);
   });
 
-  it('grows the energy with a good streak, reaching On Fire within twenty-odd seconds', () => {
+  it.each([false, true])('grows energy from a fresh performance state after reload=%s', (reload) => {
     const tracker = new PerformanceTracker();
     const { notes, phrases } = song(60);
+    if (reload) {
+      tracker.load(notes, phrases);
+      sing(tracker, 0, 25, () => hz(60));
+    }
     tracker.load(notes, phrases);
-    sing(tracker, 0, 10, () => hz(60));
+    const fresh = new PerformanceTracker();
+    fresh.load(notes, phrases);
+    for (let position = 0; position <= 10; position += frame) {
+      const voice = hz(position < 2 ? 65 : 60);
+      tracker.update(position, voice);
+      fresh.update(position, voice);
+      expect(tracker.energy, `energy at ${position}`).toBeCloseTo(fresh.energy, 10);
+    }
     const afterTen = tracker.energy;
     sing(tracker, 10 + frame, 25, () => hz(60));
     expect(afterTen).toBeGreaterThan(20);

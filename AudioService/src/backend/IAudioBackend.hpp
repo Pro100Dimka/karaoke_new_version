@@ -120,4 +120,6 @@ class IAudioBackend {
     virtual void stop() noexcept = 0;
     virtual void close() noexcept = 0;
     [[nodiscard]] virtual BackendSnapshot snapshot() const noexcept = 0;
+    /** Control-thread refresh of a driver's changed latency, without reopening its stream. */
+    virtual bool refreshRuntimeLatency(RuntimeConfiguration&) { return false; }
 };

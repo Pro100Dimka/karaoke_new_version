@@ -1,8 +1,17 @@
 // One-off observer: server room timing + both AudioServices' advertised route requirement, 1 Hz.
 import { execFileSync, spawn } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
+import { chromium } from 'playwright';
+import { clientRoom } from './smoke-catalog.mjs';
 const [code, out] = process.argv.slice(2);
-const server = 'http://130.61.169.61:8081';
+const browser = await chromium.connectOverCDP(
+  process.env.AD_VOICE_SMOKE_CDP ?? 'http://127.0.0.1:9351',
+);
+const page = browser
+  .contexts()[0]
+  .pages()
+  .find((candidate) => !candidate.url().includes('splash.html'));
+if (!page) throw new Error('Room observer could not find the developer window');
 const control = String.raw`D:\Git\karaoke_new_version\AudioService\build\Release\AudioControl.exe`;
 const env = {
   ...process.env,
@@ -36,7 +45,7 @@ for (;;) {
   const at = new Date().toISOString();
   let room = {};
   try {
-    room = await (await fetch(`${server}/rooms/${code}`)).json();
+    room = await clientRoom(page, code);
   } catch {}
   let host = {};
   try {

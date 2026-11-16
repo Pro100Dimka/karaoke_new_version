@@ -11,6 +11,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+test('runtime install verification scripts are included in a fresh checkout', () => {
+  const root = new URL('../../', import.meta.url);
+  const cmake = readFileSync(new URL('AudioService/CMakeLists.txt', root), 'utf8');
+  const scripts = [...cmake.matchAll(/-P "\$\{CMAKE_CURRENT_SOURCE_DIR\}\/([^"]+)"/g)];
+  assert.ok(scripts.length > 0);
+  for (const [, relative] of scripts) {
+    const file = `AudioService/${relative}`;
+    assert.ok(readFileSync(new URL(file, root), 'utf8').length > 0, file);
+    const ignored = spawnSync('git', ['check-ignore', '--no-index', '--quiet', file], { cwd: root });
+    assert.equal(ignored.status, 1, `${file} must not be excluded from source control`);
+  }
+});
+
 test('release fingerprint changes when shipped relay or executable policies change', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'ad-voice-release-inputs-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));

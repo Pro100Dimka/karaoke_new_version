@@ -154,8 +154,9 @@ std::uint32_t MediaController::render(MediaSlot slot, std::span<float> output, s
     return source(slot).render(output, frames, presentationTicks);
 }
 
-MediaSourceSnapshot MediaController::snapshot(MediaSlot slot) const noexcept {
-    return source(slot).snapshot();
+MediaSourceSnapshot MediaController::snapshot(MediaSlot slot,
+                                               bool includeFailureMessage) const noexcept {
+    return source(slot).snapshot(includeFailureMessage);
 }
 std::uint64_t MediaController::timelineFrame(MediaSlot slot) const noexcept {
     return source(slot).timelineFrame();
@@ -163,8 +164,12 @@ std::uint64_t MediaController::timelineFrame(MediaSlot slot) const noexcept {
 MonotonicTicks MediaController::scheduledStartTicks(MediaSlot slot) const noexcept {
     return source(slot).scheduledStartTicks();
 }
-std::uint64_t MediaController::presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept {
-    return source(slot).presentationFrame(at);
+std::uint64_t MediaController::presentationFrame(MediaSlot slot, MonotonicTicks at,
+                                                bool captureHistory) const noexcept {
+    return source(slot).presentationFrame(at, captureHistory);
+}
+MonotonicTicks MediaController::presentationEndTicks(MediaSlot slot) const noexcept {
+    return source(slot).presentationEndTicks();
 }
 
 std::uint32_t MediaController::processingLatencyFrames() const noexcept {

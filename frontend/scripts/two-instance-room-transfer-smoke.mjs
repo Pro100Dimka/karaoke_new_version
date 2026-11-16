@@ -1,15 +1,13 @@
 import { _electron as electron } from 'playwright';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { clientSongs } from './smoke-catalog.mjs';
+import { clientSongs, clientRoom } from './smoke-catalog.mjs';
 
 const frontend = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
 const root = path.resolve(frontend, '..');
-const roomServer =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
 const portable =
   process.env.AD_VOICE_SMOKE_PACKAGED_EXE ??
   path.join(root, 'release', 'app', 'AD Voice', 'AD Voice.exe');
@@ -120,9 +118,7 @@ try {
     timeout: 30_000,
   });
   await new Promise((resolve) => setTimeout(resolve, 8_000));
-  const roomSnapshot = await fetch(`${roomServer}/rooms/${code}`).then(
-    (response) => response.json(),
-  );
+  const roomSnapshot = await clientRoom(host, code);
   console.log(
     JSON.stringify({
       playbackState: roomSnapshot.playbackState,
@@ -185,9 +181,7 @@ try {
     host.waitForURL(/index\.html#\/$/, { timeout: 10_000 }),
     guest.waitForURL(/index\.html#\/$/, { timeout: 10_000 }),
   ]);
-  const exitedRoom = await fetch(`${roomServer}/rooms/${code}`).then(
-    (response) => response.json(),
-  );
+  const exitedRoom = await clientRoom(host, code);
   if (exitedRoom.songId !== null || exitedRoom.revision !== null) {
     throw new Error(
       'The room song remained selected after the synchronized Back action',

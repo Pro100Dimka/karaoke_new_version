@@ -68,5 +68,6 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   onSocialInbox: () => () => undefined,
   onBackendEvent: () => () => undefined,
   onAppVisibility: () => () => undefined,
+  onAppFocus: () => () => undefined,
   roomParticipantId: '',
 };

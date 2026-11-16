@@ -268,12 +268,9 @@ class ProcessingJobManager:
     ) -> None:
         with self._state_lock:
             job = self.get(job_id)
-            # Publication is atomic and finishes before cancellation. A committed revision is usable.
-            published = (
-                job.job_type is JobType.SONG_PROCESSING
-                and report is not None
-                and isinstance(report.get("revision"), int)
-            )
+            # Work returns a report after publishing its result. Earlier cancellation checkpoints
+            # raise instead; a late request must not hide an already committed result.
+            published = report is not None
             if not published and (cancel.is_set() or job.state is JobState.CANCELLING):
                 self._cancel_running(job_id)
                 return

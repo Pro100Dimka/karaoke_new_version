@@ -62,6 +62,7 @@ class SelectRoomSong:
         updated = replace(
             room,
             song_id=song_id,
+            selection_id=room.selection_id + 1,
             playlist=playlist,
             revision=revision,
             auto_start_pending=True,
@@ -112,6 +113,7 @@ class ClearRoomSong:
         updated = replace(
             room,
             song_id=None,
+            selection_id=room.selection_id + 1,
             playlist=None,
             auto_start_pending=False,
             revision=None,
@@ -194,8 +196,12 @@ class SetParticipantReadiness:
         participant_id: str,
         readiness: ReadinessState,
         progress: int | None = None,
+        *,
+        selection_id: int,
     ) -> Room:
         room = member_room(self._rooms, room_id, participant_id)
+        if selection_id != room.selection_id:
+            raise ConflictError("RoomSelectionChanged", "The selected room song has changed")
         participant = room.participants[participant_id]
         participants = dict(room.participants)
         transfer_progress = (

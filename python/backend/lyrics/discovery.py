@@ -9,7 +9,7 @@ from typing import Sequence
 
 from backend.ai.ports import AiProvider, BatchTranscriber
 from backend.domain_errors import DependencyError, DomainError
-from backend.lyrics.codec import decode_document, decode_timing_hints
+from backend.lyrics.codec import decode_document, decode_timing_hints, decode_lrc
 from backend.lyrics.phrases import (
     _complete_repeats as _complete_repeats,
     _lyrics_match as _lyrics_match,
@@ -287,12 +287,15 @@ class LyricsDiscovery:
         )
 
     def _local(self, song: Song) -> LyricsDiscoveryResult | None:
-        if song.source_path:
-            sidecar = self._sidecar.read(song.source_path)
-            if sidecar:
-                return LyricsDiscoveryResult(sidecar, "LocalSidecar", ())
-        if song.embedded_lyrics and song.embedded_lyrics.strip():
-            return LyricsDiscoveryResult(song.embedded_lyrics.strip(), "EmbeddedLyrics", ())
+        sidecar = self._sidecar.read(song.source_path) if song.source_path else None
+        text = sidecar or song.embedded_lyrics
+        if text and text.strip():
+            timed = decode_lrc(text)
+            return LyricsDiscoveryResult(
+                "\n".join(line for _, line in timed) if timed else text.strip(),
+                "LocalSidecar" if sidecar else "EmbeddedLyrics", (),
+                tuple(LyricLineTiming(start, line) for start, line in timed),
+            )
         return None
 
     def _from_online(

@@ -33,12 +33,12 @@ std::string_view enumName(Enum value, const std::array<std::string_view, Size>& 
 }
 
 std::string_view reasonName(Trace::ReceiveReason reason) noexcept {
-    static constexpr std::array<std::string_view, 20> names{
+    static constexpr std::array<std::string_view, 21> names{
         "RECEIVED", "WRONG_SESSION", "SELF_ECHO", "DUPLICATE", "UNKNOWN_PARTICIPANT",
         "OLD_GENERATION", "EPOCH_RESET", "REORDER_ACCEPTED", "REORDER_LATE",
         "REORDER_DUPLICATE", "REORDER_OVERFLOW", "REORDER_REBASE", "DECODE_EMPTY",
         "INITIAL_SKIP", "EXCLUDED_WAIT", "BEYOND_CEILING", "QUEUE_LATE", "RETIMED",
-        "QUEUED", "QUEUE_FULL"};
+        "QUEUED", "QUEUE_FULL", "RETIRED_EPOCH"};
     static_assert(names.size() == static_cast<std::size_t>(Trace::ReceiveReason::Count));
     return enumName(reason, names);
 }

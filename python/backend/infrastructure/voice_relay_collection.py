@@ -89,6 +89,10 @@ class RelayCollection(RelayEmission):
         now: float,
     ) -> None:
         """Records the missed position that excluded a singer from the live mix."""
+        count(
+            participant_metrics(self._room_metrics(room_id), self._participant_name(room_id, key)),
+            "missing_positions",
+        )
         record = self._miss_record(room_id, key, position, inputs, now)
         self._miss_history[(room_id, key)] = [
             {

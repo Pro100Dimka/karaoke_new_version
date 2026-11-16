@@ -31,7 +31,8 @@ interface DesktopIpcContext {
   /** The renderer says when the first real screen (or an error screen) is ready to look at. */
   reveal: () => void;
   /** The renderer agreed to close (it asked about unsaved edits, a recording, a room, …). */
-  confirmClose: (allowed: boolean) => void;
+  confirmClose: (allowed: boolean) => void | Promise<void>;
+  requestRelaunch: () => void;
 }
 
 const audioFiles: FileFilter[] = [
@@ -67,6 +68,7 @@ const registerWindowControls = ({
   window,
   reveal,
   confirmClose,
+  requestRelaunch,
 }: DesktopIpcContext) => {
   trustedIpc.handle(ipcChannels.minimize, () => window()?.minimize());
   trustedIpc.handle(ipcChannels.setPanelBounds, (_event, panelId, input) => {
@@ -186,10 +188,7 @@ const registerWindowControls = ({
     window()?.setIcon(icon);
   });
   trustedIpc.handle(ipcChannels.appReady, () => reveal());
-  trustedIpc.handle(ipcChannels.relaunchApp, () => {
-    app.relaunch();
-    app.exit(0);
-  });
+  trustedIpc.handle(ipcChannels.relaunchApp, requestRelaunch);
   trustedIpc.handle(ipcChannels.confirmClose, (_event, allowed: unknown) =>
     confirmClose(allowed !== false),
   );

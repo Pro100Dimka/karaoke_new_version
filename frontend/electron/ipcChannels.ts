@@ -1,4 +1,11 @@
-export const roomVoiceEffects = ['reverb', 'echo', 'delay', 'noiseSuppression', 'octave', 'autoTune'] as const;
+export const roomVoiceEffects = [
+  'reverb',
+  'echo',
+  'delay',
+  'noiseSuppression',
+  'octave',
+  'autoTune',
+] as const;
 export type RoomVoiceEffect = (typeof roomVoiceEffects)[number];
 export const ipcChannels = {
   minimize: 'desktop:minimize',
@@ -63,6 +70,7 @@ export const ipcChannels = {
   socialInbox: 'services:social-inbox',
   backendEvent: 'services:backend-event',
   appVisibility: 'desktop:app-visibility',
+  appFocus: 'desktop:app-focus',
 } as const;
 
 /** How a window's preload learns this profile's room participant id synchronously (a sandboxed preload can read its argv). */

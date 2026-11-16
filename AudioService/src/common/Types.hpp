@@ -147,8 +147,8 @@ struct AudioDeviceCapabilities {
 };
 
 struct RequestedConfiguration {
-    std::string inputDeviceId;
-    std::string outputDeviceId;
+    std::string inputDeviceId{};
+    std::string outputDeviceId{};
     BackendKind backend{BackendKind::Fake};
     std::uint32_t sampleRateHz{0};
     std::uint32_t periodFrames{0};
@@ -162,7 +162,7 @@ struct RequestedConfiguration {
     bool exclusiveInput{false};
     // Microphones whose smallest exclusive period proved unstable in this run (set by AudioService,
     // never by the app): their exclusive stream starts at the device default period instead.
-    std::vector<std::string> unstableMinimumInputEndpoints;
+    std::vector<std::string> unstableMinimumInputEndpoints{};
 };
 
 struct RuntimeConfiguration {
@@ -181,8 +181,8 @@ struct RuntimeConfiguration {
     std::uint32_t outputLatencyFrames{0};
     // The endpoints actually opened: a request for the Windows default resolves to one device.
     // Empty when the backend's request already names the device exactly (ASIO).
-    std::string inputEndpointId;
-    std::string outputEndpointId;
+    std::string inputEndpointId{};
+    std::string outputEndpointId{};
     // What the driver API itself returned for the latencies above (WASAPI GetStreamLatency, in
     // 100 ns units, and its HRESULT); -1 when the API was not asked or failed. Zero frames above
     // are therefore distinguishable from "not reported".

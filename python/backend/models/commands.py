@@ -261,5 +261,8 @@ class DownloadModel:
 
     def _save(self, model: AiModel) -> None:
         with self._uow.create() as transaction:
-            transaction.models.add_or_update(model)
+            current = transaction.models.get(model.model_id, model.version)
+            transaction.models.add_or_update(
+                replace(model, selected=current.selected if current else model.selected)
+            )
             transaction.commit()

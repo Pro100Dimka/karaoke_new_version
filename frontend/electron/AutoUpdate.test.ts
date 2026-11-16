@@ -10,7 +10,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, assert, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
   app: { isPackaged: false, getVersion: () => '1.1.1' },
@@ -73,7 +73,8 @@ it('resumes a real HTTP transfer after its socket is interrupted', async () => {
       },
     );
     expect(ranges).toEqual(['', 'bytes=100000-']);
-    expect(await readFile(file!)).toEqual(payload);
+    assert(file, 'Installer download must return a file');
+    expect(await readFile(file)).toEqual(payload);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -98,7 +99,8 @@ it('resumes a saved partial installer at its exact byte offset', async () => {
     });
   });
   const file = await fetchInstaller(fetchImpl, release(), directory);
-  expect(await readFile(file!)).toEqual(payload);
+  assert(file, 'Installer download must return a file');
+  expect(await readFile(file)).toEqual(payload);
 });
 
 it('reconnects when the server stops before sending response headers', async () => {
@@ -121,7 +123,8 @@ it('reconnects when the server stops before sending response headers', async () 
   expect(calls).toBe(2);
   vi.useRealTimers();
   const file = await downloading;
-  expect(await readFile(file!)).toEqual(payload);
+  assert(file, 'Installer download must return a file');
+  expect(await readFile(file)).toEqual(payload);
 });
 
 it.each(['stalled', 'disconnected'])(
@@ -165,7 +168,8 @@ it.each(['stalled', 'disconnected'])(
     await vi.waitFor(() => expect(calls).toBe(2), { timeout: 3000 });
     vi.useRealTimers();
     const file = await downloading;
-    expect(await readFile(file!)).toEqual(payload);
+    assert(file, 'Installer download must return a file');
+    expect(await readFile(file)).toEqual(payload);
   },
 );
 
@@ -177,7 +181,8 @@ it('restarts safely when the server ignores Range', async () => {
     payload.subarray(0, 1234),
   );
   const file = await fetchInstaller(serve(), release(), directory);
-  expect(await readFile(file!)).toEqual(payload);
+  assert(file, 'Installer download must return a file');
+  expect(await readFile(file)).toEqual(payload);
 });
 
 it('rejects a mismatched range without changing the saved prefix', async () => {
@@ -231,7 +236,8 @@ it('downloads the installer with progress and reuses the verified file at the ne
   );
 
   expect(file).toBe(path.join(directory, 'AD-Voice-Setup-1.2.0.exe'));
-  expect(await readFile(file!)).toEqual(payload);
+  assert(file, 'Installer download must return a file');
+  expect(await readFile(file)).toEqual(payload);
   expect(percents.at(-1)).toBe(100);
   expect(percents).toEqual([...percents].sort((a, b) => a - b));
 

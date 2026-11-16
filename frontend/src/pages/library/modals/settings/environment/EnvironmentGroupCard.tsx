@@ -63,7 +63,7 @@ export const EnvironmentGroupCard = ({
       icon={ui.icon}
       title={tr(ui.title)}
       description={tr(ui.hint)}
-      style={{ background: 'unset!important', boxShadow: 'unset!important' }}
+      style={{ background: 'unset', boxShadow: 'unset' }}
       actions={
         <span className="environmentGroupArt" aria-hidden="true">
           <GroupArt group={group} />

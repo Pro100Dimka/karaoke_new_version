@@ -272,15 +272,20 @@ bool SessionManager::recover() {
     }
 }
 
-void SessionManager::suspend() noexcept {
+bool SessionManager::suspend() noexcept {
+    constexpr std::array activeRecordingStates{RecordingState::Prepared, RecordingState::Recording,
+                                               RecordingState::Paused, RecordingState::Finalizing};
+    if (std::ranges::find(activeRecordingStates, engine_.recordingState()) != activeRecordingStates.end())
+        return false;
     if (state_ == SessionState::Idle)
-        return;
+        return true;
     wasRunningBeforeSuspend_ = state_ == SessionState::Running;
     invalidateGeneration();
     backend_->stop();
     backend_->close();
     engine_.reset();
     setState(SessionState::Suspended);
+    return true;
 }
 
 bool SessionManager::resume() {

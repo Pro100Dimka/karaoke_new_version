@@ -4,6 +4,74 @@ vi.mock('./SocialIdentity', () => ({
   deviceSecret: async () => 'secret-of-this-computer',
 }));
 
+describe('renderer social subscription', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each(['inbox', 'offline', 'invalid', 'none'] as const)(
+    'keeps the newest pushed state over a late initial snapshot (%s)',
+    async (mode) => {
+      const { desktopClient } = await import('../src/services/desktopClient');
+      const { socialClient } = await import('../src/services/socialClient');
+      const initial = {
+        type: 'inbox',
+        me: {
+          accountId: 'me',
+          displayName: 'Before',
+          friendCode: '1234',
+          transferCode: '',
+          avatarVersion: 0,
+        },
+        friends: [],
+        friendRequests: [],
+        outgoingRequests: [],
+        invites: [],
+        notices: [],
+      };
+      const fresh = { ...initial, me: { ...initial.me, displayName: 'After' } };
+      let finishLatest: (message: unknown) => void = () => {
+        throw new Error('snapshot not requested');
+      };
+      const latest = new Promise<unknown>((resolve) => {
+        finishLatest = resolve;
+      });
+      let push: (message: unknown) => void = () => {
+        throw new Error('subscription not registered');
+      };
+      vi.spyOn(desktopClient, 'socialLatest').mockReturnValue(latest);
+      vi.spyOn(desktopClient, 'onSocialInbox').mockImplementation(
+        (listener) => {
+          push = listener;
+          return () => undefined;
+        },
+      );
+      const deliver = vi.fn();
+      const stop = socialClient.subscribe(deliver);
+      const pushed = {
+        inbox: fresh,
+        offline: { type: 'offline' },
+        invalid: { type: 'levels' },
+        none: undefined,
+      }[mode];
+      const expected = {
+        inbox: fresh,
+        offline: { type: 'offline' },
+        invalid: initial,
+        none: initial,
+      }[mode];
+      try {
+        if (pushed) push(pushed);
+        finishLatest(initial);
+        await latest;
+        expect(deliver.mock.calls).toEqual([[expected]]);
+      } finally {
+        stop();
+      }
+      push(fresh);
+      expect(deliver.mock.calls).toEqual([[expected]]);
+    },
+  );
+});
+
 class FakeSocket extends EventTarget {
   static OPEN = 1;
   static made: FakeSocket[] = [];

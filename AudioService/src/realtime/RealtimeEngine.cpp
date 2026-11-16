@@ -261,7 +261,7 @@ void RealtimeEngine::loadDiagnosticRoomInputFile(const std::string& path) {
                     const auto value = chunk[frame * format.channels + channel];
                     if (!std::isfinite(value) || std::abs(value) > 1.0F)
                         throw std::invalid_argument("Diagnostic WAV contains invalid PCM");
-                    sample += value / format.channels;
+                    sample += value / static_cast<float>(format.channels);
                 }
                 mono[offset++] = sample;
                 const auto bits = std::bit_cast<std::uint32_t>(sample);
@@ -456,10 +456,10 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                     const auto position = static_cast<double>(fileOffsetFrames) +
                                           static_cast<double>(musicalFrame - musicalStartFrame) *
                                               diagnosticFileRateHz_ / plan_.internalSampleRateHz;
-                    if (position < diagnosticFilePcm_.size()) {
+                    if (position < static_cast<double>(diagnosticFilePcm_.size())) {
                         const auto first = static_cast<std::size_t>(position);
                         const auto next = std::min(first + 1U, diagnosticFilePcm_.size() - 1U);
-                        const auto fraction = static_cast<float>(position - first);
+                        const auto fraction = static_cast<float>(position - static_cast<double>(first));
                         sample = std::lerp(diagnosticFilePcm_[first], diagnosticFilePcm_[next],
                                            fraction) *
                                  gain;
@@ -868,7 +868,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             double power = 0.0;
             for (const auto sample : mic)
                 power += static_cast<double>(sample) * sample;
-            const auto rms = std::sqrt(power / std::max<std::size_t>(1, mic.size()));
+            const auto rms =
+                std::sqrt(power / static_cast<double>(std::max<std::size_t>(1, mic.size())));
             const auto cautious = cautiousMonitoring_.load(std::memory_order_relaxed);
             // Ordinary singing can exceed -6 dBFS. Only sustained input near clipping trips
             // this guard; the sample limiter below handles loud but valid voice immediately.
@@ -890,7 +891,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             } else {
                 // Limit each monitor sample independently. A block-wide gain reacts to one
                 // isolated peak by ducking all neighbouring voice samples and creates crackle.
-                const auto fadeStep = 5.0F / plan_.internalSampleRateHz;
+                const auto fadeStep = 5.0F / static_cast<float>(plan_.internalSampleRateHz);
                 const auto limit = cautious ? 0.9F : 0.95F;
                 for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
                     monitorStartupGain_ = std::min(1.0F, monitorStartupGain_ + fadeStep);
@@ -943,7 +944,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     const auto voiceLateFrames = smoothVoiceLateFrames(presentationTicks, sungAt);
     // Room transport never delays the performer's backing track or local monitoring. The network
     // engine applies its deadline only to the returned mix of the other singers.
-    const auto musicSnapshot = media_.snapshot(MediaSlot::Music);
+    const auto musicSnapshot = media_.snapshot(MediaSlot::Music, false);
     const auto musicState = musicSnapshot.state;
     if (media_.context() != MediaContext::Karaoke ||
         (musicState != PlaybackState::Playing && musicState != PlaybackState::Paused))
@@ -1124,6 +1125,12 @@ void RealtimeEngine::onBackendEvent(GenerationId generation, BackendEventType ev
     }
     trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceBackendEvent,
                  static_cast<std::uint32_t>(event)});
+    constexpr std::array fatalEvents{
+        BackendEventType::DeviceLost, BackendEventType::DeviceInvalidated,
+        BackendEventType::DriverReset, BackendEventType::SampleRateChanged,
+        BackendEventType::RenderStalled};
+    if (std::ranges::find(fatalEvents, event) == fatalEvents.end())
+        return;
     backendEventGeneration_.store(generation, std::memory_order_relaxed);
     backendEventCode_.store(code, std::memory_order_relaxed);
     backendEventType_.store(static_cast<std::uint32_t>(event), std::memory_order_release);

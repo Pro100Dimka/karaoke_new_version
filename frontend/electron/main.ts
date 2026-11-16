@@ -87,6 +87,7 @@ let closeConfirmed = false;
 let backendDataRoot = '';
 /** Set when the app starts to quit: closing the window then really closes it (no hiding to the tray). */
 let quitting = false;
+let relaunchRequested = false;
 
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
@@ -195,7 +196,7 @@ const updater = startAutoUpdate({
   progress: (percent) => shell.send({ type: 'updateProgress', percent }),
   installFailed: () => shell.send({ type: 'updateFailed' }),
   log: (level, message) => appLogs.add('updater', level, message),
-  quit: () => app.quit(),
+  quit: () => { relaunchRequested = false; app.quit(); },
 });
 trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
 let desktopLaunch: ReturnType<typeof startDesktopLaunch> | null = null;
@@ -237,11 +238,26 @@ registerDesktopIpc({
   window: () => mainWindow,
   storageRoot,
   reveal: revealMainWindow,
-  confirmClose: (allowed) => {
+  requestRelaunch: () => {
+    updater.cancelInstall();
+    relaunchRequested = true;
+    app.quit();
+  },
+  confirmClose: async (allowed) => {
     if (!allowed) {
       quitting = false;
+      relaunchRequested = false;
       updater.cancelInstall();
       return;
+    }
+    if (!(await updater.prepareQuit())) {
+      quitting = false;
+      relaunchRequested = false;
+      return;
+    }
+    if (relaunchRequested) {
+      relaunchRequested = false;
+      app.relaunch();
     }
     closeConfirmed = true;
     mainWindow?.close();

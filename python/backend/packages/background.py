@@ -84,9 +84,15 @@ class StartPackageImport:
         context: JobContext,
     ) -> dict[str, object]:
         context.progress("SecurityValidation", 0.0, 0.1)
-        song = self._import.execute(path, decision=decision)
+        result = self._import.execute(
+            path, decision=decision, ensure_not_cancelled=context.ensure_not_cancelled
+        )
         context.progress("Publish", 1.0, 1.0)
-        return {"songId": song.song_id, "revision": song.active_revision}
+        return {
+            "songId": result.song.song_id,
+            "revision": result.song.active_revision,
+            "created": result.created,
+        }
 
     def _repeat(self, key: str | None, request_hash: str) -> Job | None:
         if not key:

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { watchAppVisibility } from './AppVisibility';
 
 const fakeWindow = () => {
@@ -7,6 +7,10 @@ const fakeWindow = () => {
     minimized: false,
     visible: true,
     destroyed: false,
+    focused: true,
+    isFocused() {
+      return this.focused;
+    },
     isDestroyed() {
       return this.destroyed;
     },
@@ -68,4 +72,43 @@ it('resynchronizes visibility on focus when restore arrived before the native wi
   main.window.minimized = false;
   main.window.emit('focus');
   expect(states).toEqual([false, true]);
+});
+
+it('keeps app focus while focus moves between the main window and its panel', () => {
+  vi.useFakeTimers();
+  try {
+    const main = fakeWindow();
+    const panel = fakeWindow();
+    panel.window.focused = false;
+    const focused = vi.fn();
+    const visibility = watchAppVisibility(
+      main.window,
+      () => undefined,
+      focused,
+    );
+    visibility.addPanel(panel.window);
+    visibility.republish();
+    expect(focused).toHaveBeenLastCalledWith(true);
+    focused.mockClear();
+    main.window.focused = false;
+    main.window.emit('blur');
+    panel.window.focused = true;
+    panel.window.emit('focus');
+    main.set(true);
+    vi.advanceTimersByTime(100);
+    expect(focused).not.toHaveBeenCalledWith(false);
+    panel.window.focused = false;
+    panel.window.emit('blur');
+    vi.advanceTimersByTime(100);
+    expect(focused).toHaveBeenLastCalledWith(false);
+    panel.window.focused = true;
+    panel.window.emit('focus');
+    expect(focused).toHaveBeenLastCalledWith(true);
+    panel.window.destroyed = true;
+    panel.window.emit('closed');
+    vi.advanceTimersByTime(100);
+    expect(focused).toHaveBeenLastCalledWith(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });

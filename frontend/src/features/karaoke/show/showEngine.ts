@@ -1,4 +1,4 @@
-import { MusicPulse, type MusicState } from './musicPulse';
+import { MusicPulse, type MusicCue, type MusicState } from './musicPulse';
 import {
   PerformanceTracker,
   type EnergyLevel,
@@ -53,6 +53,8 @@ export class ShowEngine {
   private director = new VisualDirector();
   private listeners = new Set<CommandListener>();
   private rhythm: readonly (readonly [number, number])[] = [];
+  private liveBeat: readonly [number, number] | undefined;
+  private musicCues = new Map<MusicCue['kind'], MusicCue>();
   readonly voiceHistory: VoiceObservation[] = [];
   /** Where the singer's voice is drawn now (page pixels), set by the melody roll's light layer when it is shown. */
   voicePoint: { x: number; y: number } | undefined;
@@ -84,7 +86,9 @@ export class ShowEngine {
           i >= 0 && i < rhythm.length;
           i += direction
         ) {
-          const [otherTime, otherStrength] = rhythm[i]!;
+          const other = rhythm[i];
+          if (!other) break;
+          const [otherTime, otherStrength] = other;
           const distance = Math.abs(otherTime - time);
           if (distance > 0.75) break;
           peak = Math.max(peak, otherStrength);
@@ -98,6 +102,10 @@ export class ShowEngine {
       }
       return strength >= peak * 0.6;
     });
+    if (resetPerformance || this.rhythm.length > 0) {
+      this.liveBeat = undefined;
+      this.musicCues.clear();
+    }
     this.tracker.load(
       notes,
       phrases,
@@ -127,7 +135,12 @@ export class ShowEngine {
   /** A backing-track spectrum frame from AudioService. */
   hear(backingBands: readonly number[], now: number): void {
     if (!this.state.playing) return;
-    this.pulse.next(backingBands, now);
+    const cues = this.pulse.next(backingBands, now);
+    if (this.rhythm.length > 0) return;
+    for (const cue of cues) {
+      this.musicCues.set(cue.kind, cue);
+      if (cue.kind === 'beat') this.liveBeat = [cue.at / 1000, cue.strength];
+    }
   }
 
   /** Called on every drawn song position: scores the voice and releases due effects. */
@@ -153,10 +166,14 @@ export class ShowEngine {
           audioActive: audioActive ?? (pitchHz !== undefined && pitchHz > 0),
         });
       while (
-        this.voiceHistory.length > 0 &&
-        this.voiceHistory[0]!.position < position - 3
+        this.voiceHistory[0] &&
+        this.voiceHistory[0].position < position - 3
       )
         this.voiceHistory.shift();
+    }
+    if (!playing) {
+      this.liveBeat = undefined;
+      this.musicCues.clear();
     }
     const events =
       playing && scoreVoice
@@ -169,13 +186,17 @@ export class ShowEngine {
           )
         : [];
     const music = this.pulse.state;
-    const musicBeat = playing ? this.rhythmAt(position) : 0;
-    const commands = this.director.plan(now, events, [], {
+    const musicBeat = playing ? this.rhythmAt(position, now) : 0;
+    const cues = [...this.musicCues.values()].filter(
+      (cue) => cue.at <= now && now - cue.at < 100,
+    );
+    const commands = this.director.plan(now, events, cues, {
       energy: this.tracker.energy,
       streakSeconds: this.tracker.streakSeconds,
       music,
       untilBeat: this.pulse.untilNextBeat(now),
     });
+    this.musicCues.clear();
     this.state = {
       ...this.state,
       energy: this.tracker.energy,
@@ -195,17 +216,20 @@ export class ShowEngine {
       for (const listener of this.listeners) listener(command);
   }
 
-  private rhythmAt(position: number): number {
+  private rhythmAt(position: number, now: number): number {
     let low = 0;
     let high = this.rhythm.length;
     while (low < high) {
       const middle = (low + high) >>> 1;
-      if (this.rhythm[middle]![0] <= position) low = middle + 1;
+      const beat = this.rhythm[middle];
+      if (beat && beat[0] <= position) low = middle + 1;
       else high = middle;
     }
-    const beat = this.rhythm[low - 1];
-    const age = beat ? position - beat[0] : Infinity;
-    return beat && age < 0.1 ? beat[1] * Math.exp(-age / 0.03) : 0;
+    const beat = this.rhythm.length > 0 ? this.rhythm[low - 1] : this.liveBeat;
+    const age = beat
+      ? (this.rhythm.length > 0 ? position : now / 1000) - beat[0]
+      : Infinity;
+    return beat && age >= 0 && age < 0.1 ? beat[1] * Math.exp(-age / 0.03) : 0;
   }
 
   onCommand(listener: CommandListener): () => void {

@@ -291,6 +291,9 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
     outputDeviceId: id(value.outputDeviceId),
     sampleRate: nonNegative(value.sampleRate, base.sampleRate),
     periodFrames: nonNegative(value.periodFrames, base.periodFrames),
+    ...(value.inputPeriodFrames !== undefined && {
+      inputPeriodFrames: nonNegative(value.inputPeriodFrames, 0),
+    }),
     bufferFrames: nonNegative(value.bufferFrames, base.bufferFrames ?? 0),
   };
 };

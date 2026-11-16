@@ -152,14 +152,25 @@ class VoiceRelay(RelayIngress):
             if direct:
                 self._direct_participants.add(participant_id)
             if self._control_command is not None:
-                self._control_command(f"EXPECT\t{room_id}\t{participant_id}\t{token}")
-                for identity, value in self._recipient_source_effects.items():
-                    room, recipient, source, effect = identity
-                    if room == room_id and participant_id in (recipient, source):
-                        self._control_command(
-                            f"EFFECT\t{room}\t{recipient}\t{source}\t{effect}\t{value}"
-                        )
+                self._restore_native_session_locked(room_id, participant_id, key, token)
             return token
+
+    def _restore_native_session_locked(
+        self, room_id: str, participant_id: str, key: int, token: int
+    ) -> None:
+        command = self._control_command
+        if command is None:
+            return
+        command(f"EXPECT\t{room_id}\t{participant_id}\t{token}")
+        for (room, listener_key, singer_key), gain in self._recipient_source_gains.items():
+            if room == room_id and key in (listener_key, singer_key):
+                listener = self._sessions.get((room, listener_key))
+                singer = self._sessions.get((room, singer_key))
+                if listener is not None and singer is not None:
+                    command(f"GAIN\t{room}\t{listener[0]}\t{singer[0]}\t{gain}")
+        for (room, recipient, source, effect), value in self._recipient_source_effects.items():
+            if room == room_id and participant_id in (recipient, source):
+                command(f"EFFECT\t{room}\t{recipient}\t{source}\t{effect}\t{value}")
 
     def set_recipient_source_gain(
         self,
@@ -353,6 +364,10 @@ class VoiceRelay(RelayIngress):
     def forget(self, participant_id: str) -> None:
         with self._lock:
             self._forget_locked(participant_id)
+
+    def close_room(self, room_id: str) -> None:
+        with self._lock:
+            self._close_room_locked(room_id)
 
     def connection_made(self, transport: DatagramSender) -> None:
         self._transport = transport

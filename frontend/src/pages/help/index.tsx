@@ -7,7 +7,7 @@ import {
   useLocale,
   useRouter,
 } from '@neo-ui-kit/react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { observer } from 'mobx-react-lite';
 import { titleBarLeadingId } from '../../app/TitleBar';
@@ -37,6 +37,7 @@ const sectionEntries = Object.entries(sections) as [
 ][];
 
 export const HelpPage = observer(() => {
+  const headingId = useId();
   useLocale();
   const { navigate } = useRouter();
   const { theme } = store.interface;
@@ -217,9 +218,9 @@ export const HelpPage = observer(() => {
             {searching || (!article && section) ? (
               <section
                 className="helpResults"
-                aria-labelledby="helpResultsTitle"
+                aria-labelledby={`${headingId}-results`}
               >
-                <h1 id="helpResultsTitle">
+                <h1 id={`${headingId}-results`}>
                   {tr(
                     searching
                       ? 'Результаты поиска'
@@ -263,12 +264,12 @@ export const HelpPage = observer(() => {
               <article
                 className="helpArticle"
                 key={article.id}
-                aria-labelledby="helpArticleTitle"
+                aria-labelledby={`${headingId}-article`}
               >
                 <span className="helpEyebrow">
                   {tr(sections[article.section].title)}
                 </span>
-                <h1 id="helpArticleTitle">{tr(article.title)}</h1>
+                <h1 id={`${headingId}-article`}>{tr(article.title)}</h1>
                 <ol className="helpSteps">
                   {article.steps.map(({ visual, ...step }, index) => (
                     <li className="helpStep" key={step.title}>
@@ -382,8 +383,8 @@ export const HelpPage = observer(() => {
                     </Button>
                   ))}
                 </div>
-                <section className="helpQuick" aria-labelledby="helpQuickTitle">
-                  <h2 id="helpQuickTitle">{tr('Быстрые ответы')}</h2>
+                <section className="helpQuick" aria-labelledby={`${headingId}-quick`}>
+                  <h2 id={`${headingId}-quick`}>{tr('Быстрые ответы')}</h2>
                   <div>
                     {articles
                       .filter(({ id }) => quickAnswers.includes(id))

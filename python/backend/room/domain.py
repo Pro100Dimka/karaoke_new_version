@@ -107,6 +107,7 @@ class Room:
     host_disconnected_at: datetime | None = None
     song_id: str | None = None
     revision: int | None = None
+    selection_id: int = 0
     playback_state: PlaybackState = PlaybackState.STOPPED
     playback_started_at: datetime | None = None
     playback_position_seconds: float = 0.0

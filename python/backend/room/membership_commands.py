@@ -160,13 +160,18 @@ class LeaveRoom:
             updated = replace(room, participants=participants, shared_songs=shared_songs)
             self._rooms.save(updated)
             return updated
-        if room.disconnect_policy is HostDisconnectPolicy.CLOSE or not participants:
+        connected = [
+            key for key, person in participants.items()
+            if person.connection_state is ConnectionState.CONNECTED
+        ]
+        if room.disconnect_policy is HostDisconnectPolicy.CLOSE or not connected:
             self._rooms.delete(room_id)
             return None
-        new_host_id = next(iter(participants))
+        new_host_id = connected[0]
         participants[new_host_id] = replace(participants[new_host_id], role=ParticipantRole.HOST)
         updated = replace(
-            room, host_id=new_host_id, participants=participants, shared_songs=shared_songs
+            room, host_id=new_host_id, participants=participants, shared_songs=shared_songs,
+            host_disconnected_at=None,
         )
         self._rooms.save(updated)
         return updated

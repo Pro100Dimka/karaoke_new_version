@@ -12,15 +12,28 @@
 #include "realtime/RealtimeInstrumentation.hpp"
 
 #include <atomic>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
 struct NetworkTestAccess {
+    static bool setAlignment(NetworkAudioEngine& engine, std::string_view participant,
+                             std::int32_t errorFrames, bool recent) {
+        auto* slot = engine.slotForId(participant);
+        if (!slot)
+            return false;
+        slot->alignmentErrorFrames.store(errorFrames);
+        const auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+                             std::chrono::steady_clock::now().time_since_epoch()).count();
+        slot->lastPacketMicros.store(recent ? static_cast<std::uint64_t>(now) : 0U);
+        return true;
+    }
     static void noteRelayRoute(NetworkAudioEngine& engine, std::uint32_t arrival,
                                std::uint32_t returned) {
         auto* slot = engine.slotForId("__room_server_mix__");
@@ -32,7 +45,7 @@ struct NetworkTestAccess {
     static void excludeVoice(NetworkAudioEngine& engine, std::string_view participant) {
         auto* slot = engine.slotForId(participant);
         slot->timelineExcluded = true;
-        slot->remoteStreamEpoch = 1;
+        slot->remoteStreamEpoch.reset(1);
         slot->recoveryPackets = 0;
     }
     static std::uint64_t sentPackets(const NetworkAudioEngine& engine) {
@@ -140,7 +153,7 @@ struct NetworkTestAccess {
         engine.socket_.bind(0);
         engine.socket_.setReceiveTimeoutMs(2);
         engine.localPort_ = engine.socket_.localPort();
-        engine.slotForId(participant)->remoteStreamEpoch = 1;
+        engine.slotForId(participant)->remoteStreamEpoch.reset(1);
         engine.running_.store(true);
     }
     static void startBoundReceiverWorker(NetworkAudioEngine& engine) {
@@ -170,7 +183,7 @@ struct NetworkTestAccess {
     }
     static void setRemoteStreamEpoch(NetworkAudioEngine& engine, std::string_view participant,
                                      std::uint32_t epoch) {
-        engine.slotForId(participant)->remoteStreamEpoch = epoch;
+        engine.slotForId(participant)->remoteStreamEpoch.reset(epoch);
     }
     static bool timelineInitialized(NetworkAudioEngine& engine, std::string_view participant) {
         std::lock_guard lock(engine.remoteMutex_);
@@ -181,6 +194,10 @@ struct NetworkTestAccess {
         std::lock_guard lock(engine.remoteMutex_);
         const auto* slot = engine.slotForId(participant);
         return slot ? slot->queue.availableFrames() : 0U;
+    }
+    static std::uint64_t queueEpoch(NetworkAudioEngine& engine, std::string_view participant) {
+        std::lock_guard lock(engine.remoteMutex_);
+        return engine.slotForId(participant)->queue.epoch();
     }
     static std::vector<float> concealReceivePcm(NetworkAudioEngine& engine,
                                                std::string_view participant,
@@ -217,7 +234,7 @@ struct NetworkTestAccess {
             slot->arrivalHistory.note(IngressFrames);
             slot->arrivalRoute.note(IngressFrames);
         }
-        slot->remoteStreamEpoch = 7;
+        slot->remoteStreamEpoch.reset(7);
         engine.advertisedTargetDelayFrames_.store(80U * 48U, std::memory_order_release);
     }
     static void seedDirectReadyVoice(NetworkAudioEngine& engine, std::string_view participant) {
@@ -246,7 +263,7 @@ struct NetworkTestAccess {
             slot->readyLateness.note(35U * 48U);
             slot->stableLateness.note(35U * 48U);
         }
-        slot->remoteStreamEpoch = 1;
+        slot->remoteStreamEpoch.reset(1);
         slot->directFirstPackets.store(packets, std::memory_order_relaxed);
         slot->lastPacketMicros.store(static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(
@@ -302,7 +319,7 @@ void masterCompanionRecordsTheExactRenderedBacking() {
     expectedBacking.reserve(frames * blocks * 2U);
     for (std::uint32_t block = 0; block < blocks; ++block) {
         for (std::uint32_t frame = 0; frame < frames; ++frame)
-            remote[frame] = 0.05F * std::sin((block * frames + frame) * 0.037F);
+            remote[frame] = 0.05F * std::sin(static_cast<float>(block * frames + frame) * 0.037F);
         expect(NetworkTestAccess::queueVoice(service.network(), "companion-remote", remote),
                "the known remote waveform enters the ordinary remote render queue");
         std::copy(remote.begin(), remote.end(), processedRemote.begin());
@@ -793,7 +810,7 @@ void sharedTimelineSenderTracksLongClockDriftWithoutTimelineHoles() {
     constexpr std::array rates{
         std::pair{48'000U, 48'000U}, std::pair{44'100U, 44'100U},
         std::pair{44'100U, 48'000U}, std::pair{48'000U, 44'100U}};
-    for (const auto [rate, renderRate] : rates) {
+    for (const auto& [rate, renderRate] : rates) {
         for (const auto direction : {-1, 1}) {
             UdpSocket receiver;
             receiver.bind(0);
@@ -974,7 +991,7 @@ void roomVoiceClockAdvancesWhileTheSongIsStopped() {
     }
     expect(timestamps[1] > timestamps[0] && timestamps[0] > 80'000'000'000'000ULL,
            "voice uses the continuous authoritative room clock, never the stopped song cursor");
-    NetworkTimingEstimator timing;
+    NetworkTimingEstimator timing{};
     timing.noteArrival(serverMicros / 1'000'000 * 48000, serverMicros + 6000, 48000);
     expect(std::abs(timing.snapshot(480, 4800, 48000).clockOffsetMs - 6.0F) < 0.01F,
            "epoch-sized audio timestamps cannot overflow clock conversion");
@@ -1062,7 +1079,7 @@ void remoteSlotReuseStartsWithFreshEffects() {
            "fresh participant joins both routes");
     std::vector<float> signal(4096), actual(signal.size()), expected(signal.size());
     for (std::size_t frame = 0; frame < signal.size(); ++frame)
-        signal[frame] = static_cast<float>(0.1 * std::sin(frame * 0.07));
+        signal[frame] = static_cast<float>(0.1 * std::sin(static_cast<double>(frame) * 0.07));
     expect(NetworkTestAccess::queueVoice(reused, "new", signal) &&
                NetworkTestAccess::queueVoice(fresh, "new", signal),
            "decoded voice is queued");
@@ -1107,7 +1124,7 @@ void outgoingVoiceUsesTheInternalClockAndMicrophoneGate() {
             for (std::size_t frame = 0; frame < capture.size(); ++frame)
                 capture[frame] = static_cast<float>(
                     0.3 * std::sin(2.0 * 3.14159265 * 440.0 *
-                                   static_cast<double>(block * 240 + frame) / 24000.0));
+                                   (static_cast<double>(block * 240) + static_cast<double>(frame)) / 24000.0));
             fake->pump(capture, 1, render, 2, block * 240, block * 480);
             // One 10 ms output block carries several voice packets.
             for (std::uint32_t part = 0; part < 480U * VoicePacketsPerSecond / 48'000U; ++part) {
@@ -1300,7 +1317,7 @@ void remoteOctaveDoesNotAddAnExtraPitchWindow() {
         expect(network.setRemoteEffect("singer", "octave", octave), "octave is enabled");
         std::vector<float> voice(frames);
         for (std::uint32_t frame = 0; frame < frames; ++frame)
-            voice[frame] = 0.25F * std::sin(2.0F * 3.14159265F * 220.0F * frame / sampleRate);
+            voice[frame] = 0.25F * std::sin(2.0F * 3.14159265F * 220.0F * static_cast<float>(frame) / sampleRate);
         expect(NetworkTestAccess::queueVoice(network, "singer", voice), "voice is queued");
         std::vector<float> output(frames);
         expect(network.renderRemote(GenerationId{1}, output, frames) == frames,
@@ -1438,7 +1455,7 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
     struct SimulatedComputer {
         std::uint32_t baseDelayMilliseconds;
         std::int32_t driftPartsPerMillion;
-        NetworkTimingEstimator timing;
+        NetworkTimingEstimator timing{};
         std::uint32_t desiredFrames{minimumDelay};
     };
     std::array computers{SimulatedComputer{24, 85}, SimulatedComputer{95, -70}};
@@ -1460,8 +1477,8 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
             const auto driftedSenderFrame = static_cast<std::uint64_t>(std::llround(
                 static_cast<double>(senderFrame) *
                 (1.0 + static_cast<double>(computer.driftPartsPerMillion) / 1'000'000.0)));
-            const auto arrivalMicros = driftedSenderFrame * 1'000'000ULL / rate +
-                                       static_cast<std::uint64_t>(delayMilliseconds) * 1'000ULL;
+            const auto arrivalMicros = driftedSenderFrame * 1'000'000U / rate +
+                                       static_cast<std::uint64_t>(delayMilliseconds) * 1'000U;
             computer.timing.noteArrival(driftedSenderFrame, arrivalMicros, rate);
             const auto jitterTarget =
                 computer.timing.snapshot(minimumDelay, simulatedQueue / 2U, rate).targetDelayFrames;
@@ -2313,7 +2330,7 @@ void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission() {
 
 void roomPacketTraceExplainsFirstLateCut() {
     constexpr std::uint32_t rate = 48'000, block = 120, token = 77;
-    _putenv_s("AD_VOICE_ROOM_PACKET_TRACE", "1");
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_PACKET_TRACE", "1"};
     AudioService service{std::make_unique<FakeAudioBackend>()};
     service.start();
     (void)service.session().prepare({});
@@ -2378,7 +2395,6 @@ void roomPacketTraceExplainsFirstLateCut() {
     const auto retainedVoiceAfterEmpty =
         NetworkTestAccess::traceRetainsVoiceAfterEmptyLateCuts(network);
     network.stop();
-    _putenv_s("AD_VOICE_ROOM_PACKET_TRACE", "");
     expect(diagnostics.find("RemotePacketTrace.__room_server_mix__:") != std::string::npos &&
                diagnostics.find("QUEUE_LATE") != std::string::npos &&
                diagnostics.find("serverIngressFrames=480") != std::string::npos &&
@@ -2423,7 +2439,7 @@ void pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel() {
             for (std::uint32_t channel = 0; channel < channels; ++channel)
                 voice[frame * channels + channel] =
                     (channel % 2U == 0 ? 0.25F : -0.1F) *
-                    static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+                    static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
         concealment.remember(voice, channels);
         float earlyPower = 0.0F, latePower = 0.0F;
         for (std::uint32_t packet = 0; packet < 64; ++packet) {
@@ -2524,7 +2540,7 @@ void directRenderContinuityBoundsSavedGapDurations() {
     constexpr std::uint32_t Rate = 48'000, Block = 64, SeedFrames = 4'800;
     constexpr std::uint32_t gaps[]{144, 4'448, 7'518}; // 3 / 92.667 / 156.625 ms
     const auto voice = [](std::uint64_t frame) {
-        return 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 * 220.0 / Rate));
+        return 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 * 220.0 / Rate));
     };
     for (const auto gapFrames : gaps) {
         NetworkAudioEngine network;
@@ -2598,7 +2614,7 @@ void directRenderContinuityBoundsSavedGapDurations() {
                 float total = 0;
                 for (auto frame = begin; frame < end; ++frame)
                     total += missing[frame] * missing[frame];
-                return total / (end - begin);
+                return total / static_cast<float>(end - begin);
             };
             expect(power(0, 960) > 0.005F && power(3'840, 4'800) < power(0, 960) / 8U &&
                        std::all_of(missing.begin() + 4'800, missing.end(),
@@ -2619,7 +2635,7 @@ void directRenderContinuityCannotLeakAcrossMuteOrQueueReset() {
     NetworkTestAccess::bypassRemoteEffects(network, "singer");
     std::vector<float> tone(960), output(Block);
     for (std::size_t frame = 0; frame < tone.size(); ++frame)
-        tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 0.03));
+        tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 0.03));
     std::uint64_t position = 0;
     const auto seed = [&] {
         expect(NetworkTestAccess::queueVoice(network, "singer", tone), "seed the previous voice");
@@ -2646,12 +2662,12 @@ void directRenderContinuitySurvivesSocketSilenceAndRejectsStaleBacklog() {
     // Duration-constrained replay: the old captures did not record every UDP arrival.
     // Isolate playout continuity from reorder policy, which has separate regression coverage.
     constexpr std::uint32_t Rate = 48'000, Packet = 120, Token = 77;
-    for (const auto [gapFrames, deadlineFrames] :
+    for (const auto& [gapFrames, deadlineFrames] :
          {std::pair{4'448U, 2'640U}, std::pair{7'518U, 3'480U}}) {
         NetworkAudioEngine network;
         network.prepare(Rate, 1, Rate / 2U, Packet, GenerationId{1});
         network.setSharedTimeline(true);
-        network.setRoomPlayoutDelay(deadlineFrames * 1'000.0F / Rate);
+        network.setRoomPlayoutDelay(static_cast<float>(deadlineFrames) * 1'000.0F / Rate);
         network.setSessionToken(Token);
         expect(network.addRemoteParticipant("singer"), "socket-stall singer joins");
         NetworkTestAccess::bypassRemoteEffects(network, "singer");
@@ -2661,7 +2677,7 @@ void directRenderContinuitySurvivesSocketSilenceAndRejectsStaleBacklog() {
         sender.bind(0);
         std::vector<float> tone(Packet), output(Packet);
         for (std::uint32_t frame = 0; frame < Packet; ++frame)
-            tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+            tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
         const auto payload = PcmVoiceCodec::encode(tone);
         std::uint64_t timeline = 10U * Rate;
         std::uint32_t sequence = 0;
@@ -2744,7 +2760,7 @@ void directConsecutiveSequenceLossUsesBoundedContinuity() {
         NetworkTestAccess::useSinglePacketReorder(network, "singer", 24);
         std::vector<float> tone(Packet), output(Packet), missing;
         for (std::uint32_t frame = 0; frame < Packet; ++frame)
-            tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+            tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
         const auto payload = PcmVoiceCodec::encode(tone);
         constexpr std::uint64_t Origin = 10U * Rate;
         auto cursor = Origin + Target;
@@ -2800,7 +2816,7 @@ void directConsecutiveSequenceLossUsesBoundedContinuity() {
         expect(recoveredError < 0.00004F,
                "after one recovery packet the following real PCM is unchanged and has no accumulated phase error");
         std::printf("CONSECUTIVE_LOSS packets=%u durationMs=%.3f missingPcmMs=%.3f longestZeroMs=%.3f\n",
-                    missingPackets, missing.size() / 48.0, missingFrames / 48.0, longest / 48.0);
+                    missingPackets, static_cast<double>(missing.size()) / 48.0, missingFrames / 48.0, longest / 48.0);
         expect(missingFrames < missing.size() / 2U && longest < Rate * 65U / 1'000U,
                "queued consecutive-loss PLC shares bounded continuity instead of early silence");
         if (missing.size() > Rate / 10U)
@@ -2821,7 +2837,7 @@ void directMixedLossCannotRestartTheContinuationBudget() {
     NetworkTestAccess::useSinglePacketReorder(network, "singer", 24);
     std::vector<float> tone(Packet), output(Packet), missing;
     for (std::uint32_t frame = 0; frame < Packet; ++frame)
-        tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+        tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
     const auto payload = PcmVoiceCodec::encode(tone);
     constexpr std::uint64_t Origin = 10U * Rate;
     auto cursor = Origin + Target;
@@ -2867,7 +2883,7 @@ void queuedFutureVoiceCannotResetAnUnconsumedLossBudget() {
     NetworkTestAccess::bypassRemoteEffects(network, "singer");
     std::vector<float> tone(960), synthetic(7'200, 0.1F), current(Packet), output(Packet), missing;
     for (std::uint32_t frame = 0; frame < tone.size(); ++frame)
-        tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+        tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
     std::copy_n(tone.begin(), Packet, current.begin());
     expect(NetworkTestAccess::queueVoice(network, "singer", tone), "real voice seeds continuity");
     std::uint64_t cursor = 0;
@@ -2896,7 +2912,7 @@ void queuedLossCannotEraseAnEarlierStarvationBudget() {
     NetworkTestAccess::bypassRemoteEffects(network, "singer");
     std::vector<float> tone(960), output(Packet), missing;
     for (std::uint32_t frame = 0; frame < tone.size(); ++frame)
-        tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+        tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
     expect(NetworkTestAccess::queueVoice(network, "singer", tone), "real PCM seeds render history");
     PcmLossConcealer receiveLoss;
     receiveLoss.remember(tone, 1);
@@ -2925,7 +2941,7 @@ void directSteadyQueuedRealVoiceCannotBecomeConcealment() {
     NetworkTestAccess::bypassRemoteEffects(network, "singer");
     std::vector<float> initial(Ahead), packet(Packet), output(Packet);
     const auto voice = [](std::uint32_t frame) {
-        return 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+        return 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
     };
     for (std::uint32_t frame = 0; frame < Ahead; ++frame)
         initial[frame] = voice(frame);
@@ -3033,7 +3049,7 @@ void sharedVoiceReadsReadyDatagramsBeforeExpiringMissingPositions() {
     NetworkTestAccess::useSinglePacketReorder(network, "singer", 24);
     std::vector<float> tone(Packet), output(Packet);
     for (std::uint32_t frame = 0; frame < Packet; ++frame)
-        tone[frame] = 0.25F * static_cast<float>(std::sin(frame * 2.0 * 3.14159265358979 / Packet));
+        tone[frame] = 0.25F * static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
     const auto payload = PcmVoiceCodec::encode(tone);
     auto cursor = Origin + Target;
     (void)network.renderRemote(GenerationId{1}, output, Packet, cursor - Packet);
@@ -3109,7 +3125,7 @@ void observedDirectPacketBurstKeepsBoundedPlayoutContinuity() {
     NetworkAudioEngine network;
     network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
     network.setSharedTimeline(true);
-    network.setRoomPlayoutDelay(packets.front().target / 48.0F);
+    network.setRoomPlayoutDelay(static_cast<float>(packets.front().target) / 48.0F);
     expect(network.addRemoteParticipant("singer"), "the observed physical-route singer joins");
     NetworkTestAccess::bypassRemoteEffects(network, "singer");
     std::ifstream renderFile(base.string() + ".render.csv");
@@ -3274,7 +3290,7 @@ void networkRemoteQueueConvergesWithoutMutingOtherSingers() {
 }
 
 void networkTimingTracksJitterAndRoundTripDelay() {
-    NetworkTimingEstimator timing;
+    NetworkTimingEstimator timing{};
     timing.noteArrival(0, 1'000'000, 48'000);
     timing.noteArrival(240, 1'005'000, 48'000);
     timing.noteArrival(480, 1'018'000, 48'000); // an 8 ms network spike
@@ -3288,8 +3304,34 @@ void networkTimingTracksJitterAndRoundTripDelay() {
            "each remote singer receives an individual playout target when arrival jitter rises");
 }
 
+void networkDiagnosticsRetainSignedPeerAlignment() {
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 4'800, 240, GenerationId{1});
+    for (const auto* id : {"first", "second", "stale"}) {
+        if (!network.addRemoteParticipant(id))
+            throw std::runtime_error("alignment participant must be created");
+    }
+    struct Scenario { std::int32_t first; std::int32_t second; std::uint32_t spread; };
+    constexpr Scenario scenarios[]{{-480, 480, 960}, {480, 720, 240}, {-480, -720, 240}, {0, 0, 0}};
+    for (const auto& scenario : scenarios) {
+        const std::array<std::pair<std::string_view, std::int32_t>, 3> peers{{
+            {"first", scenario.first}, {"second", scenario.second}, {"stale", 10'000},
+        }};
+        for (const auto& [id, error] : peers) {
+            if (!NetworkTestAccess::setAlignment(network, id, error, id != "stale"))
+                throw std::runtime_error("alignment participant must exist");
+        }
+        const auto diagnostics = network.diagnostics();
+        for (const auto& participant : diagnostics.participants) {
+            const auto expected = participant.participantId == "stale" ? 0U : scenario.spread;
+            expect(participant.interPeerAlignmentErrorFrames == expected,
+                   "peer alignment uses signed errors and excludes stale streams");
+        }
+    }
+}
+
 void networkTimingReportsClockOffsetAndDrift() {
-    NetworkTimingEstimator timing;
+    NetworkTimingEstimator timing{};
     constexpr std::uint32_t rate = 48'000;
     constexpr double driftPpm = 75.0;
     for (std::uint64_t packet = 0; packet < 4'000; ++packet) {
@@ -3447,7 +3489,7 @@ void udpSocketShortPollingPreservesPacedDatagrams() {
         receiver.bind(0);
         sender.bind(0);
         receiver.setReceiveTimeoutMs(timeoutMs);
-        const auto port = receiver.localPort();
+        sender.connect("localhost", receiver.localPort());
         std::atomic<bool> sentAll{true};
         std::thread producer([&] {
             const auto start = std::chrono::steady_clock::now() + std::chrono::milliseconds(5);
@@ -3455,7 +3497,7 @@ void udpSocketShortPollingPreservesPacedDatagrams() {
             for (std::uint32_t sequence = 0; sequence < Packets; ++sequence) {
                 std::this_thread::sleep_until(start + std::chrono::microseconds(sequence * 2'500U));
                 packet.front() = static_cast<std::byte>(sequence);
-                if (!sender.sendTo("127.0.0.1", port, packet))
+                if (!sender.send(packet))
                     sentAll.store(false, std::memory_order_release);
             }
         });
@@ -3494,7 +3536,8 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
     second.setReceiveTimeoutMs(250);
     const std::array<std::byte, 3> payload{std::byte{'p'}, std::byte{'2'}, std::byte{'p'}};
 
-    expect(sender.sendTo("127.0.0.1", first.localPort(), payload),
+    const auto firstEndpoint = UdpSocket::endpointIdentity("localhost", first.localPort());
+    expect(sender.sendTo(firstEndpoint, payload),
            "one UDP socket sends a direct room packet to the first peer");
     expect(sender.sendTo("127.0.0.1", second.localPort(), payload),
            "the same UDP socket sends to a second peer without reconnecting");
@@ -3506,7 +3549,7 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
            "received datagrams retain their actual IPv4 source endpoint identity");
 
     // `first` treats `second` as its relay; a packet from `sender` is a direct one.
-    first.connect("127.0.0.1", second.localPort(), 0);
+    first.connect("localhost", second.localPort(), 0);
     expect(second.sendTo("127.0.0.1", first.localPort(), payload) &&
                first.receive(received) == payload.size() && first.lastFromDefaultPeer() &&
                first.lastSourceIdentity() == UdpSocket::endpointIdentity("127.0.0.1", second.localPort()),
@@ -3515,6 +3558,10 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
                first.receive(received) == payload.size() && !first.lastFromDefaultPeer() &&
                first.lastSourceIdentity() == senderIdentity,
            "a packet from any other address is recognised as direct");
+    first.connect("localhost", sender.localPort(), 0);
+    expect(sender.sendTo(firstEndpoint, payload) && first.receive(received) == payload.size() &&
+               first.lastFromDefaultPeer(),
+           "reconnecting updates the cached default destination without changing the bound socket");
 }
 
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement() {
@@ -3525,6 +3572,17 @@ void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement() {
            "the bounded history accepts a later sequence that reuses the same slot");
     seen.reset();
     expect(!seen.isDuplicate(42), "a restarted remote stream clears duplicate history");
+    AudioStreamEpochHistory epochs;
+    for (const auto& [epoch, accepted] :
+         std::array{std::pair{0U, true}, std::pair{0xF0001234U, true}, std::pair{7U, true},
+                    std::pair{0U, false}, std::pair{0xF0001234U, false}, std::pair{7U, true}})
+        expect(epochs.accept(epoch) == accepted,
+               "opaque epoch ids may decrease but an already retired stream cannot return");
+    epochs.reset();
+    expect(epochs.accept(0), "a replacement authenticated session can use its own zero epoch");
+    for (std::uint32_t epoch = 1; epoch < 256; ++epoch)
+        expect(epochs.accept(epoch), "a long session admits every genuinely new stream");
+    expect(!epochs.accept(0), "even an early retired stream cannot return in a long session");
 }
 
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
@@ -3597,10 +3655,10 @@ void voiceBlocksJoinExactlyDespiteCaptureStampWander() {
         const auto stamped = timeline.stamp(measured, block, rate);
         if (index != 0)
             worstJoin = std::max(
-                worstJoin, std::llabs(signedMediaTimelineDistance(previous + block, stamped)));
+                worstJoin, std::abs(signedMediaTimelineDistance(previous + block, stamped)));
         if (index > 400)
             worstOffset =
-                std::max(worstOffset, std::llabs(signedMediaTimelineDistance(truth, stamped)));
+                std::max(worstOffset, std::abs(signedMediaTimelineDistance(truth, stamped)));
         previous = stamped;
     }
     expect(worstJoin <= static_cast<std::int64_t>(block / 100U + 1U),
@@ -3854,6 +3912,33 @@ void roomRouteHistorySurvivesStreamEpoch() {
     expect(after.advertisedTargetDelayFrames >= 35U * 48U &&
                after.advertisedTargetDelayFrames <= 45U * 48U,
            "the new epoch publishes its preserved stable requirement immediately");
+    network.startReceive(0);
+    const std::vector<float> queued(240, 0.2F);
+    require(NetworkTestAccess::queueVoice(network, "singer", queued),
+            "the new stream has current voice waiting for playout");
+    const auto queueEpoch = NetworkTestAccess::queueEpoch(network, "singer");
+    const auto payload = PcmVoiceCodec::encode(std::vector<float>(120, 0.1F));
+    for (const auto epoch : {1U, 2U}) {
+        const AudioPacketHeader header{8, NetworkTestAccess::key("singer"), 77,
+                                       (480'000U + 480U) | SharedAudioTimelineFlag,
+                                       1, 120, 0, epoch, VoiceCodec::Pcm16, 0};
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(encoded.begin(), encoded.end());
+        packet.insert(packet.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), packet),
+               "an old stream packet precedes the next current packet on the wire");
+    }
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (network.diagnostics().packetsReceived < after.packetsReceived + 1U &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto retainedEpoch = NetworkTestAccess::queueEpoch(network, "singer");
+    const auto retainedFrames = NetworkTestAccess::queuedFrames(network, "singer");
+    const auto received = network.diagnostics().packetsReceived;
+    network.stop();
+    expect(received >= after.packetsReceived + 1U && retainedEpoch == queueEpoch &&
+               retainedFrames >= queued.size(),
+           "a retired stream packet cannot clear current PCM, decoder or reorder state");
 }
 
 void roomRelayFallbackCannotFreshenDirectMeasurements() {

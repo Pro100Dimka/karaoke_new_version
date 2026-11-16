@@ -19,7 +19,7 @@ struct NetworkImpairmentProfile {
     double duplicateRate{0.0};
     double reorderRate{0.0};
     double clockDriftPpm{0.0};
-    std::vector<NetworkLatencyStage> latencyStages;
+    std::vector<NetworkLatencyStage> latencyStages{};
 };
 
 struct NetworkPathTestMetrics {

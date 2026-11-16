@@ -31,7 +31,7 @@ const streamResponse = (
   rangeHeader: string | null,
 ): Response => {
   const match = rangeHeader ? rangeHeaderPattern.exec(rangeHeader) : null;
-  if (!match) {
+  if (!match || (!match[1] && !match[2])) {
     const body = Readable.toWeb(
       fs.createReadStream(filePath),
     ) as ReadableStream;
@@ -44,8 +44,14 @@ const streamResponse = (
       },
     });
   }
-  const start = match[1] ? Number(match[1]) : 0;
-  const end = Math.min(match[2] ? Number(match[2]) : size - 1, size - 1);
+  const suffix = !match[1];
+  const start = suffix ? Math.max(0, size - Number(match[2])) : Number(match[1]);
+  const end = suffix ? size - 1 : Math.min(match[2] ? Number(match[2]) : size - 1, size - 1);
+  if (![start, end].every(Number.isSafeInteger) || start >= size || end < start)
+    return new Response(null, {
+      status: 416,
+      headers: { 'content-range': `bytes */${size}` },
+    });
   const body = Readable.toWeb(
     fs.createReadStream(filePath, { start, end }),
   ) as ReadableStream;

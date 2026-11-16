@@ -4,13 +4,65 @@ stage="${1:?staging directory required}"
 [[ "$stage" =~ ^/tmp/ad-voice-processing-[0-9]{8}-[0-9]{6}$ ]] || exit 2
 root=/opt/karaoke-processing-server
 site=/etc/nginx/sites-available/room-server
-backup="$stage/room-server.before"
-sudo cp -p "$site" "$backup"
-sudo mkdir -p "$root/data"
-sudo chown ubuntu:ubuntu "$root/data"
-sudo chmod 700 "$root/data"
-if sudo test -f "$root/processing-server.py"; then
-    sudo cp -p "$root/processing-server.py" "$stage/processing-server.before"
+unit=/etc/systemd/system/ad-voice-processing.service
+paths=("$root/processing-server.py" /etc/ad-voice-processing.env "$unit" /etc/nginx/snippets/ad-voice-processing.conf "$site")
+rollback_armed=false
+was_active=false
+was_enabled=false
+sudo systemctl is-active --quiet ad-voice-processing.service && was_active=true
+sudo systemctl is-enabled --quiet ad-voice-processing.service && was_enabled=true
+
+rollback() {
+    local status=0
+    sudo systemctl stop ad-voice-processing.service || status=1
+    for index in "${!paths[@]}"; do
+        if sudo test -f "$stage/processing-before-$index"; then
+            sudo cp -p "$stage/processing-before-$index" "${paths[$index]}" || status=1
+        else
+            sudo rm -f -- "${paths[$index]}" || status=1
+        fi
+    done
+    sudo systemctl daemon-reload || status=1
+    if $was_enabled; then
+        sudo systemctl enable ad-voice-processing.service || status=1
+    else
+        sudo systemctl disable ad-voice-processing.service || status=1
+    fi
+    if $was_active; then
+        sudo systemctl start ad-voice-processing.service || status=1
+        sudo systemctl is-active --quiet ad-voice-processing.service || status=1
+    fi
+    sudo nginx -t && sudo systemctl reload nginx || status=1
+    if (( status == 0 )); then
+        echo 'PROCESSING_SERVER_ROLLBACK=restored'
+    else
+        echo 'PROCESSING_SERVER_ROLLBACK=failed; inspect preserved staging backups' >&2
+    fi
+    return "$status"
+}
+finish_deployment() {
+    local status=$?
+    trap - EXIT INT TERM
+    set +e
+    if (( status != 0 )) && $rollback_armed; then rollback; fi
+    exit "$status"
+}
+trap finish_deployment EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Preserve the whole replaced configuration before changing any serving file.
+for index in "${!paths[@]}"; do
+    [[ ! -e "$stage/processing-before-$index" ]] || exit 2
+done
+for index in "${!paths[@]}"; do
+    if sudo test -f "${paths[$index]}"; then
+        sudo cp -p "${paths[$index]}" "$stage/processing-before-$index"
+    fi
+done
+rollback_armed=true
+if ! sudo test -d "$root/data"; then
+    sudo install -d -m 700 -o ubuntu -g ubuntu "$root/data"
 fi
 sudo install -m 644 "$stage/processing-server.py" "$root/processing-server.py"
 sudo install -m 600 "$stage/server.env" /etc/ad-voice-processing.env
@@ -28,28 +80,24 @@ if line not in text:
         raise SystemExit('Expected one room HTTPS server block')
     path.write_text(text.replace(anchor, anchor + '\n' + line))
 PY
-rollback() {
-    sudo cp -p "$backup" "$site"
-    if test -f "$stage/processing-server.before"; then
-        sudo cp -p "$stage/processing-server.before" "$root/processing-server.py"
-        sudo systemctl restart ad-voice-processing.service
-    else
-        sudo systemctl stop ad-voice-processing.service || true
-    fi
-    sudo nginx -t && sudo systemctl reload nginx
-}
-trap rollback ERR
 sudo nginx -t
 sudo systemctl daemon-reload
 sudo systemctl enable --now ad-voice-processing.service
 sudo systemctl restart ad-voice-processing.service
+processing_ready() {
+    [[ "$(curl -sS --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8083/processing/health)" == 403 ]]
+}
+healthy=false
 for attempt in {1..15}; do
-    if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8083/processing/health | grep -q '^403$'; then
+    if processing_ready; then
+        healthy=true
         break
     fi
     sleep 1
 done
+$healthy || { echo 'Processing relay did not become healthy' >&2; exit 1; }
 sudo systemctl is-active --quiet ad-voice-processing.service
 sudo systemctl reload nginx
+processing_ready
 curl -fsS http://127.0.0.1:8081/health/ready >/dev/null
 echo 'Processing relay active; room service remains online.'

@@ -227,7 +227,7 @@ int runOfflineCommand(std::span<const std::string_view> arguments, std::ostream&
     output << ',';
     writePathReport(output, "clientB", report.clientB);
     output << "}\n";
-    return report.interPeerAlignmentErrorSamples <= 96U ? 0 : 2;
+    return report.interPeerAlignmentErrorSamples <= 96U && report.peakCorrelation >= 0.80 ? 0 : 2;
 }
 } // namespace
 

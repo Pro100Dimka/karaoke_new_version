@@ -4,6 +4,7 @@
 
 - Use `start.bat dev` for non-room renderer work: Vite hot-reloads React/CSS without rebuilding `dist`. Electron, Python and AudioService changes need a restart. An already running application must be closed normally before changing launch modes; do not kill a user's recording or processing job. Use `start.bat` to verify the bundled renderer when the change requires it.
 - Run checks from the repository root with `check.bat`. It preserves the existing test commands and returns a nonzero exit code on failure. Checks do not run npm/pip installation; use the existing installer if required tools are missing.
+- For explicitly authorized focused backend checks of independent tests, default to `check.bat backend --workers=4 <affected test paths>`. Keep tests that measure timing or use shared hardware, GPU, or other shared resources sequential with `--workers=1`.
 
 | Area | Intermediate regression check | Full affected verification |
 | --- | --- | --- |

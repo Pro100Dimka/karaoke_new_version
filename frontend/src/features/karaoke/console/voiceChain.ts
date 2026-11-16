@@ -19,13 +19,17 @@ type VoiceChainSettings = Pick<
   Preferences,
   'voiceGain' | 'karaokeEffects' | 'noiseSuppression'
 >;
+const pendingChains = new WeakMap<
+  VoiceChainAudioPort,
+  { tail: Promise<void>; revision: number }
+>();
 
 /**
  * Sends the singer's own microphone volume, voice effects and noise suppression to AudioService.
  * The settings, the karaoke console and the room panel only change the stored values; this is the
  * one place that applies them, so all of them always show and play the same thing.
  */
-export const applyVoiceChain = async (
+export const applyVoiceChain = (
   { voiceGain, karaokeEffects, noiseSuppression }: VoiceChainSettings,
   audioClient: VoiceChainAudioPort,
 ) => {
@@ -38,13 +42,30 @@ export const applyVoiceChain = async (
     ['noise.reduction', noiseReduction(noiseSuppression)],
     ...Object.entries(effectBaseParameters),
   ];
-  await audioClient.setMixer('mic', voiceGain);
-  await Promise.all(
-    parameters.map(([name, value]) => audioClient.setDspParameter(name, value)),
-  );
-  await audioClient.setDspEnabled(
-    anyEffectActive(karaokeEffects, noiseSuppression),
-  );
+  const enabled = anyEffectActive(karaokeEffects, noiseSuppression);
+  const pending = pendingChains.get(audioClient) ?? {
+    tail: Promise.resolve(),
+    revision: 0,
+  };
+  pendingChains.set(audioClient, pending);
+  const revision = ++pending.revision;
+  pending.tail = pending.tail
+    .catch(() => undefined)
+    .then(async () => {
+      if (pending.revision !== revision) return;
+      await audioClient.setMixer('mic', voiceGain);
+      if (pending.revision !== revision) return;
+      const results = await Promise.allSettled(
+        parameters.map(([name, value]) =>
+          audioClient.setDspParameter(name, value),
+        ),
+      );
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) throw failure.reason;
+      if (pending.revision === revision)
+        await audioClient.setDspEnabled(enabled);
+    });
+  return pending.tail;
 };
 
 /** Keeps AudioService on the stored voice settings for the whole app, not only inside karaoke. */

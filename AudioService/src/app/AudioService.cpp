@@ -325,12 +325,6 @@ void AudioService::processPendingBackendEvent() {
     realtime_.acknowledgeBackendEvent(event.sequence);
     if (event.generation != session_.generationId())
         return;
-    constexpr std::array fatalEvents{
-        BackendEventType::DeviceLost, BackendEventType::DeviceInvalidated,
-        BackendEventType::DriverReset, BackendEventType::SampleRateChanged,
-        BackendEventType::RenderStalled};
-    if (std::ranges::find(fatalEvents, event.type) == fatalEvents.end())
-        return;
     captureFailure({FailureCategory::Device, FailureSeverity::SessionFatal, event.code,
                     std::string(backendEventName(event.type))});
     constexpr std::array nonRecoverableStates{SessionState::Idle, SessionState::Stopping};
@@ -386,15 +380,21 @@ void AudioService::checkLowLatencyInputStability() {
 void AudioService::processDeviceEvents() {
     DeviceEvent event;
     bool recover = false;
+    bool refreshSystemVolume = false;
     const auto captureAvailable = session_.runtime().inputChannels != 0;
     while (devices_.popEvent(event)) {
         // A driver switch can remove/re-add the Windows microphone during prepare(). Its
         // notification still carries the old generation, but an output-only session needs it.
         if (event.generationId != session_.generationId() && captureAvailable)
             continue;
+        if (session_.requested().backend == BackendKind::Asio &&
+            event.type == DeviceEventType::DefaultChanged && event.direction == Direction::Output)
+            refreshSystemVolume = true;
         if (deviceEventRequiresRecovery(event, session_.requested(), captureAvailable))
             recover = true;
     }
+    if (refreshSystemVolume)
+        followSystemVolume(session_.requested());
     constexpr std::array nonRecoverableStates{SessionState::Idle, SessionState::Stopping};
     if (recover &&
         std::ranges::find(nonRecoverableStates, session_.state()) == nonRecoverableStates.end()) {
@@ -404,21 +404,22 @@ void AudioService::processDeviceEvents() {
         syncDeviceGeneration();
     }
 }
-std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at) const noexcept {
+std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at, bool captureHistory) const noexcept {
     // A room follower hears the song later; its timers still show the room position.
     const auto followTicks = realtime_.roomFollowTicks();
-    const auto own = media_.presentationFrame(MediaSlot::Music, at - followTicks);
+    const auto own = media_.presentationFrame(MediaSlot::Music, at - followTicks, captureHistory);
     const auto music = media_.snapshot(MediaSlot::Music);
-    if (music.state != PlaybackState::Playing || followTicks <= 0)
+    if ((!captureHistory && music.state != PlaybackState::Playing) || followTicks <= 0)
         return own;
-    const auto framesPerTick = static_cast<double>(realtime_.roomFollowFrames()) / followTicks;
+    const auto framesPerTick = static_cast<double>(realtime_.roomFollowFrames()) /
+                               static_cast<double>(followTicks);
     // Until the follower's own (later) start, the room has only played since the scheduled start.
     const auto startAt = media_.scheduledStartTicks(MediaSlot::Music);
     const auto aheadTicks = startAt != 0 && at - followTicks < startAt
                                 ? std::max<MonotonicTicks>(0, at - startAt)
                                 : followTicks;
     return own + static_cast<std::uint64_t>(
-                     std::llround(aheadTicks * framesPerTick * static_cast<double>(music.rate)));
+                     std::llround(static_cast<double>(aheadTicks) * framesPerTick * music.rate));
 }
 
 std::string AudioService::diagnostics(bool playbackOnly) {
@@ -431,12 +432,19 @@ std::string AudioService::diagnostics(bool playbackOnly) {
     const auto presentationPosition = roomPlaybackFrame(observedAt);
     const auto rate = session_.runtime().outputSampleRateHz;
     std::ostringstream pitchFrames;
-    if (rate != 0 && music.state == PlaybackState::Playing) {
+    constexpr std::array capturedStates{PlaybackState::Playing, PlaybackState::Paused, PlaybackState::Finished};
+    if (rate != 0 && std::ranges::find(capturedStates, music.state) != capturedStates.end()) {
         for (const auto& point : analysis_.pitchHistory()) {
             const auto halfWindow = static_cast<MonotonicTicks>(point.windowFrames) * 500'000'000 / rate;
             if (point.capturedAt - halfWindow < pitchFence_) continue;
+            const auto end = music.state == PlaybackState::Finished
+                                 ? media_.presentationEndTicks(MediaSlot::Music) : pitchEnd_;
+            if (end != 0 && point.capturedEndAt > end) continue;
+            const auto frame = roomPlaybackFrame(point.capturedAt, true);
+            if (music.state == PlaybackState::Finished &&
+                frame >= media_.timelineFrame(MediaSlot::Music)) continue;
             if (pitchFrames.tellp() > 0) pitchFrames << '|';
-            pitchFrames << point.sequence << ',' << roomPlaybackFrame(point.capturedAt) << ','
+            pitchFrames << point.sequence << ',' << frame << ','
                         << static_cast<double>(point.frames) * music.rate << ',' << point.pitchHz
                         << ',' << (point.audioActive ? 1 : 0) << ',' << point.confidence;
         }

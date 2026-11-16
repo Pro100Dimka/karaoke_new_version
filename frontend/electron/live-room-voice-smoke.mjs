@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { roomSmokeIdentities } from './multi-electron-room-plan.mjs';
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -15,15 +16,15 @@ const executable = path.join(
   'Release',
   'AudioService.exe',
 );
-const base =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
+const base = process.env.AD_VOICE_ROOM_SERVER_API ?? 'https://130.61.169.61';
 const suffix = crypto.randomUUID().slice(0, 8);
 const requestedBackends = (
   process.env.AD_VOICE_SMOKE_BACKENDS ?? 'wasapi-shared,wasapi-shared'
 ).split(',');
 const oneWay = process.env.AD_VOICE_SMOKE_ONE_WAY === '1';
+const identities = roomSmokeIdentities();
 const clients = [1, 2].map((number) => ({
-  participantId: `voice-smoke-${suffix}-${number}`,
+  participantId: identities.create(),
   pipe: `ADVoice.RoomSmoke.${suffix}.${number}`,
 }));
 const processes = clients.map((client) =>
@@ -42,7 +43,13 @@ const delay = (milliseconds) =>
 const request = async (method, route, body) => {
   const response = await fetch(`${base}${route}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...identities.headers(
+        base,
+        body?.participantId ?? clients[0].participantId,
+      ),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw new Error(`${route} failed (${response.status})`);

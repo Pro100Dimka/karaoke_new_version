@@ -1,4 +1,7 @@
 import type {
+  AppError,
+  BackendDiagnosticsDto,
+  HistoryPageDto,
   AnalysisDto,
   ProcessingJobDto,
   RecordingDto,
@@ -55,14 +58,9 @@ export interface BackendJob {
 /** Percent done; the backend reports either a 0..1 fraction or a percentage. */
 export const jobProgress = (job: BackendJob): number =>
   Math.round(job.overallProgress * (job.overallProgress <= 1 ? 100 : 1));
-export interface JobPage {
-  items: BackendJob[];
-  limit: number;
-  offset: number;
-}
-export interface RecordingPage {
-  items: BackendRecording[];
-  total: number;
+export interface BackendPage<T> {
+  items: T[];
+  total?: number;
   limit: number;
   offset: number;
 }
@@ -300,3 +298,73 @@ export const objectAt = (
 
 export const optionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value ? value : undefined;
+
+export const mapDiagnostics = (
+  raw: unknown,
+  version: { backendVersion: string; apiVersion: number },
+): BackendDiagnosticsDto => {
+  const backend = objectAt(raw, 'backend');
+  const ai = objectAt(raw, 'ai');
+  const versions = objectAt(raw, 'versions');
+  const usage = objectAt(objectAt(raw, 'storage'), 'usage');
+  return {
+    state: optionalString(backend.state) ?? 'Unknown',
+    database: backend.database === true,
+    cudaAvailable: ai.cuda_available === true,
+    gpuName: optionalString(ai.gpu_name),
+    ffmpegVersion: optionalString(ai.ffmpeg_version),
+    pytorchVersion: optionalString(ai.pytorch_version),
+    interruptedTransactions: numberAt(
+      objectAt(raw, 'recovery'),
+      'interruptedTransactions',
+    ),
+    backendVersion: version.backendVersion,
+    apiVersion: version.apiVersion,
+    dbSchema: numberAt(versions, 'dbSchema'),
+    projectFormat: numberAt(versions, 'projectFormat'),
+    storage: {
+      songs: numberAt(usage, 'songs'),
+      models: numberAt(usage, 'models'),
+      cache: numberAt(usage, 'cache'),
+      recordings: numberAt(usage, 'recordings'),
+      temp: numberAt(usage, 'temp'),
+      free: numberAt(usage, 'free'),
+    },
+  };
+};
+
+export const mapHistory = (page: BackendHistoryPage): HistoryPageDto => {
+  return {
+    total: page.total,
+    items: page.items.map((item) => ({
+      id: item.eventId,
+      kind: item.eventType,
+      createdAt: item.createdAt,
+      songId: item.songId ?? undefined,
+      detail: item.details ? JSON.stringify(item.details) : undefined,
+    })),
+  };
+};
+
+export const mapAnalysisFailure = (current: BackendJob): AppError =>
+  ({
+    code: optionalString(current.error?.code) ?? `Analysis${current.state}`,
+    message:
+      optionalString(current.error?.message) ?? 'Performance analysis failed',
+    source: 'python',
+  }) satisfies AppError;
+
+export const mapPackageFailure = (current: BackendJob): AppError => {
+  const error = current.error ?? {};
+  return {
+    code:
+      typeof error.code === 'string' ? error.code : `Package${current.state}`,
+    message:
+      typeof error.message === 'string'
+        ? error.message
+        : `Package job ${current.state.toLowerCase()}`,
+    details:
+      error.details === undefined ? undefined : JSON.stringify(error.details),
+    source: 'python',
+  } satisfies AppError;
+};

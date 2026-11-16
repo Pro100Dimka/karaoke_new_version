@@ -47,14 +47,22 @@ export class RoomRecoveryCoordinator {
   private unsubscribe?: () => void;
   private pythonReady = false;
   private selectionEpoch = 0;
-  private selection?: { songId?: string; revision?: number };
+  private selection?: {
+    songId?: string;
+    revision?: number;
+    selectionId?: number;
+  };
 
   constructor(
     private readonly scope: RoomSessionScope,
     private readonly ports: RecoveryPorts,
   ) {
     const current = scope.getRoom();
-    this.selection = { songId: current?.songId, revision: current?.revision };
+    this.selection = {
+      songId: current?.songId,
+      revision: current?.revision,
+      selectionId: current?.selectionId,
+    };
   }
 
   setPythonReady(ready: boolean): void {
@@ -80,11 +88,13 @@ export class RoomRecoveryCoordinator {
           return;
         if (
           snapshot.songId !== this.selection?.songId ||
+          snapshot.selectionId !== this.selection?.selectionId ||
           snapshot.revision !== this.selection?.revision
         ) {
           this.selection = {
             songId: snapshot.songId,
             revision: snapshot.revision,
+            selectionId: snapshot.selectionId,
           };
           ++this.selectionEpoch;
           this.ports.launch.selectionChanged(snapshot);

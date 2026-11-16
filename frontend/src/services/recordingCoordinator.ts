@@ -259,12 +259,12 @@ export const recordingCoordinator = {
         await audio('PauseRecording');
         take.pausedAt = performance.now();
       }
-      const format = preserve
-        ? nativeRecordingResult(
-            await audio('GetRecordingState', { details: true, paused: true }),
-          )
-        : undefined;
       try {
+        const format = preserve
+          ? nativeRecordingResult(
+              await audio('GetRecordingState', { details: true, paused: true }),
+            )
+          : undefined;
         await work(format);
       } finally {
         if (resume && active === take && !take.interrupted) {

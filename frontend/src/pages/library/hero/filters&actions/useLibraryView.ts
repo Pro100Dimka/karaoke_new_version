@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { object, picklist, safeParse, string } from 'valibot';
 import type { LibraryViewFilters } from './search-field';
+import { readJson, writeJson } from '../../../../shared/storage/localStore';
 
 const STORAGE_KEY = 'adVoice.libraryView';
 
@@ -8,8 +9,14 @@ const viewSchema = object({
   query: string(),
   filters: object({
     status: picklist([
-      'all', 'not-processed', 'queued', 'processing', 'ready',
-      'failed', 'importing', 'invalid',
+      'all',
+      'not-processed',
+      'queued',
+      'processing',
+      'ready',
+      'failed',
+      'importing',
+      'invalid',
     ]),
     language: picklist(['all', 'Auto', 'Ukrainian', 'Russian', 'English']),
     duration: picklist(['all', 'short', 'medium', 'long']),
@@ -33,27 +40,15 @@ const defaultView = (): LibraryView => ({
 });
 
 const loadView = (): LibraryView => {
-  try {
-    const result = safeParse(
-      viewSchema,
-      JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? 'null'),
-    );
-    if (result.success) return result.output;
-  } catch {
-    // Storage is optional.
-  }
-  return defaultView();
+  const result = safeParse(viewSchema, readJson(STORAGE_KEY, 'session'));
+  return result.success ? result.output : defaultView();
 };
 
 export const useLibraryView = () => {
   const [view, setView] = useState(loadView);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(view));
-    } catch {
-      // Library remains usable without storage.
-    }
+    writeJson(STORAGE_KEY, view, 'session');
   }, [view]);
 
   const setQuery = useCallback((query: string) => {

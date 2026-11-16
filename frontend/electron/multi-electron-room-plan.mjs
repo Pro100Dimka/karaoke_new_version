@@ -1,3 +1,30 @@
+import { createHash, randomBytes } from 'node:crypto';
+
+/** Ephemeral participant credentials for isolated room checks. */
+export const roomSmokeIdentities = () => {
+  const keys = new Map();
+  return {
+    create() {
+      const key = randomBytes(32).toString('hex');
+      const participant = createHash('sha256')
+        .update(`ad-voice-room-participant:${key}`)
+        .digest('hex')
+        .slice(0, 32);
+      keys.set(participant, key);
+      return participant;
+    },
+    headers(base, participant) {
+      const url = new URL(base);
+      const local = ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname);
+      if (url.protocol !== 'https:' && !(local && url.protocol === 'http:'))
+        throw new Error('Room server credentials require HTTPS');
+      const key = keys.get(participant);
+      if (!key) throw new Error('Room check participant has no credentials');
+      return { 'X-AD-Voice-Room-Key': key };
+    },
+  };
+};
+
 export const phaseAtSecond = (second) => {
   if (second === 30) return 'RECONNECT_B';
   if (second < 10 || (second >= 35 && second < 45)) return 'A_TO_B';

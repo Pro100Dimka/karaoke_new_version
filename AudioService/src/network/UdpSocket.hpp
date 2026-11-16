@@ -22,6 +22,8 @@ class UdpSocket {
     [[nodiscard]] bool send(std::span<const std::byte> bytes) noexcept;
     [[nodiscard]] bool sendTo(const std::string& host, std::uint16_t port,
                               std::span<const std::byte> bytes) noexcept;
+    /** Sends to a route resolved by endpointIdentity during connection setup. */
+    [[nodiscard]] bool sendTo(std::uint64_t endpoint, std::span<const std::byte> bytes) noexcept;
     [[nodiscard]] std::size_t receive(std::span<std::byte> bytes) noexcept;
     /** Zero probes immediately; a positive value waits up to that many milliseconds. */
     [[nodiscard]] bool hasPendingDatagram(std::uint32_t timeoutMs = 0) const noexcept;
@@ -45,9 +47,7 @@ class UdpSocket {
 #else
     int socket_{-1};
 #endif
-    std::string defaultHost_;
-    std::uint16_t defaultPort_{0};
-    std::uint32_t defaultAddress_{0}; // resolved IPv4 of the default destination, network order
+    std::uint64_t defaultPeer_{0}; // resolved IPv4 and port, matching endpointIdentity
     bool lastFromDefault_{false};     // receive thread
     std::uint64_t lastSourceIdentity_{0}; // receive thread
     std::atomic<std::uint32_t> receiveTimeoutMs_{0};

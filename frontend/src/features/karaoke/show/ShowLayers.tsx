@@ -96,6 +96,7 @@ export const useShowEngine = ({
 }: ShowInput): ShowEngine => {
   const engine = useMemo(() => new ShowEngine(), []);
   const lastPitch = useRef({ epoch: -1, sequence: 0 });
+  const played = useRef(false);
   const loadedLines = useRef<readonly LyricLine[] | undefined>(undefined);
   const loadedPerformance = useRef<number | undefined>(undefined);
   const currentPitchFrames = useRef(pitchFrames);
@@ -118,6 +119,7 @@ export const useShowEngine = ({
     loadedLines.current = lines;
     loadedPerformance.current = performanceId;
     if (resetPerformance) {
+      played.current = false;
       const frame = newPerformance
         ? currentPitchFrames.current?.at(-1)
         : undefined;
@@ -143,13 +145,22 @@ export const useShowEngine = ({
     [engine],
   );
   useEffect(() => {
-    if (!playing || !pitchFrames) return;
+    if (playing) played.current = true;
+    if (!pitchFrames) return;
     for (const frame of pitchFrames) {
+      if (
+        !playing &&
+        frame.epoch !== lastPitch.current.epoch &&
+        !(lastPitch.current.epoch === -1 && played.current)
+      )
+        continue;
       if (
         frame.epoch === lastPitch.current.epoch &&
         frame.sequence <= lastPitch.current.sequence
       )
         continue;
+      lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
+      if (!playing && !(frame.audioActive ?? Boolean(frame.pitchHz))) continue;
       engine.advance(
         performance.now(),
         frame.positionSeconds,
@@ -160,7 +171,6 @@ export const useShowEngine = ({
         frame.audioActive,
         frame.confidence,
       );
-      lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
     }
   }, [engine, pitchFrames, playing]);
   // Captured frames score their own past positions; drawing always ends on the current music clock.

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-test('the type rule accepts property names and comments but rejects explicit unsafe types', () => {
+test('syntax rules distinguish source constructs from strings and comments', () => {
   const root = mkdtempSync(join(tmpdir(), 'advoice-rule-test-'));
   try {
     mkdirSync(join(root, 'src'));
@@ -27,6 +27,16 @@ test('the type rule accepts property names and comments but rejects explicit uns
     const rejected = check();
     assert.equal(rejected.status, 1);
     assert.match(rejected.stderr, /sample\.ts:2 any/);
+    writeFileSync(source, 'const selector = "[role=\'button\']";\n');
+    const renderer = join(root, 'src', 'sample.tsx');
+    writeFileSync(renderer, 'const selector = "[role=\'button\']";\n');
+    assert.equal(check().status, 0);
+    for (const role of ['"button"', '{"button"}']) {
+      writeFileSync(renderer, `const control = <span\n role = ${role} />;\n`);
+      const invalidRole = check();
+      assert.equal(invalidRole.status, 1);
+      assert.match(invalidRole.stderr, /sample\.tsx:2 manual button role/);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

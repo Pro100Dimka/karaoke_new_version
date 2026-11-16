@@ -27,6 +27,7 @@ export const useInputMonitoring = (canStart: boolean) => {
     if (!testingInput) return;
     let stopped = false;
     let ownsAudio = false;
+    let restoreMonitoring = false;
     let stopSamples: (() => void) | undefined;
     const reportError = (error: unknown) => {
       const { notify } = latest.current;
@@ -41,6 +42,7 @@ export const useInputMonitoring = (canStart: boolean) => {
           if (stopped) return;
           runInAction(() => inputLevel.set(snapshot.inputLevel));
           if (snapshot.monitoringSafetyTripped) {
+            restoreMonitoring = false;
             const { notify } = latest.current;
             notify(tr('monitoringSafetyStopped'), 'error');
             setTestingInputState(false);
@@ -57,6 +59,8 @@ export const useInputMonitoring = (canStart: boolean) => {
     };
     void session
       .enqueue(async () => {
+        if (stopped) return false;
+        restoreMonitoring = (await audio.snapshot()).monitoring;
         if (stopped) return false;
         ownsAudio = true;
         await applyVoiceChain(latest.current.preferences, audio);
@@ -83,7 +87,7 @@ export const useInputMonitoring = (canStart: boolean) => {
         .enqueue(async () => {
           if (!ownsAudio) return;
           try {
-            await audio.setMonitoring(false);
+            await audio.setMonitoring(restoreMonitoring);
           } finally {
             await applyVoiceChain(latest.current.preferences, audio);
           }

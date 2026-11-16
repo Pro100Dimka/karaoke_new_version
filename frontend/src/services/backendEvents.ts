@@ -31,13 +31,17 @@ export const onRecordingsChange = (listener: () => void): (() => void) =>
 /** A read started before a change/reconnection must not replace the new authoritative state. */
 export const readBackendSnapshot = async <T>(
   read: () => Promise<T>,
-  types: readonly string[],
+  changes: readonly string[] | ((listener: () => void) => () => void),
   signal?: AbortSignal,
 ): Promise<T> => {
   let revision = 0;
-  const stop = onBackendChange(types, () => {
+  const changed = () => {
     revision += 1;
-  });
+  };
+  const stop =
+    typeof changes === 'function'
+      ? changes(changed)
+      : onBackendChange(changes, changed);
   try {
     for (;;) {
       signal?.throwIfAborted();

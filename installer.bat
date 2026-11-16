@@ -82,13 +82,9 @@ if errorlevel 1 (
 )
 call :require_command node.exe "Node.js"
 if errorlevel 1 goto :fail
-for /f "delims=" %%V in ('node.exe -p "Number(process.versions.node.split('.')[0])"') do set "NODE_MAJOR=%%V"
-if not defined NODE_MAJOR (
-    echo [error] Could not read the Node.js version.
-    goto :fail
-)
-if %NODE_MAJOR% LSS 20 (
-    echo [error] Node.js 20 or newer is required. Found major version %NODE_MAJOR%.
+node.exe -e "const [major, minor] = process.versions.node.split('.').map(Number); const supported = major > 22 || (major === 22 && minor >= 12); process.exit(supported ? 0 : 1)"
+if errorlevel 1 (
+    echo [error] Node.js 22.12 or newer is required.
     goto :fail
 )
 call :require_command npm.cmd "npm"

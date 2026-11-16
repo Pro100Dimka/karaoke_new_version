@@ -271,6 +271,7 @@ export interface RoomPlaylist {
 }
 
 export interface RoomStateDto {
+  selectionId?: number;
   playlist?: RoomPlaylist;
   lastPerformanceId?: number;
   lastPerformanceAccuracy?: number;

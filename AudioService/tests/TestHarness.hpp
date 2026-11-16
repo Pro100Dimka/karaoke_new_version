@@ -3,13 +3,26 @@
 #include "recording/WavWriter.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <optional>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
 namespace Tests {
+void networkDiagnosticsRetainSignedPeerAlignment();
 void loadingProgressReportsRealScannedFramesWithoutMovingPlayback();
+void transportSnapshotDoesNotWaitForDiagnosticText();
+void networkProcessClientUsesProtocolCadence();
+void networkAlignmentMeasuresBeyondItsSuccessThreshold();
+void backgroundSuspendKeepsUnfinishedRecordingsOpen();
+void nativePreconditionsStopBeforeDependentAccess();
+void nativeRelayTestHelpersRejectMissingData();
+void asioSystemVolumeFollowsTheNewWindowsDefault();
+void asioLatencyChangeRefreshesRuntimeWithoutRestarting();
 void controlledReconfigurePreservesOnePerformanceFile();
 void rejectedPcmPacketsCannotSeedReceiveLossConcealment();
 void traceRejectsAnOldTakeTokenAfterImmediateRearm();
@@ -250,6 +263,52 @@ inline void expect(bool condition, std::string_view message) {
         std::cerr << "FAIL: " << message << '\n';
     }
 }
+
+inline void require(bool condition, std::string_view message) {
+    if (!condition)
+        throw std::runtime_error(std::string(message));
+}
+
+class ScopedEnvironment {
+  public:
+    ScopedEnvironment(const char* name, const char* value) : name_(name), previous_(read(name)) {
+        set(value);
+    }
+    ~ScopedEnvironment() {
+        expect(write(previous_ ? previous_->c_str() : nullptr) == 0,
+               "the test restores its environment variable");
+    }
+    ScopedEnvironment(const ScopedEnvironment&) = delete;
+    ScopedEnvironment& operator=(const ScopedEnvironment&) = delete;
+
+    void set(const char* value) {
+        require(write(value) == 0, "the test can set its environment variable");
+    }
+    static std::optional<std::string> read(const char* name) {
+#ifdef _WIN32
+        char* value = nullptr;
+        std::size_t length = 0;
+        require(_dupenv_s(&value, &length, name) == 0, "the test can read its environment variable");
+        const auto previous = value ? std::optional<std::string>{value} : std::nullopt;
+        std::free(value);
+        return previous;
+#else
+        const auto* value = std::getenv(name);
+        return value ? std::optional<std::string>{value} : std::nullopt;
+#endif
+    }
+
+  private:
+    int write(const char* value) const {
+#ifdef _WIN32
+        return _putenv_s(name_, value ? value : "");
+#else
+        return value ? ::setenv(name_, value, 1) : ::unsetenv(name_);
+#endif
+    }
+    const char* name_;
+    std::optional<std::string> previous_;
+};
 
 inline void makeTestWav(const std::filesystem::path& path, std::uint32_t frames = 4800,
                         std::uint32_t sampleRateHz = 48000, std::uint32_t channels = 2) {

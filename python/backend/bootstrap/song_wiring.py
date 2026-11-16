@@ -91,7 +91,7 @@ def _import_song(
         runtime.database,
         project.songs,
         project.projects,
-        FfmpegMediaInspector(runtime.processes),
+        FfmpegMediaInspector(runtime.processes, sidecar=LocalSidecarLyricsReader()),
         runtime.hasher,
         project.journal,
         runtime.clock,

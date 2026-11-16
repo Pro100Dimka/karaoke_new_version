@@ -10,14 +10,11 @@ from typing import Callable, Mapping, Sequence
 
 from backend.domain_errors import DependencyError
 from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
+from backend.lyrics.codec import clean_lyric_line as _clean_line, decode_lrc as _synced_lines
 from backend.serialization import loads_list
 from backend.songs.domain import Language, Song
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import strip_annotations
-
-_TIMED_LINE = re.compile(r"^\s*\[(\d{1,2}):(\d{2}(?:\.\d+)?)]\s*(.*)$")
-# A dash standing alone between words is punctuation, not a sung word, so it must not become a timed word.
-_SPACED_DASH = re.compile(r"(?<=\s)[–—-](?=\s)")
 
 Fetch = Callable[[str, float], str]
 
@@ -99,20 +96,6 @@ def _artist_variants(artist: str) -> list[str]:
         return []
     first = _ARTIST_SEPARATORS.split(full)[0].strip()
     return [full] if not first or first == full else [full, first]
-
-
-def _clean_line(line: str) -> str:
-    return " ".join(_SPACED_DASH.sub("", line).split())
-
-
-def _synced_lines(synced: str) -> list[tuple[float, str]]:
-    lines: list[tuple[float, str]] = []
-    for row in synced.splitlines():
-        match = _TIMED_LINE.match(row)
-        text = _clean_line(match[3]) if match else ""
-        if match and text:
-            lines.append((int(match[1]) * 60 + float(match[2]), text))
-    return lines
 
 
 def _candidate(row: object) -> LyricsCandidate | None:

@@ -181,41 +181,6 @@ export const deleteNotes = (
         document.notes.filter((note) => !ids.has(note.id)),
       );
 
-/** Merges selected notes of one word into a single note spanning them; different words cannot be merged. */
-export const canMerge = (
-  document: EditorDocument,
-  ids: ReadonlySet<string>,
-): boolean => {
-  const selected = document.notes.filter((note) => ids.has(note.id));
-  return (
-    selected.length >= 2 &&
-    new Set(selected.map((note) => note.wordId)).size === 1
-  );
-};
-
-export const mergeNotes = (
-  document: EditorDocument,
-  ids: ReadonlySet<string>,
-): EditorDocument => {
-  if (!canMerge(document, ids)) return document;
-  const selected = document.notes
-    .filter((note) => ids.has(note.id))
-    .sort((a, b) => a.start - b.start);
-  const first = selected[0];
-  if (!first) return document;
-  const merged: EditorNote = {
-    ...first,
-    start: Math.min(...selected.map((note) => note.start)),
-    end: Math.max(...selected.map((note) => note.end)),
-  };
-  return withNotes(
-    document,
-    document.notes
-      .filter((note) => !ids.has(note.id) || note.id === first.id)
-      .map((note) => (note.id === first.id ? merged : note)),
-  );
-};
-
 /** Snaps the start or end of the given notes to a time (playhead), still respecting neighbours and the word. */
 export const alignBoundary = (
   document: EditorDocument,

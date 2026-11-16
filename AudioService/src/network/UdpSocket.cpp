@@ -123,25 +123,30 @@ void UdpSocket::connect(const std::string& host, std::uint16_t port, std::uint16
     // Keep the socket unconnected: room audio must receive both relay fallback packets and direct
     // peer packets on the same NAT-mapped source port. send() retains the old default-destination
     // API.
-    defaultHost_ = host;
-    defaultPort_ = port;
-    sockaddr_in resolved{};
-    defaultAddress_ = resolveIpv4(host, port, resolved) ? resolved.sin_addr.s_addr : 0U;
+    defaultPeer_ = endpointIdentity(host, port);
 }
 void UdpSocket::setReceiveTimeoutMs(std::uint32_t timeoutMs) {
     receiveTimeoutMs_.store(timeoutMs, std::memory_order_relaxed);
 }
 bool UdpSocket::send(std::span<const std::byte> bytes) noexcept {
-    return sendTo(defaultHost_, defaultPort_, bytes);
+    return sendTo(defaultPeer_, bytes);
 }
 bool UdpSocket::sendTo(const std::string& host, std::uint16_t port,
                        std::span<const std::byte> bytes) noexcept {
     RealtimeInstrumentation::reportNetworkIo();
     if (host.empty() || port == 0)
         return false;
-    sockaddr_in address{};
-    if (!resolveIpv4(host, port, address))
+    return sendTo(endpointIdentity(host, port), bytes);
+}
+bool UdpSocket::sendTo(std::uint64_t endpoint, std::span<const std::byte> bytes) noexcept {
+    RealtimeInstrumentation::reportNetworkIo();
+    const auto port = static_cast<std::uint16_t>(endpoint & 0xFFFFU);
+    if (endpoint == 0 || port == 0)
         return false;
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = static_cast<std::uint32_t>(endpoint >> 16U);
+    address.sin_port = htons(port);
 #ifdef _WIN32
     if (socket_ == ~std::uintptr_t{0})
         return false;
@@ -181,12 +186,11 @@ std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
     const auto count = ::recvfrom(socket_, bytes.data(), bytes.size(), 0,
                                   reinterpret_cast<sockaddr*>(&from), &fromLength);
 #endif
-    lastFromDefault_ = count > 0 && defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
-                       from.sin_port == htons(defaultPort_);
     lastSourceIdentity_ = count > 0
                               ? (static_cast<std::uint64_t>(from.sin_addr.s_addr) << 16U) |
                                     ntohs(from.sin_port)
                               : 0U;
+    lastFromDefault_ = defaultPeer_ != 0 && lastSourceIdentity_ == defaultPeer_;
     return count > 0 ? static_cast<std::size_t>(count) : 0;
 }
 bool UdpSocket::hasPendingDatagram(std::uint32_t timeoutMs) const noexcept {
@@ -240,7 +244,5 @@ void UdpSocket::close() noexcept {
         socket_ = -1;
     }
 #endif
-    defaultHost_.clear();
-    defaultPort_ = 0;
-    defaultAddress_ = 0;
+    defaultPeer_ = 0;
 }

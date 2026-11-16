@@ -55,19 +55,20 @@ class Accounts:
 
     def identify(self, device_secret: str) -> Account:
         key = device_key(device_secret)
-        known = self._store.by_device(key)
-        if known is not None:
-            return known
-        account = Account(
-            account_id=self._ids.new(),
-            display_name="",
-            friend_code=_unique(new_friend_code, self._store.by_friend_code),
-            transfer_code=_unique(new_transfer_code, self._store.by_transfer_code),
-            avatar_version=0,
-            created_at=self._clock.now(),
-        )
-        self._store.add(account, key)
-        return account
+        with self._lock:
+            known = self._store.by_device(key)
+            if known is not None:
+                return known
+            account = Account(
+                account_id=self._ids.new(),
+                display_name="",
+                friend_code=_unique(new_friend_code, self._store.by_friend_code),
+                transfer_code=_unique(new_transfer_code, self._store.by_transfer_code),
+                avatar_version=0,
+                created_at=self._clock.now(),
+            )
+            self._store.add(account, key)
+            return account
 
     def person(self, account_id: str) -> Account:
         account = self._store.by_id(account_id)

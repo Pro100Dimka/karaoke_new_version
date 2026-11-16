@@ -116,7 +116,7 @@ void acousticLatencyRejectsAmbiguousPaths() {
     constexpr std::uint32_t rate = 48'000;
     const auto chirp = AcousticLatencyMeter::chirp(rate);
     std::vector<float> recorded(rate * 2U, 0.0F);
-    for (const auto [shift, gain] : std::array{std::pair{480U, 0.08F}, std::pair{2'880U, 0.30F}})
+    for (const auto& [shift, gain] : std::array{std::pair{480U, 0.08F}, std::pair{2'880U, 0.30F}})
         addChirpTrain(recorded, chirp, rate, shift, gain);
     expect(!AcousticLatencyMeter::locate(recorded, chirp, rate),
            "a stronger echo must not become an apparently certain calibration");
@@ -178,7 +178,7 @@ void acousticCalibrationRequiresAgreementInTheCurrentSession() {
     AcousticLatencyMeter meter;
     AcousticLatencyMeter::Result result;
     meter.prepare(48'000, 48'000);
-    for (const auto [frames, accepted] :
+    for (const auto& [frames, accepted] :
          std::array{std::pair{1'440U, false}, std::pair{1'488U, true}, std::pair{9'600U, true}}) {
         (void)simulateAcousticRoom(meter, frames, 0.3F, result, false);
         expect(meter.acceptsCalibration(30'000'000) == accepted,

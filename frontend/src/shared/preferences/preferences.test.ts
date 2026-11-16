@@ -77,12 +77,20 @@ describe('parsePreferences', () => {
         .audio.lowLatencyInput,
     ).toBeUndefined();
   });
-  it('remembers that ASIO was chosen deliberately', () => {
-    expect(
-      parsePreferences({ audio: { backend: 'ASIO', userSelectedAsio: true } })
-        .audio,
-    ).toMatchObject({ backend: 'ASIO', userSelectedAsio: true });
-  });
+  it.each([0, 64, 256])(
+    'restores the chosen ASIO configuration and input period %i',
+    (inputPeriodFrames) => {
+      expect(
+        parsePreferences({
+          audio: { backend: 'ASIO', userSelectedAsio: true, inputPeriodFrames },
+        }).audio,
+      ).toMatchObject({
+        backend: 'ASIO',
+        userSelectedAsio: true,
+        inputPeriodFrames,
+      });
+    },
+  );
   it('falls back to defaults for unknown values', () => {
     const value = parsePreferences({
       theme: 'neon',

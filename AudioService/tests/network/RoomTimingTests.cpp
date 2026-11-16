@@ -48,6 +48,8 @@ const RelayDatagram* mixFor(const std::vector<RelayDatagram>& output, const Rela
 }
 
 std::int16_t firstSample(const RelayDatagram& datagram) {
+    Tests::require(datagram.bytes.size() >= AudioPacketHeaderBytes + 2U,
+                   "recipient mix contains a PCM sample");
     const auto low = std::to_integer<std::uint16_t>(datagram.bytes[AudioPacketHeaderBytes]);
     const auto high = std::to_integer<std::uint16_t>(datagram.bytes[AudioPacketHeaderBytes + 1]);
     return static_cast<std::int16_t>(low | (high << 8U));
@@ -55,7 +57,7 @@ std::int16_t firstSample(const RelayDatagram& datagram) {
 
 ServerMixStageReport stageOf(const RelayDatagram& datagram) {
     AudioPacketHeader header{};
-    (void)decodeAudioPacketHeader(datagram.bytes, header);
+    Tests::require(decodeAudioPacketHeader(datagram.bytes, header), "recipient mix has a valid header");
     return decodeServerMixStageReport(header.reportedParticipantKey |
                                       (static_cast<std::uint32_t>(header.reportedLossPermille) << 24U));
 }
@@ -106,8 +108,8 @@ void roomRelayClosesEachPositionByTheMeasuredReturnReserve() {
     const auto output = bobSixMillisecondsLate(measured);
     const auto* toAlice = mixFor(output.atBob, Alice);
     const auto* toBob = mixFor(output.atAlice, Bob);
-    expect(toAlice != nullptr && firstSample(*toAlice) == 1'000 && toBob != nullptr &&
-               firstSample(*toBob) == 100,
+    require(toAlice != nullptr && toBob != nullptr, "both recipients receive their server mix");
+    expect(firstSample(*toAlice) == 1'000 && firstSample(*toBob) == 100,
            "with the measured 3 ms reserve the position stays open until 9.5 ms and both voices "
            "make the mix");
 
@@ -140,7 +142,7 @@ void roomRelayReservesASlowReturnRouteBeforeTheDeadline() {
            "the position stays open until 29 ms (50 ms deadline minus a 21 ms return route)");
     const auto closed = relay.flush(Monotonic + 0.0295, Wall + 0.0295);
     const auto* toAlice = mixFor(closed, Alice);
-    expect(toAlice != nullptr,
+    require(toAlice != nullptr,
            "and closes in time for the slow listener's return route instead of 10 ms before");
     const auto stage = stageOf(*toAlice);
     expect(stage.ingressFrames == 0U &&

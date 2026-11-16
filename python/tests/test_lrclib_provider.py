@@ -13,6 +13,7 @@ import httpx
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
+from backend.infrastructure.sidecar_lyrics import LocalSidecarLyricsReader
 from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
 from backend.infrastructure.pisni_provider import PisniLyricsProvider
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
@@ -306,7 +307,27 @@ class _Recorder:
         return response
 
 
-def test_searches_by_cleaned_title_and_artist_and_returns_plain_text() -> None:
+@pytest.mark.parametrize("source", ["online", "sidecar", "embedded"])
+def test_searches_by_cleaned_title_and_artist_and_returns_plain_text(tmp_path, source) -> None:
+    if source != "online":
+        from dataclasses import replace
+
+        raw = "[ar:Нервы]\n[00:10.50]Кофе мой друг\n[00:14.00]Музыка мой драйв"
+        path = tmp_path / "song.wav"
+        song = replace(_song("Кофе мой друг", "Нервы"), source_path=path)
+        if source == "sidecar":
+            path.with_suffix(".lrc").write_text(raw, encoding="utf-8")
+        else:
+            song = replace(song, embedded_lyrics=raw)
+        found = LyricsDiscovery(LocalSidecarLyricsReader(), (), LyricsMatchPolicy()).lookup(
+            song, threading.Event(), False
+        ).found
+        assert found is not None
+        assert found.lyrics == "Кофе мой друг\nМузыка мой драйв"
+        assert found.timing_hints == (
+            LyricLineTiming(10.5, "Кофе мой друг"), LyricLineTiming(14.0, "Музыка мой драйв")
+        )
+        return
     fetch = _Recorder(_ROWS)
     provider = LrclibLyricsProvider(fetch=fetch)
 

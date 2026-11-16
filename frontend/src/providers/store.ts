@@ -38,6 +38,7 @@ class Store {
   };
 
   playback = {
+    previewVolume: 1,
     playlist: null as { name: string; songIds: string[]; index: number } | null,
     launch: null as { songId: string; mode: KaraokeOpenMode } | null,
     returned: null as {

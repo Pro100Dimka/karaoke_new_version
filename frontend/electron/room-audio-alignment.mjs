@@ -4,6 +4,8 @@ export function estimateOffsetMs(
   sampleRate,
   maximumOffset = Math.min(2400, Math.floor(sampleRate / 5)),
 ) {
+  if (!left.length || !right.length)
+    throw new RangeError('Audio alignment requires nonempty signals');
   const window = Math.min(
     left.length,
     right.length,

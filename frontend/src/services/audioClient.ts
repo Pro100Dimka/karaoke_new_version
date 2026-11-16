@@ -15,6 +15,7 @@ import {
   diagnosticNumber,
   parseKeyValues,
   runtimeConfigurationFromDiagnostics,
+  spectrumFromText,
 } from './audioProtocol';
 import { createAudioPlayers } from './audioPlayers';
 import type { MediaCheckpoint } from './audioReconfiguration';
@@ -175,16 +176,6 @@ const scheduledStart = async (
       Math.round((schedule.startAtMilliseconds + clock.offset) * 1e6),
     ),
     frame: Math.max(0, Math.round(schedule.positionSeconds * sampleRate)),
-  };
-};
-
-const parseBands = (value: string | undefined): number[] =>
-  (value ?? '').split(',').map(Number).filter(Number.isFinite);
-const spectrumFromText = (text: string) => {
-  const values = parseKeyValues(text);
-  return {
-    bands: parseBands(values.bands),
-    backingBands: parseBands(values.backingBands),
   };
 };
 

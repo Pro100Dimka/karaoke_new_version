@@ -58,6 +58,29 @@ class RecentAudioSequenceWindow {
     std::array<std::uint32_t, Capacity> sequences_{};
 };
 
+/** Stream ids are opaque boot identifiers. A retired id stays retired until the route resets. */
+class AudioStreamEpochHistory {
+  public:
+    void reset(std::optional<std::uint32_t> epoch = std::nullopt) noexcept {
+        current_ = epoch;
+        retired_.clear();
+    }
+    [[nodiscard]] std::optional<std::uint32_t> current() const noexcept { return current_; }
+    [[nodiscard]] bool accept(std::uint32_t epoch) {
+        if (current_ == epoch)
+            return true;
+        if (std::find(retired_.begin(), retired_.end(), epoch) != retired_.end())
+            return false;
+        if (current_) retired_.push_back(*current_);
+        current_ = epoch;
+        return true;
+    }
+
+  private:
+    std::optional<std::uint32_t> current_{};
+    std::vector<std::uint32_t> retired_{};
+};
+
 /**
  * The voice protocol (generated from python/backend/room/voice_protocol.py): the transport rate and
  * the frames of one packet. A packet waits until it is full and the room keeps one packet of guard,

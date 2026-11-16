@@ -40,11 +40,6 @@ const checks = [
     rendererOnly: true,
   },
   {
-    name: 'manual button role',
-    pattern: /role=["']button["']/,
-    rendererOnly: true,
-  },
-  {
     name: 'unstable list key',
     pattern: /key=\{[^}]*?(?:Math\.random|Date\.now|\b(?:index|idx)\b)[^}]*\}/,
     rendererOnly: true,
@@ -107,11 +102,26 @@ for (const file of files) {
     true,
   );
   const checkTypes = (node) => {
-    if (node.kind === ts.SyntaxKind.AnyKeyword) {
+    let rule;
+    if (node.kind === ts.SyntaxKind.AnyKeyword) rule = 'any';
+    if (
+      renderer &&
+      ts.isJsxAttribute(node) &&
+      node.name.getText(syntax) === 'role'
+    ) {
+      const initializer = node.initializer;
+      const value =
+        initializer && ts.isJsxExpression(initializer)
+          ? initializer.expression
+          : initializer;
+      if (value && ts.isStringLiteral(value) && value.text === 'button')
+        rule = 'manual button role';
+    }
+    if (rule) {
       const { line } = syntax.getLineAndCharacterOfPosition(
         node.getStart(syntax),
       );
-      failures.push(`${relative('.', file)}:${line + 1} any`);
+      failures.push(`${relative('.', file)}:${line + 1} ${rule}`);
     }
     ts.forEachChild(node, checkTypes);
   };

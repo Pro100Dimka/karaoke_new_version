@@ -4,7 +4,9 @@ import base64
 import hashlib
 import hmac
 import pytest
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
+from threading import Barrier, Event, Lock, RLock
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,12 @@ from starlette.testclient import WebSocketTestSession
 from starlette.websockets import WebSocketDisconnect
 
 from backend.api.room_server_app import create_room_server_app
+from backend.bootstrap.social_wiring import build_social_cases
+from backend.infrastructure.clock import UtcClock
+from backend.infrastructure.ids import UuidGenerator
+from backend.infrastructure.sqlite_social import SqliteAccountStore
+from backend.infrastructure.sqlite_social_events import SqliteFriendStore
+from backend.social.domain import Account, FriendRequest, Relation
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
@@ -44,6 +52,28 @@ def _inbox(socket: WebSocketTestSession) -> dict[str, Any]:
     return message
 
 
+def _contended_lock(monkeypatch: pytest.MonkeyPatch, target: str, participants: int) -> Event:
+    attempted = Event()
+    counter = Lock()
+    lock = RLock()
+
+    class ObservedLock:
+        attempts = 0
+
+        def __enter__(self) -> None:
+            with counter:
+                self.attempts += 1
+                if self.attempts >= participants:
+                    attempted.set()
+            lock.acquire()
+
+        def __exit__(self, *_args: object) -> None:
+            lock.release()
+
+    monkeypatch.setattr(target, ObservedLock)
+    return attempted
+
+
 def test_presence_update_is_acknowledged_after_the_server_applies_it() -> None:
     app = create_room_server_app(relay_port=0)
     with TestClient(app) as client, ExitStack() as stack:
@@ -65,7 +95,36 @@ def test_presence_update_is_acknowledged_after_the_server_applies_it() -> None:
     assert account.room_id == "room-1"
 
 
-def test_the_same_computer_is_the_same_person_and_another_is_someone_else() -> None:
+@pytest.mark.parametrize("parallel", [False, True])
+def test_the_same_computer_is_the_same_person_and_another_is_someone_else(
+    parallel: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if parallel:
+        attempted = _contended_lock(monkeypatch, "backend.social.accounts.RLock", 8)
+        original = SqliteAccountStore.by_device
+
+        def slow_lookup(store: SqliteAccountStore, key: str) -> Account | None:
+            account = original(store, key)
+            if account is None:
+                assert attempted.wait(timeout=5), (
+                    "all concurrent lookups attempted the account lock"
+                )
+            return account
+
+        monkeypatch.setattr(SqliteAccountStore, "by_device", slow_lookup)
+        accounts = build_social_cases(None, UuidGenerator(), UtcClock(), lambda _: False).accounts
+        start = Barrier(8)
+
+        def identify(_: int) -> Account:
+            start.wait(timeout=5)
+            return accounts.identify(_device("anna"))
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            identified = list(executor.map(identify, range(8)))
+        assert len({account.account_id for account in identified}) == 1
+        assert len({account.friend_code for account in identified}) == 1
+        assert accounts.identify(_device("boris")).account_id != identified[0].account_id
+        return
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
         first = _inbox(_open(client, stack, "anna"))["me"]
         again = _inbox(_open(client, stack, "anna"))["me"]
@@ -103,7 +162,38 @@ def test_a_friend_request_by_code_is_pushed_and_accepting_it_befriends_both() ->
     assert [notice["kind"] for notice in told["notices"]] == ["FriendAccepted"]
 
 
-def test_requests_sent_both_ways_make_friends_at_once() -> None:
+@pytest.mark.parametrize("parallel", [False, True])
+def test_requests_sent_both_ways_make_friends_at_once(
+    parallel: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if parallel:
+        attempted = _contended_lock(monkeypatch, "backend.social.friends.RLock", 2)
+        original = SqliteFriendStore.request
+
+        def slow_lookup(
+            store: SqliteFriendStore, sender: str, recipient: str
+        ) -> FriendRequest | None:
+            request = original(store, sender, recipient)
+            if request is None:
+                assert attempted.wait(timeout=5), "both friend requests attempted the mutation lock"
+            return request
+
+        monkeypatch.setattr(SqliteFriendStore, "request", slow_lookup)
+        social = build_social_cases(None, UuidGenerator(), UtcClock(), lambda _: False)
+        people = tuple(social.accounts.identify(_device(name)) for name in ("anna", "boris"))
+        start = Barrier(2)
+
+        def request(index: int) -> Relation:
+            start.wait(timeout=5)
+            return social.friends.request(people[index], people[1 - index].account_id)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            relations = list(executor.map(request, range(2)))
+        assert set(relations) == {Relation.REQUESTED, Relation.FRIEND}
+        for person in people:
+            assert len(social.friends.friends(person)) == 1
+            assert social.friends.incoming(person) == social.friends.outgoing(person) == ()
+        return
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
         anna_code = _inbox(_open(client, stack, "anna"))["me"]["friendCode"]
         boris_code = _inbox(_open(client, stack, "boris"))["me"]["friendCode"]

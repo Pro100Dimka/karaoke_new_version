@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import pytest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -45,15 +46,21 @@ def test_a_room_stops_logging_at_its_daily_size_limit(tmp_path: Path) -> None:
     assert sum(path.stat().st_size for path in (tmp_path / _ROOM).glob("*.jsonl")) <= 300
 
 
-def test_logs_older_than_the_retention_period_are_removed(tmp_path: Path) -> None:
+@pytest.mark.parametrize("active", [False, True])
+def test_logs_older_than_the_retention_period_are_removed(tmp_path: Path, active: bool) -> None:
     old_room = tmp_path / "old-room"
     old_room.mkdir()
     old_log = old_room / "2026-01-01.jsonl"
     old_log.write_text("{}\n", encoding="utf-8")
     eight_days_ago = time.time() - 8 * 86_400
     os.utime(old_log, (eight_days_ago, eight_days_ago))
+    fresh_log = old_room / "today.jsonl"
+    if active:
+        fresh_log.write_text("{}\n", encoding="utf-8")
     RoomDiagnosticsLog(tmp_path).append(_ROOM, "host", {"Backend": "ASIO"})
-    assert not old_room.exists()
+    assert not old_log.exists()
+    assert old_room.exists() == active
+    assert fresh_log.exists() == active
     assert (tmp_path / _ROOM).is_dir()
 
 

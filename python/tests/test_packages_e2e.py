@@ -5,6 +5,7 @@ import json
 import shutil
 import sqlite3
 import zipfile
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -80,6 +81,7 @@ def test_export_inspect_and_import_same_revision_are_idempotent(tmp_path: Path) 
         result = wait_for_job(client, started.json()["jobId"])
         assert result["state"] == "Succeeded", result
         assert result["report"]["songId"] == song["songId"]
+        assert result["report"]["created"] is False
 
 
 def test_exported_repetitive_audio_obeys_import_compression_policy(tmp_path: Path) -> None:
@@ -205,13 +207,28 @@ def test_importing_an_existing_revision_reactivates_that_valid_project(tmp_path:
         assert restored["activeRevision"] == saved["revision"]
 
 
-def test_exported_package_imports_into_clean_library(tmp_path: Path) -> None:
+@pytest.mark.parametrize("cancel_at", [None, "before-commit", "after-commit"])
+def test_exported_package_imports_into_clean_library(tmp_path: Path, monkeypatch, cancel_at) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as source_client:
         song, package = make_ready_and_export(source_client, source)
 
     with app_client(tmp_path / "target-runtime") as target_client:
+        entered, release = threading.Event(), threading.Event()
+        if cancel_at:
+            importer = target_client.app.state.container.packages.start_import._import
+            target = importer._publication if cancel_at == "before-commit" else importer
+            method = "execute" if cancel_at == "before-commit" else "_commit"
+            original = getattr(target, method)
+
+            def pause(*args, **kwargs):
+                result = original(*args, **kwargs)
+                entered.set()
+                assert release.wait(5)
+                return result
+
+            monkeypatch.setattr(target, method, pause)
         inspected = target_client.post("/packages/inspect", json={"path": str(package)})
         assert inspected.status_code == 200, inspected.text
         assert inspected.json()["conflict"] == "None"
@@ -219,9 +236,23 @@ def test_exported_package_imports_into_clean_library(tmp_path: Path) -> None:
             "/packages/import",
             json={"path": str(package), "decision": "SafeOnly"},
         )
+        if cancel_at:
+            try:
+                assert entered.wait(5)
+                cancelled = target_client.post(f"/jobs/{started.json()['jobId']}/cancel")
+                assert cancelled.status_code == 200, cancelled.text
+            finally:
+                release.set()
         job = wait_for_job(target_client, started.json()["jobId"])
+        if cancel_at == "before-commit":
+            assert job["state"] == "Cancelled", job
+            assert target_client.get(f"/songs/{song['songId']}").status_code == 404
+            revisions = tmp_path / "target-runtime" / "songs" / str(song["songId"]) / "revisions"
+            assert not list(revisions.glob("*"))
+            return
         assert job["state"] == "Succeeded", job
         imported = target_client.get(f"/songs/{song['songId']}")
+        assert job["report"]["created"] is True
         assert imported.status_code == 200, imported.text
         assert imported.json()["status"] == "Ready"
 
@@ -429,6 +460,7 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
         )
         job = wait_for_job(target_client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
+        assert job["report"]["created"] is False
         assert job["report"]["songId"] == target_song["songId"]
         repeated = target_client.post("/packages/inspect", json={"path": str(package)}).json()
         assert repeated["conflict"] == "SameRevision"

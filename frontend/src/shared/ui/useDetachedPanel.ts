@@ -244,6 +244,7 @@ export const useDetachedPanel = (
         const forwarded = new KeyboardEvent('keydown', {
           key: event.key,
           code: event.code,
+          repeat: event.repeat,
           shiftKey: event.shiftKey,
           ctrlKey: event.ctrlKey,
           altKey: event.altKey,

@@ -13,11 +13,12 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { roomSmokeIdentities } from "../../frontend/electron/multi-electron-room-plan.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const executable = process.env.AD_VOICE_AUDIO_SERVICE
   ?? path.join(root, "AudioService", "build", "Release", "AudioService.exe");
-const serverApi = process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
+const serverApi = process.env.AD_VOICE_ROOM_SERVER_API ?? "https://130.61.169.61";
 const relayHost = process.env.AD_VOICE_ROOM_SERVER_HOST ?? "130.61.169.61";
 const relayPort = Number(process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? 40000);
 const args = process.argv.slice(2);
@@ -36,9 +37,10 @@ mkdirSync(outDir, { recursive: true });
 
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const suffix = crypto.randomUUID().slice(0, 8);
+const identities = roomSmokeIdentities();
 const clients = ["A", "B"].map(name => ({
   name,
-  participantId: `sync-probe-${suffix}-${name}`,
+  participantId: identities.create(),
   pipe: `ADVoice.SyncProbe.${suffix}.${name}`,
 }));
 const processes = clients.map(client => spawn(executable, [], {
@@ -70,7 +72,8 @@ const audio = async (client, command, values = {}) => {
 };
 const request = async (method, route, body) => {
   const response = await fetch(`${serverApi}${route}`, {
-    method, headers: { "Content-Type": "application/json" },
+    method, headers: { "Content-Type": "application/json",
+      ...identities.headers(serverApi, body?.participantId ?? clients[0].participantId) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw new Error(`${route} failed (${response.status}): ${await response.text()}`);

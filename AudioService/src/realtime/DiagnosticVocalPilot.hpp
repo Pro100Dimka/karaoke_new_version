@@ -20,6 +20,6 @@
         return 0.0F;
     constexpr double Pi = 3.14159265358979323846;
     const auto envelope = std::sin(Pi * (static_cast<double>(position) + 0.5) / duration);
-    const auto phase = 2.0 * Pi * frequencyHz * position / rateHz;
+    const auto phase = 2.0 * Pi * frequencyHz * static_cast<double>(position) / rateHz;
     return static_cast<float>(gain * envelope * envelope * std::sin(phase));
 }

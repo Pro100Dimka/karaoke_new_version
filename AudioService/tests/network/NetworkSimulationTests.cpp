@@ -2,9 +2,12 @@
 #include "media/WavDecoder.hpp"
 #include "network/NetworkPacket.hpp"
 #include "network/NetworkTestRunner.hpp"
+#include "network/UdpSocket.hpp"
+#include "recording/WavWriter.hpp"
 
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <sstream>
 #include <vector>
@@ -54,7 +57,19 @@ void networkImpairmentMatrixKeepsAlignmentBounded() {
     constexpr std::array jittersMs{0U, 2U, 5U, 10U, 30U};
     constexpr std::array losses{0.0, 0.001, 0.01, 0.03, 0.05};
     const auto input = tempRoot / "network-full-matrix-input.wav";
-    makeTestWav(input, 4'800U);
+    // A single tone repeats every 109 frames, so it cannot identify a unique alignment peak.
+    std::vector<float> probe(SampleRateHz);
+    std::uint32_t random = 12'345;
+    for (auto& sample : probe) {
+        random = random * 1'664'525U + 1'013'904'223U;
+        sample = static_cast<float>(0.3 * (static_cast<double>(random) / UINT32_MAX * 2.0 - 1.0));
+    }
+    {
+        WavWriter writer;
+        writer.open(input.string(), SampleRateHz, 1);
+        writer.write(probe);
+        writer.close();
+    }
     for (const auto latency : latenciesMs) {
         for (const auto jitter : jittersMs) {
             for (const auto loss : losses) {
@@ -66,11 +81,13 @@ void networkImpairmentMatrixKeepsAlignmentBounded() {
                                    .packetLoss = loss,
                                    .duplicateRate = 0.001,
                                    .reorderRate = 0.005};
-                request.correlationWindowFrames = 2'400U;
+                request.correlationWindowFrames = SampleRateHz / 2U;
                 const auto report = runNetworkTest(request);
                 expect(
-                    report.interPeerAlignmentErrorSamples <= 96U,
-                    "full Opus impairment matrix aligns media timestamps within two milliseconds");
+                    report.interPeerAlignmentErrorSamples <= 96U && report.peakCorrelation >= 0.80,
+                    "full Opus impairment matrix aligns media timestamps within two milliseconds: offset=" +
+                        std::to_string(report.offsetSamples) + " correlation=" + std::to_string(report.peakCorrelation) +
+                        " latency=" + std::to_string(latency) + " loss=" + std::to_string(loss));
                 expect(report.clientB.maximumQueueFrames <= QueueFrames,
                        "full Opus impairment matrix keeps the jitter queue bounded");
             }
@@ -162,6 +179,14 @@ void networkTestCommandWritesMachineReadableReport() {
     expect(runNetworkTestCommand(clientArguments, standardOutput, standardError) == 1 &&
                standardError.str().find("requires") != std::string::npos,
            "network test client mode validates its process and UDP arguments");
+    auto missingVoice = storage;
+    missingVoice.insert(missingVoice.end(), {"--loss-b", "1"});
+    arguments.clear();
+    for (const auto& argument : missingVoice) arguments.push_back(argument);
+    standardOutput.str({});
+    standardError.str({});
+    expect(runNetworkTestCommand(arguments, standardOutput, standardError) == 2,
+           "a missing voice cannot pass the alignment command with zero correlation");
 }
 
 void networkTestCommandAcceptsNamedImpairmentScenario() {
@@ -208,5 +233,64 @@ void networkLatencyJumpRestabilizesThroughFullCodecChain() {
     const auto report = runNetworkTest(request);
     expect(report.interPeerAlignmentErrorSamples <= 96U && report.peakCorrelation >= 0.75,
            "20 to 100 to 30 ms latency jump restabilizes through the full codec chain");
+}
+
+void networkProcessClientUsesProtocolCadence() {
+    const auto input = tempRoot / "network-cadence-input.wav";
+    const auto output = tempRoot / "network-cadence-output.wav";
+    makeTestWav(input, SampleRateHz);
+    UdpSocket destination;
+    destination.bind(0);
+    for (const auto warmupSeconds : {0U, 1U}) {
+        NetworkProcessClientRequest request;
+        request.inputPath = input.string();
+        request.outputPath = output.string();
+        request.localId = "singer";
+        request.remoteId = "listener";
+        request.remotePort = destination.localPort();
+        request.token = 123;
+        request.durationSeconds = 1;
+        request.warmupSeconds = warmupSeconds;
+        request.startAtUnixMs = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count()) +
+            100U + warmupSeconds * 1'000U;
+        const auto started = std::chrono::steady_clock::now();
+        std::ostringstream report;
+        (void)runNetworkProcessClient(request, report);
+        expect(report.str().find("\"packetsSent\":") != std::string::npos &&
+                   report.str().find("\"packetsSent\":0") == std::string::npos,
+               "the paced diagnostic client sends real UDP packets");
+        const auto elapsed = std::chrono::steady_clock::now() - started;
+        const auto expected = std::chrono::milliseconds{1'100 + warmupSeconds * 1'000};
+        expect(elapsed >= expected - std::chrono::milliseconds{200} &&
+                   elapsed < expected + std::chrono::milliseconds{600},
+               "one second of PCM advances one wall-clock second, including warmup");
+        WavDecoder decoder;
+        expect(decoder.open(output.string()).totalFrames == SampleRateHz,
+               "the diagnostic file contains exactly the requested performance duration");
+    }
+}
+
+void networkAlignmentMeasuresBeyondItsSuccessThreshold() {
+    const auto input = tempRoot / "network-broadband-alignment.wav";
+    std::vector<float> source(72'000);
+    for (std::size_t frame = 40'000; frame < 60'000; ++frame) {
+        const auto t = static_cast<double>(frame) / SampleRateHz;
+        source[frame] = static_cast<float>(0.3 * std::sin(6.283185307179586 * (200.0 * t + 1200.0 * t * t)));
+    }
+    {
+        WavWriter writer;
+        writer.open(input.string(), SampleRateHz, 1);
+        writer.write(source);
+        writer.close();
+    }
+    NetworkTestRequest request;
+    request.inputPath = input.string();
+    request.clientB.clockDriftPpm = 8'000;
+    request.correlationWindowFrames = 480;
+    const auto result = runNetworkTest(request);
+    expect(result.interPeerAlignmentErrorSamples > 96 && result.peakCorrelation > 0.8,
+           "a displaced recognizable voice is measured outside the accepted two milliseconds");
 }
 } // namespace Tests

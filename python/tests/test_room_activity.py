@@ -54,6 +54,9 @@ def test_the_sweep_removes_an_abandoned_room_but_keeps_a_used_one(tmp_path: Path
     housekeeping.sweep_once()  # the sweep reads both rooms; that is not activity
     assert repository.get(used.room_id) is not None
     assert repository.get(abandoned.room_id) is None
+    assert repository.version(abandoned.room_id) == 0
+    assert repository.wait_for_change(abandoned.room_id, 100, timeout=0) == 0
+    assert set(repository._versions) == {used.room_id}
 
 
 def test_room_requests_pass_through_the_activity_tracking_unchanged() -> None:

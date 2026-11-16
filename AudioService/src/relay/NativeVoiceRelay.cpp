@@ -81,7 +81,15 @@ std::uint32_t NativeVoiceRelay::participantKey(std::string_view participant) noe
 
 bool NativeVoiceRelay::expect(std::string room, std::string participant, std::uint64_t token) {
     const auto key = participantKey(participant);
+    const auto previous = std::ranges::find_if(
+        participants_, [&participant](const auto& entry) { return entry.second.id == participant; });
+    const auto renewing = previous != participants_.end() && previous->second.room == room;
+    decltype(Room::gains) retainedGains;
+    if (renewing)
+        retainedGains.swap(rooms_[room].gains);
     forget(participant);
+    if (renewing)
+        retainedGains.swap(rooms_[room].gains);
     const auto existing = rooms_.find(room);
     if (participants_.contains(token) ||
         (existing != rooms_.end() && existing->second.members.contains(key)))
@@ -136,6 +144,15 @@ void NativeVoiceRelay::forget(std::string_view participant) {
         });
     }
     participants_.erase(found);
+}
+
+void NativeVoiceRelay::closeRoom(std::string_view roomId) {
+    const auto room = rooms_.find(std::string(roomId));
+    if (room == rooms_.end())
+        return;
+    for (const auto& membership : room->second.members)
+        participants_.erase(membership.second);
+    rooms_.erase(room);
 }
 
 void NativeVoiceRelay::setEligibleParticipants(

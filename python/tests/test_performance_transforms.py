@@ -32,11 +32,13 @@ def test_wave_envelope_preserves_full_scale_and_partial_blocks(tmp_path, rate, c
     assert _envelope(path) == (expected, 100)
 
 
-@pytest.mark.parametrize("mode", ["silence", "pulse", "random", "near_tie", "short"])
+@pytest.mark.parametrize("mode", ["silence", "constant", "pulse", "random", "near_tie", "short"])
 def test_tempo_preserves_scalar_lag_ranking(mode):
     values = np.random.default_rng(418).uniform(0, 32768, 6000)
     if mode == "silence":
         values[:] = 0
+    elif mode == "constant":
+        values[:] = 100
     elif mode in {"pulse", "near_tie"}:
         values[:] = 0
         values[::40] = 1
@@ -50,7 +52,10 @@ def test_tempo_preserves_scalar_lag_ranking(mode):
         lag: sum(onset[i] * onset[i - lag] for i in range(lag, len(onset)))
         for lag in range(30, 101)
     }
-    expected = None if len(envelope) < 300 else round(6000 / max(scores, key=scores.get), 2)
+    expected = (
+        None if len(envelope) < 300 or max(scores.values()) <= 0
+        else round(6000 / max(scores, key=scores.get), 2)
+    )
     assert _estimate_bpm(envelope, 100) == expected
 
 

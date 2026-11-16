@@ -29,10 +29,13 @@ class MediaController {
     [[nodiscard]] std::uint32_t render(MediaSlot slot, std::span<float> output,
                                        std::uint32_t frames,
                                        MonotonicTicks presentationTicks = 0) noexcept;
-    [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot) const noexcept;
+    [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot,
+                                                bool includeFailureMessage = true) const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame(MediaSlot slot) const noexcept;
-    [[nodiscard]] std::uint64_t presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept;
+    [[nodiscard]] std::uint64_t presentationFrame(MediaSlot slot, MonotonicTicks at,
+                                                 bool captureHistory = false) const noexcept;
     [[nodiscard]] MonotonicTicks scheduledStartTicks(MediaSlot slot) const noexcept;
+    [[nodiscard]] MonotonicTicks presentationEndTicks(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint32_t processingLatencyFrames() const noexcept;
     [[nodiscard]] PlaybackState waitUntilReady(MediaSlot slot);
     [[nodiscard]] MediaContext context() const noexcept {

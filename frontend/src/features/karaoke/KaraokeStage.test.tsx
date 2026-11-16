@@ -1,9 +1,11 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useEffect, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { MelodyRollProps } from '@neo-ui-kit/react';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import { KaraokeStage } from './KaraokeStage';
+import { SceneBackdrop } from './SceneBackdrop';
+import { desktopClient } from '../../services/desktopClient';
 
 const probe = vi.hoisted(() => {
   const props: MelodyRollProps[] = [];
@@ -83,6 +85,35 @@ beforeEach(() => {
   probe.mounts = 0;
 });
 afterEach(() => vi.restoreAllMocks());
+
+it('stops retrying failed song and fallback videos while allowing a new source', async () => {
+  vi.spyOn(desktopClient, 'sceneVideoUrl').mockResolvedValue('fallback.mp4');
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const createElement = window.document.createElement.bind(window.document);
+  vi.spyOn(window.document, 'createElement').mockImplementation((tag, options) => {
+    const element = createElement(tag, options);
+    if (tag === 'video') Object.assign(element, {
+      load() {}, getVideoPlaybackQuality: () => ({ totalVideoFrames: 0, droppedVideoFrames: 0 }),
+      requestVideoFrameCallback: () => 1, cancelVideoFrameCallback() {},
+    });
+    return element;
+  });
+  const backdrop = (videoUrl: string) => <SceneBackdrop theme="dark" videoUrl={videoUrl}
+    positionSeconds={0} playing={false} rate={1} />;
+  const view = render(backdrop('song.mp4'));
+  await act(async () => {});
+  const own = view.container.querySelector('video');
+  if (!own) throw new Error('Song video must be displayed');
+  expect(own.getAttribute('src')).toBe('song.mp4');
+  fireEvent.error(own);
+  const fallback = view.container.querySelector('video');
+  if (!fallback) throw new Error('Fallback video must be displayed');
+  expect(fallback.getAttribute('src')).toBe('fallback.mp4');
+  fireEvent.error(fallback);
+  expect(view.container.querySelector('video')).toBeNull();
+  view.rerender(backdrop('new-song.mp4'));
+  expect(view.container.querySelector('video')?.getAttribute('src')).toBe('new-song.mp4');
+});
 
 it('shows both lyric lines at three, fitting their width without resizing during highlighting', () => {
   const computedStyle = window.getComputedStyle.bind(window);

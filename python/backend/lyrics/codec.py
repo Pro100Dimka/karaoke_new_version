@@ -1,10 +1,28 @@
 from __future__ import annotations
 
 from math import isfinite
+import re
 
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.lyrics.domain import LyricsDocument, Note, Word
 from backend.lyrics.ports import LyricLineTiming
+
+_TIMED_LINE = re.compile(r"^\s*\[(\d{1,2}):(\d{2}(?:\.\d+)?)]\s*(.*)$")
+_SPACED_DASH = re.compile(r"(?<=\s)[\u2013\u2014-](?=\s)")
+
+
+def clean_lyric_line(line: str) -> str:
+    return " ".join(_SPACED_DASH.sub("", line).split())
+
+
+def decode_lrc(synced: str) -> list[tuple[float, str]]:
+    lines: list[tuple[float, str]] = []
+    for row in synced.splitlines():
+        match = _TIMED_LINE.match(row)
+        text = clean_lyric_line(match[3]) if match else ""
+        if match and text:
+            lines.append((int(match[1]) * 60 + float(match[2]), text))
+    return lines
 
 
 def decode_timing_hints(value: object, duration: float) -> tuple[LyricLineTiming, ...]:

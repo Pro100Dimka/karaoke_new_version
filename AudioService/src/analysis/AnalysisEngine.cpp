@@ -259,7 +259,8 @@ void AnalysisEngine::workerMain() noexcept {
             pitchHz_.store(pitch, std::memory_order_relaxed);
             if (captureTimes[windowFrames / 2] > 0) {
                 // Overlap improves refresh rate; each observation scores only one new hop.
-                pitchHistory_.push_back({++pitchSequence_, captureTimes[windowFrames / 2], hopFrames, pitch, audioActive, confidence, windowFrames});
+                pitchHistory_.push_back({++pitchSequence_, captureTimes[windowFrames / 2], hopFrames, pitch, audioActive, confidence, windowFrames,
+                                         captureTimes.back() + 1'000'000'000 / rate});
                 while (pitchHistory_.size() > PitchHistoryWindows) pitchHistory_.pop_front();
             }
         }

@@ -46,14 +46,46 @@ describe('lyrics rhythm', () => {
     expect(engine.state.musicBeat).toBeGreaterThan(0.45);
   });
 
-  it('does not bounce to arbitrary backing sounds without isolated rhythm evidence', () => {
-    const engine = new ShowEngine();
-    engine.load([], []);
-    engine.advance(1000, 0.4, undefined, true);
-    engine.hear(Array(18).fill(0.8), 1020);
-    engine.advance(1020, 0.42, undefined, true);
-    expect(engine.state.musicBeat).toBe(0);
-  });
+  it.each([false, true])(
+    'uses live backing beats only without saved rhythm (%s)',
+    (savedRhythm) => {
+      const engine = new ShowEngine();
+      const beats: number[] = [];
+      engine.onCommand((command) => {
+        if (command.kind === 'beatPulse') beats.push(command.strength);
+      });
+      engine.load([], [], true, undefined, savedRhythm ? [[1, 1]] : []);
+      engine.advance(1000, 0.4, undefined, true);
+      engine.hear(Array(18).fill(0.8), 1020);
+      engine.advance(1020, 0.42, undefined, true);
+      if (savedRhythm) {
+        expect(engine.state.musicBeat).toBe(0);
+        expect(beats).toEqual([]);
+        return;
+      }
+      expect(engine.state.musicBeat).toBeGreaterThan(0.7);
+      expect(beats).toHaveLength(1);
+      engine.advance(1084, 0.484, undefined, true);
+      expect(engine.state.musicBeat).toBeLessThan(0.15);
+      expect(beats).toHaveLength(1);
+      engine.advance(1085, 0.485, undefined, false);
+      engine.hear(Array(18).fill(1), 1100);
+      engine.advance(1100, 0.485, undefined, true);
+      expect(engine.state.musicBeat).toBe(0);
+      engine.load([], []);
+      engine.advance(1200, 0, undefined, true);
+      engine.hear(Array(18).fill(0.8), 1220);
+      engine.advance(1220, 0.02, undefined, true);
+      expect(engine.state.musicBeat).toBeGreaterThan(0.7);
+      const emitted = beats.length;
+      engine.load([], []);
+      engine.advance(1400, 0, undefined, true);
+      engine.hear(Array(18).fill(0.8), 1420);
+      engine.advance(1700, 0.3, undefined, true);
+      expect(engine.state.musicBeat).toBe(0);
+      expect(beats).toHaveLength(emitted);
+    },
+  );
 
   it('follows bass and drum onsets at the source position, including seek and pause', () => {
     const engine = new ShowEngine();

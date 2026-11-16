@@ -59,12 +59,17 @@ class MediaSource {
     void setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame);
     [[nodiscard]] std::uint32_t render(std::span<float> output, std::uint32_t frames,
                                        MonotonicTicks presentationTicks = 0) noexcept;
-    [[nodiscard]] MediaSourceSnapshot snapshot() const noexcept;
+    /** Audio callbacks omit diagnostic text so they never wait for its writer. */
+    [[nodiscard]] MediaSourceSnapshot snapshot(bool includeFailureMessage = true) const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame() const noexcept;
-    [[nodiscard]] std::uint64_t presentationFrame(MonotonicTicks at) const noexcept;
+    /** captureHistory retains the last rendered clock for already captured voice after pause/EOF. */
+    [[nodiscard]] std::uint64_t presentationFrame(MonotonicTicks at, bool captureHistory = false) const noexcept;
     /** Presentation time the transport is scheduled to start at (0 when unscheduled). */
     [[nodiscard]] MonotonicTicks scheduledStartTicks() const noexcept {
         return startAtTicks_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] MonotonicTicks presentationEndTicks() const noexcept {
+        return presentationEndTicks_.load(std::memory_order_acquire);
     }
     [[nodiscard]] std::uint32_t processingLatencyFrames() const noexcept {
         return processingLatencyFrames_.load(std::memory_order_acquire);
@@ -72,6 +77,7 @@ class MediaSource {
     [[nodiscard]] PlaybackState waitUntilReady();
 
   private:
+    friend struct MediaSourceTestAccess;
     // Commands have one control owner. The worker shares mutex_; render never takes it.
     struct RenderPause {
         explicit RenderPause(MediaSource& source) noexcept;

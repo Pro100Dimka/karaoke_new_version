@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import type { RoomStateDto } from '../../contracts/models';
+import type { ParticipantDto, RoomStateDto } from '../../contracts/models';
 import { RoomSessionController } from './RoomSessionController';
 import { RoomPlaybackCoordinator } from './RoomPlaybackCoordinator';
 
@@ -10,6 +10,27 @@ const room = (code = 'A'): RoomStateDto => ({
   participants: [],
   playbackLocked: false,
   playbackState: 'stopped',
+});
+const selectedRoom = (
+  readiness: ParticipantDto['readiness'],
+): RoomStateDto => ({
+  ...room(),
+  hostId: 'self',
+  songId: 'song',
+  revision: 1,
+  selectionId: 1,
+  participants: [
+    {
+      id: 'self',
+      name: 'Me',
+      role: 'host',
+      self: true,
+      connected: true,
+      muted: false,
+      volume: 1,
+      readiness,
+    },
+  ],
 });
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
@@ -199,6 +220,92 @@ it('reports audio preparation once per selection and ignores its stale response'
   pending.resolve({ ...room(), songId: 'song', revision: 1 });
   await Promise.all([first, second]);
   expect(session.getRoom()).toBeNull();
+});
+
+it.each(['audio', 'failed', 'missing'] as const)(
+  'confirms the same loaded selection again when the server reports %s',
+  async (readiness) => {
+    const { transport, session } = setup();
+    session.setSnapshot(selectedRoom('ready'));
+    transport.setRoomReadiness.mockResolvedValue(selectedRoom('ready'));
+    const scope = session.getScope();
+    if (!scope) throw new Error('Room scope missing');
+    const playback = new RoomPlaybackCoordinator(scope, transport);
+    await playback.reportReady('song', 1);
+    await playback.reportReady('song', 1);
+    expect(transport.setRoomReadiness).toHaveBeenCalledTimes(1);
+    session.setSnapshot(selectedRoom(readiness));
+    await playback.reportReady('song', 1);
+    expect(transport.setRoomReadiness).toHaveBeenCalledTimes(2);
+    expect(
+      session.getRoom()?.participants.find((person) => person.self)?.readiness,
+    ).toBe('ready');
+  },
+);
+
+it('preserves a newer server readiness snapshot over a delayed ready reply', async () => {
+  const { transport, session } = setup();
+  session.setSnapshot(selectedRoom('audio'));
+  const scope = session.getScope();
+  if (!scope) throw new Error('Room scope missing');
+  const pending = deferred<RoomStateDto>();
+  transport.setRoomReadiness.mockReturnValueOnce(pending.promise);
+  const playback = new RoomPlaybackCoordinator(scope, transport);
+  const reporting = playback.reportReady('song', 1);
+  const newer = selectedRoom('missing');
+  session.setSnapshot(newer);
+  pending.resolve(selectedRoom('ready'));
+  await reporting;
+  expect(session.getRoom()).toBe(newer);
+  transport.setRoomReadiness.mockResolvedValueOnce(selectedRoom('ready'));
+  await playback.reportReady('song', 1);
+  expect(transport.setRoomReadiness).toHaveBeenCalledTimes(2);
+});
+
+it('rejects a late ready response after the same song is selected again', async () => {
+  const { transport, session } = setup();
+  session.setSnapshot({
+    ...room(),
+    songId: 'song',
+    revision: 1,
+    selectionId: 1,
+  });
+  const pending = deferred<RoomStateDto>();
+  transport.setRoomReadiness.mockReturnValueOnce(pending.promise);
+  const scope = session.getScope();
+  if (!scope) throw new Error('Room scope missing');
+  const playback = new RoomPlaybackCoordinator(scope, transport);
+  const first = playback.reportReady('song', 1);
+  session.setSnapshot({
+    ...room(),
+    songId: 'song',
+    revision: 1,
+    selectionId: 3,
+  });
+  pending.resolve({ ...room(), songId: 'song', revision: 1, selectionId: 1 });
+  await first;
+  expect(session.getRoom()?.selectionId).toBe(3);
+  transport.setRoomReadiness.mockResolvedValueOnce({
+    ...room(),
+    songId: 'song',
+    revision: 1,
+    selectionId: 3,
+  });
+  await playback.reportReady('song', 1);
+  expect(transport.setRoomReadiness).toHaveBeenNthCalledWith(
+    1,
+    room().code,
+    'Ready',
+    1,
+    100,
+  );
+  expect(transport.setRoomReadiness).toHaveBeenNthCalledWith(
+    2,
+    room().code,
+    'Ready',
+    3,
+    100,
+  );
 });
 
 it('does not apply a start response for a song that was replaced while starting', async () => {

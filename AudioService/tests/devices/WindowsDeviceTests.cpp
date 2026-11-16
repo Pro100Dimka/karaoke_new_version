@@ -1,8 +1,15 @@
 #include "TestHarness.hpp"
 #ifdef _WIN32
 #include "devices/DeviceManager.hpp"
+#include "app/AudioService.hpp"
+#include "backend/fake/FakeAudioBackend.hpp"
 #include <mmdeviceapi.h>
 #include <thread>
+#include <limits>
+
+struct AudioServiceTestAccess {
+    static DeviceManager& devices(AudioService& service) { return service.devices_; }
+};
 
 struct DeviceManagerTestAccess {
     static bool start(DeviceManager& manager, IMMDeviceEnumerator* enumerator) {
@@ -40,9 +47,50 @@ struct UnavailableNotifications : IMMDeviceEnumerator {
         return S_OK;
     }
 };
+
+struct CapturedNotifications final : UnavailableNotifications {
+    IMMNotificationClient* client{nullptr};
+    HRESULT STDMETHODCALLTYPE RegisterEndpointNotificationCallback(IMMNotificationClient* value) override {
+        client = value;
+        client->AddRef();
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE UnregisterEndpointNotificationCallback(IMMNotificationClient* value) override {
+        if (value == client) { client->Release(); client = nullptr; }
+        return S_OK;
+    }
+};
 } // namespace
 #endif
 namespace Tests {
+void asioSystemVolumeFollowsTheNewWindowsDefault() {
+#ifdef _WIN32
+    CapturedNotifications enumerator;
+    AudioService service(std::make_unique<FakeAudioBackend>());
+    service.start();
+    RequestedConfiguration requested;
+    requested.backend = BackendKind::Asio;
+    service.session().prepare(requested);
+    service.session().start();
+    auto& devices = AudioServiceTestAccess::devices(service);
+    devices.stopNotifications();
+    devices.setGeneration(service.session().generationId());
+    require(DeviceManagerTestAccess::start(devices, &enumerator) && enumerator.client,
+            "the device manager subscribes to a controllable endpoint notification source");
+    const auto generation = service.session().generationId();
+    for (const auto flow : {eCapture, eRender}) {
+        service.realtime().setSystemGain(std::numeric_limits<float>::quiet_NaN());
+        enumerator.client->OnDefaultDeviceChanged(flow, eConsole, L"new-default");
+        (void)service.handleLine("1|GetDiagnostics");
+        expect(std::isfinite(service.realtime().systemGain()) == (flow == eRender),
+               "only a new default output rebinds ASIO system-volume following");
+        expect(service.session().generationId() == generation && service.session().state() == SessionState::Running,
+               "Windows volume following never reopens the ASIO driver");
+    }
+    service.shutdown();
+#endif
+}
+
 void deviceNotificationFailureReleasesComBeforeRetry() {
 #ifdef _WIN32
     bool balanced = true;

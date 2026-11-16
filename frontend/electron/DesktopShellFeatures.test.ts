@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 
 const electron = vi.hoisted(() => ({
   trays: [] as { menu: unknown; destroyed: boolean; tooltip: string }[],
@@ -148,7 +148,8 @@ describe('tray', () => {
       checked: true,
       enabled: true,
     });
-    (menu[3]!.click as () => void)();
+    assert(menu[3]);
+    (menu[3].click as () => void)();
     expect(send).toHaveBeenCalledWith({ type: 'nextStation' });
   });
 
@@ -203,8 +204,8 @@ describe('jump list', () => {
       'Add song',
       'Online room',
     ]);
-    expect(tasks[0]!.arguments).toContain('--add-song');
-    expect(tasks[1]!.arguments).toContain('--open-room');
+    expect(tasks[0]?.arguments).toContain('--add-song');
+    expect(tasks[1]?.arguments).toContain('--open-room');
   });
 });
 

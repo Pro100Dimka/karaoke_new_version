@@ -62,6 +62,7 @@ class SelectSongDto(ActorDto):
 class ReadinessDto(ApiModel):
     participant_id: str = Field(min_length=1, max_length=128)
     readiness: ReadinessState
+    selection_id: int = Field(ge=0)
     progress: int | None = Field(default=None, ge=0, le=100)
 
 
@@ -178,6 +179,7 @@ class RoomDto(ApiModel):
     room_return_reserve_ms: float = Field(ge=0, le=250)
     room_timing_source: str
     performance_id: int = 0
+    selection_id: int = 0
     performance_accuracy: float | None = None
     last_performance_id: int | None = None
     last_performance_accuracy: float | None = None
@@ -303,7 +305,11 @@ def clear_song(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
 def readiness(room_id: str, body: ReadinessDto, app: ContainerDep) -> RoomDto:
     return _room(
         app.rooms.set_readiness.execute(
-            normalize_room_id(room_id), body.participant_id, body.readiness, body.progress
+            normalize_room_id(room_id),
+            body.participant_id,
+            body.readiness,
+            body.progress,
+            selection_id=body.selection_id,
         )
     )
 
@@ -422,6 +428,7 @@ def _room(room: Room) -> RoomDto:
         playlist=_room_playlist(room.playlist),
         room_id=room.room_id,
         performance_id=room.performance_id,
+        selection_id=room.selection_id,
         performance_accuracy=group_performance_accuracy(room),
         last_performance_id=room.last_performance_id,
         last_performance_accuracy=room.last_performance_accuracy,

@@ -401,9 +401,11 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
     auto position = before + advanced * rate * sourceRate / outputRate;
     const auto loopStart = loopStartFrame_.load(std::memory_order_relaxed);
     const auto loopEnd = loopEndFrame_.load(std::memory_order_relaxed);
-    if (loopEnabled_.load(std::memory_order_acquire) && loopEnd > loopStart && position >= loopEnd)
+    if (loopEnabled_.load(std::memory_order_acquire) && loopEnd > loopStart &&
+        position >= static_cast<double>(loopEnd))
         position = static_cast<double>(loopStart) +
-                   std::fmod(position - loopStart, static_cast<double>(loopEnd - loopStart));
+                   std::fmod(position - static_cast<double>(loopStart),
+                             static_cast<double>(loopEnd - loopStart));
     const auto total = totalSourceFrames_.load(std::memory_order_acquire);
     sourcePosition_.store(total != 0 ? std::min(position, static_cast<double>(total)) : position,
                           std::memory_order_relaxed);
@@ -440,7 +442,7 @@ void MediaSource::publishState(PlaybackState state) noexcept {
     state_.store(state, std::memory_order_release);
     state_.notify_all();
 }
-MediaSourceSnapshot MediaSource::snapshot() const noexcept {
+MediaSourceSnapshot MediaSource::snapshot(bool includeFailureMessage) const noexcept {
     const auto rate = rate_.load(std::memory_order_relaxed);
     const auto position = frameNumber(sourcePosition_.load(std::memory_order_relaxed));
 
@@ -457,12 +459,14 @@ MediaSourceSnapshot MediaSource::snapshot() const noexcept {
         failureCode_.load(std::memory_order_acquire),
         {},
     };
-    while (failureLock_.test_and_set(std::memory_order_acquire)) {
-        std::this_thread::yield();
+    if (includeFailureMessage) {
+        while (failureLock_.test_and_set(std::memory_order_acquire)) {
+            std::this_thread::yield();
+        }
+        result.failureMessage = failureMessage_;
+        failureLock_.clear(std::memory_order_release);
     }
-    result.failureMessage = failureMessage_;
     result.loadProgressFrames = loadProgressFrames_.load(std::memory_order_relaxed);
-    failureLock_.clear(std::memory_order_release);
     return result;
 }
 std::uint64_t MediaSource::timelineFrame() const noexcept {
@@ -473,8 +477,8 @@ std::uint64_t MediaSource::timelineFrame() const noexcept {
                              outputSampleRateHz_.load(std::memory_order_relaxed) / sourceRate);
 }
 
-std::uint64_t MediaSource::presentationFrame(MonotonicTicks at) const noexcept {
-    if (state_.load(std::memory_order_acquire) != PlaybackState::Playing)
+std::uint64_t MediaSource::presentationFrame(MonotonicTicks at, bool captureHistory) const noexcept {
+    if (!captureHistory && state_.load(std::memory_order_acquire) != PlaybackState::Playing)
         return timelineFrame();
     for (int attempt = 0; attempt < 3; ++attempt) {
         const auto sequence = presentationSequence_.load(std::memory_order_acquire);

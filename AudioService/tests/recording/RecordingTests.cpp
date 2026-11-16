@@ -268,7 +268,7 @@ void networkReferenceRecordsTheActualPreCodecMicrophone() {
         std::vector<float> input(frames * 2U), expected(frames * 6U);
         for (std::uint32_t frame = 0; frame < frames; ++frame) {
             input[frame * 2U] = 0.001F;
-            input[frame * 2U + 1U] = 0.2F + 0.1F * std::sin(frame * 0.1F);
+            input[frame * 2U + 1U] = 0.2F + 0.1F * std::sin(static_cast<float>(frame) * 0.1F);
             std::fill_n(expected.begin() + frame * 6U, 6U, input[frame * 2U + 1U]);
         }
         DspChain expectedDsp;
@@ -350,21 +350,6 @@ void networkReferenceRecordsTheActualPreCodecMicrophone() {
 }
 
 namespace {
-struct DiagnosticRoomEnvironment {
-    std::string previous;
-    DiagnosticRoomEnvironment() {
-        char* value = nullptr;
-        std::size_t length = 0;
-        if (_dupenv_s(&value, &length, "AD_VOICE_ROOM_E2E") == 0 && value != nullptr)
-            previous = value;
-        std::free(value);
-        _putenv_s("AD_VOICE_ROOM_E2E", "1");
-    }
-    ~DiagnosticRoomEnvironment() {
-        _putenv_s("AD_VOICE_ROOM_E2E", previous.c_str());
-    }
-};
-
 void makeDiagnosticPcm24(const std::filesystem::path& path, std::uint32_t seconds) {
     // Reuse the WAV writer's standard header, then supply exact 24-bit stereo PCM.
     WavWriter writer;
@@ -392,13 +377,13 @@ void makeDiagnosticPcm24(const std::filesystem::path& path, std::uint32_t second
 } // namespace
 
 void diagnosticFileInputUsesTheExistingCaptureAndServerClock() {
-    const DiagnosticRoomEnvironment environment;
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", "1"};
     const auto path = tempRoot / "diagnostic-vocal.wav";
     WavWriter writer;
     writer.open(path.string(), 44'100, 2);
     std::vector<float> source(441U * 2U);
     for (std::size_t frame = 0; frame < source.size() / 2U; ++frame)
-        source[frame * 2U] = source[frame * 2U + 1U] = 0.1F + frame * 0.0002F;
+        source[frame * 2U] = source[frame * 2U + 1U] = 0.1F + static_cast<float>(frame) * 0.0002F;
     writer.write(source);
     writer.close();
     for (const auto inputRate : {44'100U, 48'000U}) {
@@ -461,10 +446,10 @@ void diagnosticFileInputRejectsActiveReplacementAndResetsOwnership() {
     AudioService service{std::make_unique<FakeAudioBackend>()};
     service.start();
     const auto load = "1|SetDiagnosticRoomInput|enabled=false|filePath=" + path.string();
-    _putenv_s("AD_VOICE_ROOM_E2E", "");
+    const ScopedEnvironment productionEnvironment{"AD_VOICE_ROOM_E2E", nullptr};
     expect(service.handleLine(load).status == ControlStatus::NotSupported,
            "a WAV never bypasses the production diagnostic environment guard");
-    const DiagnosticRoomEnvironment environment;
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", "1"};
     service.session().prepare(RequestedConfiguration{});
     expect(service.handleLine(load).status == ControlStatus::Ok, "a stopped source loads");
     service.session().start();
@@ -489,7 +474,7 @@ void diagnosticFileInputRejectsActiveReplacementAndResetsOwnership() {
 }
 
 void diagnosticFileInputBoundsDecodeAndPreservesAValidSourceOnFailure() {
-    const DiagnosticRoomEnvironment environment;
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", "1"};
     const auto longPath = tempRoot / "diagnostic-188s-pcm24.wav";
     makeDiagnosticPcm24(longPath, 188);
     AudioService service{std::make_unique<FakeAudioBackend>()};
@@ -522,7 +507,7 @@ void diagnosticFileInputBoundsDecodeAndPreservesAValidSourceOnFailure() {
 }
 
 void diagnosticFileInputReachesProcessedMonitorAndUpstream() {
-    const DiagnosticRoomEnvironment environment;
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", "1"};
     const auto path = tempRoot / "diagnostic-through-dsp.wav";
     makeTestWav(path, 48'000);
     auto backend = std::make_unique<FakeAudioBackend>();
@@ -567,7 +552,7 @@ void diagnosticFileInputReachesProcessedMonitorAndUpstream() {
 }
 
 void diagnosticFilePilotIsAnOptionalLabelBeforeDspAndStopsAtEof() {
-    const DiagnosticRoomEnvironment environment;
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", "1"};
     const auto path = tempRoot / "diagnostic-labelled-vocal.wav";
     makeTestWav(path, 480);
     AudioService service{std::make_unique<FakeAudioBackend>()};
@@ -610,13 +595,13 @@ void diagnosticFilePilotIsAnOptionalLabelBeforeDspAndStopsAtEof() {
 }
 
 void diagnosticFileOffsetResumesAtSongPositionWithoutEarlyAudio() {
-    const DiagnosticRoomEnvironment environment;
+    const ScopedEnvironment environment{"AD_VOICE_ROOM_E2E", "1"};
     const auto path = tempRoot / "diagnostic-resume-offset.wav";
     WavWriter writer;
     writer.open(path.string(), 44'100, 1);
     std::vector<float> source(4'410);
     for (std::size_t frame = 0; frame < source.size(); ++frame)
-        source[frame] = 0.1F + frame * 0.00001F;
+        source[frame] = 0.1F + static_cast<float>(frame) * 0.00001F;
     writer.write(source);
     writer.close();
     AudioService service{std::make_unique<FakeAudioBackend>()};
@@ -782,7 +767,7 @@ void recordingPrepareFailureReleasesFileAndCanRetry() {
 }
 
 void recordingCommandsTrimOnlyThePerformanceAlignmentLead() {
-    for (const auto [name, tap] : {std::pair{"raw", RecordingTap::RawInput},
+    for (const auto& [name, tap] : {std::pair{"raw", RecordingTap::RawInput},
                                    std::pair{"processed", RecordingTap::ProcessedVoice},
                                    std::pair{"master", RecordingTap::MasterMix},
                                    std::pair{"performance", RecordingTap::PerformanceMix}}) {
@@ -1187,7 +1172,7 @@ void stopRecordingReportsWriterFailure() {
 }
 
 void wavWriterRejectsUnrepresentableFormatsAndPartialFrames() {
-    for (const auto [rate, channels] : {std::pair{48000U, 65536U}, std::pair{48000U, 32768U},
+    for (const auto& [rate, channels] : {std::pair{48000U, 65536U}, std::pair{48000U, 32768U},
                                         std::pair{std::numeric_limits<std::uint32_t>::max(), 2U}}) {
         WavWriter writer;
         bool rejected = false;
@@ -1497,7 +1482,9 @@ static void checkPerformanceHeadroom(bool paired) {
     WavDecoder decoder;
     const auto format = decoder.open(path.string());
     std::vector<float> recorded(static_cast<std::size_t>(format.totalFrames) * 2U);
-    decoder.read(recorded, static_cast<std::uint32_t>(format.totalFrames));
+    const auto decodedFrames = decoder.read(recorded, static_cast<std::uint32_t>(format.totalFrames));
+    require(format.channels == 2 && format.totalFrames != 0 && decodedFrames == format.totalFrames,
+            "headroom evidence decodes a nonempty complete stereo recording");
     float voicePeak = 0.0F;
     for (std::size_t index = 0; index < recorded.size(); index += 2)
         voicePeak = std::max(voicePeak, std::abs(recorded[index]));
@@ -1535,7 +1522,7 @@ void performanceCompanionPreservesTheAlignedBacking() { checkPerformanceHeadroom
 
 void performanceHeadroomFinalizesAllOutputChannels() {
     RecordingEngine recording;
-    for (const auto [voice, level] : {std::pair{1.6F, 1.6F}, std::pair{0.01F, 0.01F}, std::pair{0.65F, 1.25F}}) {
+    for (const auto& [voice, level] : {std::pair{1.6F, 1.6F}, std::pair{0.01F, 0.01F}, std::pair{0.65F, 1.25F}}) {
         const auto path = tempRoot / ("headroom-six-channels-" + std::to_string(level) + ".wav");
         recording.prepare("six", path.string(), 48'000, 6, RecordingTap::PerformanceMix, 8192);
         recording.start(SessionFrame{0}, 0);

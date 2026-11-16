@@ -214,7 +214,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.lastRoutePacketMicros = 0;
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
-        slot.remoteStreamEpoch = 0;
+        slot.remoteStreamEpoch.reset();
         slot.receivedSequences.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         resetPacketTrace(slot);
@@ -284,8 +284,10 @@ void NetworkAudioEngine::setLocalParticipant(std::string participantId) {
 void NetworkAudioEngine::setSessionToken(std::uint64_t token) noexcept {
     std::lock_guard lock(remoteMutex_);
     if (sessionToken_.exchange(token, std::memory_order_acq_rel) != token)
-        for (auto& slot : remote_)
+        for (auto& slot : remote_) {
             resetRouteHistory(*slot);
+            slot->remoteStreamEpoch.reset();
+        }
 }
 
 void NetworkAudioEngine::setRoomClock(std::int64_t serverMicros,
@@ -347,7 +349,8 @@ void NetworkAudioEngine::notePacketDecision(RemoteSlot& slot,
     slot.recentCutCount -= slot.recentPacketCuts[slot.recentPacketNext] ? 1U : 0U;
     slot.recentPacketCuts[slot.recentPacketNext] = cut;
     slot.recentCutCount += cut ? 1U : 0U;
-    slot.recentPacketNext = (slot.recentPacketNext + 1U) % slot.recentPacketCuts.size();
+    slot.recentPacketNext =
+        (slot.recentPacketNext + 1U) % static_cast<std::uint32_t>(slot.recentPacketCuts.size());
     // Retain at least 40 decisions before the beginning of a sustained series and 40 after it.
     if (slot.packetTraceCount >= 50U && slot.recentCutCount >= 5U)
         slot.packetTracePostCut = 40U;
@@ -477,7 +480,7 @@ void NetworkAudioEngine::setSharedTimeline(bool enabled) {
         slot.readyLateness.reset();
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
-        slot.remoteStreamEpoch = 0;
+        slot.remoteStreamEpoch.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         slot.timing.reset();
         std::lock_guard jitterLock(slot.jitterMutex);
@@ -642,7 +645,7 @@ void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     slot.lastRoutePacketMicros = 0;
     slot.returnRoute.reset();
     slot.arrivalRoute.reset();
-    slot.remoteStreamEpoch = 0;
+    slot.remoteStreamEpoch.reset();
     slot.lastPacketMicros.store(0, std::memory_order_relaxed);
     resetStreamReports(slot);
 }
@@ -707,7 +710,8 @@ bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string ho
     const auto endpoint = UdpSocket::endpointIdentity(host, port);
     const DirectPeer replacement{std::move(participantId), std::move(host), port, receiveToken, endpoint};
     const auto sameRoute = existing != directPeers_.end() && existing->host == replacement.host &&
-                           existing->port == port && existing->receiveToken == receiveToken;
+                           existing->port == port && existing->receiveToken == receiveToken &&
+                           existing->endpointIdentity == endpoint;
     if (existing == directPeers_.end()) {
         if (directPeers_.size() >= MaxRemoteParticipants)
             return false;
@@ -716,10 +720,12 @@ bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string ho
         *existing = replacement;
     }
     if (auto* slot = slotForId(replacement.participantId)) {
-        if (!sameRoute)
+        if (!sameRoute) {
             resetRouteHistory(*slot);
+            slot->remoteStreamEpoch.reset();
+        }
         slot->directRoute = true;
-        slot->directEndpointIdentity = UdpSocket::endpointIdentity(replacement.host, port);
+        slot->directEndpointIdentity = endpoint;
     }
     return true;
 }
@@ -1073,7 +1079,8 @@ void NetworkAudioEngine::sendMain() noexcept {
     std::uint64_t packetIndex = 0;
     std::uint64_t consumedFrames = 0;
     std::uint32_t blockOffset = 0;
-    std::optional<std::uint64_t> nextSharedFrame;
+    std::uint64_t nextSharedFrame{0};
+    bool sharedFrameValid{false};
     double sharedCorrection = 0.0;
     GenerationId sharedGeneration{0};
     std::size_t reportCursor = 0;
@@ -1120,16 +1127,16 @@ void NetworkAudioEngine::sendMain() noexcept {
             // A small block-clock steer must change PCM duration, not round independently into
             // a duplicated/missing 120-frame position. Follow the measured source with the same
             // bounded response as its smoother; genuine capture gaps still reanchor immediately.
-            const auto error =
-                nextSharedFrame ? signedMediaTimelineDistance(*nextSharedFrame, rawMediaTimestamp)
-                                : 0;
-            if (!nextSharedFrame || sharedGeneration != workGeneration ||
+            const auto error = sharedFrameValid
+                                   ? signedMediaTimelineDistance(nextSharedFrame, rawMediaTimestamp)
+                                   : 0;
+            if (!sharedFrameValid || sharedGeneration != workGeneration ||
                 std::abs(static_cast<double>(error)) >
                     VoiceTimelineSmoother::ResyncSeconds * VoiceTransportSampleRateHz) {
                 mediaTimestamp = alignSharedTimelinePacketFrame(rawMediaTimestamp);
                 correction = 0.0;
             } else {
-                mediaTimestamp = *nextSharedFrame;
+                mediaTimestamp = nextSharedFrame;
             }
             const auto sourceError = signedMediaTimelineDistance(mediaTimestamp, rawMediaTimestamp);
             correction += static_cast<double>(sourceError) * nominalFrames /
@@ -1196,10 +1203,11 @@ void NetworkAudioEngine::sendMain() noexcept {
         }
         if (sharedTimeline) {
             nextSharedFrame = addMediaTimelineFrames(mediaTimestamp, VoiceTransportPacketFrames);
+            sharedFrameValid = true;
             sharedCorrection = correction;
             sharedGeneration = workGeneration;
         } else {
-            nextSharedFrame.reset();
+            sharedFrameValid = false;
             sharedCorrection = 0.0;
         }
         transportSamples = retimeInterleavedLinear(
@@ -1318,7 +1326,7 @@ void NetworkAudioEngine::sendMain() noexcept {
             directHeader.sessionToken = peer.receiveToken;
             const auto directEncodedHeader = encodeAudioPacketHeader(directHeader);
             std::memcpy(packet.data(), directEncodedHeader.data(), directEncodedHeader.size());
-            const auto directSent = socket_.sendTo(peer.host, peer.port, packet);
+            const auto directSent = socket_.sendTo(peer.endpointIdentity, packet);
             if (fullTrace) {
                 senderEvent.directEndpoint = peer.endpointIdentity;
                 senderEvent.directSent = directSent;
@@ -1428,7 +1436,12 @@ void NetworkAudioEngine::receiveMain() noexcept {
             continue;
         }
         const auto processingMicros = steadyMicros();
-        if (slot->remoteStreamEpoch != header.streamEpoch) {
+        const auto epochChanged = slot->remoteStreamEpoch.current() != header.streamEpoch;
+        if (!slot->remoteStreamEpoch.accept(header.streamEpoch)) {
+            noteReceive(VoicePacketTrace::ReceiveReason::RetiredEpoch);
+            continue;
+        }
+        if (epochChanged) {
             if (fullTrace) {
                 receiveEvent.queue.epoch = slot->queue.epoch();
                 noteReceive(VoicePacketTrace::ReceiveReason::EpochReset);
@@ -1457,7 +1470,6 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->lossWindowStart = 0;
             std::lock_guard jitterLock(slot->jitterMutex);
             slot->jitter.reset();
-            slot->remoteStreamEpoch = header.streamEpoch;
         }
         const auto serverMix = slot->participantId == "__room_server_mix__";
         std::optional<ServerMixStageReport> serverStage;
@@ -1627,7 +1639,7 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
             VoicePacketTrace::ReceiveEvent admission{};
             if (fullTrace) {
                 admission.packet = {workGeneration, slot->participantKey.load(std::memory_order_relaxed),
-                                    slot->remoteStreamEpoch, packet.sequence, slot->lastCodec};
+                                    slot->remoteStreamEpoch.current().value_or(0), packet.sequence, slot->lastCodec};
                 admission.stage = VoicePacketTrace::ReceiveStage::Decision;
                 admission.socketMicros = packet.socketReceiveMicros;
                 admission.processingMicros = packet.processingMicros;
@@ -1698,7 +1710,7 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
             RoomPacketDecisionTrace traceEvent{};
             if (packetTraceEnabled_ && outcome == JitterPopOutcome::Delivered) {
                 traceEvent.generation = workGeneration;
-                traceEvent.streamEpoch = slot->remoteStreamEpoch;
+                traceEvent.streamEpoch = slot->remoteStreamEpoch.current().value_or(0);
                 traceEvent.sequence = packet.sequence;
                 traceEvent.musicalFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
                 traceEvent.serverIngressFrames = packet.serverIngressFrames;
@@ -2224,8 +2236,6 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
                 : std::max(playoutDelayFrames_, slot.desiredDelayFrames);
         participant.queueAlignmentErrorFrames =
             slot.alignmentErrorFrames.load(std::memory_order_relaxed);
-        participant.interPeerAlignmentErrorFrames =
-            static_cast<std::uint32_t>(std::abs(participant.queueAlignmentErrorFrames));
         participant.latePackets = participant.jitter.latePackets;
         participant.lossPermille = slot.lossPermille.load(std::memory_order_relaxed);
         participant.reportedLossPermille =
@@ -2316,15 +2326,16 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     const auto firstRecent = std::ranges::find_if(
         out.participants, [](const auto& participant) { return participant.receivingRecently; });
     if (firstRecent != out.participants.end()) {
-        auto minimumError = firstRecent->interPeerAlignmentErrorFrames;
+        auto minimumError = firstRecent->queueAlignmentErrorFrames;
         auto maximumError = minimumError;
         for (const auto& participant : out.participants) {
             if (!participant.receivingRecently)
                 continue;
-            minimumError = std::min(minimumError, participant.interPeerAlignmentErrorFrames);
-            maximumError = std::max(maximumError, participant.interPeerAlignmentErrorFrames);
+            minimumError = std::min(minimumError, participant.queueAlignmentErrorFrames);
+            maximumError = std::max(maximumError, participant.queueAlignmentErrorFrames);
         }
-        const auto spread = maximumError - minimumError;
+        const auto spread = static_cast<std::uint32_t>(
+            static_cast<std::int64_t>(maximumError) - minimumError);
         for (auto& participant : out.participants) {
             participant.interPeerAlignmentErrorFrames = participant.receivingRecently ? spread : 0U;
         }

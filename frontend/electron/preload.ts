@@ -164,8 +164,16 @@ const desktopApi = {
       gain,
     }),
 
-  setRoomVoiceParticipantEffect: (participantId: string, effect: RoomVoiceEffect, value: number): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.setRoomVoiceParticipantEffect, {participantId, effect, value}),
+  setRoomVoiceParticipantEffect: (
+    participantId: string,
+    effect: RoomVoiceEffect,
+    value: number,
+  ): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.setRoomVoiceParticipantEffect, {
+      participantId,
+      effect,
+      value,
+    }),
 
   keyboardLightingCapabilities: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.keyboardLightingCapabilities),
@@ -320,6 +328,13 @@ const desktopApi = {
       listener(onScreen);
     ipcRenderer.on(ipcChannels.appVisibility, handler);
     return () => ipcRenderer.removeListener(ipcChannels.appVisibility, handler);
+  },
+
+  onAppFocus: (listener: (focused: boolean) => void): (() => void) => {
+    const handler = (_event: unknown, focused: boolean): void =>
+      listener(focused);
+    ipcRenderer.on(ipcChannels.appFocus, handler);
+    return () => ipcRenderer.removeListener(ipcChannels.appFocus, handler);
   },
 
   onWindowState: (

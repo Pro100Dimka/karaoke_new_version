@@ -7,11 +7,41 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <future>
 #include <memory>
 #include <semaphore>
 #include <vector>
 
+struct MediaSourceTestAccess {
+    static std::atomic_flag& failureMessageLock(MediaSource& source) {
+        source.setFailure(MediaFailureCode::DecoderError, "decoder failure");
+        return source.failureLock_;
+    }
+};
+
 namespace Tests {
+void transportSnapshotDoesNotWaitForDiagnosticText() {
+    MediaSource source(std::make_unique<WavDecoder>());
+    auto& flag = MediaSourceTestAccess::failureMessageLock(source);
+    flag.test_and_set(std::memory_order_acquire);
+    struct Release {
+        std::atomic_flag& flag;
+        ~Release() { flag.clear(std::memory_order_release); }
+    } release{flag};
+    auto reading = std::async(std::launch::async, [&] { return source.snapshot(false); });
+    const auto completed = reading.wait_for(std::chrono::milliseconds(500));
+    flag.clear(std::memory_order_release);
+    const auto transport = reading.get();
+    expect(completed == std::future_status::ready,
+           "transport snapshot never waits for the diagnostic message writer");
+    expect(transport.failureCode == MediaFailureCode::DecoderError,
+           "transport still reports the failure code");
+    expect(transport.failureMessage[0] == '\0', "transport does not read diagnostic text");
+    const auto diagnostic = source.snapshot();
+    expect(std::string_view(diagnostic.failureMessage.data()) == "decoder failure",
+           "control diagnostics retain the complete decoder error");
+}
+
 void loadingProgressReportsRealScannedFramesWithoutMovingPlayback() {
     const auto path = tempRoot / "loading-progress.wav";
     makeTestWav(path, 10000);
@@ -153,7 +183,7 @@ void mediaResamplingPreservesEveryFrameAcrossChunks() {
     processor.prepare(48000, 48000, 1, 2048);
     std::vector<float> input(2048), output(8192);
     bool exact = true;
-    for (int block = 0; block < 8; ++block) {
+    for (std::size_t block = 0; block < 8; ++block) {
         for (std::size_t frame = 0; frame < input.size(); ++frame)
             input[frame] = static_cast<float>(block * input.size() + frame);
         const auto count = processor.process(input, 2048, output);
@@ -210,7 +240,7 @@ void mediaEofFinishesWithTheExactSampleCount() {
     expect(source.snapshot().sourcePositionFrames == 4800,
            "resuming at a selected position after EOF must not restart at zero");
 
-    for (const auto rates :
+    for (const auto& rates :
          {std::pair{48000U, 44100U}, std::pair{8000U, 192000U}, std::pair{48000U, 8000U}}) {
         const auto path = tempRoot / "runtime-rate.wav";
         WavWriter writer;

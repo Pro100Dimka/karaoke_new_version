@@ -430,17 +430,19 @@ export const targetPitchAt = (
   position: number,
 ): number | undefined => {
   const points = note.contour;
-  if (!points?.length) return note.pitch;
+  const first = points?.[0];
+  if (!points || !first) return note.pitch;
   const fraction = (position - note.start) / (note.end - note.start);
   let low = 0;
   let high = points.length;
   while (low < high) {
     const middle = (low + high) >>> 1;
-    if (points[middle]![0] < fraction) low = middle + 1;
+    const point = points[middle];
+    if (point && point[0] < fraction) low = middle + 1;
     else high = middle;
   }
-  const left = points[Math.max(0, low - 1)]!;
-  const right = points[Math.min(low, points.length - 1)]!;
+  const left = points[Math.max(0, low - 1)] ?? first;
+  const right = points[Math.min(low, points.length - 1)] ?? first;
   const nearest =
     Math.abs(left[0] - fraction) <= Math.abs(right[0] - fraction)
       ? left

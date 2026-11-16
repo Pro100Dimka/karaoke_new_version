@@ -51,7 +51,7 @@ const runSteps = async (args, options = {}) => {
     },
     writeFileSync: () => {},
     lookup: async () => {},
-    fileURLToPath: () => process.cwd(),
+    fileURLToPath: () => options.scriptPath ?? process.cwd(),
     runningAppPid: () => options.activePid ?? null,
     console: {
       log: (...values) => logs.push(values.join(' ')),
@@ -196,19 +196,47 @@ test('full backend checks retain the strict existing quality runner', async () =
 });
 
 test('focused backend checks keep pytest file and node selection', async () => {
-  const run = await runSteps([
-    'check',
-    'backend',
-    'tests/test_example.py::test_case',
-  ]);
-  assert.equal(run.exitCode, 0);
-  assert.ok(
-    run.calls.some(
-      (c) =>
-        c.includes('-m pytest') &&
-        c.includes('tests/test_example.py::test_case'),
-    ),
-  );
+  for (const [workers, expectedParallel] of [
+    [undefined, undefined],
+    ['--workers=1', undefined],
+    ['--workers=2', '2'],
+    ['--workers=3', '3'],
+    ['--workers=4', '4'],
+  ]) {
+    const run = await runSteps([
+      'check',
+      'backend',
+      ...(workers ? [workers] : []),
+      'tests/test_example.py::test_case',
+    ]);
+    assert.equal(run.exitCode, 0);
+    const command = run.calls.find((c) => c.includes('-m pytest'));
+    assert.ok(command?.includes('tests/test_example.py::test_case'));
+    assert.equal(command.match(/ -n (\d+) --dist=load/)?.[1], expectedParallel);
+  }
+});
+
+test('backend commands quote checkout paths containing shell metacharacters', async () => {
+  for (const directory of ['A&D', 'A (D)', 'A D']) {
+    const scriptPath = join('D:/', directory, 'scripts', 'build-steps.mjs');
+    const run = await runSteps(['check', 'backend', 'tests/test_example.py'], { scriptPath });
+    assert.equal(run.exitCode, 0);
+    const python = join(path.resolve(path.dirname(scriptPath), '..'), 'python', '.venv', 'Scripts', 'python.exe');
+    assert.ok(run.calls.find((command) => command.includes('-m pytest'))?.startsWith(`"${python}" `));
+  }
+});
+
+test('installer rejects Node versions unsupported by Electron and build scripts', () => {
+  const installer = readFileSync(new URL('../../installer.bat', import.meta.url), 'utf8');
+  const guard = installer.match(/^node\.exe -e "(.+)"/m)?.[1];
+  assert.ok(guard, 'installer must execute the minimum supported Node version guard');
+  for (const [version, expected] of [
+    ['20.11.0', 1], ['20.12.0', 1], ['22.11.0', 1], ['22.12.0', 0], ['24.0.0', 0],
+  ]) {
+    let code;
+    runInNewContext(guard, { process: { versions: { node: version }, exit: (value) => { code = value; } } });
+    assert.equal(code, expected, version);
+  }
 });
 
 test('full audio checks build the test binary and run the registered CTest suite', async () => {
@@ -269,16 +297,53 @@ test('all checks include frontend, strict backend and native tests', async () =>
       run.calls.some((c) => c.includes(command)),
       command,
     );
+  const nativeWorkflow = readFileSync(
+    new URL('../../.github/workflows/ci.yml', import.meta.url),
+    'utf8',
+  ).split('\n  native:')[1];
+  assert.ok(nativeWorkflow, 'native CI must remain enabled');
+  for (const platform of ['windows-latest', 'ubuntu-24.04'])
+    assert.ok(
+      nativeWorkflow.includes(platform),
+      `${platform} must build native targets`,
+    );
+  assert.ok(
+    nativeWorkflow.includes('-DCMAKE_CXX_COMPILER=g++-14'),
+    'native CI must exercise the GCC 14 compiler from the portability report',
+  );
+  assert.doesNotMatch(
+    nativeWorkflow,
+    /target:\s*NativeVoiceRelay\b/,
+    'the Linux build must include AudioService, AudioControl and the test binary',
+  );
+  assert.doesNotMatch(
+    nativeWorkflow,
+    /if:\s*runner\.os\s*==\s*'Windows'\s*\r?\n\s*run:\s*ctest\b/,
+    'native verification must run on Linux as well as Windows',
+  );
 });
 
 test('check failures propagate and invalid scopes or paths never run commands', async () => {
-  const failed = await runSteps(['check', 'frontend'], { fail: /^npm test$/ });
-  assert.notEqual(failed.exitCode, 0);
+  for (const [args, fail] of [
+    [['check', 'frontend'], /^npm test$/],
+    [['check', 'backend', '--workers=2', 'tests/test_example.py'], /-m pytest/],
+    [['check', 'backend', '--workers=4', 'tests/test_example.py'], /-m pytest/],
+  ]) {
+    const failed = await runSteps(args, { fail });
+    assert.notEqual(failed.exitCode, 0);
+  }
   for (const args of [
     ['check', 'unknown'],
     ['check', 'all', 'tests/test_example.py'],
     ['check', 'frontend', '../outside.test.ts'],
     ['check', 'backend', '--ignore=tests'],
+    ['check', 'backend', '--workers=0', 'tests/test_example.py'],
+    ['check', 'backend', '--workers=5', 'tests/test_example.py'],
+    ['check', 'backend', '--workers=20', 'tests/test_example.py'],
+    ['check', 'backend', '--workers=2'],
+    ['check', 'backend', '--workers=4'],
+    ['check', 'backend', '--workers=1', '--workers=2', 'tests/test_example.py'],
+    ['check', 'frontend', '--workers=2', 'src/app/example.test.ts'],
   ]) {
     const run = await runSteps(args);
     assert.notEqual(run.exitCode, 0);

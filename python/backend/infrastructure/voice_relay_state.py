@@ -239,8 +239,27 @@ class RelayState:
             if item[0] == room_id and participant_id in item[1:3]
         ]:
             self._recipient_source_effects.pop(effect_key, None)
-        if not members:
+        if not any(session[0] == room_id for session in self._sessions):
             self._drop_room_locked(room_id)
+
+    def _close_room_locked(self, room_id: str) -> None:
+        for participant, (room, _) in tuple(self._participant_session.items()):
+            if room == room_id:
+                self._forget_locked(participant)
+        self._drop_room_locked(room_id)
+        _pop_from(
+            room_id,
+            self._room_eligible_mixers,
+            self._room_playout_delay_seconds,
+            self._room_return_reserve_seconds,
+            self._room_singing_started_at,
+        )
+        for name in ("last", "published"):
+            values = self._level_push[name]
+            if isinstance(values, dict):
+                values.pop(room_id, None)
+        if self._control_command is not None:
+            self._control_command(f"CLOSE_ROOM\t{room_id}")
 
     def _drop_room_locked(self, room_id: str) -> None:
         """Forgets everything about a room whose last voice member left."""

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import {
   analyzeBackendSwitchAudioPath,
   analyzeRoomAudioGaps,
@@ -14,7 +15,43 @@ import {
   toneContinuity,
   toneLevel,
   validateNegotiation,
+  roomSmokeIdentities,
 } from './multi-electron-room-plan.mjs';
+
+test('room check credentials are unique, owner-bound and protected in transit', () => {
+  const identities = roomSmokeIdentities();
+  const alice = identities.create();
+  const bob = identities.create();
+  const aliceHeaders = identities.headers('https://rooms.example.com', alice);
+  const bobHeaders = identities.headers('http://127.0.0.1:8081', bob);
+  assert.notEqual(alice, bob);
+  assert.notEqual(
+    aliceHeaders['X-AD-Voice-Room-Key'],
+    bobHeaders['X-AD-Voice-Room-Key'],
+  );
+  for (const [participant, headers] of [
+    [alice, aliceHeaders],
+    [bob, bobHeaders],
+  ]) {
+    const key = headers['X-AD-Voice-Room-Key'];
+    assert.match(key, /^[a-f0-9]{64}$/);
+    assert.equal(
+      participant,
+      createHash('sha256')
+        .update(`ad-voice-room-participant:${key}`)
+        .digest('hex')
+        .slice(0, 32),
+    );
+  }
+  assert.throws(
+    () => identities.headers('http://rooms.example.com', alice),
+    /HTTPS/,
+  );
+  assert.throws(
+    () => identities.headers('https://rooms.example.com', 'unknown'),
+    /credentials/,
+  );
+});
 
 test('personal-control PCM sampling waits for audible remote return', () => {
   assert.equal(

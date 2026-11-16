@@ -26,8 +26,9 @@ class SessionManager {
                                      std::unique_ptr<IAudioBackend> backend = nullptr);
     bool openBackendControlPanel(const RequestedConfiguration& requested);
     bool recover();
-    void suspend() noexcept;
+    bool suspend() noexcept;
     bool resume();
+    bool refreshRuntimeLatency() { return backend_->refreshRuntimeLatency(runtime_); }
     [[nodiscard]] SessionState state() const noexcept {
         return state_;
     }

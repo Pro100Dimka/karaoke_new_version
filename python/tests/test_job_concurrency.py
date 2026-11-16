@@ -82,15 +82,38 @@ def test_terminal_job_survives_event_overflow_and_rejects_late_progress(tmp_path
 def test_job_events_are_ordered_even_when_work_completes_during_submit(tmp_path, monkeypatch):
     with app_client(tmp_path) as client:
         manager = client.app.state.container.system.jobs
-        states = []
+        events = []
         monkeypatch.setattr(
-            manager._events, "publish", lambda name, payload: states.append(payload["state"])
+            manager._events, "publish", lambda name, payload: events.append((name, payload))
         )
-        monkeypatch.setattr(
-            manager._executor, "submit", lambda identity, work: work(threading.Event())
-        )
-        manager.start(JobType.SONG_PROCESSING, lambda context: None)
+        def submit(identity, work):
+            manager._events.publish("job.changed", {"jobId": "background-job", "state": "Running"})
+            work(threading.Event())
+
+        monkeypatch.setattr(manager._executor, "submit", submit)
+        job = manager.start(JobType.SONG_PROCESSING, lambda context: None)
+        states = [
+            payload["state"] for name, payload in events
+            if name == "job.changed" and payload.get("jobId") == job.job_id
+        ]
         assert states == ["Queued", "Running", "Succeeded"]
+
+
+@pytest.mark.parametrize("job_type", list(JobType))
+def test_a_committed_result_survives_a_late_cancellation(tmp_path, monkeypatch, job_type):
+    with app_client(tmp_path) as client:
+        manager = client.app.state.container.system.jobs
+        monkeypatch.setattr(manager._executor, "submit", lambda identity, work: work(threading.Event()))
+        report = {"revision": 2, "resultId": "committed-result"}
+
+        def work(context):
+            manager.cancel(context.job_id)
+            return report
+
+        job = manager.start(job_type, work)
+        completed = manager.get(job.job_id)
+        assert completed.state is JobState.SUCCEEDED
+        assert completed.report == report
 
 
 @pytest.mark.parametrize("outcome", [JobState.SUCCEEDED, JobState.CANCELLED, JobState.FAILED])

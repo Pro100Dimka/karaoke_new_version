@@ -283,6 +283,7 @@ export interface RoomClient {
   setRoomReadiness(
     code: string,
     readiness: RoomReadiness,
+    selectionId: number,
     progress?: number,
   ): Promise<RoomStateDto>;
   setVoiceLatency(

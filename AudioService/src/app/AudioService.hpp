@@ -37,7 +37,7 @@ class AudioService {
     }
     [[nodiscard]] std::string diagnostics(bool playbackOnly = false);
     /** Song frame the room hears at `at` (what every participant's timer shows). */
-    [[nodiscard]] std::uint64_t roomPlaybackFrame(MonotonicTicks at) const noexcept;
+    [[nodiscard]] std::uint64_t roomPlaybackFrame(MonotonicTicks at, bool captureHistory = false) const noexcept;
     [[nodiscard]] ControlResponse handle(const ControlRequest& request);
     [[nodiscard]] ControlResponse handleLine(std::string_view line);
     [[nodiscard]] SessionManager& session() noexcept {
@@ -57,7 +57,9 @@ class AudioService {
     }
 
   private:
+    friend struct AudioServiceTestAccess;
     MonotonicTicks pitchFence_{0};
+    MonotonicTicks pitchEnd_{0};
     std::uint64_t pitchEpoch_{0};
     RequestedConfiguration requestFromControl(const ControlRequest& request) const;
     MediaContext contextFromControl(const ControlRequest& request) const;

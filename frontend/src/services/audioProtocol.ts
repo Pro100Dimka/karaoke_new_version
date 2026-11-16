@@ -4,6 +4,7 @@ import type {
   DeviceDto,
   LatencyParts,
   RuntimeAudioConfiguration,
+  PitchFrame,
 } from '../contracts/models';
 import type {
   RemoteVoiceTiming,
@@ -14,6 +15,46 @@ import type {
 /** A diagnostic number; absent, empty or non-numeric text reads as 0. */
 export const diagnosticNumber = (value: string | undefined): number =>
   Number(value) || 0;
+
+const parseBands = (value: string | undefined): number[] =>
+  (value ?? '').split(',').map(Number).filter(Number.isFinite);
+export const spectrumFromText = (text: string) => {
+  const values = parseKeyValues(text);
+  return {
+    bands: parseBands(values.bands),
+    backingBands: parseBands(values.backingBands),
+  };
+};
+
+export const parsePitchFrames = (
+  values: Record<string, string>,
+  sampleRate: number,
+): PitchFrame[] | undefined =>
+  values.InputPitchHistory === undefined
+    ? undefined
+    : values.InputPitchHistory.split('|').flatMap((entry) => {
+        const fields = entry.split(',').map(Number);
+        if (
+          ![4, 5, 6].includes(fields.length) ||
+          fields.some((value) => !Number.isFinite(value) || value < 0) ||
+          sampleRate <= 0 ||
+          (fields.length >= 5 && ![0, 1].includes(fields[4] ?? -1)) ||
+          (fields.length === 6 && (fields[5] ?? 0) > 1)
+        )
+          return [];
+        const [sequence = 0, position = 0, duration = 0, pitch = 0] = fields;
+        return [
+          {
+            sequence,
+            epoch: diagnosticNumber(values.InputPitchEpoch),
+            positionSeconds: position / sampleRate,
+            durationSeconds: duration / sampleRate,
+            pitchHz: pitch || undefined,
+            audioActive: fields.length >= 5 ? fields[4] === 1 : undefined,
+            confidence: fields[5],
+          },
+        ];
+      });
 
 const keyValue = (line: string): [string, string] => {
   const colon = line.indexOf(':');
@@ -298,8 +339,12 @@ const deviceBackends: Readonly<Partial<Record<number, AudioBackendName>>> = {
 };
 
 const parseDevice = (line: string): RawDevice => {
-  const [id = '', name = '', backend = '1', direction = '0', channels = '0'] =
-    line.split(',');
+  const fields = line.split(',');
+  const id = fields.shift() ?? '';
+  const channels = fields.pop() ?? '0';
+  const direction = fields.pop() ?? '0';
+  const backend = fields.pop() ?? '1';
+  const name = fields.join(',');
   return {
     id,
     name,

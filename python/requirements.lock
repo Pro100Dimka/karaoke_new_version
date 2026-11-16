@@ -22,6 +22,7 @@ decorator==5.3.1
 demucs==4.1.0
 docopt==0.6.2
 einops==0.8.2
+execnet==2.1.2
 fastapi==0.141.1
 faster-whisper==1.2.1
 fastjsonschema==2.22.2
@@ -82,6 +83,7 @@ pydub==0.25.1
 Pygments==2.21.0
 pytest==8.4.2
 pytest-asyncio==0.26.0
+pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
 python-slugify==9.1.2

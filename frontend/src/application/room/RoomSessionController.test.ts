@@ -52,8 +52,8 @@ it('applies the server deadline before opening the voice transport', async () =>
   await session.join('Singer');
 
   expect(audio.setRoomPlayoutDelay).toHaveBeenCalledWith(250);
-  expect(audio.setRoomPlayoutDelay.mock.invocationCallOrder[0]!).toBeLessThan(
-    audio.joinVoiceSession.mock.invocationCallOrder[0]!,
+  expect(audio.setRoomPlayoutDelay.mock.invocationCallOrder[0]).toBeLessThan(
+    audio.joinVoiceSession.mock.invocationCallOrder[0] ?? -Infinity,
   );
 });
 

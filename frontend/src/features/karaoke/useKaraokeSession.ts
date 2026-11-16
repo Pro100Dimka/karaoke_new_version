@@ -1,10 +1,10 @@
+import { useKaraokeRecording } from './useKaraokeRecording';
+import { usePreparedRoomAudio } from './usePreparedRoomAudio';
 import { observeOperation } from '../../shared/errors';
 import { observable, runInAction } from 'mobx';
-import { openSettings } from '../../pages/library/modals/settings';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { store } from '../../providers/store';
 import { audioClient } from '../../services/audioClient';
-import { pythonClient } from '../../services/pythonClient';
 import { recordingCoordinator } from '../../services/recordingCoordinator';
 import {
   useCallback,
@@ -15,23 +15,16 @@ import {
   useState,
 } from 'react';
 import { useRoomPlayback } from '../../providers/application';
-import { ask } from '../../providers/dialog';
 import { useCloseGuard } from '../../providers/close-guards';
 import { useNotify } from '../../providers/notifications';
 import type {
-  AppError,
   MixerChannelGains,
   PlaybackSnapshot,
   SongDto,
 } from '../../contracts/models';
-import { KaraokeRecordingCoordinator } from '../../application/karaoke/KaraokeRecordingCoordinator';
 import type { KaraokeNoteScore } from '../../contracts/models';
 import { toAppError } from '../../shared/errors';
-import {
-  reduceKaraoke,
-  type KaraokeState,
-} from '../../application/karaoke/karaokeMachine';
-import { askInsufficientDisk } from './askInsufficientDisk';
+import { reduceKaraoke } from '../../application/karaoke/karaokeMachine';
 import { useAudioRecovery } from './useAudioRecovery';
 import { useKaraokeControls } from './useKaraokeControls';
 import { releaseKaraokeAudio } from './karaokeAudioLifecycle';
@@ -43,7 +36,6 @@ import {
 import { useKeyboardLighting } from './useKeyboardLighting';
 import { useKaraokeLoadSession } from './useKaraokeLoadSession';
 import { useSynchronizedRoomPlayback } from './useSynchronizedRoomPlayback';
-import { createSingleFlight } from './performanceFinish';
 import {
   allConnectedReady,
   canControlRoom,
@@ -52,22 +44,12 @@ import {
 export type { KaraokeOpenMode } from '../../application/karaoke/karaokeMachine';
 import type { KaraokeOpenMode } from '../../application/karaoke/karaokeMachine';
 
-type RecordingUiState =
-  'idle' | 'starting' | 'recording' | 'stopping' | 'failed';
-
 export const useKaraokeSession = (
   songId: string,
   mode: KaraokeOpenMode,
   startReleased: boolean,
 ) => {
-  const recordingWorkRef = useRef<KaraokeRecordingCoordinator>(null);
-  recordingWorkRef.current ??= new KaraokeRecordingCoordinator(
-    pythonClient,
-    recordingCoordinator,
-    audioClient,
-  );
-  const recordingWork = recordingWorkRef.current;
-  const { preferences, updatePreferences } = store;
+  const { preferences } = store;
   const { room } = store.online;
   const roomPlayback = useRoomPlayback();
   const notify = useNotify();
@@ -75,7 +57,7 @@ export const useKaraokeSession = (
 
   const [state, dispatch] = useReducer(reduceKaraoke, {
     kind: 'preparing',
-  } as KaraokeState);
+  });
   // Display consumers subscribe locally; audio lifecycle stays with this session.
   const [playback] = useState(() =>
     observable.object<
@@ -87,20 +69,18 @@ export const useKaraokeSession = (
     ),
   );
   const setPosition = useCallback(
-    (value: number | ((previous: number) => number)) => {
+    (value: number | ((previous: number) => number)) =>
       runInAction(() => {
         playback.position =
           typeof value === 'function' ? value(playback.position) : value;
-      });
-    },
+      }),
     [playback],
   );
   const readPosition = useCallback(() => playback.position, [playback]);
   const [speed, setSpeed] = useState(1);
   const [keyShift, setKeyShift] = useState(0);
   const [monitoring, setMonitoring] = useState(false);
-  const [recording, setRecording] = useState<RecordingUiState>('idle');
-  const [recordingId, setRecordingId] = useState<string | undefined>();
+
   const [recoveredNotice, setRecoveredNotice] = useState(false);
   const initialGains = useRef<MixerChannelGains>({
     music: preferences.musicGain,
@@ -125,16 +105,33 @@ export const useKaraokeSession = (
   const playbackGeneration = useRef(0);
   const recoveryIntent = useRef({ playing: false, recording: false });
   const positionRef = useRef(0);
-  const recordingRef = useRef(recording);
-  recordingRef.current = recording;
+
   const speedRef = useRef(speed);
   speedRef.current = speed;
   const keyRef = useRef(keyShift);
   keyRef.current = keyShift;
+  const songRef = useRef<SongDto | null>(null);
+  const {
+    recordingWork,
+    recording,
+    setRecording,
+    recordingRef,
+    recordingId,
+    finishLocalPerformance,
+    startRecording,
+  } = useKaraokeRecording({
+    room,
+    roomPlayback,
+    dispatch,
+    playbackGeneration,
+    songRef,
+    positionRef,
+    speedRef,
+    keyRef,
+  });
 
   const fail = useCallback(
-    (error: unknown) =>
-      dispatch({ type: 'FAIL', error: toAppError(error) satisfies AppError }),
+    (error: unknown) => dispatch({ type: 'FAIL', error: toAppError(error) }),
     [],
   );
   const { load, document, songPrefs, capabilities } = useKaraokeLoadSession(
@@ -171,67 +168,14 @@ export const useKaraokeSession = (
 
   const song = load.kind === 'ready' ? load.song : null;
   const roomReady = !room || allConnectedReady(room);
-  const songRef = useRef<SongDto | null>(null);
+
   songRef.current = song;
   // Song availability and player readiness are different states. Report Ready only after this
   // instance has loaded the exact project and prepared AudioService; the server then schedules one
   // future start for the whole room instead of letting early clients play while others still load.
-  useEffect(() => {
-    if (
-      !room ||
-      mode !== 'RoomPrepared' ||
-      load.kind !== 'ready' ||
-      state.kind !== 'ready' ||
-      !roomPlayback ||
-      !room.songId ||
-      room.revision === undefined
-    )
-      return;
-    void roomPlayback.reportReady(room.songId, room.revision).catch(fail);
-  }, [
-    room?.code,
-    room?.songId,
-    room?.revision,
-    mode,
-    load.kind,
-    state.kind,
-    roomPlayback,
-    fail,
-  ]);
+  usePreparedRoomAudio(room, mode, load.kind, state.kind, roomPlayback, fail);
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
-  const finishLocalWork = useCallback(async () => {
-    playbackGeneration.current++;
-    dispatch({ type: 'STOPPING' });
-    setRecording('stopping');
-    const result = await recordingWork.finish(roomPlayback?.finalPerformance());
-    if (result.recordingId) {
-      setRecordingId(result.recordingId);
-      notify(tr('recordingSaved'), 'success');
-    }
-    if (!result.saved) {
-      store.cancelPlaylist();
-      setRecording('failed');
-      notify(tr('recordingFailed'), 'error');
-    }
-    if (result.saved && room?.playlist && room.performanceId !== undefined) {
-      try {
-        await roomPlayback?.advancePlaylist(room.performanceId);
-      } catch (error) {
-        notify(error instanceof Error ? error.message : String(error), 'error');
-      }
-    }
-    setRecording((current) => (current === 'failed' ? current : 'idle'));
-    dispatch({ type: 'FINISH' });
-    return result.saved;
-  }, [notify, recordingWork, roomPlayback, room]);
-  const finishLocalWorkRef = useRef(finishLocalWork);
-  finishLocalWorkRef.current = finishLocalWork;
-  const finishLocalPerformanceRef = useRef<() => Promise<boolean>>(undefined);
-  finishLocalPerformanceRef.current ??= createSingleFlight(() =>
-    finishLocalWorkRef.current(),
-  );
-  const finishLocalPerformance = finishLocalPerformanceRef.current;
 
   const finishPerformance = useCallback(
     async (naturalEnd = false) => {
@@ -293,11 +237,11 @@ export const useKaraokeSession = (
       }
       setMonitoring(snapshot.monitoring);
       if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
-        monitoringWarningShown.current = true;
         notify(tr('monitoringSafetyStopped'), 'error');
-      } else if (!snapshot.monitoringSafetyTripped) {
-        monitoringWarningShown.current = false;
       }
+      monitoringWarningShown.current = Boolean(
+        snapshot.monitoringSafetyTripped,
+      );
     },
     [notify, locale, playback, room],
   );
@@ -394,38 +338,9 @@ export const useKaraokeSession = (
   useCloseGuard(confirmExit);
 
   const interactive =
-    roomReady &&
-    (state.kind === 'ready' ||
-      state.kind === 'playing' ||
-      state.kind === 'paused');
+    roomReady && ['ready', 'playing', 'paused'].includes(state.kind);
 
   // Solo playback waits for recording preflight; room playback remains governed by the server.
-  const startRecording = useCallback(async () => {
-    const target = songRef.current;
-    if (!target) return false;
-    recordingRef.current = 'starting';
-    setRecording('starting');
-    const result = await recordingWork.start(target, {
-      sourceSeconds: positionRef.current,
-      playbackRate: speedRef.current,
-      keyShift: keyRef.current,
-    });
-    if (result.kind === 'cancelled') return false;
-    recordingRef.current = result.kind === 'started' ? 'recording' : 'failed';
-    if (result.kind === 'insufficientDisk') {
-      setRecording('failed');
-      const choice = await askInsufficientDisk(ask, result.free);
-      if (recordingWork.isCurrent(result.generation) && choice === 'storage')
-        openSettings('advanced');
-      return false;
-    }
-    if (result.kind === 'started') setRecording('recording');
-    else {
-      setRecording('failed');
-      notify(tr('recordingFailed'), 'error');
-    }
-    return result.kind === 'started';
-  }, [ask, notify, openSettings, recordingWork]);
 
   const playPending = useRef(false);
   const togglePlay = useCallback(async () => {
@@ -444,10 +359,7 @@ export const useKaraokeSession = (
         await audioClient.pause();
         if (generation !== playbackGeneration.current) return;
         dispatch({ type: 'PAUSE' });
-      } else if (
-        stateRef.current.kind === 'ready' ||
-        stateRef.current.kind === 'paused'
-      ) {
+      } else if (['ready', 'paused'].includes(stateRef.current.kind)) {
         if (
           mode !== 'Rehearsal' &&
           capabilities.microphone === 'ready' &&
@@ -504,7 +416,7 @@ export const useKaraokeSession = (
   // Opened from the library, the performance starts on its own once the opening scene releases it.
   useEffect(() => {
     if (
-      (mode === 'AutoStart' || mode === 'Rehearsal') &&
+      ['AutoStart', 'Rehearsal'].includes(mode) &&
       startReleased &&
       state.kind === 'ready' &&
       recording === 'idle'
@@ -580,24 +492,6 @@ export const useKaraokeSession = (
     }
   }, [state.kind]);
 
-  const setShowNotes = useCallback(
-    (value: boolean) => updatePreferences({ karaokeShowNotes: value }),
-    [updatePreferences],
-  );
-  const setShowLyrics = useCallback(
-    (value: boolean) => updatePreferences({ karaokeShowLyrics: value }),
-    [updatePreferences],
-  );
-  const setAutoHideConsole = useCallback(
-    (value: boolean) => updatePreferences({ karaokeAutoHideConsole: value }),
-    [updatePreferences],
-  );
-  const setEffectValues = useCallback(
-    (value: typeof preferences.karaokeEffects) =>
-      updatePreferences({ karaokeEffects: value }),
-    [updatePreferences],
-  );
-
   return {
     load,
     state,
@@ -624,15 +518,7 @@ export const useKaraokeSession = (
     practiceLocked: Boolean(
       room && (!canControlRoom(room) || room.playbackLocked),
     ),
-    showNotes: preferences.karaokeShowNotes,
-    showLyrics: preferences.karaokeShowLyrics,
-    autoHideConsole: preferences.karaokeAutoHideConsole,
-    noiseSuppression: preferences.noiseSuppression,
-    effectValues: preferences.karaokeEffects,
-    setShowNotes,
-    setShowLyrics,
-    setAutoHideConsole,
-    setEffectValues,
+
     togglePlay,
     ...controls,
     seek,

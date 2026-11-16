@@ -32,6 +32,79 @@ def _measure_voice_routes(client, room_id: str, *participant_ids: str) -> None:
         assert response.status_code == 200, response.text
 
 
+def test_readiness_requires_the_selected_song_generation(client) -> None:
+    room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()[
+        "roomId"
+    ]
+    client.post(f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"})
+    for song in ["first", "second"]:
+        client.post(
+            f"/rooms/{room_id}/song", json={"participantId": "host", "songId": song, "revision": 1}
+        )
+    late = client.post(
+        f"/rooms/{room_id}/readiness", json={"participantId": "guest", "readiness": "Ready"}
+    )
+    assert late.status_code == 422, late.text
+    room = client.get(f"/rooms/{room_id}").json()
+    assert (
+        next(p for p in room["participants"] if p["participantId"] == "guest")["readinessState"]
+        == "MissingSong"
+    )
+
+
+@pytest.mark.parametrize("return_to_first", [False, True])
+def test_old_readiness_cannot_prepare_a_new_selection(client, return_to_first) -> None:
+    room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()[
+        "roomId"
+    ]
+    client.post(f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"})
+    first = client.post(
+        f"/rooms/{room_id}/song", json={"participantId": "host", "songId": "first", "revision": 1}
+    ).json()
+    second = client.post(
+        f"/rooms/{room_id}/song", json={"participantId": "host", "songId": "second", "revision": 1}
+    ).json()
+    if return_to_first:
+        second = client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "first", "revision": 1},
+        ).json()
+    assert second["selectionId"] > first["selectionId"]
+    for readiness in ["Downloading", "Failed", "Ready"]:
+        late = client.post(
+            f"/rooms/{room_id}/readiness",
+            json={
+                "participantId": "guest",
+                "readiness": readiness,
+                "selectionId": first["selectionId"],
+            },
+        )
+        assert late.status_code == 409, late.text
+        assert late.json()["code"] == "RoomSelectionChanged"
+    current = client.get(f"/rooms/{room_id}").json()
+    assert current["songId"] == second["songId"]
+    assert (
+        next(p for p in current["participants"] if p["participantId"] == "guest")["readinessState"]
+        == "MissingSong"
+    )
+    ready = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Ready", "selectionId": second["selectionId"]},
+    )
+    assert ready.status_code == 200, ready.text
+
+
+def test_selection_generation_survives_restart_and_advances_on_clear(tmp_path) -> None:
+    database = tmp_path / "rooms.db"
+    cases = build_room_cases(UuidGenerator(), FakeClock(), SqliteRoomRepository(database))
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    selected = cases.select_song.execute(room.room_id, "host", "song", 1)
+    restored = build_room_cases(UuidGenerator(), FakeClock(), SqliteRoomRepository(database))
+    assert restored.get.execute(room.room_id).selection_id == selected.selection_id
+    cleared = restored.clear_song.execute(room.room_id, "host")
+    assert cleared.selection_id == selected.selection_id + 1
+
+
 def test_room_uses_a_safe_conversation_deadline_before_voice_is_measured() -> None:
     cases = build_room_cases(UuidGenerator(), FakeClock(), InMemoryRoomRepository())
 
@@ -88,16 +161,31 @@ def test_explicit_stop_survives_route_and_readiness_updates(tmp_path, update) ->
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     cases.set_timing.execute(room.room_id, "host", 50)
     cases.select_song.execute(room.room_id, "host", "song", 1)
-    started = cases.set_readiness.execute(room.room_id, "host", ReadinessState.READY)
+    started = cases.set_readiness.execute(
+        room.room_id,
+        "host",
+        ReadinessState.READY,
+        selection_id=cases.get.execute(room.room_id).selection_id,
+    )
     assert started.playback_state is PlaybackState.PLAYING
     cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.STOP)
 
     if update == "late_join":
         cases.join.execute(room.room_id, "guest", "Guest")
         cases.set_timing.execute(room.room_id, "guest", 55)
-        updated = cases.set_readiness.execute(room.room_id, "guest", ReadinessState.READY)
+        updated = cases.set_readiness.execute(
+            room.room_id,
+            "guest",
+            ReadinessState.READY,
+            selection_id=cases.get.execute(room.room_id).selection_id,
+        )
     elif update == "readiness":
-        updated = cases.set_readiness.execute(room.room_id, "host", ReadinessState.READY)
+        updated = cases.set_readiness.execute(
+            room.room_id,
+            "host",
+            ReadinessState.READY,
+            selection_id=cases.get.execute(room.room_id).selection_id,
+        )
     else:
         updated = cases.set_timing.execute(room.room_id, "host", 55)
 
@@ -182,7 +270,12 @@ def test_pause_before_first_sound_does_not_freeze_a_ten_ms_startup_measurement()
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     cases.select_song.execute(room.room_id, "host", "song", 1)
-    cases.set_readiness.execute(room.room_id, "host", ReadinessState.READY)
+    cases.set_readiness.execute(
+        room.room_id,
+        "host",
+        ReadinessState.READY,
+        selection_id=cases.get.execute(room.room_id).selection_id,
+    )
     started = cases.set_timing.execute(
         room.room_id, "host", 8, return_requirement_ms=1, arrival_requirement_ms=3
     )
@@ -244,7 +337,12 @@ def test_measured_song_deadline_survives_late_route_and_resumed_countdown(tmp_pa
     )
     assert joined.room_playout_delay_ms == worsened.room_playout_delay_ms == 57.5
     assert worsened.room_return_reserve_ms == 22.5
-    cases.set_readiness.execute(room.room_id, "late", ReadinessState.READY)
+    cases.set_readiness.execute(
+        room.room_id,
+        "late",
+        ReadinessState.READY,
+        selection_id=cases.get.execute(room.room_id).selection_id,
+    )
 
     cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
     resumed = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
@@ -421,12 +519,24 @@ def test_host_authority_and_readiness(client) -> None:
 
     ready = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Ready",
+        },
     )
     assert ready.status_code == 200
     client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "host", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "host",
+            "readiness": "Ready",
+        },
     )
     started = client.post(
         f"/rooms/{room_id}/control",
@@ -480,13 +590,25 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
 
     host_ready = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "host", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "host",
+            "readiness": "Ready",
+        },
     )
     assert host_ready.json()["playbackState"] == "Stopped"
 
     ready = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Ready",
+        },
     )
 
     assert ready.status_code == 200, ready.text
@@ -531,12 +653,24 @@ def test_already_downloaded_room_song_starts_only_after_both_players_are_prepare
 
     host_ready = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "host", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "host",
+            "readiness": "Ready",
+        },
     ).json()
     assert host_ready["playbackState"] == "Stopped"
     guest_ready = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Ready",
+        },
     ).json()
     assert guest_ready["playbackState"] == "Playing"
     assert guest_ready["playbackStartedAt"] is not None
@@ -558,7 +692,14 @@ def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(
 
     uploading = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Downloading", "progress": 37},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Downloading",
+            "progress": 37,
+        },
     )
     assert uploading.status_code == 200, uploading.text
     assert uploading.json()["transferProgress"] == 37
@@ -566,7 +707,14 @@ def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(
 
     ready = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Ready", "progress": 100},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Ready",
+            "progress": 100,
+        },
     )
     assert ready.status_code == 200, ready.text
     assert ready.json()["transferProgress"] == 100
@@ -660,11 +808,23 @@ def test_host_can_enable_equal_room_controls_for_participants(client) -> None:
     assert selected.status_code == 200, selected.text
     client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "host", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "host",
+            "readiness": "Ready",
+        },
     )
     client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Ready",
+        },
     )
     started = client.post(
         f"/rooms/{room_id}/control",
@@ -679,7 +839,8 @@ def test_host_can_enable_equal_room_controls_for_participants(client) -> None:
     assert guest_cannot_change_policy.status_code == 403
 
 
-def test_host_transfer_uses_the_oldest_connected_participant(client) -> None:
+@pytest.mark.parametrize("disconnected", [(), ("b",), ("b", "a")])
+def test_host_transfer_uses_the_oldest_connected_participant(client, disconnected) -> None:
     room = client.post(
         "/rooms",
         json={"participantId": "host", "displayName": "Host", "disconnectPolicy": "Transfer"},
@@ -690,11 +851,23 @@ def test_host_transfer_uses_the_oldest_connected_participant(client) -> None:
             f"/rooms/{room_id}/join",
             json={"participantId": participant, "displayName": participant.upper()},
         )
+    for participant in disconnected:
+        assert (
+            client.post(
+                f"/rooms/{room_id}/disconnect", json={"participantId": participant}
+            ).status_code
+            == 200
+        )
 
     left = client.post(f"/rooms/{room_id}/leave", json={"participantId": "host"})
 
     assert left.status_code == 200
-    assert left.json()["hostId"] == "b"
+    connected = [participant for participant in ("b", "a") if participant not in disconnected]
+    if connected:
+        assert left.json()["hostId"] == connected[0]
+    else:
+        assert left.json() is None
+        assert client.get(f"/rooms/{room_id}").status_code == 404
 
 
 def test_close_policy_closes_room_when_host_leaves(client) -> None:
@@ -773,7 +946,13 @@ def test_host_can_remove_a_participant_and_their_published_songs(client) -> None
     assert kicked.json()["sharedSongs"] == []
     denied = client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "guest", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "guest",
+            "readiness": "Ready",
+        },
     )
     assert denied.status_code == 403
     assert denied.json()["code"] == "RoomPermissionDenied"
@@ -892,7 +1071,13 @@ def test_room_resume_keeps_the_paused_position(client) -> None:
     )
     client.post(
         f"/rooms/{room_id}/readiness",
-        json={"participantId": "host", "readiness": "Ready"},
+        json={
+            "selectionId": client.get(
+                f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+            ).json()["selectionId"],
+            "participantId": "host",
+            "readiness": "Ready",
+        },
     )
     client.post(
         f"/rooms/{room_id}/control",

@@ -51,7 +51,9 @@ void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration() {
     expect(history.size() == 1 + window * (blocks - 1) / hop, "a slow UI poll retains every measured pitch window");
     for (std::size_t index = 0; index < history.size(); ++index) {
         const auto centre = firstAt + static_cast<MonotonicTicks>(index * hop + window / 2) * 1'000'000'000 / rate;
+        const auto end = firstAt + static_cast<MonotonicTicks>(index * hop + window) * 1'000'000'000 / rate;
         expect(std::abs(history[index].capturedAt - centre) <= 1 &&
+                   std::abs(history[index].capturedEndAt - end) <= 2 &&
                    std::abs(history[index].pitchHz - 220) < 3 && history[index].audioActive,
                "pitch belongs to the capture window centre, independent of worker delay");
     }

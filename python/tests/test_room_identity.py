@@ -152,7 +152,7 @@ def test_a_disconnected_participant_cannot_change_its_readiness() -> None:
         )
         update = client.post(
             f"/rooms/{room_id}/readiness",
-            json={"participantId": GUEST, "readiness": "Ready"},
+            json={"selectionId": 0, "participantId": GUEST, "readiness": "Ready"},
             headers=as_(GUEST_KEY),
         )
 

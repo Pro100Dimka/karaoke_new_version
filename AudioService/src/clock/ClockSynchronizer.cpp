@@ -96,9 +96,9 @@ void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
     const auto step =
         std::clamp(desiredCorrection - correction, -MaxCorrectionStep, MaxCorrectionStep);
     correctionRatio_.store(correction + step, std::memory_order_relaxed);
-    if (captureFrames >= static_cast<double>(captureSampleRateHz_) *
+    if (static_cast<double>(captureFrames) >= static_cast<double>(captureSampleRateHz_) *
                              RateObservationWindowSeconds &&
-        renderFrames >= static_cast<double>(renderSampleRateHz_) *
+        static_cast<double>(renderFrames) >= static_cast<double>(renderSampleRateHz_) *
                             RateObservationWindowSeconds)
         first_ = observation;
 }

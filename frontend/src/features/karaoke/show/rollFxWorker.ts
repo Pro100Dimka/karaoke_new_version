@@ -45,8 +45,8 @@ self.onmessage = ({
     if (data.resetHistory) engine.voiceHistory.length = 0;
     engine.voiceHistory.push(...data.history);
     while (
-      engine.voiceHistory.length &&
-      engine.voiceHistory[0]!.position < data.historyFrom
+      engine.voiceHistory[0] &&
+      engine.voiceHistory[0].position < data.historyFrom
     )
       engine.voiceHistory.shift();
     view.current = data.view

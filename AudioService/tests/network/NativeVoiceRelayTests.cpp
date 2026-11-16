@@ -7,9 +7,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <stdexcept>
 #include <string_view>
 #include <tuple>
 #include <vector>
+
+struct NativeVoiceRelayTestAccess {
+    static std::size_t rooms(const NativeVoiceRelay& relay) { return relay.rooms_.size(); }
+};
 
 namespace {
 std::vector<std::byte> packet(std::string_view participant, std::uint64_t token,
@@ -34,6 +39,9 @@ std::vector<std::byte> packet(std::string_view participant, std::uint64_t token,
 }
 
 std::vector<std::int16_t> samples(std::span<const std::byte> packetBytes) {
+    Tests::require(packetBytes.size() >= AudioPacketHeaderBytes + 2U &&
+                       (packetBytes.size() - AudioPacketHeaderBytes) % 2U == 0,
+                   "recipient mix contains complete PCM samples");
     std::vector<std::int16_t> result;
     for (std::size_t offset = AudioPacketHeaderBytes; offset + 1 < packetBytes.size(); offset += 2) {
         const auto low = std::to_integer<std::uint16_t>(packetBytes[offset]);
@@ -45,15 +53,17 @@ std::vector<std::int16_t> samples(std::span<const std::byte> packetBytes) {
 
 const RelayDatagram& forTarget(const std::vector<RelayDatagram>& output,
                                const RelayEndpoint& target) {
-    return *std::ranges::find_if(output, [&](const auto& value) { return value.target == target; });
+    const auto found = std::ranges::find_if(output, [&](const auto& value) { return value.target == target; });
+    Tests::require(found != output.end(), "Expected recipient mix packet is missing");
+    return *found;
 }
 
 std::size_t serverMixPackets(const std::vector<RelayDatagram>& output) {
-    return std::ranges::count_if(output, [](const auto& datagram) {
+    return static_cast<std::size_t>(std::ranges::count_if(output, [](const auto& datagram) {
         AudioPacketHeader header{};
         return decodeAudioPacketHeader(datagram.bytes, header) &&
                header.participantKey == NativeVoiceRelay::participantKey("__room_server_mix__");
-    });
+    }));
 }
 
 void configureTwoSingerRoom(NativeVoiceRelay& relay) {
@@ -65,6 +75,19 @@ void configureTwoSingerRoom(NativeVoiceRelay& relay) {
 } // namespace
 
 namespace Tests {
+void nativeRelayTestHelpersRejectMissingData() {
+    const std::array<void (*)(), 2> probes{
+        [] { (void)forTarget({}, RelayEndpoint{}); },
+        [] { (void)samples({}); },
+    };
+    for (const auto probe : probes) {
+        bool stopped = false;
+        try { probe(); }
+        catch (const std::runtime_error&) { stopped = true; }
+        expect(stopped, "missing recipient or PCM stops before dependent sample access");
+    }
+}
+
 void nativeVoiceRelayExposesOnlyFreshAuthenticatedEndpoints() {
     NativeVoiceRelay relay;
     expect(relay.expect("room", "alice", 11), "register endpoint owner");
@@ -147,6 +170,27 @@ void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies() {
     expect(relay.receive(alicePacket, alice, 10.002, 1.002).empty() &&
                relay.receive(bobPacket, bob, 10.003, 1.003).empty(),
            "redundant upstream copies cannot emit a second mix for one position");
+    for (const auto gain : {0.0F, 4.0F}) {
+        for (const std::string_view rejoining : {"alice", "bob"}) {
+            NativeVoiceRelay renewedRelay;
+            configureTwoSingerRoom(renewedRelay);
+            renewedRelay.setRecipientSourceGain("room", "alice", "bob", gain);
+            expect(renewedRelay.expect("room", std::string(rejoining), 0x3333),
+                   "renew the authenticated voice session");
+            const auto renewedAlice = packet("alice", rejoining == "alice" ? 0x3333 : 0x1111,
+                                             2, 48'120, 100);
+            const auto renewedBob = packet("bob", rejoining == "bob" ? 0x3333 : 0x2222,
+                                           2, 48'120, 1'000);
+            (void)renewedRelay.receive(renewedAlice, alice, 10.003, 1.003);
+            const auto renewed = renewedRelay.receive(renewedBob, bob, 10.004, 1.004);
+            const auto expected = gain == 0.0F ? 0 : 4'000;
+            const auto renewedSamples = samples(forTarget(renewed, alice).bytes);
+            expect(renewedSamples.size() == SharedRoomPacketFrames &&
+                       std::ranges::all_of(renewedSamples,
+                                      [expected](auto value) { return value == expected; }),
+                   "session renewal preserves this recipient's gain and mute");
+        }
+    }
 }
 
 void nativeVoiceRelayIsolatesPersonalEffectsBeforeMixing() {
@@ -169,8 +213,8 @@ void nativeVoiceRelayIsolatesPersonalEffectsBeforeMixing() {
         for (std::size_t index = 0; index < names.size(); ++index) {
             const auto emitted = relay.receive(packet(names[index], index + 1, 1, 48'000,
                                                        static_cast<std::int16_t>((index + 1) * 1000)),
-                                               endpoints[index], 10.0 + index * 0.001,
-                                               1.0 + index * 0.001);
+                                               endpoints[index], 10.0 + static_cast<double>(index) * 0.001,
+                                               1.0 + static_cast<double>(index) * 0.001);
             output.insert(output.end(), emitted.begin(), emitted.end());
         }
         expect(output.size() == 3, "effects preserve one mix-minus per listener");
@@ -188,8 +232,8 @@ void nativeVoiceRelayIsolatesPersonalEffectsBeforeMixing() {
         for (std::size_t index = 0; index < names.size(); ++index) {
             const auto emitted = relay.receive(packet(names[index], index + 1, 2, 48'120,
                                                        static_cast<std::int16_t>((index + 1) * 1000)),
-                                               endpoints[index], 10.01 + index * 0.001,
-                                               1.0025 + index * 0.001);
+                                               endpoints[index], 10.01 + static_cast<double>(index) * 0.001,
+                                               1.0025 + static_cast<double>(index) * 0.001);
             output.insert(output.end(), emitted.begin(), emitted.end());
         }
         expect(std::ranges::all_of(samples(forTarget(output, endpoints[0]).bytes),
@@ -211,8 +255,8 @@ void nativeVoiceRelayConcealsOnlyTheMissingSourceWithoutDelayingTheMix() {
     for (std::size_t index = 0; index < names.size(); ++index)
         (void)relay.receive(packet(names[index], index + 1, 1, 48'000,
                                    static_cast<std::int16_t>((index + 1) * 1000)),
-                            endpoints[index], 10.02 + index * 0.0001,
-                            1.02 + index * 0.0001);
+                            endpoints[index], 10.02 + static_cast<double>(index) * 0.0001,
+                            1.02 + static_cast<double>(index) * 0.0001);
     for (const auto index : {0U, 2U, 3U})
         (void)relay.receive(packet(names[index], index + 1, 2, 48'120,
                                    static_cast<std::int16_t>((index + 1) * 1000)),
@@ -232,8 +276,8 @@ void nativeVoiceRelayConcealsOnlyTheMissingSourceWithoutDelayingTheMix() {
     for (std::size_t index = 0; index < names.size(); ++index) {
         auto emitted = relay.receive(packet(names[index], index + 1, 4, 48'240,
                                              static_cast<std::int16_t>((index + 1) * 1000)),
-                                      endpoints[index], 10.0492 + index * 0.0001,
-                                      1.0492 + index * 0.0001);
+                                      endpoints[index], 10.0492 + static_cast<double>(index) * 0.0001,
+                                      1.0492 + static_cast<double>(index) * 0.0001);
         recovered.insert(recovered.end(), emitted.begin(), emitted.end());
     }
     auto due = relay.flush(10.0511, 1.0511);
@@ -288,8 +332,8 @@ void nativeVoiceRelayKeepsLoudMixPeaksDistinct() {
             auto emitted = relay.receive(packet(names[index], index + 1, position,
                                                  48'000 + position * SharedRoomPacketFrames,
                                                  input[index]), endpoints[index],
-                                          10.0 + position * 0.0025 + index * 0.0001,
-                                          1.0 + position * 0.0025 + index * 0.0001);
+                                          10.0 + position * 0.0025 + static_cast<double>(index) * 0.0001,
+                                          1.0 + position * 0.0025 + static_cast<double>(index) * 0.0001);
             output.insert(output.end(), emitted.begin(), emitted.end());
         }
         peaks[position] = samples(forTarget(output, endpoints[2]).bytes).front();
@@ -480,6 +524,19 @@ void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin() {
                                    [](auto value) { return value == 1'000; }),
            "recreating a voice session cannot remove a still-connected singer from the "
            "room's authoritative eligible set");
+    relay.expect("other-room", "carol", 0x4444);
+    expect(NativeVoiceRelayTestAccess::rooms(relay) == 2, "both live rooms retain their state");
+    relay.closeRoom("room");
+    expect(NativeVoiceRelayTestAccess::rooms(relay) == 1 &&
+               relay.receive(packet("alice", 0x1111, 2, 48'240, 100), alice, 10.01, 1.01).empty(),
+           "closing the room releases its state and revokes every old voice token");
+    relay.closeRoom("room");
+    relay.forget("carol");
+    expect(NativeVoiceRelayTestAccess::rooms(relay) == 1,
+           "an empty but still-open room survives a voice reconnect");
+    relay.closeRoom("other-room");
+    expect(NativeVoiceRelayTestAccess::rooms(relay) == 0,
+           "closing the final room releases its empty state too");
 }
 
 void nativeVoiceRelayKeepsSentPositionsAcrossTimingChanges() {
@@ -1264,7 +1321,7 @@ void nativeVoiceRelayKeepsTheCurrentMixWhenOnlyReturnReserveChanges() {
 }
 
 void nativeVoiceRelayCollectsCaptureBurstsBeforeClosingTheMix() {
-    for (const auto [delay, reserve, burstMs, packetsPerBurst] :
+    for (const auto& [delay, reserve, burstMs, packetsPerBurst] :
          {std::tuple{250.0, 60.0, 30.0, 12U}, std::tuple{110.0, 22.5, 15.0, 6U}}) {
         NativeVoiceRelay relay;
         configureTwoSingerRoom(relay);

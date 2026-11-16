@@ -3,7 +3,7 @@ import { routes } from '../../shared/routes';
 import type { RoomSessionScope } from './RoomSessionController';
 import { roomKaraokeNavigation } from './roomNavigation';
 
-type Selection = { songId: string; revision: number };
+type Selection = { songId: string; revision: number; selectionId: number };
 type Launch =
   | { type: 'idle' }
   | { type: 'preparing'; selection: Selection }
@@ -29,10 +29,16 @@ type RoomView = {
 
 const selected = (room: RoomStateDto): Selection | undefined =>
   room.songId && room.revision !== undefined
-    ? { songId: room.songId, revision: room.revision }
+    ? {
+        songId: room.songId,
+        revision: room.revision,
+        selectionId: room.selectionId ?? 0,
+      }
     : undefined;
 const same = (a?: Selection, b?: Selection): boolean =>
-  a?.songId === b?.songId && a?.revision === b?.revision;
+  a?.songId === b?.songId &&
+  a?.revision === b?.revision &&
+  a?.selectionId === b?.selectionId;
 
 /** Decides when a local copy may open without taking authority from the Room Server. */
 export class RoomLaunchCoordinator {
@@ -55,6 +61,7 @@ export class RoomLaunchCoordinator {
     if (same(next, this.selection)) return;
     this.cancel();
     this.selection = next;
+    this.completed = undefined;
   }
 
   recordPlaybackTransition(before: RoomStateDto, after: RoomStateDto): void {
@@ -64,6 +71,7 @@ export class RoomLaunchCoordinator {
       return;
     }
     if (
+      same(selected(before), next) &&
       ['playing', 'paused'].includes(before.playbackState ?? '') &&
       after.playbackState === 'stopped'
     )

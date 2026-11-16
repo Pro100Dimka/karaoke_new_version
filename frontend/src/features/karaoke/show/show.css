@@ -103,7 +103,6 @@
 
 /* The melody roll rewards the voice; backing-track pulsation belongs only to the lyrics. */
 .karaokePage .pianoRollLane.ad-melody-roll {
-  --ad-roll-beat: 0 !important;
   box-shadow:
     inset 0 0.0625rem 0 #ffffff12,
     0 0 calc(var(--show-roll-glow, 0) * 2.6rem)

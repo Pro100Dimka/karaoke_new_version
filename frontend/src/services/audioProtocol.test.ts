@@ -2,10 +2,30 @@ import { describe, expect, it } from 'vitest';
 import {
   audioCapabilitiesFromValues,
   parseKeyValues,
+  parseDevices,
   runtimeConfigurationFromDiagnostics,
 } from './audioProtocol';
 
 describe('device format capabilities', () => {
+  it.each([
+    'Speakers',
+    'Speakers (Realtek, USB)',
+    'ASIO "Input, Output", Main',
+  ])(
+    'keeps the complete device name %s without shifting its format fields',
+    (name) => {
+      expect(parseDevices(`driver,${name},3,1,8\n`)).toEqual([
+        {
+          id: 'driver',
+          name,
+          backendIndex: 3,
+          backend: 'ASIO',
+          kind: 'output',
+          channels: 8,
+        },
+      ]);
+    },
+  );
   it('reports the active endpoints after startup falls back to Windows defaults', () => {
     expect(
       runtimeConfigurationFromDiagnostics({

@@ -21,6 +21,7 @@ struct PitchObservation {
     bool audioActive{false};
     float confidence{0};
     std::uint32_t windowFrames{0};
+    MonotonicTicks capturedEndAt{0};
 };
 
 struct AnalysisSnapshot {

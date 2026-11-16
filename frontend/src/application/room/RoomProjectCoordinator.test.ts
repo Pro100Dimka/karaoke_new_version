@@ -135,6 +135,49 @@ const setup = () => {
   };
 };
 
+it.each(['direct', 'mapped', 'hash'])(
+  'loads selected artwork from the %s local copy',
+  async (matching) => {
+    const { coordinator, services, getRoom, setRoom } = setup();
+    const projectHash = 'a'.repeat(64);
+    setRoom({
+      ...getRoom(),
+      songId: 'remote-song',
+      revision: 1,
+      ...(matching === 'hash' && {
+        sharedSongs: [
+          {
+            songId: 'remote-song',
+            revision: 1,
+            projectHash,
+            ownerParticipantId: 'host',
+            title: 'Song',
+            artist: 'Artist',
+            durationSeconds: 10,
+          },
+        ],
+      }),
+    });
+    const localId = matching === 'direct' ? 'remote-song' : 'local-song';
+    if (matching === 'mapped') services.copies.get.mockReturnValue(localId);
+    services.python.listSongs.mockResolvedValue([
+      {
+        id: localId,
+        activeRevision: 1,
+        status: 'ready',
+        title: 'Song',
+        artworkUrl: 'local-cover.jpg',
+        projectHash,
+      } as SongDto,
+    ]);
+    expect(await coordinator.selectedArtwork()).toEqual({
+      songId: 'remote-song',
+      title: 'Song',
+      url: 'local-cover.jpg',
+    });
+  },
+);
+
 it('cancels transfer on leave and releases a late archive without importing it', async () => {
   const { coordinator, services, leave, getRoom } = setup();
   const downloading = deferred<string>();
@@ -158,6 +201,96 @@ it('cancels transfer on leave and releases a late archive without importing it',
   expect(getRoom()).toBe(beforeLeave);
 });
 
+it.each(['retry', 'selection'])(
+  'keeps an explicitly cancelled transfer stopped until %s',
+  async (action) => {
+    const { coordinator, services, getRoom, setRoom } = setup();
+    setRoom({ ...getRoom(), songId: 'song', revision: 1, selectionId: 1 });
+    const downloading = deferred<string>();
+    services.desktop.downloadRoomProject.mockReturnValueOnce(
+      downloading.promise,
+    );
+    const preparation = coordinator.prepare('song', 1);
+    await vi.waitFor(() =>
+      expect(services.desktop.downloadRoomProject).toHaveBeenCalledOnce(),
+    );
+    coordinator.cancelTransfer();
+    downloading.resolve('cancelled.zip');
+    await preparation;
+    coordinator.cancel();
+    await coordinator.prepare('song', 1);
+    await coordinator.prepare('song', 1);
+    expect(services.desktop.downloadRoomProject).toHaveBeenCalledOnce();
+    expect(services.python.importProject).not.toHaveBeenCalled();
+    expect(getRoom().transferError).toBe(true);
+    expect(services.room.setRoomReadiness).toHaveBeenCalledWith(
+      'room-a',
+      'Failed',
+      1,
+    );
+    if (action === 'retry') await coordinator.retry();
+    else setRoom({ ...getRoom(), selectionId: 2 });
+    await coordinator.prepare('song', 1);
+    expect(services.desktop.downloadRoomProject).toHaveBeenCalledTimes(2);
+    expect(services.python.importProject).toHaveBeenCalledOnce();
+  },
+);
+
+it('waits for cancellation publication before sending an explicit retry', async () => {
+  const { coordinator, services, getRoom, setRoom } = setup();
+  setRoom({ ...getRoom(), songId: 'song', revision: 1, selectionId: 1 });
+  const downloading = deferred<string>();
+  services.desktop.downloadRoomProject.mockReturnValueOnce(downloading.promise);
+  const preparing = coordinator.prepare('song', 1);
+  await vi.waitFor(() =>
+    expect(services.desktop.downloadRoomProject).toHaveBeenCalledOnce(),
+  );
+  const cancellation = deferred<RoomStateDto>();
+  services.room.setRoomReadiness.mockReturnValueOnce(cancellation.promise);
+  coordinator.cancelTransfer();
+  const retry = coordinator.retry();
+  expect(services.room.setRoomReadiness).not.toHaveBeenCalledWith(
+    'room-a',
+    'MissingSong',
+    1,
+  );
+  cancellation.resolve(getRoom());
+  await retry;
+  expect(services.room.setRoomReadiness).toHaveBeenLastCalledWith(
+    'room-a',
+    'MissingSong',
+    1,
+  );
+  downloading.resolve('cancelled.zip');
+  await preparing;
+});
+
+it('starts a new preparation when the same song is selected in a new generation', async () => {
+  const { coordinator, services, getRoom, setRoom } = setup();
+  setRoom({ ...getRoom(), songId: 'song', revision: 1, selectionId: 1 });
+  const downloading = deferred<string>();
+  services.desktop.downloadRoomProject.mockReturnValueOnce(downloading.promise);
+  const first = coordinator.prepare('song', 1);
+  await vi.waitFor(() =>
+    expect(services.desktop.downloadRoomProject).toHaveBeenCalledOnce(),
+  );
+  setRoom({ ...getRoom(), selectionId: 3 });
+  await coordinator.prepare('song', 1);
+  expect(services.desktop.downloadRoomProject).toHaveBeenCalledTimes(2);
+  downloading.resolve('old-generation.zip');
+  await first;
+  expect(services.python.importProject).toHaveBeenCalledOnce();
+  expect(services.desktop.releaseRoomProjectDownload).toHaveBeenCalledWith(
+    'old-generation.zip',
+  );
+  expect(services.room.setRoomReadiness).toHaveBeenLastCalledWith(
+    'room-a',
+    'Preparing',
+    3,
+    95,
+  );
+});
+
 it("keeps replacement consent inside this room's project coordinator", async () => {
   const first = setup();
   first.setRoom({ ...first.getRoom(), songId: 'song', revision: 2 });
@@ -165,6 +298,7 @@ it("keeps replacement consent inside this room's project coordinator", async () 
   expect(first.services.room.setRoomReadiness).toHaveBeenCalledWith(
     'room-a',
     'MissingSong',
+    0,
   );
   expect(first.coordinator.importDecision('song', 2)).toBe('AcceptDivergent');
   const nextSession = setup();
@@ -193,6 +327,7 @@ it('records partial import failure, releases the archive, and allows explicit re
   expect(services.room.setRoomReadiness).toHaveBeenCalledWith(
     'room-a',
     'Failed',
+    0,
   );
   expect(getRoom().transferError).toBe(true);
   expect(services.desktop.releaseRoomProjectDownload).toHaveBeenCalledWith(
@@ -325,9 +460,11 @@ it('reconciles local readiness without declaring the server room playable early'
   expect(services.room.setRoomReadiness).toHaveBeenCalledWith(
     'room-a',
     'Preparing',
+    0,
   );
   expect(services.room.setRoomReadiness).not.toHaveBeenCalledWith(
     'room-a',
     'Ready',
+    0,
   );
 });

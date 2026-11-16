@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { roomSmokeIdentities } from './multi-electron-room-plan.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -168,28 +168,17 @@ for (let attempt = 0; attempt < 80; attempt++) {
 if (!ready) throw new Error(`Room Server did not become ready on ${httpPort}`);
 console.error(`Room Server ready on ${httpPort}, relay ${relayPort}`);
 // The Room Server accepts a participant id only with its owner's room key (see RoomIdentity.ts).
-const roomKeys = new Map();
-const roomParticipant = (name) => {
-  const key = createHash('sha256').update(`room-e2e-key:${name}`).digest('hex');
-  const id = createHash('sha256')
-    .update(`ad-voice-room-participant:${key}`)
-    .digest('hex')
-    .slice(0, 32);
-  roomKeys.set(id, key);
-  return id;
-};
+const identities = roomSmokeIdentities();
 const json = (body) => ({
   headers: {
     'content-type': 'application/json',
-    ...(roomKeys.has(body?.participantId)
-      ? { 'X-AD-Voice-Room-Key': roomKeys.get(body.participantId) }
-      : {}),
+    ...identities.headers(`http://127.0.0.1:${httpPort}`, body.participantId),
   },
   body: JSON.stringify(body),
 });
-const participantA = roomParticipant('A'),
-  participantB = roomParticipant('B'),
-  participantC = roomParticipant('C');
+const participantA = identities.create(),
+  participantB = identities.create(),
+  participantC = identities.create();
 const room = await request('/rooms', {
   method: 'POST',
   ...json({ participantId: participantA, displayName: 'A' }),
@@ -725,6 +714,7 @@ try {
     'utf8',
   );
   console.log(JSON.stringify(report));
+  if (report.result !== 'PASS') process.exitCode = 1;
 } catch (error) {
   console.error(
     `Proxy packets upstream=${proxy.upstreamPackets} downstream=${proxy.downstreamPackets}`,

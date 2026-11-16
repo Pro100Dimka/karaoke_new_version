@@ -15,6 +15,7 @@ class ObservableRoomRepository:
         self._inner = inner
         self._condition = threading.Condition()
         self._versions: dict[str, int] = {}
+        self._sequence = 0
         self._listeners: list[Callable[[str, Room | None], None]] = []
 
     def listen(self, listener: Callable[[str, Room | None], None]) -> None:
@@ -47,7 +48,7 @@ class ObservableRoomRepository:
     def wait_for_change(self, room_id: str, after: int, timeout: float = 25.0) -> int:
         deadline = time.monotonic() + timeout
         with self._condition:
-            while self._versions.get(room_id, 0) <= after:
+            while self._versions.get(room_id, 0) <= after and self._inner.get(room_id) is not None:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     break
@@ -56,5 +57,9 @@ class ObservableRoomRepository:
 
     def _publish(self, room_id: str) -> None:
         with self._condition:
-            self._versions[room_id] = self._versions.get(room_id, 0) + 1
+            self._sequence += 1
+            if self._inner.get(room_id) is None:
+                self._versions.pop(room_id, None)
+            else:
+                self._versions[room_id] = self._sequence
             self._condition.notify_all()

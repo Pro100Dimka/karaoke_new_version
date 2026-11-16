@@ -38,9 +38,14 @@ def test_downloaded_clip_is_exposed_as_local_video_url(client, tmp_path: Path) -
     assert clip.content == b"local-video"
 
 
-def test_import_get_update_delete_song(client, tmp_path: Path) -> None:
+@pytest.mark.parametrize("sidecar", [None, ".txt", ".lrc"])
+def test_import_get_update_delete_song(client, tmp_path: Path, sidecar: str | None) -> None:
     source = tmp_path / "track.wav"
     write_wav(source)
+    lyrics = "Words from the neighboring file"
+    if sidecar:
+        lyrics = ("[00:03.50]" if sidecar == ".lrc" else "") + lyrics
+        source.with_suffix(sidecar).write_text(lyrics, encoding="utf-8")
     created = import_song(client, source, title="Original", artist="Singer", language="Ukrainian")
     song_id = str(created["songId"])
 
@@ -48,6 +53,12 @@ def test_import_get_update_delete_song(client, tmp_path: Path) -> None:
     assert fetched.status_code == 200
     assert fetched.json()["title"] == "Original"
     assert Path(fetched.json()["sourcePath"]).read_bytes() == source.read_bytes()
+    if sidecar:
+        source.with_suffix(sidecar).unlink()
+        with client.app.state.container.database.create() as transaction:
+            song = transaction.songs.get(song_id)
+            assert song is not None
+            assert song.embedded_lyrics == lyrics
 
     updated = client.patch(
         f"/songs/{song_id}",

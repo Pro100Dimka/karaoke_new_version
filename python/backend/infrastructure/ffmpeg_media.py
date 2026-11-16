@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
 from functools import lru_cache
 import numpy as np
 
@@ -9,15 +10,22 @@ from backend.infrastructure.process_runner import ProcessRunner
 from backend.projects.content_lock import KeyedLockManager
 from backend.serialization import loads_object
 from backend.songs.ports import MediaMetadata
+from backend.lyrics.ports import SidecarLyricsReader
 
 
 class FfmpegMediaInspector:
     def __init__(
-        self, runner: ProcessRunner, ffprobe: str = "ffprobe", ffmpeg: str = "ffmpeg"
+        self,
+        runner: ProcessRunner,
+        ffprobe: str = "ffprobe",
+        ffmpeg: str = "ffmpeg",
+        *,
+        sidecar: SidecarLyricsReader | None = None,
     ) -> None:
         self._runner = runner
         self._ffprobe = ffprobe
         self._ffmpeg = ffmpeg
+        self._sidecar = sidecar
         self._waveform_locks = KeyedLockManager()
 
     def waveform_peaks(self, source: Path, bins: int) -> list[float]:
@@ -73,9 +81,11 @@ class FfmpegMediaInspector:
             raise DomainError("InvalidMedia", "Selected file is not readable media", 400)
         try:
             payload = loads_object(result.stdout.decode("utf-8"))
-            return self._metadata(payload, source)
+            metadata = self._metadata(payload, source)
         except (UnicodeDecodeError, ValueError, TypeError) as exc:
             raise DomainError("InvalidMedia", "Media metadata is malformed", 400) from exc
+        lyrics = self._sidecar.read(source) if self._sidecar is not None else None
+        return replace(metadata, embedded_lyrics=lyrics) if lyrics else metadata
 
     def extract_artwork(self, source: Path, target: Path) -> bool:
         target.parent.mkdir(parents=True, exist_ok=True)

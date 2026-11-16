@@ -235,7 +235,8 @@ CorrelationResult correlate(std::span<const float> left, std::span<const float> 
     const auto windowFrames = std::min<std::size_t>(left.size(), requestedWindow);
     std::size_t windowStart = 0;
     double bestEnergy = -1.0;
-    const auto step = static_cast<std::size_t>(SampleRateHz);
+    const auto step =
+        std::max<std::size_t>(1U, std::min<std::size_t>(SampleRateHz, windowFrames / 2U));
     for (std::size_t start = 0; start + windowFrames <= left.size(); start += step) {
         double energy = 0.0;
         for (std::size_t index = 0; index < windowFrames; index += 16U) {
@@ -317,10 +318,11 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
                                ? std::chrono::system_clock::now() + std::chrono::seconds{2}
                                : std::chrono::system_clock::time_point{
                                      std::chrono::milliseconds{request.startAtUnixMs}};
-    const auto warmupStart = songStart - std::chrono::milliseconds{warmupPackets * 5ULL};
-    if (request.startAtUnixMs != 0) {
-        std::this_thread::sleep_until(warmupStart);
-    }
+    const auto warmupStart =
+        songStart - std::chrono::seconds{static_cast<std::int64_t>(request.warmupSeconds)};
+    std::this_thread::sleep_until(warmupStart);
+    constexpr std::chrono::nanoseconds packetDuration{
+        static_cast<std::int64_t>(PacketFrames) * 1'000'000'000 / SampleRateHz};
     WavWriter writer;
     writer.open(request.outputPath, SampleRateHz, backing.empty() ? 1U : 3U);
     std::vector<float> rendered(PacketFrames);
@@ -338,7 +340,7 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
         if (packet == warmupPackets && warmupPackets != 0)
             engine.setSharedTimeline(true);
         const auto sourcePacket = packet >= warmupPackets ? packet - warmupPackets : 0U;
-        const auto elapsedSongMs = sourcePacket * 5ULL;
+        const auto elapsedSongMs = sourcePacket * PacketFrames * 1'000U / SampleRateHz;
         if (!stallInjected && packet >= warmupPackets && request.stallDurationMs != 0 &&
             elapsedSongMs >= request.stallAtMs) {
             std::this_thread::sleep_for(std::chrono::milliseconds{request.stallDurationMs});
@@ -375,7 +377,7 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
         }
         std::this_thread::sleep_until(
             warmupStart +
-            std::chrono::microseconds{static_cast<std::int64_t>((packet + 1U) * 5'000U)});
+            packetDuration * static_cast<std::int64_t>(packet + 1U));
     }
     writer.close();
     const auto diagnostics = engine.diagnostics();
@@ -425,7 +427,8 @@ NetworkAlignmentReport runNetworkTest(const NetworkTestRequest& request) {
     auto clientA = simulatePath(source, request.clientA, request.seedA, commonDelayFrames);
     auto clientB = simulatePath(source, request.clientB, request.seedB, commonDelayFrames);
     const auto correlation =
-        correlate(clientA.samples, clientB.samples, 96, request.correlationWindowFrames);
+        correlate(clientA.samples, clientB.samples, static_cast<std::int32_t>(SampleRateHz / 100U),
+                  request.correlationWindowFrames);
 
     if (!request.outputPath.empty()) {
         std::vector<float> evidence(clientA.samples.size() * 3U);

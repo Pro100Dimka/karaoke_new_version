@@ -80,6 +80,7 @@ class NativeVoiceRelay {
      */
     bool expect(std::string room, std::string participant, std::uint64_t token);
     void forget(std::string_view participant);
+    void closeRoom(std::string_view room);
     void setEligibleParticipants(std::string_view room,
                                  std::span<const std::string_view> participants);
     void setRecipientSourceGain(std::string_view room, std::string_view recipient,
@@ -112,6 +113,7 @@ class NativeVoiceRelay {
     [[nodiscard]] std::size_t excludedParticipants(std::string_view room) const;
 
   private:
+    friend struct NativeVoiceRelayTestAccess;
     struct Participant {
         std::string room;
         std::string id;

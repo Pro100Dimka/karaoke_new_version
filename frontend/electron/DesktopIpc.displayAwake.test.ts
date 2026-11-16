@@ -58,6 +58,7 @@ it('restores and moves a fullscreen header drag using the real cursor and reject
     storageRoot: () => '',
     reveal: vi.fn(),
     confirmClose: vi.fn(),
+    requestRelaunch: vi.fn(),
   });
   const drag = (...args: unknown[]) =>
     handlers.get(ipcChannels.dragWindow)!({}, ...args);
@@ -103,6 +104,7 @@ it('keeps one display blocker while Karaoke asks for it and releases it afterwar
     storageRoot: () => '',
     reveal: vi.fn(),
     confirmClose: vi.fn(),
+    requestRelaunch: vi.fn(),
   });
   const awake = (value: unknown) =>
     handlers.get(ipcChannels.keepDisplayAwake)!({}, value);

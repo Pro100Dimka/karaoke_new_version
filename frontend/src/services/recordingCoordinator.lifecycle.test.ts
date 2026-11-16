@@ -151,9 +151,19 @@ describe('recording lifecycle', () => {
     },
   );
 
-  it('resumes the same recording after a rejected switch has restored its device', async () => {
+  it.each(['switch', 'read-format'])('resumes the same recording after a failed %s', async (failure) => {
     const { recordingCoordinator: coordinator, audioRequest } = await setup();
     await coordinator.start(song);
+    if (failure === 'read-format') {
+      let rejected = false;
+      audioRequest.mockImplementation(async (request) => {
+        if (request.command === 'GetRecordingState' && !rejected) {
+          rejected = true;
+          return { status: 1, text: 'Recording format unavailable' };
+        }
+        return { status: 0, text: responseText(request.command) };
+      });
+    }
     await expect(
       coordinator.reconfigure(
         async () => {
@@ -161,7 +171,7 @@ describe('recording lifecycle', () => {
         },
         async () => 2,
       ),
-    ).rejects.toThrow('Exclusive rejected');
+    ).rejects.toThrow(failure === 'switch' ? 'Exclusive rejected' : 'Recording format unavailable');
     expect(audioRequest.mock.calls.map(([r]) => r.command)).toEqual([
       'PrepareRecording',
       'StartRecording',

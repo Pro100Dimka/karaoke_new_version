@@ -102,8 +102,8 @@ struct AsioBackend::Impl {
     std::vector<AsioChannelInfo> inputInfo, outputInfo;
     std::vector<float> captureScratch, renderScratch;
     long inputChannels{0}, outputChannels{0}, bufferFrames{0};
-    long inputLatency{0}, outputLatency{0};
-    AsioError latencyResult{0};
+    std::atomic<long> inputLatency{0}, outputLatency{0};
+    std::atomic<bool> latencyChanged{false};
     std::string openedDriverId; // the driver really opened, also when the request named none
     double sampleRate{0.0};
     double restoreSampleRate{0.0};
@@ -164,6 +164,7 @@ struct AsioBackend::Impl {
                                                static_cast<std::int32_t>(selector));
             return 1;
         case AsioLatenciesChanged:
+            self->latencyChanged.store(true, std::memory_order_release);
             return 1;
         default:
             return 0;
@@ -256,12 +257,14 @@ struct AsioBackend::Impl {
         }
         const auto presentation =
             bufferAt +
-            static_cast<MonotonicTicks>(static_cast<double>(std::max(0L, outputLatency)) *
+            static_cast<MonotonicTicks>(static_cast<double>(
+                std::max(0L, outputLatency.load(std::memory_order_relaxed))) *
                                         1'000'000'000.0 / sampleRate);
         // The driver's input latency covers the whole delivered buffer (never less than it).
         const auto bufferCapturedAt =
             bufferAt -
-            static_cast<MonotonicTicks>(static_cast<double>(std::max(inputLatency, bufferFrames)) *
+            static_cast<MonotonicTicks>(static_cast<double>(
+                std::max(inputLatency.load(std::memory_order_relaxed), bufferFrames)) *
                                         1'000'000'000.0 / sampleRate);
         for (long offset = 0; offset < bufferFrames;) {
             const auto frames = std::min<long>(MaxBlockFrames, bufferFrames - offset);
@@ -524,11 +527,6 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
                     " outputChannels=" + std::to_string(outUse) +
                     (driverMessage[0] ? " driver=" + std::string(driverMessage) : ""));
             }
-            impl_->inputLatency = impl_->outputLatency = 0;
-            impl_->latencyResult = impl_->driver->getLatencies(&impl_->inputLatency,
-                                                               &impl_->outputLatency);
-            if (!asioSucceeded(impl_->latencyResult))
-                impl_->inputLatency = impl_->outputLatency = -1;
         });
         const auto inUse = impl_->inputChannels;
         const auto outUse = impl_->outputChannels;
@@ -547,19 +545,12 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
                 AudioSampleFormat::Float32,
                 AudioSampleFormat::Float32,
                 ClockRelationship::SameDomain,
-                static_cast<std::uint32_t>(std::max(0L, impl_->inputLatency)),
-                static_cast<std::uint32_t>(std::max(0L, impl_->outputLatency))};
-        const auto rate = AsioNegotiation::sampleRate(impl_->sampleRate);
-        const auto hns = [rate](long frames) {
-            return frames < 0 || rate == 0 ? std::int64_t{-1}
-                                           : static_cast<std::int64_t>(frames) * 10'000'000 / rate;
-        };
+                0,
+                0};
         // One driver serves both directions; a calibration belongs to that driver.
         runtime.inputEndpointId = runtime.outputEndpointId = impl_->openedDriverId;
-        runtime.inputReportedLatencyHns = hns(impl_->inputLatency);
-        runtime.outputReportedLatencyHns = hns(impl_->outputLatency);
-        runtime.inputReportedLatencyResult = runtime.outputReportedLatencyResult =
-            static_cast<std::int32_t>(impl_->latencyResult);
+        impl_->latencyChanged.store(true, std::memory_order_release);
+        (void)refreshRuntimeLatency(runtime);
         return runtime;
     } catch (...) {
         impl_->closeAll();
@@ -611,5 +602,31 @@ BackendSnapshot AsioBackend::snapshot() const noexcept {
     result.outputNonzeroBlocks = impl_->outputNonzeroBlocks.load(std::memory_order_relaxed);
     result.outputPeak = impl_->outputPeak.load(std::memory_order_relaxed);
     return result;
+}
+
+bool AsioBackend::refreshRuntimeLatency(RuntimeConfiguration& runtime) {
+    if (!impl_->driver || !impl_->latencyChanged.exchange(false, std::memory_order_acq_rel))
+        return false;
+    long input = -1, output = -1;
+    AsioError result = 0;
+    impl_->apartment.invoke([&] {
+        result = impl_->driver->getLatencies(&input, &output);
+        if (!asioSucceeded(result))
+            input = output = -1;
+    });
+    impl_->inputLatency.store(input, std::memory_order_relaxed);
+    impl_->outputLatency.store(output, std::memory_order_relaxed);
+    runtime.inputLatencyFrames = static_cast<std::uint32_t>(std::max(0L, input));
+    runtime.outputLatencyFrames = static_cast<std::uint32_t>(std::max(0L, output));
+    const auto rate = AsioNegotiation::sampleRate(impl_->sampleRate);
+    const auto hns = [rate](long frames) {
+        return frames < 0 || rate == 0 ? std::int64_t{-1}
+                                       : static_cast<std::int64_t>(frames) * 10'000'000 / rate;
+    };
+    runtime.inputReportedLatencyHns = hns(input);
+    runtime.outputReportedLatencyHns = hns(output);
+    runtime.inputReportedLatencyResult = runtime.outputReportedLatencyResult =
+        static_cast<std::int32_t>(result);
+    return true;
 }
 #endif

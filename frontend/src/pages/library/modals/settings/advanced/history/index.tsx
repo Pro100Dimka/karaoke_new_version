@@ -43,9 +43,9 @@ export const HistoryPanel = () => {
       border
       className="advancedHistoryCard"
       style={{
-        background: 'unset!important',
+        background: 'unset',
         flex: '1',
-        boxShadow: 'unset!important',
+        boxShadow: 'unset',
       }}
       icon="list"
       title={tr('history')}

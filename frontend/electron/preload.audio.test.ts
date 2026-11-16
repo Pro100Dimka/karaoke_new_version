@@ -19,6 +19,12 @@ vi.mock('electron', () => ({
     ) => {
       handlers.set(channel, listener);
     },
+    removeListener: (
+      channel: string,
+      listener: (event: unknown, message: unknown) => void,
+    ) => {
+      if (handlers.get(channel) === listener) handlers.delete(channel);
+    },
   },
   webUtils: {},
 }));
@@ -26,6 +32,19 @@ beforeEach(() => {
   vi.resetModules();
   invoke.mockClear();
   handlers.clear();
+});
+
+it('forwards app-owned window focus and unsubscribes the listener', async () => {
+  await import('./preload');
+  const api = exposed.api;
+  if (!api) throw new Error('Desktop bridge missing');
+  const focused = vi.fn();
+  const stop = api.onAppFocus(focused);
+  handlers.get('desktop:app-focus')?.(undefined, true);
+  handlers.get('desktop:app-focus')?.(undefined, false);
+  expect(focused.mock.calls).toEqual([[true], [false]]);
+  stop();
+  expect(handlers.has('desktop:app-focus')).toBe(false);
 });
 
 it('normalizes 60 Hz intervals, shares a native stream, and respects each consumer rate', async () => {

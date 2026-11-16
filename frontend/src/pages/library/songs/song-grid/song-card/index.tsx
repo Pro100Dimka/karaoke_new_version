@@ -31,7 +31,7 @@ import { ProcessingSignal } from './processing-signal';
 
 const actionMeta: Record<
   SongActionId,
-  { label: string; icon: string; style?: React.CSSProperties }
+  { label: string; icon: string; variant?: 'danger' }
 > = {
   play: { label: 'play', icon: 'play' },
   cancelQueued: { label: 'cancelQueueItem', icon: 'stop' },
@@ -44,7 +44,7 @@ const actionMeta: Record<
   delete: {
     label: 'deleteSong',
     icon: 'trash',
-    style: { color: 'red!important' },
+    variant: 'danger',
   },
 };
 
@@ -247,14 +247,14 @@ export const SongCard = memo(
                   key={id}
                   round
                   size="sm"
-                  style={{ flexShrink: 0, ...actionMeta[id]?.style }}
+                  style={{ flexShrink: 0 }}
                   icon={
                     id === primary
                       ? primaryIcon(primary, roomSelection)
                       : actionMeta[id].icon
                   }
                   label={tr(actionMeta[id].label)}
-                  variant={id === primary ? 'primary' : 'ghost'}
+                  variant={actionMeta[id].variant ?? (id === primary ? 'primary' : 'ghost')}
                   disabled={
                     (id === 'play' && playbackDisabled) ||
                     (id === 'retry' && Boolean(retrying))

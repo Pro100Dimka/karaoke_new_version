@@ -7,6 +7,7 @@ venv/
 dist/
 dist-electron/
 release/
+!AudioService/tests/release/
 build/
 build-*/
 artifacts/

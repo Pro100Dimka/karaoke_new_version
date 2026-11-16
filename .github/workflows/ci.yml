@@ -101,16 +101,15 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            target: ALL_BUILD
-          - os: ubuntu-latest
-            target: NativeVoiceRelay
+            compiler: ""
+          - os: ubuntu-24.04
+            compiler: -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: .
     steps:
       - uses: actions/checkout@v4
-      - run: cmake -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON
-      - run: cmake --build build/native --config Release --target ${{ matrix.target }} --parallel 2
-      - if: runner.os == 'Windows'
-        run: ctest --test-dir build/native -C Release --output-on-failure
+      - run: cmake -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON ${{ matrix.compiler }}
+      - run: cmake --build build/native --config Release --parallel 2
+      - run: ctest --test-dir build/native -C Release --output-on-failure

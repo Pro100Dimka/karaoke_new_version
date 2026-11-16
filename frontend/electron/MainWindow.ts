@@ -170,10 +170,17 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   window.webContents.setWindowOpenHandler(
     panelWindowOpenHandler(icon, () => window.getBounds(), window),
   );
-  const visibility = watchAppVisibility(window, (onScreen) => {
-    if (!window.isDestroyed())
-      window.webContents.send(ipcChannels.appVisibility, onScreen);
-  });
+  const visibility = watchAppVisibility(
+    window,
+    (onScreen) => {
+      if (!window.isDestroyed())
+        window.webContents.send(ipcChannels.appVisibility, onScreen);
+    },
+    (focused) => {
+      if (!window.isDestroyed())
+        window.webContents.send(ipcChannels.appFocus, focused);
+    },
+  );
   window.webContents.on('did-finish-load', () => visibility.republish());
   window.webContents.on('did-create-window', (panel, details) => {
     securePanelWindow(panel, details?.frameName);

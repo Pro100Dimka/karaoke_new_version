@@ -4,10 +4,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
-import { clientSongs } from './smoke-catalog.mjs';
+import { clientSongs, clientRoom } from './smoke-catalog.mjs';
 
-const server =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const out = join(
   import.meta.dirname,
@@ -21,8 +19,7 @@ mkdirSync(out, { recursive: true });
 const delay = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-const room = (code) =>
-  fetch(`${server}/rooms/${code}`).then((response) => response.json());
+const room = (code) => clientRoom(host, code);
 
 const hostBrowser = await chromium.connectOverCDP('http://127.0.0.1:9341');
 const guestBrowser = await chromium.connectOverCDP('http://127.0.0.1:9342');
@@ -277,6 +274,7 @@ try {
     report.checks.length > 0 &&
     report.checks.every((item) => item.passed) &&
     !report.error;
+  if (!report.passed) process.exitCode = 1;
   writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2));
   console.log(`report: ${out}`);
 }

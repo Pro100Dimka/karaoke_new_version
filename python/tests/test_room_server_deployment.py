@@ -76,7 +76,7 @@ def test_room_server_deployment_avoids_the_oracle_ssh_qos_stall() -> None:
 
 
 @pytest.fixture
-def deployment_sandbox(tmp_path: Path):
+def bash_interpreter():
     bash = (
         Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe"
         if os.name == "nt"
@@ -84,6 +84,12 @@ def deployment_sandbox(tmp_path: Path):
     )
     if not bash.is_file():
         pytest.skip("A real Bash interpreter is required for deployment failure injection")
+    return bash
+
+
+@pytest.fixture
+def deployment_sandbox(tmp_path: Path, bash_interpreter):
+    bash = bash_interpreter
     stamp = "20261012-120000"
     root, temporary, config = (tmp_path / name for name in ("root", "tmp", "systemd"))
     stage = temporary / f"karaoke-room-server-deploy-{stamp}"
@@ -268,3 +274,179 @@ def test_reused_deployment_stamp_cannot_remove_another_attempts_stage(deployment
     assert result.returncode != 0
     assert state.read_text(encoding="utf-8") == "active"
     assert owned_by_other.read_text(encoding="utf-8") == "keep"
+
+
+@pytest.fixture
+def processing_deployment_sandbox(tmp_path: Path, bash_interpreter):
+    stage = tmp_path / "tmp/ad-voice-processing-20261115-120000"
+    root = tmp_path / "root"
+    config = tmp_path / "etc"
+    (root / "data").mkdir(parents=True)
+    targets = [
+        root / "processing-server.py",
+        config / "ad-voice-processing.env",
+        config / "systemd/system/ad-voice-processing.service",
+        config / "nginx/snippets/ad-voice-processing.conf",
+        config / "nginx/sites-available/room-server",
+    ]
+    for target in targets:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("old " + target.name, encoding="utf-8")
+    stage.mkdir(parents=True)
+    for name in [
+        "processing-server.py",
+        "server.env",
+        "processing-server.service",
+        "processing-proxy.conf",
+    ]:
+        (stage / name).write_text("new " + name, encoding="utf-8")
+    original = {target: target.read_text(encoding="utf-8") for target in targets}
+    source = (ROOT / "scripts/deploy-processing-server.sh").read_text(encoding="utf-8")
+    for old, replacement in [
+        ("/opt/karaoke-processing-server", root),
+        ("/etc", config),
+        ("/tmp", stage.parent),
+    ]:
+        source = source.replace(old, _bash_path(replacement))
+    script = tmp_path / "deploy-processing.sh"
+    script.write_text(source, encoding="utf-8", newline="\n")
+    mocks = tmp_path / "mocks.sh"
+    mocks.write_text(
+        r"""fail_once() {
+    if [[ "$FAIL_AT" == "$1" && ! -e "$RC_SANDBOX/failed-once" ]]; then
+        touch "$RC_SANDBOX/failed-once"
+        return 1
+    fi
+}
+sudo() { "$@"; }
+sleep() { :; }
+chown() { :; }
+install() { command install "$@"; fail_once "install-${@: -1}"; }
+cp() {
+    if [[ "${FAIL_ROLLBACK:-}" == 1 && "${@: -2:1}" == *processing-before-* ]]; then return 1; fi
+    command cp "$@"
+}
+python3() { cat >/dev/null; printf 'new site' > "$2"; fail_once patch-site; }
+nginx() { fail_once nginx; }
+systemctl() {
+    case "$1" in
+        is-active) [[ "$(cat "$RC_SANDBOX/active")" == 1 ]] ;;
+        is-enabled) [[ "$(cat "$RC_SANDBOX/enabled")" == 1 ]] ;;
+        enable) printf 1 > "$RC_SANDBOX/enabled" ;;
+        disable) printf 0 > "$RC_SANDBOX/enabled" ;;
+        start|restart) fail_once start || return 1; printf 1 > "$RC_SANDBOX/active" ;;
+        stop) printf 0 > "$RC_SANDBOX/active" ;;
+        daemon-reload) fail_once daemon-reload ;;
+    esac
+}
+curl() {
+    printf '%s\n' "${@: -1}" >> "$RC_SANDBOX/health-requests"
+    if [[ "${@: -1}" == *8083/processing/health ]]; then
+        if [[ "$FAIL_AT" == health ]]; then printf 500; else printf 403; fi
+    fi
+}
+""",
+        encoding="utf-8",
+        newline="\n",
+    )
+    for name in ["active", "enabled"]:
+        (tmp_path / name).write_text("1", encoding="utf-8")
+    environment = {**os.environ, "BASH_ENV": _bash_path(mocks), "RC_SANDBOX": _bash_path(tmp_path)}
+    return bash_interpreter, script, stage, environment, original
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["server", "env", "unit", "proxy", "patch-site", "nginx", "daemon-reload", "start", "health"],
+)
+def test_processing_deployment_restores_every_replaced_file(processing_deployment_sandbox, failure):
+    bash, script, stage, environment, original = processing_deployment_sandbox
+    targets = list(original)
+    failures = dict(
+        zip(
+            ["server", "env", "unit", "proxy"],
+            ["install-" + _bash_path(path) for path in targets[:4]],
+            strict=True,
+        )
+    )
+    result = subprocess.run(
+        [str(bash), str(script), _bash_path(stage)],
+        env={**environment, "FAIL_AT": failures.get(failure, failure)},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    assert result.returncode != 0, result.stdout + result.stderr
+    if failure != "health":
+        assert (stage.parents[1] / "failed-once").is_file(), result.stdout + result.stderr
+    for target, expected in original.items():
+        assert target.read_text(encoding="utf-8") == expected, result.stdout + result.stderr
+    assert "PROCESSING_SERVER_ROLLBACK=restored" in result.stdout
+    for name in ["active", "enabled"]:
+        assert (stage.parents[1] / name).read_text(encoding="utf-8") == "1"
+
+
+def test_processing_deployment_rejects_an_exhausted_health_poll(processing_deployment_sandbox):
+    bash, script, stage, environment, _ = processing_deployment_sandbox
+    result = subprocess.run(
+        [str(bash), str(script), _bash_path(stage)],
+        env={**environment, "FAIL_AT": "health"},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "Processing relay did not become healthy" in result.stderr
+    assert "Processing relay active" not in result.stdout
+    assert (stage.parents[1] / "health-requests").read_text(encoding="utf-8").count(
+        "8083/processing/health"
+    ) == 15
+
+
+@pytest.mark.parametrize("failure", ["", "patch-site"])
+def test_processing_deployment_preserves_new_install_and_success_states(
+    processing_deployment_sandbox, failure
+):
+    bash, script, stage, environment, original = processing_deployment_sandbox
+    for target in list(original)[:4]:
+        target.unlink()
+    for name in ["active", "enabled"]:
+        (stage.parents[1] / name).write_text("0", encoding="utf-8")
+    result = subprocess.run(
+        [str(bash), str(script), _bash_path(stage)],
+        env={**environment, "FAIL_AT": failure},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    assert (result.returncode == 0) == (not failure), result.stdout + result.stderr
+    if failure:
+        assert "PROCESSING_SERVER_ROLLBACK=restored" in result.stdout
+        assert all(not target.exists() for target in list(original)[:4])
+        assert list(original)[4].read_text(encoding="utf-8") == list(original.values())[4]
+    else:
+        assert "Processing relay active" in result.stdout
+        assert all(target.read_text(encoding="utf-8") != old for target, old in original.items())
+        assert (stage.parents[1] / "health-requests").read_text(encoding="utf-8").count(
+            "8083/processing/health"
+        ) == 2
+    for name in ["active", "enabled"]:
+        assert (stage.parents[1] / name).read_text(encoding="utf-8") == ("0" if failure else "1")
+
+
+def test_processing_deployment_reports_failed_rollback(processing_deployment_sandbox):
+    bash, script, stage, environment, _ = processing_deployment_sandbox
+    result = subprocess.run(
+        [str(bash), str(script), _bash_path(stage)],
+        env={**environment, "FAIL_AT": "patch-site", "FAIL_ROLLBACK": "1"},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    assert result.returncode != 0
+    assert "PROCESSING_SERVER_ROLLBACK=failed" in result.stderr
+    assert "PROCESSING_SERVER_ROLLBACK=restored" not in result.stdout

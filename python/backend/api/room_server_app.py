@@ -241,30 +241,26 @@ def _configure_room_app(
 
 
 def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) -> None:
-    eligible = (
-        None
-        if room is None
-        else {
-            participant.participant_id
-            for participant in room.participants.values()
-            if participant.connection_state is ConnectionState.CONNECTED
-            and participant.voice_timing_ready
-        }
-    )
-    relay.set_room_eligible_participants(room_id, eligible)
     if room is None:
-        relay.set_room_playout_delay(room_id, None)
-    else:
-        relay.set_room_playout_delay(
-            room_id,
-            room.room_playout_delay_ms,
-            return_reserve_ms=room.room_return_reserve_ms,
-            singing_started_at=(
-                room.playback_started_at.timestamp()
-                if room.playback_state is PlaybackState.PLAYING and room.playback_started_at
-                else None
-            ),
-        )
+        relay.close_room(room_id)
+        return
+    eligible = {
+        participant.participant_id
+        for participant in room.participants.values()
+        if participant.connection_state is ConnectionState.CONNECTED
+        and participant.voice_timing_ready
+    }
+    relay.set_room_eligible_participants(room_id, eligible)
+    relay.set_room_playout_delay(
+        room_id,
+        room.room_playout_delay_ms,
+        return_reserve_ms=room.room_return_reserve_ms,
+        singing_started_at=(
+            room.playback_started_at.timestamp()
+            if room.playback_state is PlaybackState.PLAYING and room.playback_started_at
+            else None
+        ),
+    )
 
 
 def _voice_relays(

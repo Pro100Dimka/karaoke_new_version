@@ -11,7 +11,7 @@ import type {
 import type { RoomStateDto, SongDto } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
 import { createLatestSnapshotQueue } from './latestSnapshotQueue';
-import { roomProjectKey, selectedRoomProjectUpload } from './roomLibrary';
+import { RoomLibraryPublisher } from './RoomLibraryPublisher';
 import { localReadiness, localRoomSong } from './roomModel';
 import {
   downloadAvailableRoomProject,
@@ -20,7 +20,7 @@ import {
   roomTransferFailure,
 } from './roomProjectDownload';
 
-type ProjectPorts = {
+export type ProjectPorts = {
   room: Pick<RoomClient, 'setRoomReadiness' | 'publishLibrary'>;
   python: Pick<
     PythonClient,
@@ -48,38 +48,27 @@ type Transfer =
       type: 'preparing';
       songId: string;
       revision: number;
+      selectionId: number;
       id: string;
       abort: AbortController;
       promise?: Promise<readonly SongDto[] | undefined>;
     }
-  | { type: 'failed'; songId: string; revision: number };
-
-type Library =
-  | { type: 'paused' }
-  | {
-      type: 'publishing';
-      timer: ReturnType<typeof setInterval>;
-      lastKey: string;
-      uploaded: Set<string>;
-      uploadId?: string;
-      songs?: readonly SongDto[];
-      readAt: number;
-      revision: number;
-      unsubscribe?: () => void;
-    };
+  | { type: 'failed'; songId: string; revision: number }
+  | { type: 'cancelled'; selectionId: number; publication: Promise<void> };
 
 /** Owns one room's project download/import transaction and its compensating cleanup. */
 export class RoomProjectCoordinator {
+  private readonly library: RoomLibraryPublisher;
   private transfer: Transfer = { type: 'idle' };
-  private library: Library = { type: 'paused' };
-  private publishing?: Promise<void>;
   private unsubscribeProgress?: () => void;
   private approvedReplacement?: { songId: string; revision: number };
 
   constructor(
     private readonly scope: RoomSessionScope,
     private readonly ports: ProjectPorts,
-  ) {}
+  ) {
+    this.library = new RoomLibraryPublisher(scope, ports);
+  }
 
   getState = (): Transfer['type'] => this.transfer.type;
 
@@ -99,27 +88,37 @@ export class RoomProjectCoordinator {
     const current = this.scope.getRoom();
     if (
       current?.songId !== selected.songId ||
+      current.selectionId !== selected.selectionId ||
       current.revision !== selected.revision
     )
       return undefined;
-    const song = songs.find(
-      (item) => item.id === selected.songId && item.artworkUrl,
+    const song = localRoomSong(
+      selected,
+      songs,
+      this.ports.copies.get(selected.songId, selected.revision),
     );
     return song?.artworkUrl
-      ? { songId: song.id, title: song.title, url: song.artworkUrl }
+      ? { songId: selected.songId, title: song.title, url: song.artworkUrl }
       : undefined;
   }
 
   async retry(): Promise<void> {
     const selected = this.scope.getRoom();
     if (!selected) return;
+    if (this.transfer.type === 'cancelled') {
+      await this.transfer.publication;
+      if (this.scope.getRoom()?.selectionId !== selected.selectionId) return;
+      this.transfer = { type: 'idle' };
+    }
     const snapshot = await this.ports.room.setRoomReadiness(
       this.scope.code,
       'MissingSong',
+      selected.selectionId ?? 0,
     );
     const current = this.scope.getRoom();
     if (
       current &&
+      current.selectionId === selected.selectionId &&
       current.songId === selected.songId &&
       current.revision === selected.revision
     )
@@ -137,8 +136,31 @@ export class RoomProjectCoordinator {
   }
 
   cancelTransfer(): void {
-    const transferId = this.scope.getRoom()?.transferId;
+    const selected = this.scope.getRoom();
+    if (!selected || this.transfer.type !== 'preparing') return;
+    const transferId = selected.transferId;
     this.cancel();
+    const cancelled: Extract<Transfer, { type: 'cancelled' }> = {
+      type: 'cancelled',
+      selectionId: selected.selectionId ?? 0,
+      publication: Promise.resolve(),
+    };
+    this.transfer = cancelled;
+    this.scope.setSnapshot(roomTransferFailure(selected, false));
+    cancelled.publication = this.ports.room
+      .setRoomReadiness(this.scope.code, 'Failed', cancelled.selectionId)
+      .then((snapshot) => {
+        if (
+          this.transfer === cancelled &&
+          this.scope.isCurrent() &&
+          (this.scope.getRoom()?.selectionId ?? 0) === cancelled.selectionId
+        )
+          this.scope.setSnapshot(roomTransferFailure(snapshot, false));
+      })
+      .catch((error) => {
+        if (this.transfer === cancelled && this.scope.isCurrent())
+          this.ports.onFailure(false, error);
+      });
     if (transferId)
       void this.ports.desktop
         .cancelRoomProjectTransfer(transferId)
@@ -170,11 +192,13 @@ export class RoomProjectCoordinator {
           const snapshot = await this.ports.room.setRoomReadiness(
             this.scope.code,
             'Downloading',
+            current.selectionId ?? 0,
             transferProgress,
           );
           const latest = this.scope.getRoom();
           if (
             !latest ||
+            latest.selectionId !== current.selectionId ||
             latest.transferId !== progress.transferId ||
             (latest.transferProgress ?? 0) >= 70
           )
@@ -199,164 +223,8 @@ export class RoomProjectCoordinator {
       },
     );
   }
-
   setPythonReady(ready: boolean): void {
-    if (!ready || !this.scope.isCurrent()) {
-      const previous = this.library;
-      this.library = { type: 'paused' };
-      if (previous.type === 'publishing') {
-        clearInterval(previous.timer);
-        previous.unsubscribe?.();
-        if (previous.uploadId)
-          void this.ports.desktop
-            .cancelRoomProjectTransfer(previous.uploadId)
-            .catch(() => undefined);
-      }
-      return;
-    }
-    if (this.library.type === 'publishing') return;
-    const running: Extract<Library, { type: 'publishing' }> = {
-      type: 'publishing',
-      lastKey: '',
-      uploaded: new Set(),
-      readAt: 0,
-      revision: 0,
-      timer: setInterval(() => void this.publishLibrary(), 1000),
-    };
-    this.library = running;
-    running.unsubscribe = this.ports.python.onLibraryChange?.(() => {
-      running.revision++;
-      running.songs = undefined;
-      void this.publishLibrary();
-    });
-    void this.publishLibrary();
-  }
-
-  private publishLibrary(): Promise<void> {
-    if (this.publishing) return this.publishing;
-    const library = this.library;
-    if (library.type !== 'publishing' || !this.scope.isCurrent())
-      return Promise.resolve();
-    const revision = library.revision;
-    const publishing = (async () => {
-      try {
-        const refreshMilliseconds = this.ports.python.onLibraryChange
-          ? 30_000
-          : 1000;
-        if (
-          !library.songs ||
-          Date.now() - library.readAt >= refreshMilliseconds
-        ) {
-          const songs = await this.ports.python.listSongs();
-          if (
-            this.library !== library ||
-            !this.scope.isCurrent() ||
-            revision !== library.revision
-          )
-            return;
-          library.songs = songs.filter((song) => song.status === 'ready');
-          library.readAt = Date.now();
-        }
-        const songs = library.songs;
-        if (this.library !== library || !this.scope.isCurrent()) return;
-        const key = songs
-          .map((song) =>
-            JSON.stringify([
-              song.id,
-              song.activeRevision,
-              song.title,
-              song.artist,
-              song.album,
-              song.genre,
-              song.durationSeconds,
-              song.sourceHash,
-              song.projectHash,
-            ]),
-          )
-          .sort()
-          .join('|');
-        if (key !== library.lastKey) {
-          const updated = await this.ports.room.publishLibrary(
-            this.scope.code,
-            songs,
-          );
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          library.lastKey = key;
-          this.scope.setSnapshot(updated);
-        }
-        const selected = this.scope.getRoom();
-        const owner = selected?.sharedSongs?.find(
-          (song) =>
-            song.songId === selected.songId &&
-            song.revision === selected.revision,
-        )?.ownerParticipantId;
-        const song = selectedRoomProjectUpload(
-          this.scope.code,
-          songs,
-          library.uploaded,
-          selected?.songId,
-          selected?.revision,
-          owner,
-          this.ports.participantId,
-        );
-        if (!song) return;
-        const needsArchive = selected?.participants.some(
-          (person) =>
-            person.connected &&
-            person.id !== this.ports.participantId &&
-            !['preparing', 'audio', 'ready'].includes(person.readiness) &&
-            !selected.sharedSongs?.some(
-              (item) =>
-                item.ownerParticipantId === person.id &&
-                song.projectHash &&
-                item.projectHash === song.projectHash,
-            ),
-        );
-        if (!needsArchive) return;
-        const transferId = crypto.randomUUID();
-        try {
-          const path = await this.ports.python.exportProject(
-            song.id,
-            song.activeRevision,
-          );
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          library.uploadId = transferId;
-          await this.ports.desktop.uploadRoomProject({
-            roomId: this.scope.code,
-            participantId: this.ports.participantId,
-            songId: song.id,
-            revision: song.activeRevision,
-            path,
-            transferId,
-          });
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          library.uploaded.add(roomProjectKey(this.scope.code, song));
-        } catch (error) {
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          console.error('Room project export/upload failed', error);
-          const failed = this.scope.getRoom();
-          if (failed?.transferId === transferId)
-            this.scope.setSnapshot({ ...failed, transferError: true });
-        } finally {
-          library.uploadId = undefined;
-        }
-        clearOperationFailure('errors.roomLibrary');
-      } catch (error) {
-        if (this.library === library && this.scope.isCurrent())
-          reportOperationFailure('errors.roomLibrary', error);
-      }
-    })();
-    this.publishing = publishing;
-    void publishing.finally(() => {
-      if (this.publishing === publishing) this.publishing = undefined;
-      if (
-        this.library === library &&
-        this.scope.isCurrent() &&
-        library.revision !== revision
-      )
-        void this.publishLibrary();
-    });
-    return publishing;
+    this.library.setPythonReady(ready);
   }
 
   stop(): void {
@@ -364,6 +232,7 @@ export class RoomProjectCoordinator {
     this.unsubscribeProgress?.();
     this.unsubscribeProgress = undefined;
     this.cancel();
+    this.transfer = { type: 'idle' };
     this.approvedReplacement = undefined;
   }
 
@@ -403,10 +272,12 @@ export class RoomProjectCoordinator {
     const updated = await this.ports.room.setRoomReadiness(
       this.scope.code,
       nextReadiness,
+      snapshot.selectionId ?? 0,
     );
     const current = this.scope.getRoom();
     if (
       current?.songId === snapshot.songId &&
+      current.selectionId === snapshot.selectionId &&
       current.revision === snapshot.revision
     )
       this.scope.setSnapshot(updated);
@@ -414,6 +285,7 @@ export class RoomProjectCoordinator {
 
   cancel(): void {
     const active = this.transfer;
+    if (active.type === 'cancelled') return;
     this.transfer = { type: 'idle' };
     if (active.type !== 'preparing') return;
     active.abort.abort();
@@ -424,8 +296,15 @@ export class RoomProjectCoordinator {
     revision: number,
   ): Promise<readonly SongDto[] | undefined> {
     const previous = this.transfer;
+    const selectionId = this.scope.getRoom()?.selectionId ?? 0;
+    if (previous.type === 'cancelled' && previous.selectionId === selectionId)
+      return Promise.resolve(undefined);
     if (previous.type === 'preparing') {
-      if (previous.songId === songId && previous.revision === revision)
+      if (
+        previous.songId === songId &&
+        previous.revision === revision &&
+        previous.selectionId === selectionId
+      )
         return previous.promise ?? Promise.resolve(undefined);
       this.cancel();
     }
@@ -434,6 +313,7 @@ export class RoomProjectCoordinator {
       type: 'preparing',
       songId,
       revision,
+      selectionId,
       id: crypto.randomUUID(),
       abort: new AbortController(),
     };
@@ -441,6 +321,7 @@ export class RoomProjectCoordinator {
     const isCurrent = () =>
       this.transfer === active &&
       !active.abort.signal.aborted &&
+      (this.scope.getRoom()?.selectionId ?? 0) === selectionId &&
       this.scope.isCurrent();
     const progress = (
       value: number,
@@ -484,6 +365,7 @@ export class RoomProjectCoordinator {
         const downloading = await this.ports.room.setRoomReadiness(
           this.scope.code,
           'Downloading',
+          selectionId,
           10,
         );
         if (!isCurrent()) return;
@@ -527,6 +409,7 @@ export class RoomProjectCoordinator {
         const importing = await this.ports.room.setRoomReadiness(
           this.scope.code,
           'Importing',
+          selectionId,
           70,
         );
         if (!isCurrent()) return;
@@ -546,6 +429,7 @@ export class RoomProjectCoordinator {
         const preparing = await this.ports.room.setRoomReadiness(
           this.scope.code,
           'Preparing',
+          selectionId,
           95,
         );
         if (!isCurrent()) return;
@@ -575,7 +459,7 @@ export class RoomProjectCoordinator {
       } catch (error) {
         if (!isCurrent()) return;
         const failed = await this.ports.room
-          .setRoomReadiness(this.scope.code, 'Failed')
+          .setRoomReadiness(this.scope.code, 'Failed', selectionId)
           .catch(() => this.scope.getRoom());
         if (!isCurrent()) return;
         const conflict = isProjectConflict(error);

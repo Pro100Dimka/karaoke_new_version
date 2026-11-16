@@ -19,6 +19,8 @@ from backend.room.domain import (
 from backend.room.timing_policy import ROOM_TIMING, RoomTiming, TimingSource
 from backend.serialization import dumps, loads_object
 
+_DEFAULT_RETURN_RESERVE_MS = ROOM_TIMING.return_requirement.fallback_ms
+
 
 class SqliteRoomRepository:
     """Durable single-node room store used by the Oracle deployment."""
@@ -95,6 +97,7 @@ def _encode_room(room: Room) -> str:
             "singingTiming": room.singing_timing,
             "autoStartPending": room.auto_start_pending,
             "performanceId": room.performance_id,
+            "selectionId": room.selection_id,
             "playlist": _encode_playlist(room.playlist),
             "lastPerformanceId": room.last_performance_id,
             "lastPerformanceAccuracy": room.last_performance_accuracy,
@@ -201,13 +204,12 @@ def _decode_room(payload: str) -> Room:
         sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),
         shared_songs=_decode_songs(raw),
         room_playout_delay_ms=float(raw.get("roomPlayoutDelayMs", 60.0)),
-        room_return_reserve_ms=float(
-            raw.get("roomReturnReserveMs", ROOM_TIMING.return_requirement.fallback_ms)
-        ),
+        room_return_reserve_ms=float(raw.get("roomReturnReserveMs", _DEFAULT_RETURN_RESERVE_MS)),
         room_timing_source=_decode_timing_source(raw),
         singing_timing=_decode_timing(raw.get("singingTiming")),
         auto_start_pending=bool(raw.get("autoStartPending", False)),
         performance_id=int(raw.get("performanceId", 0)),
+        selection_id=int(raw.get("selectionId", 0)),
         playlist=_decode_playlist(raw.get("playlist")),
         last_performance_id=_optional_int(raw.get("lastPerformanceId")),
         last_performance_accuracy=_optional_float(raw.get("lastPerformanceAccuracy")),

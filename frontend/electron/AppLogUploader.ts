@@ -82,7 +82,8 @@ export class AppLogUploader {
               )
             ) {
               this.add(entry.source, entry.level, entry.message);
-              this.queue[this.queue.length - 1]!.timestamp = entry.timestamp;
+              const added = this.queue.at(-1);
+              if (added) added.timestamp = entry.timestamp;
             }
           }
         }
@@ -194,13 +195,14 @@ export class AppLogUploader {
       this.queue.splice(this.uploading ? this.inFlightCount : 0, 1);
       this.dropped += 1;
     }
-    this.queue.push({
+    const entry = {
       timestamp: new Date().toISOString(),
       source: source.slice(0, 64),
       level: level.slice(0, 16),
       message: redact(message).slice(0, maximumMessage),
-    });
-    this.recent.push(this.queue[this.queue.length - 1]!);
+    };
+    this.queue.push(entry);
+    this.recent.push(entry);
     if (this.recent.length > 60) this.recent.shift();
   }
 

@@ -8,7 +8,7 @@ import type {
 } from '../contracts/social';
 import { bridgedHttp } from './desktopBridge';
 import { desktopClient } from './desktopClient';
-import { readJson, writeJson } from '../shared/storage/localStore';
+import { isRecord, readJson, writeJson } from '../shared/storage/localStore';
 
 const request = <T>(
   method: PythonBridgeRequest['method'],
@@ -22,10 +22,9 @@ const request = <T>(
   );
 
 const isInbox = (message: unknown): message is SocialInbox =>
-  !!message &&
-  typeof message === 'object' &&
-  ((message as { type?: unknown }).type === 'inbox' ||
-    (message as { type?: unknown }).type === 'offline');
+  isRecord(message) &&
+  typeof message.type === 'string' &&
+  ['inbox', 'offline'].includes(message.type);
 
 // Photos are fetched once per account and version; a new version (a changed photo) is fetched anew.
 const avatars = new Map<string, Promise<string>>();
@@ -47,11 +46,15 @@ export const socialClient = {
   /** The latest inbox at once, then every one the server pushes. */
   subscribe(listener: (inbox: SocialInbox) => void): () => void {
     let active = true;
+    let receivedPush = false;
     void desktopClient.socialLatest().then((message) => {
-      if (active && isInbox(message)) listener(message);
+      if (active && !receivedPush && isInbox(message)) listener(message);
     });
     const stop = desktopClient.onSocialInbox((message) => {
-      if (isInbox(message)) listener(message);
+      if (active && isInbox(message)) {
+        receivedPush = true;
+        listener(message);
+      }
     });
     return () => {
       active = false;

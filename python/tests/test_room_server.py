@@ -65,7 +65,13 @@ def test_relay_membership_keeps_a_ready_source_when_its_listener_route_slows(mon
         )
         client.post(
             f"/rooms/{room_id}/readiness",
-            json={"participantId": "host", "readiness": "Ready"},
+            json={
+                "selectionId": client.get(
+                    f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": "host",
+                "readiness": "Ready",
+            },
         )
         for latency, eligible in ((275, False), (45, True), (280, False)):
             updated = client.post(
@@ -105,7 +111,13 @@ def test_slow_listener_return_does_not_suppress_its_upstream_voice(monkeypatch) 
             )
             client.post(
                 f"/rooms/{room_id}/readiness",
-                json={"participantId": participant_id, "readiness": "Ready"},
+                json={
+                    "selectionId": client.get(
+                        f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                    ).json()["selectionId"],
+                    "participantId": participant_id,
+                    "readiness": "Ready",
+                },
             )
         changed = client.post(
             f"/rooms/{room_id}/timing",
@@ -157,7 +169,13 @@ def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
         for participant_id in ("host", "guest"):
             started = client.post(
                 f"/rooms/{room_id}/readiness",
-                json={"participantId": participant_id, "readiness": "Ready"},
+                json={
+                    "selectionId": client.get(
+                        f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                    ).json()["selectionId"],
+                    "participantId": participant_id,
+                    "readiness": "Ready",
+                },
             ).json()
         assert started["playbackState"] == "Playing"
         assert started["roomPlayoutDelayMs"] == 250
@@ -207,7 +225,13 @@ def test_song_waits_for_returned_mix_calibration_after_probe_bootstrap() -> None
         for participant_id in ("host", "guest"):
             client.post(
                 f"/rooms/{room_id}/readiness",
-                json={"participantId": participant_id, "readiness": "Ready"},
+                json={
+                    "selectionId": client.get(
+                        f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                    ).json()["selectionId"],
+                    "participantId": participant_id,
+                    "readiness": "Ready",
+                },
             )
             provisional = client.post(
                 f"/rooms/{room_id}/timing",
@@ -345,7 +369,13 @@ def test_room_survives_server_restart_with_shared_database(tmp_path) -> None:
         )
         waiting = restarted.post(
             f"/rooms/{code}/readiness",
-            json={"participantId": "host-1", "readiness": "Ready"},
+            json={
+                "selectionId": restarted.get(
+                    f"/rooms/{code}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": "host-1",
+                "readiness": "Ready",
+            },
         ).json()
         started = restarted.post(
             f"/rooms/{code}/timing",
@@ -657,11 +687,23 @@ def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers(
         )
         client.post(
             f"/rooms/{room_id}/readiness",
-            json={"participantId": "host", "readiness": "Ready"},
+            json={
+                "selectionId": client.get(
+                    f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": "host",
+                "readiness": "Ready",
+            },
         )
         updated = client.post(
             f"/rooms/{room_id}/readiness",
-            json={"participantId": "guest", "readiness": "Ready"},
+            json={
+                "selectionId": client.get(
+                    f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": "guest",
+                "readiness": "Ready",
+            },
         )
 
         assert updated.json()["roomPlayoutDelayMs"] == 250
@@ -724,7 +766,13 @@ def test_last_voice_timing_report_starts_a_song_that_is_already_downloaded() -> 
         for participant_id in ("host", "guest"):
             ready = client.post(
                 f"/rooms/{room_id}/readiness",
-                json={"participantId": participant_id, "readiness": "Ready"},
+                json={
+                    "selectionId": client.get(
+                        f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                    ).json()["selectionId"],
+                    "participantId": participant_id,
+                    "readiness": "Ready",
+                },
             )
             assert ready.status_code == 200
             assert ready.json()["playbackState"] == "Stopped"
@@ -759,6 +807,9 @@ def test_direct_duet_timing_is_accepted_without_fabricated_relay_measurements() 
             client.post(
                 f"/rooms/{room_id}/readiness",
                 json={
+                    "selectionId": client.get(
+                        f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                    ).json()["selectionId"],
                     "participantId": participant_id,
                     "readiness": "Ready",
                 },
@@ -807,11 +858,23 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
         )
         client.post(
             f"/rooms/{room_id}/readiness",
-            json={"participantId": "host", "readiness": "Ready"},
+            json={
+                "selectionId": client.get(
+                    f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": "host",
+                "readiness": "Ready",
+            },
         )
         updated = client.post(
             f"/rooms/{room_id}/readiness",
-            json={"participantId": "guest", "readiness": "Ready"},
+            json={
+                "selectionId": client.get(
+                    f"/rooms/{room_id}/readiness".removesuffix("/readiness")
+                ).json()["selectionId"],
+                "participantId": "guest",
+                "readiness": "Ready",
+            },
         )
 
         assert updated.status_code == 200

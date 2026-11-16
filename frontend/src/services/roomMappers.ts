@@ -21,6 +21,7 @@ interface BackendRoomParticipant {
 }
 
 export interface BackendRoom {
+  selectionId?: number;
   playlist?: RoomPlaylist | null;
   lastPerformanceId?: number | null;
   lastPerformanceAccuracy?: number | null;
@@ -110,6 +111,7 @@ export const mapRoom = (
   playlist: room.playlist ?? undefined,
   code: room.roomId,
   performanceId: room.performanceId,
+  selectionId: room.selectionId,
   performanceAccuracy: room.performanceAccuracy ?? undefined,
   lastPerformanceId: room.lastPerformanceId ?? undefined,
   lastPerformanceAccuracy: room.lastPerformanceAccuracy ?? undefined,

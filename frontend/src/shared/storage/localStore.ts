@@ -4,13 +4,18 @@ import { reportOperationFailure, clearOperationFailure } from '../errors';
  * unavailable storage degrades to "nothing stored" so persistence never breaks a feature.
  */
 const namespace = 'adVoice';
+const storageAreas = {
+  local: 'localStorage',
+  session: 'sessionStorage',
+} as const;
+type StorageArea = keyof typeof storageAreas;
 
 export const storageKey = (name: string, version = 1): string =>
   `${namespace}.${name}.v${version}`;
 
-export const readJson = (key: string): unknown => {
+export const readJson = (key: string, area: StorageArea = 'local'): unknown => {
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = window[storageAreas[area]].getItem(key);
     const value: unknown = raw === null ? null : JSON.parse(raw);
     clearOperationFailure('errors.storageRead');
     return value;
@@ -20,9 +25,13 @@ export const readJson = (key: string): unknown => {
   }
 };
 
-export const writeJson = (key: string, value: unknown): void => {
+export const writeJson = (
+  key: string,
+  value: unknown,
+  area: StorageArea = 'local',
+): void => {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    window[storageAreas[area]].setItem(key, JSON.stringify(value));
     clearOperationFailure('errors.storageWrite');
   } catch (error) {
     reportOperationFailure('errors.storageWrite', error);
@@ -31,9 +40,12 @@ export const writeJson = (key: string, value: unknown): void => {
 };
 
 /** A plain string value, for keys written before values were stored as JSON. */
-export const readText = (key: string): string | null => {
+export const readText = (
+  key: string,
+  area: StorageArea = 'local',
+): string | null => {
   try {
-    const value = window.localStorage.getItem(key);
+    const value = window[storageAreas[area]].getItem(key);
     clearOperationFailure('errors.storageRead');
     return value;
   } catch (error) {
@@ -42,9 +54,13 @@ export const readText = (key: string): string | null => {
   }
 };
 
-export const writeText = (key: string, value: string): void => {
+export const writeText = (
+  key: string,
+  value: string,
+  area: StorageArea = 'local',
+): void => {
   try {
-    window.localStorage.setItem(key, value);
+    window[storageAreas[area]].setItem(key, value);
     clearOperationFailure('errors.storageWrite');
   } catch (error) {
     reportOperationFailure('errors.storageWrite', error);
@@ -52,9 +68,9 @@ export const writeText = (key: string, value: string): void => {
   }
 };
 
-export const removeKey = (key: string): void => {
+export const removeKey = (key: string, area: StorageArea = 'local'): void => {
   try {
-    window.localStorage.removeItem(key);
+    window[storageAreas[area]].removeItem(key);
     clearOperationFailure('errors.storageWrite');
   } catch (error) {
     reportOperationFailure('errors.storageWrite', error);
@@ -63,9 +79,9 @@ export const removeKey = (key: string): void => {
 };
 
 /** Forgets every stored convenience (tests start each case from a clean slate with it). */
-export const clearStorage = (): void => {
+export const clearStorage = (area: StorageArea = 'local'): void => {
   try {
-    window.localStorage.clear();
+    window[storageAreas[area]].clear();
     clearOperationFailure('errors.storageWrite');
   } catch (error) {
     reportOperationFailure('errors.storageWrite', error);

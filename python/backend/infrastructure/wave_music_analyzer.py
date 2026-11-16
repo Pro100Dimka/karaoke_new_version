@@ -65,7 +65,7 @@ def _estimate_bpm(envelope: list[float], frame_rate: int) -> float | None:
         lag: float(np.einsum("i,i->", samples[lag:], samples[:-lag], optimize=False))
         for lag in range(min_lag, min(max_lag, len(onset) - 1) + 1)
     }
-    if not scores:
+    if not scores or max(scores.values()) <= 0:
         return None
     best_lag = max(scores, key=lambda lag: scores[lag])
     # Preserve scalar ranking when summation rounding could change a near tie.

@@ -620,6 +620,8 @@ def test_listener_gain_changes_only_that_listeners_copy_of_one_singer() -> None:
 
 
 def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
+    from backend.api.room_server_app import _configure_relay_room
+
     commands: list[str] = []
     relay = VoiceRelay(control_command=commands.append)
 
@@ -642,6 +644,14 @@ def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
         "GAIN\troom-1\talice\tbob\t4.0",
         "FORGET\tbob",
     ]
+    other_token = relay.expect("other-room", "carol")
+    assert relay.set_recipient_source_gain("room-1", "alice", token, "bob", 2.0)
+    _configure_relay_room(relay, "room-1", None)
+    assert commands[-1] == "CLOSE_ROOM\troom-1"
+    assert not relay.set_recipient_source_gain("room-1", "alice", token, "bob", 2.0)
+    assert relay.set_recipient_source_gain("other-room", "carol", other_token, "dave", 2.0)
+    assert "room-1" not in relay._room_playout_delay_seconds
+    assert "room-1" not in relay._room_eligible_mixers
 
 
 def test_personal_effects_follow_session_rotation_and_leave() -> None:
@@ -659,6 +669,34 @@ def test_personal_effects_follow_session_rotation_and_leave() -> None:
     commands.clear()
     relay.expect("room", "bob")
     assert len(commands) == 1
+
+
+@pytest.mark.parametrize("gain", [0.0, 4.0])
+@pytest.mark.parametrize("rejoining", ["alice", "bob"])
+def test_personal_gain_is_replayed_after_session_rotation(gain, rejoining) -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    token = relay.expect("room", "alice")
+    relay.expect("room", "bob")
+    assert relay.set_recipient_source_gain("room", "alice", token, "bob", gain)
+    commands.clear()
+    relay.expect("room", rejoining)
+    assert commands[-1] == f"GAIN\troom\talice\tbob\t{gain}"
+
+
+def test_leaving_an_unconnected_third_voice_keeps_other_singers_preferences() -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    token = relay.expect("room", "alice")
+    relay.expect("room", "bob")
+    relay.expect("room", "carol")
+    assert relay.set_recipient_source_gain("room", "alice", token, "bob", 0.0)
+    assert relay.set_recipient_source_effect("room", "alice", token, "bob", "echo", 0.5)
+    relay.forget("carol")
+    commands.clear()
+    relay.expect("room", "bob")
+    assert "GAIN\troom\talice\tbob\t0.0" in commands
+    assert "EFFECT\troom\talice\tbob\techo\t0.5" in commands
 
 
 def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> None:
@@ -730,6 +768,8 @@ def test_a_missing_singer_cannot_delay_the_room_and_their_late_packet_is_never_r
     assert _pcm_samples(packets_by_address[addresses["alice"]]) == (1_000, 2_000)
     assert _pcm_samples(packets_by_address[addresses["bob"]]) == (100, 200)
     assert _pcm_samples(packets_by_address[addresses["unstable"]]) == (1_100, 2_200)
+    assert relay.recipient_send_metrics("room-1", "unstable")["missing_contributions"] == 1
+    assert relay.recipient_send_metrics("room-1", "alice")["missing_contributions"] == 0
 
     relay.datagram_received(
         _pcm_packet("unstable", tokens["unstable"], 48_000, (10_000, 20_000), 2),

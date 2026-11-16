@@ -191,6 +191,8 @@ const readMonoWav = async (file) => {
 };
 
 const correlate = (left, right, maximumOffset = 480) => {
+  if (!left.length || !right.length)
+    throw new RangeError('Audio alignment requires nonempty signals');
   const frames = Math.min(left.length, right.length);
   const window = Math.min(frames, 24_000);
   const candidates = [];

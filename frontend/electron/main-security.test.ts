@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
@@ -16,7 +16,10 @@ const mocks = vi.hoisted(() => ({
   appEvents: new Map<string, (event: { preventDefault(): void }) => void>(),
   stopService: vi.fn(),
   quit: vi.fn(),
+  relaunch: vi.fn(),
   gpuSwitch: vi.fn(),
+  prepareUpdateQuit: vi.fn(async () => true),
+  scene: vi.fn<(request: Request) => Response>(),
   pythonObserver: {} as {
     started?(): void;
     stdout?(data: Buffer): void;
@@ -34,6 +37,7 @@ const window = Object.assign(new EventEmitter(), {
   webContents: contents,
   isDestroyed: () => false,
   isVisible: () => true,
+  isFocused: () => true,
   isMinimized: () => false,
   close: vi.fn(),
   loadURL: vi.fn(async (url: string) => {
@@ -76,6 +80,8 @@ vi.mock('./AutoUpdate', () => ({
     requiresLaunchCheck: () => false,
     beforeLaunch: async () => false,
     install: () => false,
+    prepareQuit: mocks.prepareUpdateQuit,
+    cancelInstall: vi.fn(),
     stop: vi.fn(),
   }),
 }));
@@ -97,6 +103,7 @@ vi.mock('electron', () => ({
     requestSingleInstanceLock: () => true,
     commandLine: { appendSwitch: mocks.gpuSwitch },
     quit: mocks.quit,
+    relaunch: mocks.relaunch,
     on: (name: string, callback: (event: { preventDefault(): void }) => void) =>
       mocks.appEvents.set(name, callback),
     whenReady: () => ({
@@ -116,6 +123,11 @@ vi.mock('electron', () => ({
     ) => mocks.handlers.set(channel, handler),
   },
   clipboard: {},
+  protocol: {
+    registerSchemesAsPrivileged: vi.fn(),
+    handle: (_scheme: string, handler: (request: Request) => Response) =>
+      mocks.scene.mockImplementation(handler),
+  },
   dialog: {},
   shell: {},
 }));
@@ -196,6 +208,42 @@ beforeEach(() => {
   mocks.sendAudioRequest.mockClear();
 });
 
+it.each([
+  [null, 200, 0, 100, null],
+  ['bytes=10-19', 206, 10, 20, 'bytes 10-19/100'],
+  ['bytes=90-', 206, 90, 100, 'bytes 90-99/100'],
+  ['bytes=90-200', 206, 90, 100, 'bytes 90-99/100'],
+  ['bytes=-10', 206, 90, 100, 'bytes 90-99/100'],
+  ['bytes=-200', 206, 0, 100, 'bytes 0-99/100'],
+  ['bytes=-0', 416, 0, 0, 'bytes */100'],
+  ['bytes=200-', 416, 0, 0, 'bytes */100'],
+  ['bytes=20-10', 416, 0, 0, 'bytes */100'],
+] as const)(
+  'serves the requested scene video byte range %s',
+  async (range, status, start, end, contentRange) => {
+    const root = join(mocks.profileRoot, 'range-project');
+    const media = join(root, 'frontend', 'media', 'scene');
+    await mkdir(media, { recursive: true });
+    const bytes = Uint8Array.from({ length: 100 }, (_, index) => index);
+    await writeFile(join(media, 'test.webm'), bytes);
+    const { registerSceneProtocol } =
+      await vi.importActual<typeof import('./SceneProtocol')>(
+        './SceneProtocol',
+      );
+    registerSceneProtocol(root);
+    const response = mocks.scene(
+      new Request('scene://local/test.webm', {
+        headers: range ? { Range: range } : {},
+      }),
+    );
+    expect(response.status).toBe(status);
+    expect(response.headers.get('content-range')).toBe(contentRange);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(
+      bytes.subarray(start, end),
+    );
+  },
+);
+
 const audio = async (sender: unknown, frame: unknown) => {
   const { ipcChannels } = await import('./ipcChannels');
   return mocks.handlers.get(ipcChannels.audioRequest)?.(
@@ -204,22 +252,31 @@ const audio = async (sender: unknown, frame: unknown) => {
   );
 };
 
+it('keeps the approved window open when the installer cannot start', async () => {
+  const { ipcChannels } = await import('./ipcChannels');
+  mocks.prepareUpdateQuit.mockResolvedValueOnce(false);
+  window.close.mockClear();
+  await mocks.handlers.get(ipcChannels.confirmClose)?.(
+    { sender: contents, senderFrame: contents.mainFrame } as IpcMainInvokeEvent,
+    true,
+  );
+  expect(window.close).not.toHaveBeenCalled();
+  expect(mocks.prepareUpdateQuit).toHaveBeenCalledOnce();
+});
+
 it('selects the high-performance GPU before Chromium starts', () => {
   expect(mocks.gpuSwitch).toHaveBeenCalledWith('force-high-performance-gpu');
 });
 
-it('rejects a different window even when its frame URL matches', async () => {
-  await expect(
-    audio({ mainFrame: contents.mainFrame }, contents.mainFrame),
-  ).rejects.toThrow('Untrusted IPC sender');
+it('rejects other windows with a matching URL, subframes and detached frames', async () => {
+  const untrusted = [
+    [{ mainFrame: contents.mainFrame }, contents.mainFrame],
+    [contents, { url: contents.mainFrame.url }],
+    [contents, null],
+  ];
+  for (const [sender, frame] of untrusted)
+    await expect(audio(sender, frame)).rejects.toThrow('Untrusted IPC sender');
   expect(mocks.sendAudioRequest).not.toHaveBeenCalled();
-});
-it('rejects subframes and detached frames', async () => {
-  for (const frame of [{ url: contents.mainFrame.url }, null]) {
-    await expect(audio(contents, frame)).rejects.toThrow(
-      'Untrusted IPC sender',
-    );
-  }
 });
 it('rejects remote and sibling local documents in the main window', async () => {
   for (const url of [
@@ -294,6 +351,7 @@ it('keeps a panel window from navigating anywhere or opening windows', () => {
     webContents: panelContents,
     isDestroyed: () => false,
     isVisible: () => true,
+    isFocused: () => true,
     isMinimized: () => false,
   });
   contents.emit('did-create-window', panelWindow);
@@ -413,6 +471,27 @@ it('keeps services alive while the renderer is confirming window close', () => {
   expect(event.preventDefault).toHaveBeenCalledOnce();
   expect(window.close).toHaveBeenCalledOnce();
   expect(mocks.stopService).not.toHaveBeenCalled();
+});
+
+it('requests relaunch through close approval and cancels it when the user stays', async () => {
+  const { ipcChannels } = await import('./ipcChannels');
+  const event = {
+    sender: contents,
+    senderFrame: contents.mainFrame,
+  } as IpcMainInvokeEvent;
+  mocks.relaunch.mockClear();
+  try {
+    await mocks.handlers.get(ipcChannels.relaunchApp)?.(event);
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    await mocks.handlers.get(ipcChannels.confirmClose)?.(event, false);
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    await mocks.handlers.get(ipcChannels.relaunchApp)?.(event);
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    await mocks.handlers.get(ipcChannels.confirmClose)?.(event, true);
+    expect(mocks.relaunch).toHaveBeenCalledOnce();
+  } finally {
+    mocks.quit.mockClear();
+  }
 });
 
 it('defers Electron quit until owned service shutdown finishes', async () => {

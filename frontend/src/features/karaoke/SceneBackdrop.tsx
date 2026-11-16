@@ -47,7 +47,7 @@ export const SceneBackdrop = ({
 }: SceneBackdropProps) => {
   const { document } = useHostWindow();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failedUrl, setFailedUrl] = useState('');
+  const [failedUrls, setFailedUrls] = useState(() => new Set<string>());
   const [sceneUrl, setSceneUrl] = useState('');
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export const SceneBackdrop = ({
   // A failing source falls through to the next one without touching audio.
   const source =
     [videoUrl, sceneUrl].find(
-      (url) => url !== '' && url !== failedUrl && !isYoutubeUrl(url),
+      (url) => url !== '' && !failedUrls.has(url) && !isYoutubeUrl(url),
     ) ?? '';
   const useVideo = source !== '';
   // The song's own video is worth following exactly; the generic scene fallback is a short ambient clip
@@ -168,7 +168,7 @@ export const SceneBackdrop = ({
           playsInline
           preload="auto"
           onError={(event) => {
-            setFailedUrl(source);
+            setFailedUrls((previous) => new Set(previous).add(source));
             reportOperationFailure('errors.video', event.currentTarget.error);
           }}
         />

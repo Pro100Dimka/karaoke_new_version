@@ -33,6 +33,14 @@ const ease = (
 
 const minimumBeatGap = 0.24;
 const maximumBeatGap = 1.1;
+const quietMusic: MusicState = {
+  kick: 0,
+  snare: 0,
+  air: 0,
+  intensity: 0.35,
+  pause: false,
+  beatPeriod: undefined,
+};
 
 /**
  * Reads the backing track's spectrum from AudioService into the musical cues the show
@@ -54,14 +62,7 @@ export class MusicPulse {
   private heard = 0;
   private lastFrame: number | undefined;
   private wasQuiet = false;
-  state: MusicState = {
-    kick: 0,
-    snare: 0,
-    air: 0,
-    intensity: 0.35,
-    pause: false,
-    beatPeriod: undefined,
-  };
+  state: MusicState = { ...quietMusic };
 
   reset(): void {
     this.percussion = createPercussionReaction();
@@ -70,6 +71,10 @@ export class MusicPulse {
     this.heard = 0;
     this.fast = this.medium = this.loudPeak = 0;
     this.kickPeak = 0.05;
+    this.previousKick = this.airLevel = 0;
+    this.lastFrame = undefined;
+    this.wasQuiet = false;
+    this.state = { ...quietMusic };
   }
 
   next(bands: readonly number[], now: number): MusicCue[] {

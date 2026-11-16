@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import sys
-
+from pathlib import Path
 
 BUILD_ONLY_SUFFIXES = {".h", ".hpp", ".lib", ".pyc", ".pyo"}
-DEVELOPMENT_PACKAGES = ("_pytest", "pytest", "mypy", "mypyc", "ruff", "pip", "wheel")
+DEVELOPMENT_PACKAGES = (
+    "_pytest",
+    "pytest",
+    "xdist",
+    "pytest_xdist",
+    "execnet",
+    "mypy",
+    "mypyc",
+    "ruff",
+    "pip",
+    "wheel",
+)
 RETIRED_PACKAGES = ("gradio_client", "kaggle", "kagglesdk")
 
 

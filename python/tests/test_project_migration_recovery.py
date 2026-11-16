@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.database import SqlUnitOfWork
 from backend.infrastructure.local_projects import LocalProjectStorage
+from backend.recovery.reconcile_library import ReconcileLibrary
 from backend.serialization import dumps, loads_object
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -102,7 +105,24 @@ def test_reconciliation_marks_missing_managed_source(tmp_path: Path) -> None:
         assert client.get(f"/songs/{song_id}").json()["status"] == "SourceMissing"
 
 
-def test_reconciliation_reports_orphan_project_without_auto_repair(tmp_path: Path) -> None:
+@pytest.mark.parametrize("large_library", [False, True])
+def test_reconciliation_reports_orphan_project_without_auto_repair(
+    tmp_path: Path, large_library: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if large_library:
+        songs = [SimpleNamespace(song_id=f"song-{index}") for index in range(10001)]
+        uow, catalog = MagicMock(), MagicMock()
+        repository = uow.create.return_value.__enter__.return_value.songs
+        repository.list.side_effect = lambda **page: songs[
+            page["offset"]:page["offset"] + page["limit"]
+        ]
+        catalog.song_ids.return_value = tuple(song.song_id for song in songs) + ("orphan-song",)
+        catalog.revisions.return_value = (1,)
+        reconcile = ReconcileLibrary(uow, catalog, MagicMock(), MagicMock(), MagicMock())
+        monkeypatch.setattr(reconcile, "_song_issues", lambda _: [])
+        issues = reconcile.execute()
+        assert [(issue.code, issue.entity_id) for issue in issues] == [("OrphanProject", "orphan-song")]
+        return
     root = tmp_path / "runtime"
     with app_client(root) as client:
         orphan_revision = root / "songs" / "orphan-song" / "revisions" / "1"

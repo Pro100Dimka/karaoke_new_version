@@ -35,6 +35,21 @@ describe('roomClient', () => {
     );
   });
 
+  it('sends the generation captured by the preparation operation', async () => {
+    await roomClient.setRoomReadiness('ROOM-1', 'Downloading', 12, 37);
+    expect(roomRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/rooms/room-1/readiness',
+        body: {
+          participantId,
+          readiness: 'Downloading',
+          selectionId: 12,
+          progress: 37,
+        },
+      }),
+    );
+  });
+
   it('maps the server-owned playout deadline and voice eligibility into the room snapshot', async () => {
     roomRequest.mockResolvedValueOnce({
       status: 200,
@@ -61,11 +76,13 @@ describe('roomClient', () => {
         playbackPositionSeconds: 0,
         serverNow: new Date().toISOString(),
         roomPlayoutDelayMs: 250,
+        selectionId: 12,
       },
     });
 
     await expect(roomClient.getRoom('ROOM-1')).resolves.toMatchObject({
       roomPlayoutDelayMs: 250,
+      selectionId: 12,
       participants: [
         expect.objectContaining({ id: participantId, voiceEligible: false }),
       ],

@@ -29,13 +29,10 @@ import {
 } from '../../application/editor/editorModel';
 import type { ProjectCompatibility } from '../../contracts/clients';
 import { routes } from '../../shared/routes';
+import { keyBelongsToControl } from '../../shared/ui/keyOwnership';
 import { EditorHeader } from './EditorHeader';
 import { EditorTransport } from './EditorTransport';
 import { useEditorSession } from './useEditorSession';
-
-const isEditingText = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 
 const zoomSteps = [0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
 const maxZoom = zoomSteps[zoomSteps.length - 1] ?? 1;
@@ -138,7 +135,12 @@ export const EditorPage = () => {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const { session, selection } = keyboard.current;
-      if (isEditingText(event.target)) return;
+      if (
+        event.defaultPrevented ||
+        keyBelongsToControl(event.target, event.key) ||
+        window.document.querySelector("dialog[open], [role='menu']")
+      )
+        return;
       const command = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       if (command && key === 's') {
@@ -153,10 +155,7 @@ export const EditorPage = () => {
       } else if (event.key === 'Delete' && selection.size > 0) {
         event.preventDefault();
         session.remove(selection);
-      } else if (
-        event.code === 'Space' &&
-        !(event.target instanceof HTMLButtonElement)
-      ) {
+      } else if (event.code === 'Space') {
         event.preventDefault();
         void session.togglePlay();
       }

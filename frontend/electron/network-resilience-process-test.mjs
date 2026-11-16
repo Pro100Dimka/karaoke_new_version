@@ -336,6 +336,8 @@ const recordedMixError = (backing, voice, mix) => {
   return { maximum, rms: Math.sqrt(energy / Math.max(1, count)) };
 };
 const correlate = (left, right, maximumOffset = 480) => {
+  if (!left.length || !right.length)
+    throw new RangeError('Audio alignment requires nonempty signals');
   const window = Math.min(left.length, right.length, 24_000);
   const candidates = [];
   for (

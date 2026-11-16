@@ -117,10 +117,12 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
         return recovered ? ControlResponse{ControlStatus::Ok, "Recovered"}
                          : ControlResponse{ControlStatus::Failed, "RecoveryFailed"};
     }
-    case ControlCommand::SuspendSession:
-        session_.suspend();
+    case ControlCommand::SuspendSession: {
+        const auto suspended = session_.suspend();
         syncDeviceGeneration();
-        return ControlResponse{ControlStatus::Ok, "Suspended"};
+        return suspended ? ControlResponse{ControlStatus::Ok, "Suspended"}
+                         : ControlResponse{ControlStatus::InvalidState, "RecordingActive"};
+    }
     case ControlCommand::ResumeSession: {
         const auto resumed = session_.resume();
         syncDeviceGeneration();
@@ -764,6 +766,7 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
 
 ControlResponse AudioService::handle(const ControlRequest& request) {
     processPendingBackendEvent();
+    if (session_.refreshRuntimeLatency()) publishDeviceLatency();
     processDeviceEvents();
     checkLowLatencyInputStability();
     // A profile delivered after startup is restored once, between performances. No acoustic
@@ -807,12 +810,16 @@ ControlResponse AudioService::handle(const ControlRequest& request) {
             if (auto response = (this->*handler)(request)) {
                 constexpr std::array discontinuities{
                     ControlCommand::LoadSong, ControlCommand::UnloadSong, ControlCommand::Play,
-                    ControlCommand::Pause, ControlCommand::Resume, ControlCommand::Stop,
+                    ControlCommand::Resume, ControlCommand::Stop,
                     ControlCommand::Seek, ControlCommand::SetPlaybackRate, ControlCommand::SetTranspose,
                 };
+                if (response->status == ControlStatus::Ok && request.command == ControlCommand::Pause &&
+                    contextFromControl(request) == MediaContext::Karaoke)
+                    pitchEnd_ = monotonicTicksNow();
                 if (response->status == ControlStatus::Ok &&
                     std::ranges::find(discontinuities, request.command) != discontinuities.end()) {
                     pitchFence_ = monotonicTicksNow();
+                    pitchEnd_ = 0;
                     ++pitchEpoch_;
                 }
                 return *response;

@@ -4,6 +4,7 @@
 #include "backend/asio/AsioBackend.hpp"
 #include "backend/asio/AsioComApartment.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
+#include "app/AudioService.hpp"
 #include <array>
 #include <atomic>
 #include <future>
@@ -20,6 +21,8 @@ struct Driver final : IAsioDriver {
     bool failChannels{false}, failStart{false}, failCreate{false}, started{false};
     bool rateDependentPeriod{false}, failLatency{false}, failSamplePosition{false};
     long latency{0};
+    int latencyQueries{0};
+    std::thread::id latencyQueriedOn{};
     int releases{0}, starts{0}, stops{0}, disposals{0}, controlPanels{0};
     double rateAtRelease{0};
     std::thread::id initializedOn{}, controlPanelOn{};
@@ -68,6 +71,8 @@ struct Driver final : IAsioDriver {
         return failChannels ? -1 : AsioOk;
     }
     AsioError STDMETHODCALLTYPE getLatencies(long* in, long* out) override {
+        ++latencyQueries;
+        latencyQueriedOn = std::this_thread::get_id();
         if (failLatency)
             return -1;
         *in = *out = latency;
@@ -205,6 +210,37 @@ void asioLatencyFailureDoesNotReuseThePreviousDevice() {
     expect(runtime.inputReportedLatencyHns == -1 && runtime.outputReportedLatencyHns == -1 &&
                runtime.outputReportedLatencyResult != 0,
            "a failed latency query is reported as unknown, never as zero latency");
+}
+
+void asioLatencyChangeRefreshesRuntimeWithoutRestarting() {
+    Driver driver;
+    driver.latency = 512;
+    AudioService service(std::make_unique<AsioBackend>([&](const auto&) { return &driver; }));
+    service.start();
+    service.session().prepare(request());
+    service.session().start();
+    const auto generation = service.session().generationId();
+    require(driver.callbacks.asioMessage != nullptr, "ASIO message callback is installed");
+    const auto initialQueries = driver.latencyQueries;
+    driver.latency = 256;
+    expect(driver.callbacks.asioMessage(AsioLatenciesChanged, 0, nullptr, nullptr) == 1,
+           "ASIO latency change is acknowledged");
+    expect(driver.latencyQueries == initialQueries, "the driver callback does not query or wait on its COM owner");
+    (void)service.handleLine("1|GetDiagnostics");
+    expect(driver.latencyQueries == initialQueries + 1 && driver.latencyQueriedOn == driver.initializedOn &&
+               service.session().runtime().inputLatencyFrames == 256 &&
+               service.session().runtime().outputLatencyFrames == 256,
+           "the control poll refreshes current driver latency on the driver owner thread");
+    driver.failLatency = true;
+    (void)driver.callbacks.asioMessage(AsioLatenciesChanged, 0, nullptr, nullptr);
+    (void)service.handleLine("1|GetDiagnostics");
+    expect(service.session().runtime().inputReportedLatencyHns == -1 &&
+               service.session().runtime().outputReportedLatencyHns == -1 &&
+               service.session().runtime().inputLatencyFrames == 0,
+           "a failed refresh reports unknown latency instead of the old device estimate");
+    expect(service.session().generationId() == generation && driver.starts == 1 && driver.stops == 0,
+           "latency updates leave the active driver and selected period running");
+    service.shutdown();
 }
 
 void asioFailedBufferCreationDisposesPartialDriverBuffers() {
@@ -531,6 +567,8 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     driver.callbacks.bufferSwitch(1, 0);
     const auto expected = static_cast<MonotonicTicks>(64.0 * 1'000'000'000.0 / 96000.0);
+    require(callback.captures.size() == 2 && callback.renders.size() == 2,
+            "both ASIO callbacks publish capture and render timing");
     expect(std::llabs(callback.captures[1].captureTicks -
                       callback.captures[0].captureTicks - expected) <= 1 &&
                std::llabs(callback.renders[1].presentationTicks -
@@ -544,6 +582,8 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
     driver.samplePosition += 64;
     driver.failSamplePosition = true;
     driver.callbacks.bufferSwitch(1, 0);
+    require(callback.captures.size() == 4 && callback.renders.size() == 4,
+            "ASIO still publishes both callbacks when the sample-position query fails");
     expect(callback.captures.back().devicePosition == 256 &&
                callback.renders.back().devicePosition == 256 &&
                callback.captures.back().timestamp > 0 &&

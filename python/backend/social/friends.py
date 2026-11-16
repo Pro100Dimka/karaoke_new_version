@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from threading import RLock
+
 from backend.domain_errors import DomainError, NotFoundError
 from backend.runtime import Clock
 from backend.social.codes import normalize_code
@@ -23,6 +25,7 @@ class Friends:
         self._events = events
         self._notifier = notifier
         self._clock = clock
+        self._lock = RLock()
 
     def request_by_code(self, me: Account, friend_code: str) -> tuple[Account, Relation]:
         target = self._accounts.by_friend_code(normalize_code(friend_code))
@@ -36,38 +39,43 @@ class Friends:
             raise DomainError("FriendIsSelf", "You cannot add yourself as a friend")
         if self._accounts.by_id(target_id) is None:
             raise NotFoundError("AccountNotFound", "This person was not found", accountId=target_id)
-        if self._friends.are_friends(me.account_id, target_id):
-            return Relation.FRIEND
-        if self._friends.request(target_id, me.account_id) is not None:
-            self.accept(me, target_id)
-            return Relation.FRIEND
-        if self._friends.request(me.account_id, target_id) is None:
-            now = self._clock.now()
-            self._friends.add_request(FriendRequest(me.account_id, target_id, now))
-            self._notifier.changed((me.account_id, target_id))
-        return Relation.REQUESTED
+        with self._lock:
+            if self._friends.are_friends(me.account_id, target_id):
+                return Relation.FRIEND
+            if self._friends.request(target_id, me.account_id) is not None:
+                self.accept(me, target_id)
+                return Relation.FRIEND
+            if self._friends.request(me.account_id, target_id) is None:
+                now = self._clock.now()
+                self._friends.add_request(FriendRequest(me.account_id, target_id, now))
+                self._notifier.changed((me.account_id, target_id))
+            return Relation.REQUESTED
 
     def accept(self, me: Account, requester_id: str) -> None:
-        if self._friends.request(requester_id, me.account_id) is None:
-            raise NotFoundError("FriendRequestNotFound", "This friend request no longer exists")
-        now = self._clock.now()
-        self._friends.remove_request(requester_id, me.account_id)
-        self._friends.remove_request(me.account_id, requester_id)
-        self._friends.befriend(me.account_id, requester_id, now)
-        self._events.add_notice(requester_id, NoticeKind.FRIEND_ACCEPTED, me.account_id, None, now)
-        self._notifier.changed((me.account_id, requester_id))
+        with self._lock:
+            if self._friends.request(requester_id, me.account_id) is None:
+                raise NotFoundError("FriendRequestNotFound", "This friend request no longer exists")
+            now = self._clock.now()
+            self._friends.remove_request(requester_id, me.account_id)
+            self._friends.remove_request(me.account_id, requester_id)
+            self._friends.befriend(me.account_id, requester_id, now)
+            self._events.add_notice(requester_id, NoticeKind.FRIEND_ACCEPTED, me.account_id, None, now)
+            self._notifier.changed((me.account_id, requester_id))
 
     def decline(self, me: Account, requester_id: str) -> None:
-        self._friends.remove_request(requester_id, me.account_id)
-        self._notifier.changed((me.account_id, requester_id))
+        with self._lock:
+            self._friends.remove_request(requester_id, me.account_id)
+            self._notifier.changed((me.account_id, requester_id))
 
     def cancel(self, me: Account, target_id: str) -> None:
-        self._friends.remove_request(me.account_id, target_id)
-        self._notifier.changed((me.account_id, target_id))
+        with self._lock:
+            self._friends.remove_request(me.account_id, target_id)
+            self._notifier.changed((me.account_id, target_id))
 
     def remove(self, me: Account, friend_id: str) -> None:
-        self._friends.unfriend(me.account_id, friend_id)
-        self._notifier.changed((me.account_id, friend_id))
+        with self._lock:
+            self._friends.unfriend(me.account_id, friend_id)
+            self._notifier.changed((me.account_id, friend_id))
 
     def announce(self, me: Account) -> None:
         """Friends see this person anew: came online, left, entered a room, changed the photo."""

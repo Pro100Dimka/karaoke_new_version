@@ -5,6 +5,7 @@ import { store } from '../../providers/store';
 import { runInAction } from 'mobx';
 import { AddToPlaylistDialog, PlaylistDialog } from './PlaylistDialog';
 import '../../providers/localization';
+import { clearStorage } from '../../shared/storage/localStore';
 
 vi.mock('../../providers/notifications', () => ({ useNotify: () => vi.fn() }));
 const songs: SongDto[] = ['one', 'two'].map((id) => ({
@@ -25,7 +26,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  localStorage.clear();
+  clearStorage();
   runInAction(() => {
     store.application.localProcessing = false;
   });

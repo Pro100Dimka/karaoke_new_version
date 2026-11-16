@@ -41,12 +41,12 @@ void roomClockAndPlaybackDiagnosticsShareOneObservation() {
         const auto start = diagnostics.find(key);
         if (start == std::string::npos)
             return std::uint64_t{0};
-        return std::stoull(diagnostics.substr(start + key.size()));
+        return static_cast<std::uint64_t>(std::stoull(diagnostics.substr(start + key.size())));
     };
     const auto observed = value("MonotonicTicks: ");
     const auto room = value("RoomClockObservationFrames: ");
     const auto expected = observed / 1000 * fixture.service.session().runtime().outputSampleRateHz / 1'000'000;
-    expect(room != 0 && std::abs(static_cast<double>(room) - expected) <= 1.0,
+    expect(room != 0 && std::abs(static_cast<double>(room) - static_cast<double>(expected)) <= 1.0,
            "room clock and playback position are reported for the same observation instant");
 }
 
@@ -667,7 +667,7 @@ void singingRemainsAudibleAtFullMicrophoneGain() {
         double power = 0.0;
         for (int block = 0; block < 400; ++block) {
             for (std::size_t frame = 0; frame < capture.size(); ++frame)
-                capture[frame] = 0.18F * std::sin(6.2831853F * 4.0F * frame / 128.0F);
+                capture[frame] = 0.18F * std::sin(6.2831853F * 4.0F * static_cast<float>(frame) / 128.0F);
             fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
             if (block >= 300)
                 for (const auto sample : render)
@@ -675,7 +675,7 @@ void singingRemainsAudibleAtFullMicrophoneGain() {
         }
         expect(fixture.service.realtime().monitoring(),
                "ordinary sustained singing must not trip the feedback protection in either mode");
-        expect(std::sqrt(power / (100 * render.size())) > 0.4,
+        expect(std::sqrt(power / static_cast<double>(100 * render.size())) > 0.4,
                "microphone makeup gain must remain audible beside a full-volume backing track");
     }
 }
@@ -685,7 +685,7 @@ void sustainedFeedbackDisablesLocalMonitoring() {
     fixture.service.realtime().setMonitoring(true);
     std::vector<float> capture(128, 0.0F), render(256, 0.0F);
     for (std::size_t frame = 0; frame < capture.size(); ++frame)
-        capture[frame] = 0.02F * std::sin(6.2831853F * 10.0F * frame / 128.0F);
+        capture[frame] = 0.02F * std::sin(6.2831853F * 10.0F * static_cast<float>(frame) / 128.0F);
     bool wasAudible = false;
     for (int block = 0; block < 150; ++block) {
         fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
@@ -693,7 +693,7 @@ void sustainedFeedbackDisablesLocalMonitoring() {
         for (std::size_t frame = 0; frame < capture.size(); ++frame)
             capture[frame] = std::clamp(
                 render[frame * 2] * 8.0F +
-                    0.02F * std::sin(6.2831853F * 10.0F * frame / 128.0F),
+                    0.02F * std::sin(6.2831853F * 10.0F * static_cast<float>(frame) / 128.0F),
                 -1.0F, 1.0F);
     }
     expect(wasAudible, "feedback simulation initially reaches the local monitor");
@@ -718,7 +718,7 @@ void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers() {
     expect(peak > 0.0F && peak < 0.03F,
            "the first monitor callback starts quietly even with an already loud input");
     for (std::size_t frame = 0; frame < capture.size(); ++frame)
-        capture[frame] = 0.3F * std::sin(6.2831853F * 3.0F * frame / 128.0F);
+        capture[frame] = 0.3F * std::sin(6.2831853F * 3.0F * static_cast<float>(frame) / 128.0F);
     for (int block = 1; block < 200; ++block)
         fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
     expect(*std::ranges::max_element(render) > 0.1F &&
@@ -907,7 +907,7 @@ void localMonitoringPreservesQuietAndNoisyHeadsetSignals() {
                 for (int block = 0; block < 600; ++block) {
                     std::array<float, Frames> source{};
                     for (std::size_t frame = 0; frame < Frames; ++frame) {
-                        const auto at = static_cast<float>(block * Frames + frame);
+                        const auto at = static_cast<float>(static_cast<std::size_t>(block) * Frames + frame);
                         source[frame] = block < 400 ? level *
                             (std::sin(Tau * 220.0F * at / 48000.0F) +
                              0.25F * std::sin(Tau * 440.0F * at / 48000.0F)) : 0.0F;
@@ -918,7 +918,8 @@ void localMonitoringPreservesQuietAndNoisyHeadsetSignals() {
                             capture[frame * 2 + channel] = (source[frame] + noise) *
                                 layout[channel] * (channel == 1 && block % 2 ? 1.03F : 1.0F);
                     }
-                    fixture.fake->pump(capture, 2, render, 2, block * Frames, block * Frames);
+                    const auto position = static_cast<std::int64_t>(block) * static_cast<std::int64_t>(Frames);
+                    fixture.fake->pump(capture, 2, render, 2, position, position);
                     for (std::size_t frame = 0; frame < Frames; ++frame) {
                         const auto sample = render[frame * 2];
                         expect(std::isfinite(sample) && std::abs(sample) < 0.951F &&
@@ -1057,18 +1058,28 @@ void realtimeCallbackHasNoHardRtViolations() {
 }
 
 void deviceLossRecoversWithNewGeneration() {
-    for (const auto event : {BackendEventType::DeviceLost, BackendEventType::RenderStalled}) {
-        RunningService fixture;
-        const auto beforeLoss = fixture.service.session().generationId();
-        const auto period = fixture.service.session().requested().periodFrames;
-        fixture.fake->inject(event, -1);
-        const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics");
-        expect(diagnostics.status == ControlStatus::Ok,
-               "diagnostics remains available after a backend failure");
-        expect(fixture.service.session().state() == SessionState::Running &&
-                   fixture.service.session().generationId() > beforeLoss &&
-                   fixture.service.session().requested().periodFrames == period,
-               "backend recovery starts a new generation without increasing the selected period");
+    constexpr std::array fatalEvents{BackendEventType::DeviceLost, BackendEventType::DeviceInvalidated,
+                                    BackendEventType::DriverReset, BackendEventType::SampleRateChanged,
+                                    BackendEventType::RenderStalled};
+    constexpr std::array followingEvents{BackendEventType::None, BackendEventType::DataDiscontinuity,
+                                        BackendEventType::TimestampError, BackendEventType::CaptureOverrun,
+                                        BackendEventType::RenderUnderrun};
+    for (const auto event : fatalEvents) {
+        for (const auto following : followingEvents) {
+            RunningService fixture;
+            const auto beforeLoss = fixture.service.session().generationId();
+            const auto period = fixture.service.session().requested().periodFrames;
+            fixture.fake->inject(event, -1);
+            if (following != BackendEventType::None)
+                fixture.fake->inject(following, -2);
+            const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics");
+            expect(diagnostics.status == ControlStatus::Ok,
+                   "diagnostics remains available after a backend failure");
+            expect(fixture.service.session().state() == SessionState::Running &&
+                       fixture.service.session().generationId() > beforeLoss &&
+                       fixture.service.session().requested().periodFrames == period,
+                   "backend recovery starts a new generation without increasing the selected period");
+        }
     }
 }
 
@@ -1195,6 +1206,80 @@ void sessionLifecycleIsExposedThroughIpc() {
            "suspend lifecycle exposed");
     expect(service.handleLine("1|ResumeSession").status == ControlStatus::Ok,
            "resume lifecycle exposed");
+    for (const bool pause : {true, false}) {
+        RunningService fixture;
+        const auto path = tempRoot / "final-captured-pitch.wav";
+        makeTestWav(path, 9600);
+        fixture.service.media().load(MediaSlot::Music, path.string());
+        require(fixture.service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                "pitch test backing is ready");
+        require(fixture.service.handleLine("1|Play").status == ControlStatus::Ok,
+                "pitch test starts a take");
+        const auto field = [](const std::string& text, std::string_view key) {
+            const auto start = text.find(key);
+            require(start != std::string::npos, "pitch diagnostic field exists");
+            const auto value = start + key.size();
+            return text.substr(value, text.find('\n', value) - value);
+        };
+        const auto epoch = field(fixture.service.diagnostics(), "InputPitchEpoch: ");
+        constexpr std::uint32_t rate = 48000, frames = 128;
+        const std::uint32_t blocks = pause ? 40 : 80;
+        const auto base = monotonicTicksNow();
+        std::vector<float> capture(frames), output(frames * 2);
+        for (std::uint32_t block = 0; block < blocks; ++block) {
+            for (std::uint32_t index = 0; index < frames; ++index)
+                capture[index] = 0.3F * static_cast<float>(std::sin(
+                    6.283185307179586 * 440 * (block * frames + index) / rate));
+            const auto ticks = base + static_cast<MonotonicTicks>(block * frames) * 1'000'000'000 / rate;
+            const auto delivered = ticks + static_cast<MonotonicTicks>(frames) * 1'000'000'000 / rate;
+            while (monotonicTicksNow() < delivered)
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            fixture.fake->pump(capture, 1, output, 2, block * frames, block * frames, ticks, ticks);
+        }
+        const auto end = base + static_cast<MonotonicTicks>(blocks * frames) * 1'000'000'000 / rate;
+        while (monotonicTicksNow() < end)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto processedBy = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (std::stoull(field(fixture.service.diagnostics(), "AnalysisProcessedFrames: ")) <
+                   blocks * frames && std::chrono::steady_clock::now() < processedBy)
+            std::this_thread::yield();
+        const auto before = field(fixture.service.diagnostics(), "InputPitchHistory: ");
+        if (pause) {
+            const auto diagnostic = fixture.service.diagnostics();
+            require(!before.empty(), "the running take has real captured pitch evidence: state=" +
+                field(diagnostic, "PlaybackState: ") + ", processed=" +
+                field(diagnostic, "AnalysisProcessedFrames: ") + ", pitch=" +
+                field(diagnostic, "InputPitchHz: "));
+        }
+        if (pause)
+            require(fixture.service.handleLine("1|Pause").status == ControlStatus::Ok,
+                    "pitch test pauses the current take");
+        const auto stopped = fixture.service.diagnostics();
+        const auto history = field(stopped, "InputPitchHistory: ");
+        expect(!history.empty(), "pause and EOF retain already captured voice from this take");
+        expect(field(stopped, "InputPitchEpoch: ") == epoch,
+               "pause and EOF do not relabel the final voice as a new take");
+        if (pause)
+            expect(history == before, "pause preserves the musical positions of captured voice");
+        const auto idleAt = monotonicTicksNow();
+        for (std::uint32_t block = blocks; block < blocks + 20; ++block) {
+            const auto ticks = idleAt + static_cast<MonotonicTicks>((block - blocks) * frames) * 1'000'000'000 / rate;
+            const auto delivered = ticks + static_cast<MonotonicTicks>(frames) * 1'000'000'000 / rate;
+            while (monotonicTicksNow() < delivered)
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            fixture.fake->pump(capture, 1, output, 2, block * frames, block * frames, ticks, ticks);
+        }
+        expect(field(fixture.service.diagnostics(), "InputPitchHistory: ") == history,
+               "microphone input after pause or EOF adds no notes to the completed segment");
+        require(fixture.service.handleLine("1|Stop").status == ControlStatus::Ok,
+                "pitch test clears the completed take");
+        expect(field(fixture.service.diagnostics(), "InputPitchHistory: ").empty(),
+               "a stopped take cannot leak into the next performance");
+        require(fixture.service.handleLine("1|Play").status == ControlStatus::Ok,
+                "the next take can start normally");
+        expect(field(fixture.service.diagnostics(), "InputPitchHistory: ").empty(),
+               "starting a new take excludes all earlier capture windows");
+    }
 }
 
 void explicitPeriodFallbackIsVisibleInDiagnostics() {
@@ -1295,6 +1380,37 @@ void suspendingAnIdleSessionIsANoOp() {
 
     expect(service.session().state() == SessionState::Idle,
            "background ASIO release must not turn an unopened audio session into Suspended");
+}
+
+void nativePreconditionsStopBeforeDependentAccess() {
+    bool continued = false, stopped = false;
+    try {
+        require(false, "missing prerequisite");
+        continued = true;
+    } catch (const std::runtime_error&) {
+        stopped = true;
+    }
+    expect(stopped && !continued, "a failed prerequisite stops the dependent test path");
+}
+
+void backgroundSuspendKeepsUnfinishedRecordingsOpen() {
+    constexpr std::array phases{RecordingState::Prepared, RecordingState::Recording, RecordingState::Paused};
+    for (const auto phase : phases) {
+        RunningService fixture;
+        const auto generation = fixture.service.session().generationId();
+        auto& recording = fixture.service.recording();
+        recording.prepare("background", (tempRoot / "background-recording.wav").string(),
+                          48'000, 2, RecordingTap::ProcessedVoice, 48'000);
+        recording.setGeneration(generation);
+        if (phase != RecordingState::Prepared) recording.start(SessionFrame{0}, 0);
+        if (phase == RecordingState::Paused) recording.pause(SessionFrame{0});
+        const auto result = fixture.service.handleLine("1|SuspendSession");
+        expect(result.status == ControlStatus::InvalidState &&
+                   fixture.service.session().state() == SessionState::Running &&
+                   fixture.service.session().generationId() == generation && recording.state() == phase,
+               "background release cannot close, finalize or restart an unfinished recording");
+        (void)recording.stop(SessionFrame{0});
+    }
 }
 
 void resumeReusesTheNegotiatedBackendCapabilities() {

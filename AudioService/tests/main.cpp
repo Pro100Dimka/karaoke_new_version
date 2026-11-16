@@ -40,6 +40,7 @@ class TestDirectory {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"networkDiagnosticsRetainSignedPeerAlignment", Tests::networkDiagnosticsRetainSignedPeerAlignment},
     Test{"rejectedPcmPacketsCannotSeedReceiveLossConcealment", Tests::rejectedPcmPacketsCannotSeedReceiveLossConcealment},
     Test{"traceRejectsAnOldTakeTokenAfterImmediateRearm", Tests::traceRejectsAnOldTakeTokenAfterImmediateRearm},
     Test{"packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender", Tests::packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender},
@@ -359,9 +360,11 @@ constexpr std::array tests{
          Tests::wasapiSharedQueriesPeriodsForMediaProcessing},
     Test{"wasapiSharedAdoptsAnAlreadyLockedEnginePeriod",
          Tests::wasapiSharedAdoptsAnAlreadyLockedEnginePeriod},
+#ifdef _WIN32
     Test{"wasapiSharedReconfigureReleasesOldPeriod",
          Tests::wasapiSharedReconfigureReleasesOldPeriod},
     Test{"wasapiDiagnosticCapturesBoundedFinalPcm", Tests::wasapiDiagnosticCapturesBoundedFinalPcm},
+#endif
     Test{"wasapiDirectClockSkipEscalatesSharedQueue",
          Tests::wasapiDirectClockSkipEscalatesSharedQueue},
     Test{"wasapiSharedFallsBackWhenMinimumExceedsCpuBudget",
@@ -391,7 +394,9 @@ constexpr std::array tests{
     Test{"asioRejectsInvalidDriverCapabilities", Tests::asioRejectsInvalidDriverCapabilities},
     Test{"asioCapabilityProbePreservesTheActiveDriver",
          Tests::asioCapabilityProbePreservesTheActiveDriver},
+#ifdef _WIN32
     Test{"asioSnapshotReportsPhysicalInputNames", Tests::asioSnapshotReportsPhysicalInputNames},
+#endif
     Test{"captureDiagnosticsReportIndividualAsioChannels",
          Tests::captureDiagnosticsReportIndividualAsioChannels},
     Test{"asioMicrophoneDoesNotJumpBetweenNearlyEqualChannels",
@@ -681,6 +686,16 @@ constexpr std::array tests{
     Test{"roomVoiceTransportSurvivesAudioDeviceRecovery",
          Tests::roomVoiceTransportSurvivesAudioDeviceRecovery},
     Test{"wavDecoderReportsFormat", Tests::wavDecoderReportsFormat},
+    Test{"transportSnapshotDoesNotWaitForDiagnosticText", Tests::transportSnapshotDoesNotWaitForDiagnosticText},
+    Test{"networkProcessClientUsesProtocolCadence", Tests::networkProcessClientUsesProtocolCadence},
+    Test{"networkAlignmentMeasuresBeyondItsSuccessThreshold", Tests::networkAlignmentMeasuresBeyondItsSuccessThreshold},
+    Test{"backgroundSuspendKeepsUnfinishedRecordingsOpen", Tests::backgroundSuspendKeepsUnfinishedRecordingsOpen},
+    Test{"nativePreconditionsStopBeforeDependentAccess", Tests::nativePreconditionsStopBeforeDependentAccess},
+    Test{"nativeRelayTestHelpersRejectMissingData", Tests::nativeRelayTestHelpersRejectMissingData},
+#ifdef _WIN32
+    Test{"asioSystemVolumeFollowsTheNewWindowsDefault", Tests::asioSystemVolumeFollowsTheNewWindowsDefault},
+    Test{"asioLatencyChangeRefreshesRuntimeWithoutRestarting", Tests::asioLatencyChangeRefreshesRuntimeWithoutRestarting},
+#endif
     Test{"mediaRejectsNonFiniteProcessingParameters",
          Tests::mediaRejectsNonFiniteProcessingParameters},
     Test{"disablingLoopDiscardsQueuedLoopAudio", Tests::disablingLoopDiscardsQueuedLoopAudio},
@@ -874,10 +889,10 @@ int main(int argc, char** argv) {
         if (argc > 1 && std::string_view{name} != argv[1])
             continue;
         matched = true;
+        const auto failuresBefore = Tests::failures;
         try {
             std::cout << "[ RUN      ] " << name << std::endl;
             run();
-            std::cout << "[       OK ] " << name << std::endl;
         } catch (const std::exception& error) {
             ++Tests::failures;
             std::cerr << "FAIL: " << name << ": " << error.what() << '\n';
@@ -885,6 +900,8 @@ int main(int argc, char** argv) {
             ++Tests::failures;
             std::cerr << "FAIL: " << name << ": unknown exception\n";
         }
+        std::cout << (Tests::failures == failuresBefore ? "[       OK ] " : "[  FAILED  ] ")
+                  << name << std::endl;
     }
 
     if (!matched) {

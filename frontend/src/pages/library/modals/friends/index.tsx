@@ -36,10 +36,10 @@ export const FriendsDialog = observer(() => {
     {
       value: 'requests',
       label: (
-        <>
-          {tr('friendsTabRequests')}&nbsp;
+        <Stack direction="row" gap={1} align="center">
+          {tr('friendsTabRequests')}
           <Badge size="sm">{inbox?.friendRequests.length ?? 0}</Badge>
-        </>
+        </Stack>
       ),
       icon: 'person',
       content: inbox && <FriendRequests inbox={inbox} />,

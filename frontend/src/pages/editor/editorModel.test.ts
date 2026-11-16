@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   alignBoundary,
-  canMerge,
   deleteNotes,
   isEditorDirty,
-  mergeNotes,
   moveNotes,
   pushHistory,
   redoHistory,
@@ -95,15 +93,6 @@ describe('editor operations', () => {
     };
     expect(resizeNote(short, 'note', 'end', 0).notes[0]?.end).toBe(1.0204);
     expect(resizeNote(short, 'note', 'start', 2).notes[0]?.start).toBe(1.0004);
-  });
-
-  it('merges only notes of the same word', () => {
-    expect(canMerge(document, ids('n1', 'n2'))).toBe(true);
-    expect(canMerge(document, ids('n1', 'n3'))).toBe(false);
-    const merged = mergeNotes(document, ids('n1', 'n2'));
-    expect(merged.notes).toHaveLength(2);
-    expect(merged.notes[0]).toMatchObject({ id: 'n1', start: 1, end: 3 });
-    expect(mergeNotes(document, ids('n1', 'n3'))).toBe(document);
   });
 
   it('deletes selected notes and aligns boundaries to the playhead', () => {

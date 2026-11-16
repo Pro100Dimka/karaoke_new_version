@@ -189,7 +189,7 @@ export const getRows = ({
           {previews.cover || song.artworkUrl ? (
             <img
               src={previews.cover || song.artworkUrl}
-              alt={`${song.artist} � ${song.title}`}
+              alt={`${song.artist} - ${song.title}`}
             />
           ) : (
             <Typography tone="muted">{coverState}</Typography>

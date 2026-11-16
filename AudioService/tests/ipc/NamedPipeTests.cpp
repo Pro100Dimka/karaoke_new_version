@@ -60,6 +60,75 @@ bool waitForReply(HANDLE client) {
     return false;
 }
 } // namespace
+#else
+#include "app/AudioService.hpp"
+#include "backend/fake/FakeAudioBackend.hpp"
+#include "ipc/ControlServer.hpp"
+#include <array>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <future>
+#include <poll.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <thread>
+#include <unistd.h>
+
+namespace {
+using namespace std::chrono_literals;
+struct RunningUnix {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    std::string name = std::string{std::getenv("TMPDIR") ? std::getenv("TMPDIR") : "/tmp"} +
+                       "/control-test-" + std::to_string(::getpid());
+    ControlServer server{service, name};
+    std::promise<void> completion;
+    std::future<void> done = completion.get_future();
+    std::vector<int> clients;
+    std::thread thread{[this] {
+        try {
+            server.serve();
+            completion.set_value();
+        } catch (...) {
+            completion.set_exception(std::current_exception());
+        }
+    }};
+    int connect() {
+        const auto deadline = std::chrono::steady_clock::now() + 2s;
+        do {
+            const int client = ::socket(AF_UNIX, SOCK_STREAM, 0);
+            sockaddr_un address{};
+            address.sun_family = AF_UNIX;
+            std::strncpy(address.sun_path, name.c_str(), sizeof(address.sun_path) - 1);
+            if (client >= 0 && ::connect(client, reinterpret_cast<sockaddr*>(&address),
+                                         sizeof(address)) == 0) {
+                clients.push_back(client);
+                return client;
+            }
+            if (client >= 0)
+                ::close(client);
+            std::this_thread::sleep_for(1ms);
+        } while (std::chrono::steady_clock::now() < deadline);
+        return -1;
+    }
+    ~RunningUnix() {
+        server.stop();
+        for (const int client : clients)
+            ::shutdown(client, SHUT_RDWR);
+        // Wake the old blocking implementation only after the assertion has failed.
+        if (done.wait_for(100ms) != std::future_status::ready) {
+            const int wake = connect();
+            if (wake >= 0) {
+                constexpr std::string_view request = "1|ShutdownService\n";
+                ::send(wake, request.data(), request.size(), MSG_NOSIGNAL);
+            }
+        }
+        thread.join();
+        for (const int client : clients)
+            ::close(client);
+    }
+};
+} // namespace
 #endif
 namespace Tests {
 void controlNotificationsPreserveCommandsAndReconnect() {
@@ -190,6 +259,28 @@ void controlPipePreservesRepliesAfterServerClose() {
                "all multiline response bytes survive server close and fragmented reads");
         CloseHandle(client);
     }
+#else
+    RunningUnix pipe;
+    const int client = pipe.connect();
+    require(client >= 0, "Unix control client connects");
+    for (const std::string_view fragment : {"1|Get", "Clock"}) {
+        require(::send(client, fragment.data(), fragment.size(), MSG_NOSIGNAL) ==
+                    static_cast<ssize_t>(fragment.size()),
+                "command fragment is sent");
+        pollfd readable{client, POLLIN, 0};
+        require(::poll(&readable, 1, 30) == 0,
+                "the server waits for the complete newline-terminated command");
+    }
+    require(::send(client, "\n", 1, MSG_NOSIGNAL) == 1, "command terminator is sent");
+    pollfd readable{client, POLLIN, 0};
+    require(::poll(&readable, 1, 2000) == 1, "complete command receives a reply");
+    std::string reply;
+    std::array<char, 17> chunk{};
+    ssize_t count = 0;
+    while ((count = ::read(client, chunk.data(), chunk.size())) > 0)
+        reply.append(chunk.data(), static_cast<std::size_t>(count));
+    expect(reply.starts_with("0|") && reply.back() == '\n',
+           "fragmented requests preserve the complete successful reply");
 #endif
 }
 
@@ -220,6 +311,23 @@ void controlPipeStopCancelsIdleAndStalledClients() {
                "stop cancels accept, request read, and response drain without client cooperation");
         if (client != INVALID_HANDLE_VALUE)
             CloseHandle(client);
+    }
+#else
+    for (const bool stalled : {false, true}) {
+        RunningUnix pipe;
+        if (stalled) {
+            require(pipe.connect() >= 0, "silent Unix client connects");
+            std::this_thread::sleep_for(30ms);
+        } else {
+            const auto deadline = std::chrono::steady_clock::now() + 2s;
+            while (::access(pipe.name.c_str(), F_OK) != 0 &&
+                   std::chrono::steady_clock::now() < deadline)
+                std::this_thread::sleep_for(1ms);
+            require(::access(pipe.name.c_str(), F_OK) == 0, "control socket is listening");
+        }
+        pipe.server.stop();
+        expect(pipe.done.wait_for(300ms) == std::future_status::ready,
+               "stop interrupts Unix accept and a silent client's read");
     }
 #endif
 }

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
 import { compareAddedSongs } from '../../songs/librarySelectors';
 import { useProcessingQueue } from './useProcessingQueue';
+import { clearStorage } from '../../../../shared/storage/localStore';
 
 const snapshot = vi.hoisted(() => ({
   jobs: [] as ProcessingJobDto[],
@@ -40,12 +41,12 @@ const job = (id: string): ProcessingJobDto => ({
 });
 
 beforeEach(() => {
-  localStorage.clear();
+  clearStorage();
   snapshot.jobs = [job('one'), job('two')];
 });
 afterEach(() => {
   cleanup();
-  localStorage.clear();
+  clearStorage();
 });
 
 it('shows all twenty selected songs when only two processing jobs have been created', () => {

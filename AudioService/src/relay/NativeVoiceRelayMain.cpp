@@ -175,6 +175,10 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
         relay.forget(values[1]);
         return true;
     }
+    if (values[0] == "CLOSE_ROOM" && values.size() == 2) {
+        relay.closeRoom(values[1]);
+        return true;
+    }
     if (values[0] == "ELIGIBLE" && values.size() >= 2) {
         std::vector<std::string_view> participants;
         participants.reserve(values.size() - 2U);

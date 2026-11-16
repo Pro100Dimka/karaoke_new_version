@@ -101,7 +101,8 @@ std::uint32_t RateTransposeProcessor::process(std::span<const float> input,
     for (std::uint32_t frame = 0; frame < resampledFrames; ++frame) {
         const auto aFrame = position < 0 ? -1 : position / phaseDenominator_;
         const auto fraction =
-            static_cast<float>((position - aFrame * phaseDenominator_) * phaseScale);
+            static_cast<float>(static_cast<double>(position - aFrame * phaseDenominator_) *
+                               phaseScale);
         for (std::uint32_t ch = 0; ch < channels_; ++ch) {
             const auto a = aFrame < 0 || inputFrames == 0
                                ? previousFrame_[ch]

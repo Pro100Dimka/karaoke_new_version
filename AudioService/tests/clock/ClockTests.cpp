@@ -152,7 +152,7 @@ void clockWindowRetainsLongRunDrift() {
         sync.observe({0, 0, 1'000'000, 1'000'000, true});
         for (std::int64_t block = 1; block <= 180'000; ++block) {
             const auto capture = static_cast<std::int64_t>(std::llround(
-                block * 441.0 * (1.0 + driftPpm / 1'000'000.0)));
+                static_cast<double>(block) * 441.0 * (1.0 + driftPpm / 1'000'000.0)));
             const auto at = 1'000'000 + block * 100'000;
             sync.observe({capture, block * 480, at, at, true});
         }

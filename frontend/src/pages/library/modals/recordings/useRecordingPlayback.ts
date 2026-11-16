@@ -60,7 +60,12 @@ export const useRecordingPlayback = (
 
   const seek = useCallback(
     async (seconds: number) => {
-      if (!owns.current) {
+      if (
+        !owns.current ||
+        (await preview.recordingPreviewStatus(owner.current)).recordingId !== id
+      ) {
+        owns.current = false;
+        setPlaying(false);
         setPosition(seconds);
         pendingSeek.current = seconds;
         return;
@@ -73,7 +78,7 @@ export const useRecordingPlayback = (
         () => undefined,
       );
     },
-    [preview],
+    [id, preview],
   );
 
   useEffect(() => {

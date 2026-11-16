@@ -1,14 +1,20 @@
 import dgram from 'node:dgram';
-import { relayProbePacket } from './multi-electron-room-plan.mjs';
+import {
+  relayProbePacket,
+  roomSmokeIdentities,
+} from './multi-electron-room-plan.mjs';
 
-const base =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
+const base = process.env.AD_VOICE_ROOM_SERVER_API ?? 'https://130.61.169.61';
 const host = process.env.AD_VOICE_ROOM_SERVER_HOST ?? '130.61.169.61';
-const participantId = `relay-probe-${crypto.randomUUID()}`;
+const identities = roomSmokeIdentities();
+const participantId = identities.create();
 const request = async (method, route, body) => {
   const response = await fetch(`${base}${route}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...identities.headers(base, participantId),
+    },
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error(`${route} failed (${response.status})`);

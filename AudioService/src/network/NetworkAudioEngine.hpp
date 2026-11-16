@@ -315,7 +315,7 @@ class NetworkAudioEngine {
         VoiceLatenessTracker arrivalRoute;
         StableLatenessHistory returnHistory;
         StableLatenessHistory arrivalHistory;
-        std::uint32_t remoteStreamEpoch{0};
+        AudioStreamEpochHistory remoteStreamEpoch;
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
         std::array<RoomPacketDecisionTrace, 96> packetTrace{};

@@ -1,4 +1,10 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioClient } from '../../services/audioClient';
 import { pythonClient } from '../../services/pythonClient';
@@ -6,6 +12,25 @@ import { clearStorage } from '../../shared/storage/localStore';
 import { useEditorSession } from './useEditorSession';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import { loadDraft } from './editorDraft';
+import { EditorPage } from './index';
+
+vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
+  useRouter: () => ({ params: { songId: 'song' }, navigate: vi.fn() }),
+  PianoRoll: ({
+    notes,
+    onSelect,
+  }: {
+    notes: EditorDocument['notes'];
+    onSelect(id: string, additive: boolean): void;
+  }) => (
+    <button data-testid="notes" onClick={() => onSelect('note', false)}>
+      {notes.length}
+    </button>
+  ),
+}));
+vi.mock('./EditorHeader', () => ({ EditorHeader: () => null }));
+vi.mock('./EditorTransport', () => ({ EditorTransport: () => null }));
 
 const dialogs = vi.hoisted(() => ({
   ask: vi.fn(),
@@ -270,4 +295,36 @@ describe('editor session', () => {
     expect(editorApi.load).toHaveBeenCalledTimes(1);
     expect(audioClient.stop).not.toHaveBeenCalled();
   });
+
+  it.each(['dialog', 'menu', 'editable', 'handled'])(
+    'leaves editor shortcuts to %s, then restores them',
+    async (owner) => {
+      const view = render(<EditorPage />);
+      const notes = await view.findByTestId('notes');
+      fireEvent.click(notes);
+      const overlay = window.document.createElement(
+        owner === 'dialog' ? 'dialog' : 'div',
+      );
+      if (owner === 'dialog') overlay.setAttribute('open', '');
+      if (owner === 'menu') overlay.setAttribute('role', 'menu');
+      if (owner === 'editable') overlay.setAttribute('contenteditable', 'true');
+      const cancel = window.document.createElement('button');
+      overlay.append(cancel);
+      window.document.body.append(overlay);
+      try {
+        const event = new KeyboardEvent('keydown', {
+          key: 'Delete',
+          bubbles: true,
+          cancelable: true,
+        });
+        if (owner === 'handled') event.preventDefault();
+        fireEvent(cancel, event);
+        expect(notes.textContent).toBe('1');
+      } finally {
+        overlay.remove();
+      }
+      fireEvent.keyDown(view.getByRole('main'), { key: 'Delete' });
+      expect(notes.textContent).toBe('0');
+    },
+  );
 });

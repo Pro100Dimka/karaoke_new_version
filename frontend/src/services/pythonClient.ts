@@ -1,7 +1,6 @@
 import type { PythonClient } from '../contracts/clients';
 import type {
   AiProcessingSettingsDto,
-  AppError,
   BackendDiagnosticsDto,
   EnvironmentSettingDto,
   HistoryPageDto,
@@ -18,21 +17,22 @@ import {
 import { bridgedHttp } from './desktopBridge';
 import {
   jobProgress,
+  mapDiagnostics,
+  mapHistory,
+  mapAnalysisFailure,
+  mapPackageFailure,
+  optionalString,
   mapAnalysis,
   mapJob,
   mapRecording,
   mapSong,
-  numberAt,
-  objectAt,
-  optionalString,
   type BackendAnalysis,
   type BackendHistoryPage,
   type BackendJob,
   type BackendJobRef,
   type BackendRecording,
   type BackendSong,
-  type JobPage,
-  type RecordingPage,
+  type BackendPage,
   type SongPage,
 } from './pythonMappers';
 
@@ -51,8 +51,22 @@ const request = async <T>(
   return result;
 };
 
-let catalogVersion = 0;
-let watchingCatalog = false;
+const readPages = async <T>(path: string): Promise<T[]> => {
+  const items: T[] = [];
+  for (;;) {
+    const page = await request<BackendPage<T>>(
+      'GET',
+      `${path}${items.length ? `&offset=${items.length}` : ''}`,
+    );
+    items.push(...page.items);
+    if (
+      page.items.length < (page.limit ?? 200) ||
+      page.items.length === 0 ||
+      (page.total !== undefined && items.length >= page.total)
+    )
+      return items;
+  }
+};
 
 interface JobWait {
   /** Names the work in errors: "<label> failed", "<label> timed out". */
@@ -116,24 +130,7 @@ const waitForPackageReport = async (
     onPoll: (current) =>
       onProgress?.(mapJob(current, current.entityId ?? 'library')),
     // The backend's own code (e.g. PackageConflict) lets the caller react to the reason.
-    failure: (current) => {
-      const error = current.error ?? {};
-      return {
-        code:
-          typeof error.code === 'string'
-            ? error.code
-            : `Package${current.state}`,
-        message:
-          typeof error.message === 'string'
-            ? error.message
-            : `Package job ${current.state.toLowerCase()}`,
-        details:
-          error.details === undefined
-            ? undefined
-            : JSON.stringify(error.details),
-        source: 'python',
-      } satisfies AppError;
-    },
+    failure: mapPackageFailure,
   });
   return job.report ?? {};
 };
@@ -159,15 +156,7 @@ export const pythonClient: PythonClient = {
   },
 
   async listSongs() {
-    // Restart a paged read if the catalog changes between pages.
-    if (!watchingCatalog) {
-      watchingCatalog = true;
-      onLibraryChange(() => {
-        catalogVersion += 1;
-      });
-    }
-    const read = async (): Promise<readonly SongDto[]> => {
-      const version = catalogVersion;
+    return readBackendSnapshot(async (): Promise<readonly SongDto[]> => {
       const songs: BackendSong[] = [];
       let cursor: string | null = null;
       do {
@@ -177,10 +166,8 @@ export const pythonClient: PythonClient = {
         cursor = page.nextCursor;
       } while (cursor);
 
-      if (version !== catalogVersion) return read();
       return songs.map(mapSong);
-    };
-    return read();
+    }, onLibraryChange);
   },
 
   async searchSongs(filter, cursor) {
@@ -387,11 +374,10 @@ export const pythonClient: PythonClient = {
 
   async listRecordings(songId) {
     return readBackendSnapshot(async () => {
-      const page = await request<RecordingPage>(
-        'GET',
+      const recordings = await readPages<BackendRecording>(
         `/recordings?song_id=${encodeURIComponent(songId)}&limit=200`,
       );
-      return page.items.map(mapRecording);
+      return recordings.map(mapRecording);
     }, ['recordings.changed']);
   },
 
@@ -423,15 +409,7 @@ export const pythonClient: PythonClient = {
               : (current.stage ?? 'AnalyzingTiming'),
           progress: jobProgress(current),
         }),
-      failure: (current) =>
-        ({
-          code:
-            optionalString(current.error?.code) ?? `Analysis${current.state}`,
-          message:
-            optionalString(current.error?.message) ??
-            'Performance analysis failed',
-          source: 'python',
-        }) satisfies AppError,
+      failure: mapAnalysisFailure,
     });
     const analyses = await request<BackendAnalysis[]>(
       'GET',
@@ -498,17 +476,14 @@ export const pythonClient: PythonClient = {
     );
   },
 
-  async getAiProcessingSettings(): Promise<AiProcessingSettingsDto> {
-    return request<AiProcessingSettingsDto>('GET', '/settings');
-  },
+  getAiProcessingSettings: () =>
+    request<AiProcessingSettingsDto>('GET', '/settings'),
 
-  async updateAiProcessingSettings(value): Promise<AiProcessingSettingsDto> {
-    return request<AiProcessingSettingsDto>('PATCH', '/settings', value);
-  },
+  updateAiProcessingSettings: (value) =>
+    request<AiProcessingSettingsDto>('PATCH', '/settings', value),
 
-  async listEnvironmentSettings(): Promise<readonly EnvironmentSettingDto[]> {
-    return request<EnvironmentSettingDto[]>('GET', '/settings/environment');
-  },
+  listEnvironmentSettings: () =>
+    request<EnvironmentSettingDto[]>('GET', '/settings/environment'),
 
   async updateEnvironmentSetting(key, value): Promise<EnvironmentSettingDto> {
     return request<EnvironmentSettingDto>(
@@ -530,11 +505,8 @@ export const pythonClient: PythonClient = {
   },
 
   async listJobs() {
-    const page = await request<JobPage>(
-      'GET',
-      '/jobs?limit=200&type=SongProcessing',
-    );
-    return page.items.map((job) => mapJob(job));
+    const jobs = await readPages<BackendJob>('/jobs?limit=200');
+    return jobs.map((job) => mapJob(job));
   },
 
   async diagnostics(): Promise<BackendDiagnosticsDto> {
@@ -545,34 +517,7 @@ export const pythonClient: PythonClient = {
         '/version',
       ),
     ]);
-    const backend = objectAt(raw, 'backend');
-    const ai = objectAt(raw, 'ai');
-    const versions = objectAt(raw, 'versions');
-    const usage = objectAt(objectAt(raw, 'storage'), 'usage');
-    return {
-      state: optionalString(backend.state) ?? 'Unknown',
-      database: backend.database === true,
-      cudaAvailable: ai.cuda_available === true,
-      gpuName: optionalString(ai.gpu_name),
-      ffmpegVersion: optionalString(ai.ffmpeg_version),
-      pytorchVersion: optionalString(ai.pytorch_version),
-      interruptedTransactions: numberAt(
-        objectAt(raw, 'recovery'),
-        'interruptedTransactions',
-      ),
-      backendVersion: version.backendVersion,
-      apiVersion: version.apiVersion,
-      dbSchema: numberAt(versions, 'dbSchema'),
-      projectFormat: numberAt(versions, 'projectFormat'),
-      storage: {
-        songs: numberAt(usage, 'songs'),
-        models: numberAt(usage, 'models'),
-        cache: numberAt(usage, 'cache'),
-        recordings: numberAt(usage, 'recordings'),
-        temp: numberAt(usage, 'temp'),
-        free: numberAt(usage, 'free'),
-      },
-    };
+    return mapDiagnostics(raw, version);
   },
 
   async history(limit, offset, types): Promise<HistoryPageDto> {
@@ -582,16 +527,7 @@ export const pythonClient: PythonClient = {
     });
     for (const type of types ?? []) query.append('types', type);
     const page = await request<BackendHistoryPage>('GET', `/history?${query}`);
-    return {
-      total: page.total,
-      items: page.items.map((item) => ({
-        id: item.eventId,
-        kind: item.eventType,
-        createdAt: item.createdAt,
-        songId: item.songId ?? undefined,
-        detail: item.details ? JSON.stringify(item.details) : undefined,
-      })),
-    };
+    return mapHistory(page);
   },
 
   async clearCache() {

@@ -57,14 +57,18 @@ class RoomDiagnosticsLog:
         return True
 
     def _remove_expired_rooms(self) -> None:
-        """Removes rooms whose newest log is older than the retention period (lock held)."""
+        """Removes expired daily logs, including those of active rooms (lock held)."""
         if not self._root.is_dir():
             return
         cutoff = self._now() - self._retention_seconds
         for room in self._root.iterdir():
-            newest = max((item.stat().st_mtime for item in room.glob("*.jsonl")), default=0.0)
-            if newest < cutoff:
-                shutil.rmtree(room, ignore_errors=True)
+            if not room.is_dir() or room.is_symlink():
+                continue
+            for item in room.glob("*.jsonl"):
+                if item.stat().st_mtime < cutoff:
+                    item.unlink(missing_ok=True)
+            if not any(room.iterdir()):
+                room.rmdir()
 
 
 class ProgramLog:

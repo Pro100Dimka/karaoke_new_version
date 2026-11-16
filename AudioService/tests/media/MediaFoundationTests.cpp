@@ -219,17 +219,19 @@ void mediaFoundationFlacSeekMatchesDecodedTimeline() {
                           ("seek-" + std::to_string(rate) + ".flac");
         MediaFoundationDecoder decoder;
         const auto format = decoder.open(path.string());
-        expect(format.sampleRateHz == rate && format.channels == 2, "FLAC fixture format");
+        require(format.sampleRateHz == rate && format.channels == 2, "FLAC fixture format");
         std::vector<float> reference;
         std::array<float, 2048> block{};
-        while (const auto frames = decoder.read(block, 1024))
+        while (const auto frames = decoder.read(block, 1024)) {
+            require(frames <= 1024U, "FLAC decoder respects the requested output span");
             reference.insert(reference.end(), block.begin(), block.begin() + frames * 2);
-        expect(reference.size() == rate * 4, "FLAC full decode retains every frame");
+        }
+        require(reference.size() == rate * 4, "FLAC full decode retains every frame");
         for (const auto target : {rate + 17U, 333U, rate - 1U, rate * 2 - 29U, 0U}) {
             decoder.seek(target);
             const auto wanted = std::min(1024U, rate * 2 - target);
             const auto frames = decoder.read(block, wanted);
-            expect(frames == wanted, "FLAC seek returns all requested frames including near EOF");
+            require(frames == wanted, "FLAC seek returns all requested frames including near EOF");
             bool identical = true;
             for (std::size_t sample = 0; sample < frames * 2; ++sample)
                 identical &= block[sample] == reference[target * 2 + sample];

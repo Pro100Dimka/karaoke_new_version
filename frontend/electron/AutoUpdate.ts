@@ -260,12 +260,17 @@ export const fetchInstaller = async (
  * Runs a verified installer after this app has exited; its progress stays visible and it opens
  * the app again when installation finishes.
  */
-const runInstaller = (file: string): void => {
-  spawn(file, ['/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS'], {
+const runInstaller = (file: string): Promise<void> => new Promise((resolve, reject) => {
+  const child = spawn(file, ['/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS'], {
     detached: true,
     stdio: 'ignore',
-  }).unref();
-};
+  });
+  child.once('error', reject);
+  child.once('spawn', () => {
+    child.unref();
+    resolve();
+  });
+});
 
 /**
  * Updates from GitHub Releases, as in Discord: before the app opens it checks for a newer version
@@ -290,6 +295,7 @@ export const startAutoUpdate = ({
       beforeLaunch: async () => false,
       requiresLaunchCheck: () => false,
       install: () => false,
+      prepareQuit: async () => true,
       cancelInstall: () => undefined,
       stop: () => undefined,
       scheduleChecks: () => undefined,
@@ -299,7 +305,8 @@ export const startAutoUpdate = ({
   // The newer release is also available for a manual retry after a download failure.
   let offered: ReleaseInstaller | null = null;
   let checking = false;
-  let installOnQuit: (() => void) | undefined;
+  let pendingInstall: string | undefined;
+  let launchingInstall: Promise<boolean> | undefined;
   const failed = (error: unknown) =>
     log(
       'warning',
@@ -409,7 +416,7 @@ export const startAutoUpdate = ({
         if (!file) return false;
         progress({ phase: 'installing', version });
         log('info', `Installing update ${version} before start`);
-        runInstaller(file);
+        await runInstaller(file);
         return true;
       } catch (error) {
         failed(error);
@@ -424,12 +431,6 @@ export const startAutoUpdate = ({
      * offered version is downloaded first (its progress is reported); false when there is none.
      */
     install(): boolean {
-      const exitAndInstall = (file: string) => {
-        if (installOnQuit) app.removeListener('will-quit', installOnQuit);
-        installOnQuit = () => runInstaller(file);
-        app.once('will-quit', installOnQuit);
-        quit();
-      };
       const installer = downloaded ?? offered;
       if (!installer || checking) return false;
       checking = true;
@@ -440,7 +441,8 @@ export const startAutoUpdate = ({
             throw new Error('size or SHA-256 does not match the release');
           downloaded = installer;
           ready(installer.version);
-          exitAndInstall(file);
+          pendingInstall = file;
+          quit();
         })
         .catch((error: unknown) => {
           failed(error);
@@ -451,9 +453,24 @@ export const startAutoUpdate = ({
         });
       return true;
     },
+    /** The close guards have agreed; keep the window until the installer has started. */
+    prepareQuit(): Promise<boolean> {
+      if (launchingInstall) return launchingInstall;
+      if (!pendingInstall) return Promise.resolve(true);
+      const file = pendingInstall;
+      pendingInstall = undefined;
+      launchingInstall = runInstaller(file)
+        .then(() => true)
+        .catch((error: unknown) => {
+          failed(error);
+          installFailed();
+          return false;
+        })
+        .finally(() => { launchingInstall = undefined; });
+      return launchingInstall;
+    },
     cancelInstall(): void {
-      if (installOnQuit) app.removeListener('will-quit', installOnQuit);
-      installOnQuit = undefined;
+      pendingInstall = undefined;
       if (downloaded) ready(downloaded.version);
     },
     stop(): void {

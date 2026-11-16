@@ -197,11 +197,20 @@ export class RoomPlaybackCoordinator {
   }
 
   reportReady(songId: string, revision: number): Promise<void> {
-    const key = `${songId}:${revision}`;
-    if (this.prepared?.key === key) return this.prepared.promise;
     const current = this.scope.getRoom();
     if (current?.songId !== songId || current.revision !== revision)
       return Promise.resolve();
+    const selectionId = current.selectionId ?? 0;
+    const key = `${songId}:${revision}:${selectionId}`;
+    const readiness = current.participants.find(
+      (person) => person.self,
+    )?.readiness;
+    if (
+      this.prepared?.key === key &&
+      (this.prepared.state === 'sending' ||
+        [undefined, 'ready'].includes(readiness))
+    )
+      return this.prepared.promise;
     const reporting = {
       key,
       state: 'sending' as 'sending' | 'ready',
@@ -209,15 +218,19 @@ export class RoomPlaybackCoordinator {
     };
     this.prepared = reporting;
     reporting.promise = this.room
-      .setRoomReadiness(this.scope.code, 'Ready', 100)
+      .setRoomReadiness(this.scope.code, 'Ready', selectionId, 100)
       .then((snapshot) => {
         if (this.prepared !== reporting) return;
         const latest = this.scope.getRoom();
-        if (latest?.songId !== songId || latest.revision !== revision) {
+        if (
+          latest?.songId !== songId ||
+          latest.revision !== revision ||
+          (latest.selectionId ?? 0) !== selectionId
+        ) {
           this.prepared = undefined;
           return;
         }
-        this.scope.setSnapshot(snapshot);
+        if (latest === current) this.scope.setSnapshot(snapshot);
         reporting.state = 'ready';
       })
       .catch((error) => {
