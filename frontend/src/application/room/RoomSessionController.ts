@@ -151,6 +151,23 @@ export class RoomSessionController {
       return;
     const current = this.getRoom();
     if (current && current.code !== room.code) return;
+    room = {
+      ...room,
+      participants: room.participants.map((person) => {
+        const previous = current?.participants.find(
+          (candidate) => candidate.id === person.id,
+        );
+        return previous &&
+          (previous.voiceSettingsRevision ?? 0) >
+            (person.voiceSettingsRevision ?? 0)
+          ? {
+              ...person,
+              voiceSettings: previous.voiceSettings,
+              voiceSettingsRevision: previous.voiceSettingsRevision,
+            }
+          : person;
+      }),
+    };
     this.activateScope(room.code);
     this.publish(
       room.connectionStatus === 'reconnecting'

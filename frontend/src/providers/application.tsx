@@ -13,6 +13,7 @@ import { RoomPlaybackCoordinator } from '../application/room/RoomPlaybackCoordin
 import { RoomRuntimeCoordinator } from '../application/room/RoomRuntimeCoordinator';
 import { RoomSessionController } from '../application/room/RoomSessionController';
 import type { RoomVoiceCoordinator } from '../application/room/RoomVoiceCoordinator';
+import { RoomVoiceSettingsCoordinator } from '../application/room/RoomVoiceSettingsCoordinator';
 import type { ProcessingJobDto } from '../contracts/models';
 import { audioClient } from '../services/audioClient';
 import {
@@ -32,6 +33,7 @@ import {
 } from '../services/roomProjectCopies';
 import {
   clearOperationFailure,
+  observeOperation,
   reportOperationFailure,
 } from '../shared/errors';
 import { applyAppFonts } from '../shared/preferences/appFonts';
@@ -51,6 +53,20 @@ const createRoomSession = () =>
     clear: () => removeKey(sessionKey),
   });
 export let roomSession = createRoomSession();
+export const roomVoiceSettings = new RoomVoiceSettingsCoordinator(
+  { getScope: () => roomSession.getScope() },
+  roomClient,
+  {
+    read: () => ({
+      ...store.preferences.karaokeEffects,
+      noiseSuppression: store.preferences.noiseSuppression,
+      voiceGain: store.preferences.voiceGain,
+    }),
+    write: ({ voiceGain, noiseSuppression, ...karaokeEffects }) =>
+      store.updatePreferences({ voiceGain, noiseSuppression, karaokeEffects }),
+  },
+  participantId,
+);
 let runtime: RoomRuntimeCoordinator | undefined;
 export const getRoomRuntime = (): RoomRuntimeCoordinator =>
   (runtime ??= new RoomRuntimeCoordinator(roomSession, {
@@ -103,10 +119,15 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
           ['queued', 'processing', 'cancelling'].includes(job.state),
       );
     });
-  const updateRoom = () =>
+  const updateRoom = () => {
     runInAction(() => {
       store.online.room = roomSession.getRoom();
     });
+    void observeOperation(
+      'errors.voiceEffects',
+      roomVoiceSettings.synchronize(),
+    ).catch(() => undefined);
+  };
   const updateVisibility = () =>
     runInAction(() => {
       store.application.onScreen = appVisibility();
@@ -116,6 +137,19 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
   updateRoom();
   updateVisibility();
   const stopRoom = roomSession.subscribe(updateRoom);
+  const stopVoiceSettings = reaction(
+    () => [
+      store.preferences.voiceGain,
+      store.preferences.karaokeEffects,
+      store.preferences.noiseSuppression,
+    ],
+    () => {
+      void observeOperation(
+        'errors.voiceEffects',
+        roomVoiceSettings.preferencesChanged(),
+      ).catch(() => undefined);
+    },
+  );
   const stopVisibility = subscribeAppVisibility(updateVisibility);
   const stopEvents = refreshOnJobChanges(() => {
     revision++;
@@ -176,6 +210,7 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     stopJobQueries();
     stopModels();
     stopRoom();
+    stopVoiceSettings();
     stopVisibility();
     stopMotion();
     systemMotion.removeEventListener('change', applyMotion);

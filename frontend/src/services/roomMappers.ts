@@ -2,11 +2,14 @@ import type {
   ParticipantDto,
   RoomStateDto,
   RoomPlaylist,
+  RoomVoiceSettings,
 } from '../contracts/models';
 import { readText, writeText } from '../shared/storage/localStore';
 import { sharedStateOf } from '../application/room/roomModel';
 
 interface BackendRoomParticipant {
+  voiceSettings?: RoomVoiceSettings | null;
+  voiceSettingsRevision?: number;
   performanceAccuracy?: number | null;
   performanceSungSeconds?: number;
   participantId: string;
@@ -120,6 +123,8 @@ export const mapRoom = (
   revision: room.revision ?? undefined,
   role: room.hostId === participantId ? 'host' : 'participant',
   participants: room.participants.map((participant) => ({
+    voiceSettings: participant.voiceSettings ?? undefined,
+    voiceSettingsRevision: participant.voiceSettingsRevision ?? 0,
     id: participant.participantId,
     performanceAccuracy: participant.performanceAccuracy ?? undefined,
     performanceSungSeconds: participant.performanceSungSeconds ?? 0,

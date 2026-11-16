@@ -13,6 +13,7 @@ from backend.room.commands import (
     StartRoomSyncCheck,
     PublishRoomLibrary,
     UpdateSharedRoomState,
+    SetParticipantVoiceSettings,
 )
 from backend.room.membership_commands import (
     CloseRoom,
@@ -54,6 +55,7 @@ class RoomCases:
     close: CloseRoom
     publish_performance: PublishRoomPerformance
     playlist: SetRoomPlaylist
+    voice_settings: SetParticipantVoiceSettings
 
 
 def build_room_cases(
@@ -84,4 +86,5 @@ def build_room_cases(
         CloseRoom(rooms, locks=locks),
         PublishRoomPerformance(rooms, locks=locks),
         SetRoomPlaylist(rooms, clock, locks=locks),
+        SetParticipantVoiceSettings(rooms, locks=locks),
     )

@@ -50,6 +50,58 @@ describe('roomClient', () => {
     );
   });
 
+  it('publishes the singer settings and maps their server revision', async () => {
+    const settings = {
+      echo: 0.1,
+      reverb: 0.2,
+      delay: 0.3,
+      autoTune: 0.4,
+      noiseSuppression: 0.5,
+      voiceGain: 1.2,
+    };
+    roomRequest.mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      body: {
+        roomId: 'room-1',
+        hostId: participantId,
+        songId: null,
+        revision: null,
+        playbackState: 'Stopped',
+        playbackStartedAt: null,
+        playbackPositionSeconds: 0,
+        serverNow: new Date().toISOString(),
+        participants: [
+          {
+            participantId: 'other',
+            displayName: 'Other',
+            role: 'Participant',
+            connectionState: 'Connected',
+            readinessState: 'Ready',
+            voiceSettings: settings,
+            voiceSettingsRevision: 4,
+          },
+        ],
+      },
+    });
+    const room = await roomClient.updateVoiceSettings('ROOM-1', 'other', {
+      delay: 0.3,
+    });
+    expect(roomRequest).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        path: '/rooms/room-1/voice-settings',
+        body: {
+          participantId,
+          targetParticipantId: 'other',
+          settings: { delay: 0.3 },
+          initialize: false,
+        },
+      }),
+    );
+    expect(room.participants[0]?.voiceSettings).toEqual(settings);
+    expect(room.participants[0]?.voiceSettingsRevision).toBe(4);
+  });
+
   it('maps the server-owned playout deadline and voice eligibility into the room snapshot', async () => {
     roomRequest.mockResolvedValueOnce({
       status: 200,

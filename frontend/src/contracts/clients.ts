@@ -12,6 +12,7 @@ import type {
   ProcessingJobDto,
   RecordingDto,
   RoomStateDto,
+  RoomVoiceSettings,
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
   SongDto,
@@ -243,6 +244,12 @@ export interface RecordingAnalysisProgress extends StudioMasterProgress {
 
 /** Talks to the shared room/voice server (a fixed public deployment), not the user's local Python backend. */
 export interface RoomClient {
+  updateVoiceSettings(
+    code: string,
+    targetParticipantId: string,
+    settings: Partial<RoomVoiceSettings>,
+    initialize?: boolean,
+  ): Promise<RoomStateDto>;
   publishPerformance(
     code: string,
     performanceId: number,

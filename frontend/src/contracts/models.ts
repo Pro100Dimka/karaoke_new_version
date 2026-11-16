@@ -237,7 +237,18 @@ export interface MixerChannelGains {
   master: number;
 }
 
+export interface RoomVoiceSettings {
+  echo: number;
+  reverb: number;
+  delay: number;
+  autoTune: number;
+  noiseSuppression: number;
+  voiceGain: number;
+}
+
 export interface ParticipantDto {
+  voiceSettings?: RoomVoiceSettings;
+  voiceSettingsRevision?: number;
   performanceAccuracy?: number;
   performanceSungSeconds?: number;
   id: string;

@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import Field
 
 from backend.api.base_dto import ApiModel
+from backend.api.room_participant_dto import RoomParticipantDto, room_participant
 from backend.api.dependencies import container
 from backend.bootstrap.room_wiring import RoomCases
 from backend.room.commands import MediaControlCommand
 from backend.room.domain import (
     HostDisconnectPolicy,
-    Participant,
     ReadinessState,
     Room,
     RoomPlaylist,
@@ -129,24 +129,6 @@ class RoomSongDto(ApiModel):
 
 class PublishLibraryDto(ActorDto):
     songs: list[RoomSongDto] = Field(max_length=1000)
-
-
-class RoomParticipantDto(ApiModel):
-    participant_id: str
-    display_name: str
-    role: str
-    connection_state: str
-    readiness_state: str
-    transfer_progress: int = Field(ge=0, le=100)
-    voice_latency_ms: float = Field(ge=0, le=500)
-    voice_timing_ready: bool
-    voice_eligible: bool
-    eligibility_reason: str
-    return_requirement_ms: float | None = None
-    arrival_requirement_ms: float | None = None
-    performance_accuracy: float | None = None
-
-    performance_sung_seconds: float = 0
 
 
 class RoomDto(ApiModel):
@@ -391,25 +373,6 @@ def publish_library(room_id: str, body: PublishLibraryDto, app: ContainerDep) ->
     )
 
 
-def _room_participant(item: Participant) -> RoomParticipantDto:
-    return RoomParticipantDto(
-        participant_id=item.participant_id,
-        display_name=item.display_name,
-        role=item.role.value,
-        connection_state=item.connection_state.value,
-        readiness_state=item.readiness_state.value,
-        transfer_progress=item.transfer_progress,
-        voice_latency_ms=item.voice_latency_ms,
-        voice_timing_ready=item.voice_timing_ready,
-        voice_eligible=item.voice_eligible,
-        eligibility_reason=item.eligibility_reason.value,
-        return_requirement_ms=item.return_requirement_ms,
-        arrival_requirement_ms=item.arrival_requirement_ms,
-        performance_accuracy=item.performance_accuracy,
-        performance_sung_seconds=item.performance_sung_seconds,
-    )
-
-
 def _room_playlist(playlist: RoomPlaylist | None) -> PlaylistDto | None:
     if playlist is None:
         return None
@@ -435,7 +398,7 @@ def _room(room: Room) -> RoomDto:
         host_id=room.host_id,
         song_id=room.song_id,
         revision=room.revision,
-        participants=[_room_participant(item) for item in room.participants.values()],
+        participants=[room_participant(item) for item in room.participants.values()],
         playback_state=room.playback_state.value,
         playback_started_at=room.playback_started_at,
         playback_position_seconds=room.playback_position_seconds,

@@ -1,21 +1,18 @@
 import { friendRelations } from '../../providers/social';
 import { Button, RotaryKnob, Stack, tr, useLocale } from '@neo-ui-kit/react';
-import type { ParticipantDto } from '../../contracts/models';
+import type { ParticipantDto, RoomVoiceSettings } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
 
 import { useSocialAction } from '../social/useSocialAction';
-import {
-  participantEffectKnobs,
-  type ParticipantEffect,
-} from './participantEffects';
 import { SelfVoiceEffects } from './SelfVoiceEffects';
-import { effectFromKnob, effectToKnob } from '../karaoke/console/voiceEffects';
-
-export type ParticipantEffects = Record<ParticipantEffect, number>;
+import {
+  effectFromKnob,
+  effectToKnob,
+  voiceEffects,
+} from '../karaoke/console/voiceEffects';
 
 /**
- * Everything behind a participant's sliders button: the voice effects (your own, or how this
- * participant sounds to you), and what can be done with them: make host, remove, add as a friend.
+ * The singer's shared voice effects and participant actions.
  */
 export const RoomPersonMenu = ({
   participant,
@@ -29,8 +26,8 @@ export const RoomPersonMenu = ({
   participant: ParticipantDto;
   person?: SocialPerson;
   hostControls: boolean;
-  effects: ParticipantEffects;
-  onEffect(effect: ParticipantEffect, value: number): void;
+  effects?: RoomVoiceSettings;
+  onEffect(effect: keyof RoomVoiceSettings, value: number): void;
   onTransferHost(): void;
   onRemove(): void;
 }) => {
@@ -55,7 +52,17 @@ export const RoomPersonMenu = ({
         {participant.self ? (
           <SelfVoiceEffects />
         ) : (
-          participantEffectKnobs.map((effect) => (
+          [
+            ...voiceEffects,
+            {
+              id: 'noiseSuppression' as const,
+              label: 'noiseSuppression',
+              min: 0,
+              max: 1,
+              step: 0.01,
+              initial: 0,
+            },
+          ].map((effect) => (
             <RotaryKnob
               key={effect.id}
               size="xs"
@@ -64,19 +71,13 @@ export const RoomPersonMenu = ({
               min={effect.min}
               max={effect.max}
               step={effect.step}
-              displayScale={effect.displayFactor}
-              suffix={effect.valueSuffix}
-              resetValue={0}
-              value={
-                effect.step < 1
-                  ? effectToKnob(effects[effect.id])
-                  : effects[effect.id]
-              }
+              displayScale={100}
+              suffix="%"
+              resetValue={effect.initial}
+              disabled={!effects}
+              value={effectToKnob(effects?.[effect.id] ?? 0)}
               onValueChange={(value) =>
-                onEffect(
-                  effect.id,
-                  effect.step < 1 ? effectFromKnob(value) : value,
-                )
+                onEffect(effect.id, effectFromKnob(value))
               }
             />
           ))

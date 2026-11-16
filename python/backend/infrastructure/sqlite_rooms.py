@@ -148,6 +148,8 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "performanceAccuracy": item.performance_accuracy,
         "performanceSungSeconds": item.performance_sung_seconds,
         "performanceFinished": item.performance_finished,
+        "voiceSettings": item.voice_settings,
+        "voiceSettingsRevision": item.voice_settings_revision,
         "returnRequirementMs": item.return_requirement_ms,
         "arrivalRequirementMs": item.arrival_requirement_ms,
     }
@@ -265,6 +267,10 @@ def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
             _optional_float(item.get("performanceAccuracy")),
             float(item.get("performanceSungSeconds", 0)),
             bool(item.get("performanceFinished", False)),
+            {str(key): float(value) for key, value in item["voiceSettings"].items()}
+            if isinstance(item.get("voiceSettings"), dict)
+            else None,
+            int(item.get("voiceSettingsRevision", 0)),
         )
         for item in encoded
         if isinstance(item, dict)

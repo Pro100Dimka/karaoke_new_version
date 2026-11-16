@@ -12,6 +12,74 @@ from backend.room.serialization import RoomLocks
 _READY_REPORTS = ("host", "g1", "g2")
 
 
+def test_room_voice_settings_share_the_singers_values_without_resetting_them() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"}
+        )
+        path = f"/rooms/{room_id}/voice-settings"
+        settings = dict(
+            echo=0.1, reverb=0.2, delay=0.3, autoTune=0.4, noiseSuppression=0.5, voiceGain=1.2
+        )
+        initial = client.post(
+            path,
+            json=dict(
+                participantId="guest",
+                targetParticipantId="guest",
+                settings=settings,
+                initialize=True,
+            ),
+        )
+        assert initial.status_code == 200, initial.text
+        changed = client.post(
+            path,
+            json=dict(participantId="host", targetParticipantId="guest", settings={"echo": 0.7}),
+        )
+        assert changed.status_code == 200, changed.text
+        repeated = client.post(
+            path,
+            json=dict(
+                participantId="guest",
+                targetParticipantId="guest",
+                settings=settings,
+                initialize=True,
+            ),
+        )
+        guest = next(p for p in repeated.json()["participants"] if p["participantId"] == "guest")
+        assert guest["voiceSettings"] == {**settings, "echo": 0.7}
+        assert guest["voiceSettingsRevision"] == 2
+        assert (
+            client.post(
+                path,
+                json=dict(
+                    participantId="outsider", targetParticipantId="guest", settings={"echo": 0.1}
+                ),
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                path,
+                json=dict(
+                    participantId="host", targetParticipantId="guest", settings={"echo": 1.1}
+                ),
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(
+                path,
+                json=dict(
+                    participantId="host", targetParticipantId="guest", settings={"unknown": 1}
+                ),
+            ).status_code
+            == 422
+        )
+
+
 def test_concurrent_readiness_reports_are_never_lost(monkeypatch) -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         room_id = client.post(

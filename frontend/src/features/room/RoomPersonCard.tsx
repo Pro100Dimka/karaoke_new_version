@@ -20,10 +20,10 @@ import { useMicrophoneToggles } from '../../app/desktop/shellBus';
 import type { ParticipantDto } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
 import { fixedKnobWidth } from '../../shared/ui/knobWidth';
-import { useRoomVoice } from '../../providers/application';
+import { roomVoiceSettings, useRoomVoice } from '../../providers/application';
 import { usePersonPhoto } from '../social/usePersonPhoto';
-import type { ParticipantEffect } from './participantEffects';
-import { RoomPersonMenu, type ParticipantEffects } from './RoomPersonMenu';
+import type { RoomVoiceSettings } from '../../contracts/models';
+import { RoomPersonMenu } from './RoomPersonMenu';
 import { useSpeakingLevel } from './useSpeakingLevel';
 
 /** Input level above which a participant counts as singing. */
@@ -63,16 +63,7 @@ const SpeakingMeter = ({
   );
 };
 
-const noEffects: ParticipantEffects = {
-  reverb: 0,
-  echo: 0,
-  delay: 0,
-  noiseSuppression: 0,
-  autoTune: 0,
-  octave: 0,
-};
-
-/** Microphone controls for yourself and volume, mute and effects for the voices you hear. */
+/** Shared singer settings and personal listening mute. */
 export const RoomPersonCard = observer(
   ({
     participant,
@@ -92,30 +83,28 @@ export const RoomPersonCard = observer(
     const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
     const moreRef = useRef<HTMLButtonElement>(null);
     const [menuOpen, setMenuOpen] = useState(false);
-    const [volume, setVolume] = useState(
-      () => voice?.participantVolume(participant.id) ?? participant.volume,
-    );
-    const [effects, setEffects] = useState(noEffects);
+    const [preview, setPreview] = useState<Partial<RoomVoiceSettings>>({});
+    const pendingEffects = useRef(new Map<keyof RoomVoiceSettings, number>());
+    const effectRevision = useRef(0);
+    const effects = participant.voiceSettings
+      ? { ...participant.voiceSettings, ...preview }
+      : undefined;
     const notify = useNotify();
-    const [muted, setMuted] = useState(
-      () =>
-        participant.self
-          ? !(voice?.microphoneEnabled() ?? true)
-          : (voice?.participantMuted(participant.id) ?? participant.muted),
+    const [muted, setMuted] = useState(() =>
+      participant.self
+        ? !(voice?.microphoneEnabled() ?? true)
+        : (voice?.participantMuted(participant.id) ?? participant.muted),
     );
     const host = participant.role === 'host';
-    useEffect(
-      () =>
-        setVolume(voice?.participantVolume(participant.id) ?? participant.volume),
-      [voice, participant.id, participant.volume],
-    );
     // Re-read after the global mute hotkey switched the microphone from outside this button.
     const externalToggles = useMicrophoneToggles();
     useEffect(() => {
       if (voice)
-        setMuted(participant.self
-          ? !voice.microphoneEnabled()
-          : voice.participantMuted(participant.id));
+        setMuted(
+          participant.self
+            ? !voice.microphoneEnabled()
+            : voice.participantMuted(participant.id),
+        );
     }, [voice, participant.id, participant.self, externalToggles]);
 
     const toggleMute = async () => {
@@ -133,11 +122,27 @@ export const RoomPersonCard = observer(
       )
         setMuted(next);
     };
-    const updateEffect = (effect: ParticipantEffect, value: number) => {
-      if (!voice) return;
-      void voice.setParticipantEffect(participant.id, effect, value)
-        .then(() => setEffects((current) => ({ ...current, [effect]: value })))
-        .catch((error: unknown) => notify(error instanceof Error ? error.message : String(error), 'error'));
+    const updateEffect = (effect: keyof RoomVoiceSettings, value: number) => {
+      const revision = ++effectRevision.current;
+      pendingEffects.current.set(effect, revision);
+      setPreview((current) => ({ ...current, [effect]: value }));
+      void roomVoiceSettings
+        .change(participant.id, { [effect]: value })
+        .catch((error: unknown) =>
+          notify(
+            error instanceof Error ? error.message : String(error),
+            'error',
+          ),
+        )
+        .finally(() => {
+          if (pendingEffects.current.get(effect) !== revision) return;
+          pendingEffects.current.delete(effect);
+          setPreview((current) => {
+            const next = { ...current };
+            delete next[effect];
+            return next;
+          });
+        });
     };
     const muteLabel = participant.self
       ? tr(muted ? 'unmuteMicrophone' : 'muteMicrophone')
@@ -191,7 +196,7 @@ export const RoomPersonCard = observer(
               label={tr('liveInputLevel')}
             />
           </div>
-          {/* Your own microphone uses the saved settings; this card controls other singers' levels. */}
+          {/* Changes the singer's saved microphone gain for everyone in the room. */}
           {!participant.self && (
             <RotaryKnob
               diameter={personKnobDiameter}
@@ -203,11 +208,9 @@ export const RoomPersonCard = observer(
               resetValue={1}
               displayScale={25}
               label={tr('participantVolume', { name: participant.name })}
-              value={volume}
-              onValueChange={setVolume}
-              onValueCommit={(value) =>
-                void voice?.setParticipantVolume(participant.id, value)
-              }
+              disabled={!participant.voiceSettings}
+              value={effects?.voiceGain ?? 0}
+              onValueChange={(value) => updateEffect('voiceGain', value)}
             />
           )}
           <Stack gap={1}>

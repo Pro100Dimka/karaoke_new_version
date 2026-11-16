@@ -45,6 +45,47 @@ const setup = () => {
   return { room, audio, session };
 };
 
+it('does not let a late room response replace newer singer settings', async () => {
+  const { session } = setup();
+  await session.join('Singer');
+  const person = {
+    id: 'self',
+    name: 'Singer',
+    role: 'host' as const,
+    self: true,
+    connected: true,
+    muted: false,
+    volume: 1,
+    readiness: 'ready' as const,
+    voiceSettings: {
+      echo: 0.7,
+      reverb: 0.2,
+      delay: 0.3,
+      autoTune: 0.4,
+      noiseSuppression: 0.5,
+      voiceGain: 1.2,
+    },
+    voiceSettingsRevision: 2,
+  };
+  session.setSnapshot({ ...snapshot(), participants: [person] });
+  session.setSnapshot({
+    ...snapshot(),
+    participants: [
+      {
+        ...person,
+        name: 'Renamed',
+        voiceSettings: { ...person.voiceSettings, echo: 0.1 },
+        voiceSettingsRevision: 1,
+      },
+    ],
+  });
+  expect(session.getRoom()?.participants[0]).toMatchObject({
+    name: 'Renamed',
+    voiceSettingsRevision: 2,
+    voiceSettings: { echo: 0.7 },
+  });
+});
+
 it('applies the server deadline before opening the voice transport', async () => {
   const { room, audio, session } = setup();
   room.createRoom.mockResolvedValue({ ...snapshot(), roomPlayoutDelayMs: 250 });

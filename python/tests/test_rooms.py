@@ -99,8 +99,20 @@ def test_selection_generation_survives_restart_and_advances_on_clear(tmp_path) -
     cases = build_room_cases(UuidGenerator(), FakeClock(), SqliteRoomRepository(database))
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     selected = cases.select_song.execute(room.room_id, "host", "song", 1)
+    settings = {
+        "echo": 0.1,
+        "reverb": 0.2,
+        "delay": 0.3,
+        "autoTune": 0.4,
+        "noiseSuppression": 0.5,
+        "voiceGain": 1.2,
+    }
+    cases.voice_settings.execute(room.room_id, "host", "host", settings, initialize=True)
     restored = build_room_cases(UuidGenerator(), FakeClock(), SqliteRoomRepository(database))
     assert restored.get.execute(room.room_id).selection_id == selected.selection_id
+    singer = restored.join.execute(room.room_id, "host", "Host").participants["host"]
+    assert singer.voice_settings == settings
+    assert singer.voice_settings_revision == 1
     cleared = restored.clear_song.execute(room.room_id, "host")
     assert cleared.selection_id == selected.selection_id + 1
 

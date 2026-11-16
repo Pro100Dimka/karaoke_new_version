@@ -17,6 +17,7 @@ from backend.api.package_routes import router as package_router
 from backend.api.recording_routes import router as recording_router
 from backend.api.radio_routes import router as radio_router
 from backend.api.room_routes import router as room_router
+from backend.api.room_voice_settings_routes import router as voice_settings_router
 from backend.api.settings_routes import router as settings_router
 from backend.api.song_editor_routes import router as song_editor_router
 from backend.api.song_processing_routes import router as song_processing_router
@@ -42,6 +43,7 @@ _ROUTERS = (
     model_router,
     settings_router,
     room_router,
+    voice_settings_router,
 )
 
 

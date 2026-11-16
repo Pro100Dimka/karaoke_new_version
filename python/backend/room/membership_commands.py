@@ -68,6 +68,12 @@ class JoinRoom:
         participant = Participant(
             participant_id, display_name, role, ConnectionState.CONNECTED, readiness
         )
+        if existing:
+            participant = replace(
+                participant,
+                voice_settings=existing.voice_settings,
+                voice_settings_revision=existing.voice_settings_revision,
+            )
         participants = dict(room.participants)
         participants[participant_id] = participant
         disconnected_at = None if participant_id == room.host_id else room.host_disconnected_at
@@ -161,7 +167,8 @@ class LeaveRoom:
             self._rooms.save(updated)
             return updated
         connected = [
-            key for key, person in participants.items()
+            key
+            for key, person in participants.items()
             if person.connection_state is ConnectionState.CONNECTED
         ]
         if room.disconnect_policy is HostDisconnectPolicy.CLOSE or not connected:
@@ -170,7 +177,10 @@ class LeaveRoom:
         new_host_id = connected[0]
         participants[new_host_id] = replace(participants[new_host_id], role=ParticipantRole.HOST)
         updated = replace(
-            room, host_id=new_host_id, participants=participants, shared_songs=shared_songs,
+            room,
+            host_id=new_host_id,
+            participants=participants,
+            shared_songs=shared_songs,
             host_disconnected_at=None,
         )
         self._rooms.save(updated)

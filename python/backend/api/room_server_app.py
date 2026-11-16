@@ -25,6 +25,7 @@ from backend.api.room_diagnostics_routes import add_diagnostics_route, add_progr
 from backend.api.room_identity import authenticate_room_participant
 from backend.api.room_project_routes import add_project_routes
 from backend.api.room_routes import _room, router as room_router
+from backend.api.room_voice_settings_routes import router as voice_settings_router
 from backend.api.room_server_access import room_member
 from backend.api.room_voice_routes import add_voice_routes
 from backend.api.social_server import add_social_routes, build_room_server_social, start_social
@@ -233,6 +234,7 @@ def _configure_room_app(
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(Exception, _internal_error)
     app.include_router(room_router)
+    app.include_router(voice_settings_router)
     _add_change_route(app, repository)
 
     @app.get("/health/ready")

@@ -65,6 +65,14 @@ const requestRoom = async (
 };
 
 export const roomClient: RoomClient = {
+  updateVoiceSettings(code, targetParticipantId, settings, initialize = false) {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/voice-settings`, {
+      participantId,
+      targetParticipantId,
+      settings,
+      initialize,
+    });
+  },
   async publishPerformance(
     code,
     performanceId,

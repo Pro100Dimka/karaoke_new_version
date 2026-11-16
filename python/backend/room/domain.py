@@ -65,6 +65,8 @@ class Participant:
     performance_accuracy: float | None = None
     performance_sung_seconds: float = 0.0
     performance_finished: bool = False
+    voice_settings: dict[str, float] | None = None
+    voice_settings_revision: int = 0
 
     @property
     def eligibility_reason(self) -> EligibilityReason:

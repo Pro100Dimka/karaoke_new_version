@@ -426,3 +426,43 @@ class SetCollaborativeControl:
         updated = replace(room, collaborative_control=enabled)
         self._rooms.save(updated)
         return updated
+
+
+class SetParticipantVoiceSettings:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
+        self._rooms = rooms
+        self.room_locks = locks
+
+    @serialized_by_room
+    def execute(
+        self,
+        room_id: str,
+        actor_id: str,
+        target_id: str,
+        settings: dict[str, float],
+        initialize: bool = False,
+    ) -> Room:
+        room = member_room(self._rooms, room_id, actor_id)
+        target = room.participants.get(target_id)
+        if target is None or target.connection_state is not ConnectionState.CONNECTED:
+            raise NotFoundError("ParticipantNotFound", "Connected participant was not found")
+        if initialize and actor_id != target_id:
+            raise ConflictError(
+                "VoiceSettingsOwnerRequired", "Only the singer may publish initial settings"
+            )
+        if initialize and target.voice_settings is not None:
+            return room
+        if not initialize and target.voice_settings is None:
+            raise ConflictError("VoiceSettingsUnavailable", "Singer settings are not available yet")
+        values = {**(target.voice_settings or {}), **settings}
+        if values == target.voice_settings:
+            return room
+        participants = dict(room.participants)
+        participants[target_id] = replace(
+            target,
+            voice_settings=values,
+            voice_settings_revision=target.voice_settings_revision + 1,
+        )
+        updated = replace(room, participants=participants)
+        self._rooms.save(updated)
+        return updated
