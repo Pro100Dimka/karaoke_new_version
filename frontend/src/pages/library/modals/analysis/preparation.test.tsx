@@ -39,9 +39,16 @@ vi.mock('../recordings/RecordingPlayer', () => ({
 }));
 afterEach(cleanup);
 
-it.each([[84, false], [undefined, false], [84, true], [undefined, true]] as const)(
+it.each([
+  [84, false, undefined],
+  [undefined, false, undefined],
+  [84, true, undefined],
+  [undefined, true, undefined],
+  [undefined, false, 'pending'],
+  [undefined, true, 'pending'],
+] as const)(
   'shows room result %s and the personal analysis of master=%s',
-  (overallScore, master) => {
+  (overallScore, master, status) => {
     const recording: RecordingDto = {
       id: 'duet-take',
       songId: 'song',
@@ -52,7 +59,12 @@ it.each([[84, false], [undefined, false], [84, true], [undefined, true]] as cons
       sizeBytes: 0,
       analyzed: true,
       fileStatus: 'Ready',
-      roomPerformance: { roomId: 'room', performanceId: 7, overallScore },
+      roomPerformance: {
+        roomId: 'room',
+        performanceId: 7,
+        overallScore,
+        status,
+      },
     };
     render(
       <PerformanceAnalysisModal
@@ -64,7 +76,10 @@ it.each([[84, false], [undefined, false], [84, true], [undefined, true]] as cons
           stability: 75,
           summary: '',
         }}
-        recordings={[recording, { ...recording, id: 'duet-master', sourceRecordingId: recording.id }]}
+        recordings={[
+          recording,
+          { ...recording, id: 'duet-master', sourceRecordingId: recording.id },
+        ]}
         onDelete={vi.fn()}
         onCreateStudioMaster={vi.fn()}
         studioMaster={null}
@@ -72,7 +87,13 @@ it.each([[84, false], [undefined, false], [84, true], [undefined, true]] as cons
       />,
     );
     expect(
-      screen.getByText(overallScore === undefined ? '···' : '84'),
+      screen.getByText(
+        overallScore === undefined
+          ? status === 'pending'
+            ? 'roomPerformancePending'
+            : 'roomPerformanceUnavailable'
+          : '84',
+      ),
     ).toBeTruthy();
     expect(screen.getByText('roomPerformanceOverall')).toBeTruthy();
     expect(screen.getByText('roomPerformancePersonal')).toBeTruthy();

@@ -11,6 +11,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <avrt.h>
+#include <timeapi.h>
 #endif
 
 namespace {
@@ -1351,18 +1352,29 @@ void NetworkAudioEngine::sendMain() noexcept {
 
 void NetworkAudioEngine::receiveMain() noexcept {
 #ifdef _WIN32
+    // Keep the 2 ms receive timeout independent of the process's default timer resolution.
+    const auto precisePolling = timeBeginPeriod(1) == TIMERR_NOERROR;
     DWORD taskIndex = 0;
     HANDLE multimediaTask = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
     receiveMmcssActive_.store(multimediaTask != nullptr, std::memory_order_release);
 #endif
     std::vector<std::byte> bytes(65536);
+    std::uint64_t lastEmptyPollMicros = 0, emptyPollsSinceDatagram = 0;
     while (running_.load(std::memory_order_acquire)) {
         if (requestedRoomPlayoutDelayMicros_.load(std::memory_order_acquire) !=
             roomPlayoutDelayMicros_.load(std::memory_order_acquire))
             applyRequestedRoomPlayoutDelay();
         const auto workGeneration = generation_.load(std::memory_order_acquire);
+        const auto pollStartedMicros = steadyMicros();
         const auto count = socket_.receive(bytes);
         const auto socketReceiveMicros = steadyMicros();
+        const auto precedingEmptyPolls = emptyPollsSinceDatagram;
+        if (count == 0) {
+            lastEmptyPollMicros = socketReceiveMicros;
+            ++emptyPollsSinceDatagram;
+        } else {
+            emptyPollsSinceDatagram = 0;
+        }
         const auto viaRelay = socket_.lastFromDefaultPeer();
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleBlocks_.fetch_add(1, std::memory_order_relaxed);
@@ -1383,6 +1395,9 @@ void NetworkAudioEngine::receiveMain() noexcept {
             receiveEvent.packet = {workGeneration, header.participantKey, header.streamEpoch,
                                    header.sequence, header.codec};
             receiveEvent.socketMicros = socketReceiveMicros;
+            receiveEvent.pollStartedMicros = pollStartedMicros;
+            receiveEvent.lastEmptyPollMicros = lastEmptyPollMicros;
+            receiveEvent.emptyPollsSinceDatagram = precedingEmptyPolls;
             receiveEvent.processingMicros = steadyMicros();
             receiveEvent.socketRoomFrame = scaleFramePosition(
                 roomClockConfigured_.load(std::memory_order_acquire)
@@ -1593,6 +1608,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
     if (multimediaTask)
         AvRevertMmThreadCharacteristics(multimediaTask);
     receiveMmcssActive_.store(false, std::memory_order_release);
+    if (precisePolling)
+        timeEndPeriod(1);
 #endif
 }
 
@@ -2132,6 +2149,9 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     out.sendEnabled = sendEnabled_.load(std::memory_order_acquire);
     out.sendMmcssActive = sendMmcssActive_.load(std::memory_order_acquire);
     out.receiveMmcssActive = receiveMmcssActive_.load(std::memory_order_acquire);
+    out.voicePriorityDscp = socket_.voicePriorityDscp();
+    out.voicePriorityActive = socket_.voicePriorityActive();
+    out.voicePriorityError = socket_.voicePriorityError();
     {
         std::lock_guard directLock(directPeersMutex_);
         out.directPeerCount = static_cast<std::uint32_t>(directPeers_.size());

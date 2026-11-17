@@ -85,6 +85,12 @@ class RelaySocket {
         const DWORD timeout = ReceiveWaitMilliseconds;
         setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout),
                    sizeof(timeout));
+#else
+        // Request expedited forwarding for voice alongside bulk project transfers.
+        const int voiceTrafficClass = 46 << 2;
+        if (setsockopt(socket_, IPPROTO_IP, IP_TOS, &voiceTrafficClass,
+                       sizeof(voiceTrafficClass)) != 0)
+            std::cerr << "Unable to set voice traffic priority\n";
 #endif
     }
 

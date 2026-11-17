@@ -61,12 +61,35 @@ describe('recording lifecycle', () => {
   beforeEach(() => vi.resetModules());
   afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
-  it('stops capture before waiting for the final room result and saves that result with the take', async () => {
+  it('saves the take immediately and persists the final room result when it arrives later', async () => {
     const { recordingCoordinator, audioRequest, pythonRequest } = await setup();
     await recordingCoordinator.start(song, {
       sourceSeconds: 0,
       playbackRate: 1,
       keyShift: 0,
+    });
+    const finalScore = {
+      version: 3 as const,
+      hitNotes: 1,
+      totalNotes: 2,
+      expectedPitchSeconds: 2,
+      assessedPitchSeconds: 1.5,
+      pitchAccuracyPercent: 80,
+      meanSemitoneDeviation: 0.4,
+      rhythmAccuracyPercent: 90,
+      noteStabilityPercent: 70,
+    };
+    recordingCoordinator.updateKaraokeNoteScore(finalScore);
+    audioRequest.mockImplementation(async (request) => {
+      if (request.command === 'StopRecording')
+        recordingCoordinator.updateKaraokeNoteScore({
+          ...finalScore,
+          hitNotes: 0,
+          totalNotes: 0,
+          expectedPitchSeconds: 0,
+          assessedPitchSeconds: 0,
+        });
+      return { status: 0, text: responseText(request.command) };
     });
     let resolve!: (value: {
       roomId: string;
@@ -81,32 +104,42 @@ describe('recording lifecycle', () => {
       resolve = done;
     });
     const onCaptured = vi.fn(async () => undefined);
-    const stopping = recordingCoordinator.stop(result, onCaptured);
+    const summary = {
+      roomId: 'duet',
+      performanceId: 7,
+      status: 'pending' as const,
+    };
+    const stopping = recordingCoordinator.stop({ summary, result }, onCaptured);
     await vi.waitFor(() =>
       expect(audioRequest).toHaveBeenCalledWith(
         expect.objectContaining({ command: 'StopRecording' }),
       ),
     );
-    expect(
-      pythonRequest.mock.calls.some(
-        ([request]) => request.path === '/recordings',
-      ),
-    ).toBe(false);
     await vi.waitFor(() => expect(onCaptured).toHaveBeenCalledOnce());
-    resolve({ roomId: 'duet', performanceId: 7, overallScore: 84 });
     await stopping;
     expect(pythonRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         path: '/recordings',
         body: expect.objectContaining({
           sessionMetadata: expect.objectContaining({
-            roomPerformance: {
-              roomId: 'duet',
-              performanceId: 7,
-              overallScore: 84,
-            },
+            roomPerformance: summary,
+            karaokeNoteScore: finalScore,
           }),
         }),
+      }),
+    );
+    resolve({ roomId: 'duet', performanceId: 7, overallScore: 84 });
+    await vi.waitFor(() =>
+      expect(pythonRequest).toHaveBeenCalledWith({
+        method: 'PATCH',
+        path: '/recordings/take',
+        body: {
+          roomPerformance: {
+            roomId: 'duet',
+            performanceId: 7,
+            overallScore: 84,
+          },
+        },
       }),
     );
   });
@@ -151,36 +184,43 @@ describe('recording lifecycle', () => {
     },
   );
 
-  it.each(['switch', 'read-format'])('resumes the same recording after a failed %s', async (failure) => {
-    const { recordingCoordinator: coordinator, audioRequest } = await setup();
-    await coordinator.start(song);
-    if (failure === 'read-format') {
-      let rejected = false;
-      audioRequest.mockImplementation(async (request) => {
-        if (request.command === 'GetRecordingState' && !rejected) {
-          rejected = true;
-          return { status: 1, text: 'Recording format unavailable' };
-        }
-        return { status: 0, text: responseText(request.command) };
-      });
-    }
-    await expect(
-      coordinator.reconfigure(
-        async () => {
-          throw new Error('Exclusive rejected');
-        },
-        async () => 2,
-      ),
-    ).rejects.toThrow(failure === 'switch' ? 'Exclusive rejected' : 'Recording format unavailable');
-    expect(audioRequest.mock.calls.map(([r]) => r.command)).toEqual([
-      'PrepareRecording',
-      'StartRecording',
-      'PauseRecording',
-      'GetRecordingState',
-      'ResumeRecording',
-    ]);
-    await coordinator.stop();
-  });
+  it.each(['switch', 'read-format'])(
+    'resumes the same recording after a failed %s',
+    async (failure) => {
+      const { recordingCoordinator: coordinator, audioRequest } = await setup();
+      await coordinator.start(song);
+      if (failure === 'read-format') {
+        let rejected = false;
+        audioRequest.mockImplementation(async (request) => {
+          if (request.command === 'GetRecordingState' && !rejected) {
+            rejected = true;
+            return { status: 1, text: 'Recording format unavailable' };
+          }
+          return { status: 0, text: responseText(request.command) };
+        });
+      }
+      await expect(
+        coordinator.reconfigure(
+          async () => {
+            throw new Error('Exclusive rejected');
+          },
+          async () => 2,
+        ),
+      ).rejects.toThrow(
+        failure === 'switch'
+          ? 'Exclusive rejected'
+          : 'Recording format unavailable',
+      );
+      expect(audioRequest.mock.calls.map(([r]) => r.command)).toEqual([
+        'PrepareRecording',
+        'StartRecording',
+        'PauseRecording',
+        'GetRecordingState',
+        'ResumeRecording',
+      ]);
+      await coordinator.stop();
+    },
+  );
 
   it('prepares one file for concurrent starts and finalizes once for concurrent stops', async () => {
     const {

@@ -1,11 +1,10 @@
-
 import { useEffect } from 'react';
 import { afterEach, vi } from 'vitest';
-import type { RoomTimingReport } from '../../contracts/clients';
-import type { RoomStateDto } from '../../contracts/models';
+import type { RoomTimingReport } from '../contracts/clients';
+import type { RoomStateDto } from '../contracts/models';
 
-import { RoomVoiceCoordinator } from './RoomVoiceCoordinator';
-import type { RoomSessionScope } from './RoomSessionController';
+import { RoomVoiceCoordinator } from '../application/room/RoomVoiceCoordinator';
+import type { RoomSessionScope } from '../application/room/RoomSessionController';
 const mocks = vi.hoisted(() => ({
   roomLevels: vi.fn(async () => ({ local: 0, remote: {} })),
   voiceLevels: vi.fn(async () => ({})),

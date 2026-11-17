@@ -6,6 +6,7 @@ import type {
 import type {
   KaraokeNoteScore,
   RoomPerformanceSummary,
+  RoomPerformanceCompletion,
   RoomStateDto,
 } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
@@ -45,11 +46,18 @@ export class RoomPlaybackCoordinator {
   ): Promise<void> {
     if (
       !this.scope.isCurrent() ||
-      this.scope.getRoom()?.performanceId !== performanceId
+      (!finished && this.scope.getRoom()?.performanceId !== performanceId)
     )
       return;
-    this.latestPerformance = { id: performanceId, score };
     const sungSeconds = score.assessedPitchSeconds ?? 0;
+    if (
+      sungSeconds > 0 &&
+      (score.expectedPitchSeconds ?? sungSeconds) >=
+        (this.latestPerformance?.id === performanceId
+          ? (this.latestPerformance.score.expectedPitchSeconds ?? 0)
+          : 0)
+    )
+      this.latestPerformance = { id: performanceId, score };
     if (
       !finished &&
       (sungSeconds <= 0 ||
@@ -61,7 +69,7 @@ export class RoomPlaybackCoordinator {
       await this.performancePublishing.catch(() => undefined);
     if (
       !this.scope.isCurrent() ||
-      this.scope.getRoom()?.performanceId !== performanceId
+      (!finished && this.scope.getRoom()?.performanceId !== performanceId)
     )
       return;
     const accuracy = Math.round(
@@ -87,29 +95,57 @@ export class RoomPlaybackCoordinator {
     }
   }
 
-  async finalPerformance(): Promise<RoomPerformanceSummary | undefined> {
+  finalPerformance(
+    performanceId?: number,
+  ): RoomPerformanceCompletion | undefined {
     const id =
-      this.latestPerformance?.id ?? this.scope.getRoom()?.performanceId;
+      performanceId ??
+      this.latestPerformance?.id ??
+      this.scope.getRoom()?.performanceId;
     if (id === undefined) return undefined;
-    const result: RoomPerformanceSummary = {
+    const summary: RoomPerformanceSummary = {
       roomId: this.scope.code,
       performanceId: id,
+      status: 'pending',
     };
+    return { summary, result: this.collectPerformance(summary) };
+  }
+
+  private async collectPerformance(
+    result: RoomPerformanceSummary,
+  ): Promise<RoomPerformanceSummary> {
+    const id = result.performanceId;
+    const score =
+      this.latestPerformance?.id === id
+        ? this.latestPerformance.score
+        : {
+            hitNotes: 0,
+            totalNotes: 0,
+            rhythmAccuracyPercent: 0,
+            noteStabilityPercent: 0,
+          };
     try {
-      if (this.latestPerformance?.id === id)
-        await this.publishPerformance(id, this.latestPerformance.score, true);
-      const deadline = Date.now() + 5_000;
-      while (this.scope.isCurrent() && Date.now() < deadline) {
+      await this.publishPerformance(id, score, true);
+      while (this.scope.isCurrent()) {
         const room = await this.room.getRoom(this.scope.code);
-        if (room.lastPerformanceId === id)
-          return { ...result, overallScore: room.lastPerformanceAccuracy };
-        if (room.performanceId !== id) break;
+        const stored =
+          room.performanceResults?.[String(id)] ??
+          (room.lastPerformanceId === id
+            ? { complete: true, score: room.lastPerformanceAccuracy }
+            : undefined);
+        if (stored?.complete)
+          return {
+            ...result,
+            overallScore: stored.score ?? undefined,
+            status: stored.score == null ? 'unavailable' : 'complete',
+          };
+        if (room.performanceId !== id && !stored) break;
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
     } catch {
       // The recording remains available even when the shared result could not be retrieved.
     }
-    return result;
+    return { ...result, status: 'unavailable' };
   }
 
   private async commit(

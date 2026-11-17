@@ -1370,6 +1370,10 @@ void diagnosticsExposeMmcssStateForLocalLatency() {
     service.session().prepare(RequestedConfiguration{});
     expect(service.diagnostics().find("MmcssActive: 1\n") != std::string::npos,
            "local latency diagnostics identify whether MMCSS scheduling is active");
+    expect(service.diagnostics().find("NetworkVoicePriorityDscp: 0\n") != std::string::npos &&
+               service.diagnostics().find("NetworkVoicePriorityActive: 0\n") != std::string::npos &&
+               service.diagnostics().find("NetworkVoicePriorityError: 0\n") != std::string::npos,
+           "an idle voice socket exposes its inactive priority without claiming an error");
 }
 
 void suspendingAnIdleSessionIsANoOp() {

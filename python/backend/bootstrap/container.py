@@ -33,7 +33,7 @@ from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.reconcile import ReconcileRecordings
-from backend.recordings.update_recording import UpdateRecordingName
+from backend.recordings.update_recording import UpdateRecording
 from backend.recordings.start_studio_master import StartStudioMaster
 from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.startup_recovery import RecoverySummary
@@ -80,7 +80,7 @@ class RecordingCases:
     register: RegisterRecording
     get: GetRecording
     list: ListRecordings
-    update_name: UpdateRecordingName
+    update: UpdateRecording
     delete: DeleteRecording
     start_analysis: StartRecordingAnalysis
     list_analyses: ListRecordingAnalyses

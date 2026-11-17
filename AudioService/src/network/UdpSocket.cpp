@@ -10,6 +10,7 @@
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <qos2.h>
 namespace {
 struct WinsockInit {
     WinsockInit() {
@@ -124,6 +125,41 @@ void UdpSocket::connect(const std::string& host, std::uint16_t port, std::uint16
     // peer packets on the same NAT-mapped source port. send() retains the old default-destination
     // API.
     defaultPeer_ = endpointIdentity(host, port);
+    configureVoicePriority();
+}
+void UdpSocket::configureVoicePriority() noexcept {
+#ifdef _WIN32
+    if (voicePriorityHandle_)
+        QOSCloseHandle(voicePriorityHandle_);
+    voicePriorityHandle_ = nullptr;
+    voicePriorityActive_.store(false, std::memory_order_release);
+    voicePriorityDscp_.store(0, std::memory_order_release);
+    QOS_VERSION version{1, 0};
+    HANDLE handle{};
+    QOS_FLOWID flow{};
+    sockaddr_in target{};
+    target.sin_family = AF_INET;
+    target.sin_port = htons(static_cast<std::uint16_t>(defaultPeer_));
+    target.sin_addr.s_addr = static_cast<std::uint32_t>(defaultPeer_ >> 16U);
+    auto traffic = QOSTrafficTypeVoice;
+    QOS_PACKET_PRIORITY priority{};
+    ULONG size = sizeof(priority);
+    if (QOSCreateHandle(&version, &handle) &&
+        QOSAddSocketToFlow(handle, static_cast<SOCKET>(socket_),
+                           reinterpret_cast<sockaddr*>(&target), traffic,
+                           QOS_NON_ADAPTIVE_FLOW, &flow) &&
+        QOSSetFlow(handle, flow, QOSSetTrafficType, sizeof(traffic), &traffic, 0, nullptr) &&
+        QOSQueryFlow(handle, flow, QOSQueryPacketPriority, &size, &priority, 0, nullptr)) {
+        voicePriorityHandle_ = handle;
+        voicePriorityActive_.store(true, std::memory_order_release);
+        voicePriorityDscp_.store(priority.ConformantDSCPValue, std::memory_order_release);
+        voicePriorityError_.store(0, std::memory_order_release);
+    } else {
+        voicePriorityError_.store(GetLastError(), std::memory_order_release);
+        if (handle)
+            QOSCloseHandle(handle);
+    }
+#endif
 }
 void UdpSocket::setReceiveTimeoutMs(std::uint32_t timeoutMs) {
     receiveTimeoutMs_.store(timeoutMs, std::memory_order_relaxed);
@@ -234,6 +270,10 @@ void UdpSocket::close() noexcept {
     RealtimeInstrumentation::reportNetworkIo();
     receiveTimeoutMs_.store(0, std::memory_order_relaxed);
 #ifdef _WIN32
+    if (voicePriorityHandle_) {
+        QOSCloseHandle(voicePriorityHandle_);
+        voicePriorityHandle_ = nullptr;
+    }
     if (socket_ != ~std::uintptr_t{0}) {
         closesocket(static_cast<SOCKET>(socket_));
         socket_ = ~std::uintptr_t{0};
@@ -245,4 +285,7 @@ void UdpSocket::close() noexcept {
     }
 #endif
     defaultPeer_ = 0;
+    voicePriorityActive_.store(false, std::memory_order_release);
+    voicePriorityDscp_.store(0, std::memory_order_release);
+    voicePriorityError_.store(0, std::memory_order_release);
 }

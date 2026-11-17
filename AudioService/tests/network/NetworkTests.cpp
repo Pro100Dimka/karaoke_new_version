@@ -3484,6 +3484,26 @@ void leavingRemoteParticipantRevokesItsDirectDestination() {
 
 void udpSocketShortPollingPreservesPacedDatagrams() {
     constexpr std::uint32_t Packets = 128;
+#ifdef _WIN32
+    {
+        NetworkAudioEngine activeRoom;
+        activeRoom.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+        activeRoom.startReceive(0);
+        UdpSocket idle;
+        idle.bind(0);
+        idle.setReceiveTimeoutMs(2);
+        std::array<std::byte, 64> bytes{};
+        constexpr std::uint32_t Polls = 24;
+        const auto started = std::chrono::steady_clock::now();
+        for (std::uint32_t poll = 0; poll < Polls; ++poll)
+            expect(idle.receive(bytes) == 0, "idle room polling must not fabricate packets");
+        const auto averageMs = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - started).count() / Polls;
+        std::printf("ACTIVE_ROOM_UDP_IDLE_POLL requestedMs=2 averageMs=%.3f\n", averageMs);
+        expect(averageMs < 8.0, "active room polling must not fall back to 15.6 ms timer ticks");
+        activeRoom.stop();
+    }
+#endif
     for (const auto timeoutMs : {100U, 2U}) {
         UdpSocket receiver, sender;
         receiver.bind(0);
@@ -3804,11 +3824,16 @@ void roomNetworkWorkersUseMultimediaScheduling() {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    const auto priority = network.diagnostics();
+    expect(priority.voicePriorityActive || priority.voicePriorityError != 0,
+           "voice priority is registered or exposes the unsupported route error");
     network.stop();
     expect(scheduled, "live voice send and receive workers use multimedia scheduling");
     const auto stopped = network.diagnostics();
     expect(!stopped.sendMmcssActive && !stopped.receiveMmcssActive,
            "stopped voice workers release their multimedia scheduling registrations");
+    expect(!stopped.voicePriorityActive && stopped.voicePriorityDscp == 0 && stopped.voicePriorityError == 0,
+           "stopped voice sockets release their priority flow");
 #endif
 }
 
@@ -4225,6 +4250,10 @@ void packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender() {
         });
         expect(socket != received.end() && socket->socketMicros != 0,
                "actual TX identity and encoded payload hash must match a socket-arrival event");
+        expect(socket != received.end() && socket->pollStartedMicros != 0 &&
+                   socket->pollStartedMicros <= socket->socketMicros &&
+                   socket->lastEmptyPollMicros <= socket->pollStartedMicros,
+               "socket trace must place prior empty polls before the current receive call");
         const auto admission = std::ranges::find_if(received, [&](const auto& event) {
             return event.stage == VoicePacketTrace::ReceiveStage::Decision &&
                    event.decodedKind == VoicePacketTrace::DecodedKind::Real &&

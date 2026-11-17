@@ -7,7 +7,10 @@ const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({
   room: null as RoomStateDto | null,
   playbackEnabled: false,
-  playback: { reportReady: vi.fn(async () => undefined) },
+  playback: {
+    reportReady: vi.fn(async () => undefined),
+    finalPerformance: vi.fn(() => undefined),
+  },
 }));
 const monitoringPreference = vi.hoisted(() => ({
   enabled: false,

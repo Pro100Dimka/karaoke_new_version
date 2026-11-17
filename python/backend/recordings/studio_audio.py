@@ -77,26 +77,29 @@ class StudioMasterBalance:
 
 
 def recording_stems(path: Path, *, prefer_dry: bool = False) -> tuple[Path, Path] | None:
-    dry = ensure_within(Path(str(path) + ".dry.wav"), path.parent)
-    voice_suffix = ".dry.wav" if prefer_dry and dry.is_file() else ".vocal.wav"
-    stems = tuple(
-        ensure_within(Path(str(path) + suffix), path.parent)
-        for suffix in (voice_suffix, ".backing.wav")
-    )
-    if not all(stem.is_file() for stem in stems):
-        return None
-    info = sf.info(path)
-    for stem in stems:
-        other = sf.info(stem)
-        if (other.frames, other.samplerate, other.channels) != (
-            info.frames,
-            info.samplerate,
-            info.channels,
-        ):
-            raise DependencyError(
-                "StudioMasterInvalidStems", "Recording stems are not synchronized"
-            )
-    return stems[0], stems[1]
+    # Lossless archival changes the mix filename while retained native stems keep their WAV name.
+    for source in dict.fromkeys((path, path.with_suffix(".wav"))):
+        dry = ensure_within(Path(str(source) + ".dry.wav"), path.parent)
+        voice_suffix = ".dry.wav" if prefer_dry and dry.is_file() else ".vocal.wav"
+        stems = tuple(
+            ensure_within(Path(str(source) + suffix), path.parent)
+            for suffix in (voice_suffix, ".backing.wav")
+        )
+        if not all(stem.is_file() for stem in stems):
+            continue
+        info = sf.info(path)
+        for stem in stems:
+            other = sf.info(stem)
+            if (other.frames, other.samplerate, other.channels) != (
+                info.frames,
+                info.samplerate,
+                info.channels,
+            ):
+                raise DependencyError(
+                    "StudioMasterInvalidStems", "Recording stems are not synchronized"
+                )
+        return stems[0], stems[1]
+    return None
 
 
 def _check_cancel(cancel: threading.Event) -> None:

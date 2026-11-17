@@ -164,6 +164,7 @@ export const ruPerformance = {
   analysisFailed: 'Ошибка анализа',
   analysisStale: 'Анализ устарел',
   roomPerformanceOverall: 'Общая оценка',
+  roomPerformancePending: 'Ожидаем результаты участников',
   roomPerformancePersonal: 'Личная оценка',
   roomPerformanceDuetHint:
     'Тишина не оценивается. Учитывается только спетая часть.',

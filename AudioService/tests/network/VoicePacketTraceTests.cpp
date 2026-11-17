@@ -115,6 +115,9 @@ void stoppedTraceExportsExactPacketAndQueueJoinFields() {
     VoicePacketTrace::ReceiveEvent packet;
     packet.packet.sequence = 123;
     packet.packet.streamEpoch = 7;
+    packet.pollStartedMicros = 900;
+    packet.lastEmptyPollMicros = 890;
+    packet.emptyPollsSinceDatagram = 4;
     packet.stage = VoicePacketTrace::ReceiveStage::Decision;
     packet.reason = VoicePacketTrace::ReceiveReason::Retimed;
     packet.decodedKind = VoicePacketTrace::DecodedKind::Real;
@@ -139,6 +142,9 @@ void stoppedTraceExportsExactPacketAndQueueJoinFields() {
                row.find("RETIMED") != std::string::npos &&
                row.find("REAL") != std::string::npos && row.find("9876") != std::string::npos,
            "CSV must preserve sequence, admission positions, correction and PCM provenance");
+    expect(header.ends_with("pollStartedMicros,lastEmptyPollMicros,emptyPollsSinceDatagram"),
+           "CSV must distinguish empty socket polling from time spent outside receive");
+    expect(row.ends_with(",900,890,4"), "CSV must retain the actual receive-poll timestamps and count");
     for (const auto* suffix : {".sender.csv", ".receive.csv", ".render.csv", ".status.csv"})
         std::filesystem::remove(prefix + suffix);
 }

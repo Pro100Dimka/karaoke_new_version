@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
-from typing import Mapping
+from typing import Mapping, TypedDict
 
 from backend.room.timing_policy import (
     ROOM_TIMING,
@@ -100,6 +100,18 @@ class RoomPlaylist:
 
 
 @dataclass(frozen=True, slots=True)
+class RoomPerformanceScore:
+    accuracy: float | None
+    sung_seconds: float
+    finished: bool
+
+
+class RoomPerformanceResult(TypedDict):
+    complete: bool
+    score: float | None
+
+
+@dataclass(frozen=True, slots=True)
 class Room:
     room_id: str
     host_id: str
@@ -135,6 +147,9 @@ class Room:
     performance_id: int = 0
     last_performance_id: int | None = None
     last_performance_accuracy: float | None = None
+    performance_history: Mapping[int, Mapping[str, RoomPerformanceScore]] = field(
+        default_factory=dict
+    )
     playlist: RoomPlaylist | None = None
 
     def with_timing(self, timing: RoomTiming) -> Room:

@@ -7,7 +7,7 @@ import { desktopBridge } from './desktopBridge';
 import type {
   KaraokeNoteScore,
   PitchFrame,
-  RoomPerformanceSummary,
+  RoomPerformanceCompletion,
   SongDto,
 } from '../contracts/models';
 
@@ -159,7 +159,7 @@ const expectedSourceSeconds = (take: NonNullable<typeof active>): number => {
 const repositionToleranceSeconds = 0.25;
 
 const stop = async (
-  roomResult?: Promise<RoomPerformanceSummary | undefined>,
+  roomResult?: RoomPerformanceCompletion,
   onCaptured?: () => Promise<void>,
 ): Promise<RecordingStatus> => {
   if (!active) return { recording: false };
@@ -213,7 +213,7 @@ const stop = async (
     throw new Error('Recording metadata does not match the saved audio');
   }
   await onCaptured?.();
-  const roomPerformance = await roomResult;
+  const roomPerformance = roomResult?.summary;
   await python({
     method: 'POST',
     path: '/recordings',
@@ -236,8 +236,21 @@ const stop = async (
       },
     },
   });
+  const recordingId = current.target.recordingId;
+  if (roomResult)
+    void roomResult.result
+      .then((result) =>
+        python({
+          method: 'PATCH',
+          path: `/recordings/${encodeURIComponent(recordingId)}`,
+          body: { roomPerformance: result },
+        }),
+      )
+      .catch((error: unknown) =>
+        console.error('Could not save room performance result', error),
+      );
   active = null;
-  return { recording: false, recordingId: current.target.recordingId };
+  return { recording: false, recordingId };
 };
 
 export const recordingCoordinator = {
@@ -468,6 +481,9 @@ export const recordingCoordinator = {
       !active ||
       active.interrupted ||
       active.finalizedPath ||
+      // A view reset at room stop must not erase this take's accumulated measurements.
+      (score.expectedPitchSeconds ?? 0) <
+        (active.karaokeNoteScore.expectedPitchSeconds ?? 0) ||
       !Number.isSafeInteger(score.hitNotes) ||
       !Number.isSafeInteger(score.totalNotes) ||
       score.hitNotes < 0 ||
@@ -481,7 +497,7 @@ export const recordingCoordinator = {
   },
 
   stop(
-    roomPerformance?: Promise<RoomPerformanceSummary | undefined>,
+    roomPerformance?: RoomPerformanceCompletion,
     onCaptured?: () => Promise<void>,
   ) {
     return transition('stop', () => stop(roomPerformance, onCaptured));

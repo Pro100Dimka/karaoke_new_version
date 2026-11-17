@@ -90,7 +90,6 @@ class StartStudioMaster:
             context.progress("AnalyzingBalance", 1.0, 0.58)
             song_id, revision = self._project_identity(recording)
             temporary = workspace / "studio-master.wav"
-            adjustments = recording_adjustments(recording)
             with self._pitch_session(context) as pitch:
                 balance = self._renderer.render(
                     *stems,
@@ -102,9 +101,12 @@ class StartStudioMaster:
                     exact_stems=exact_stems,
                     process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
                     match_recording_loudness=True,
-                    adjustments=adjustments,
+                    adjustments=recording_adjustments(recording),
                     progress=context.progress,
-                    pitch=pitch,
+                    # The shared vocal stem can contain simultaneous singers on different notes.
+                    pitch=None
+                    if "roomPerformance" in (recording.session_metadata or {})
+                    else pitch,
                 )
             context.ensure_not_cancelled()
             context.progress("PublishingStudioMaster", 1.0, 0.92)

@@ -14,6 +14,7 @@ from backend.room.domain import (
     ReadinessState,
     Room,
     RoomPlaylist,
+    RoomPerformanceScore,
     RoomSong,
 )
 from backend.room.timing_policy import ROOM_TIMING, RoomTiming, TimingSource
@@ -66,45 +67,45 @@ class SqliteRoomRepository:
 
 
 def _encode_room(room: Room) -> str:
-    return dumps(
-        {
-            "roomId": room.room_id,
-            "hostId": room.host_id,
-            "disconnectPolicy": room.disconnect_policy.value,
-            "hostGraceSeconds": room.host_grace_seconds,
-            "hostDisconnectedAt": room.host_disconnected_at,
-            "songId": room.song_id,
-            "revision": room.revision,
-            "playbackState": room.playback_state.value,
-            "playbackStartedAt": room.playback_started_at,
-            "playbackPositionSeconds": room.playback_position_seconds,
-            "radioEnabled": room.radio_enabled,
-            "radioStationId": room.radio_station_id,
-            "libraryQuery": room.library_query,
-            "libraryStatus": room.library_status,
-            "librarySort": room.library_sort,
-            "playbackRate": room.playback_rate,
-            "keyShift": room.key_shift,
-            "musicGain": room.music_gain,
-            "referenceGain": room.reference_gain,
-            "melodyGain": room.melody_gain,
-            "collaborativeControl": room.collaborative_control,
-            "syncCheckId": room.sync_check_id,
-            "syncCheckStartedAt": room.sync_check_started_at,
-            "roomPlayoutDelayMs": room.room_playout_delay_ms,
-            "roomReturnReserveMs": room.room_return_reserve_ms,
-            "roomTimingSource": room.room_timing_source.value,
-            "singingTiming": room.singing_timing,
-            "autoStartPending": room.auto_start_pending,
-            "performanceId": room.performance_id,
-            "selectionId": room.selection_id,
-            "playlist": _encode_playlist(room.playlist),
-            "lastPerformanceId": room.last_performance_id,
-            "lastPerformanceAccuracy": room.last_performance_accuracy,
-            "sharedSongs": [_encode_song(song) for song in room.shared_songs],
-            "participants": [_encode_participant(item) for item in room.participants.values()],
-        },
-    )
+    payload = {
+        "roomId": room.room_id,
+        "hostId": room.host_id,
+        "disconnectPolicy": room.disconnect_policy.value,
+        "hostGraceSeconds": room.host_grace_seconds,
+        "hostDisconnectedAt": room.host_disconnected_at,
+        "songId": room.song_id,
+        "revision": room.revision,
+        "playbackState": room.playback_state.value,
+        "playbackStartedAt": room.playback_started_at,
+        "playbackPositionSeconds": room.playback_position_seconds,
+        "radioEnabled": room.radio_enabled,
+        "radioStationId": room.radio_station_id,
+        "libraryQuery": room.library_query,
+        "libraryStatus": room.library_status,
+        "librarySort": room.library_sort,
+        "playbackRate": room.playback_rate,
+        "keyShift": room.key_shift,
+        "musicGain": room.music_gain,
+        "referenceGain": room.reference_gain,
+        "melodyGain": room.melody_gain,
+        "collaborativeControl": room.collaborative_control,
+        "syncCheckId": room.sync_check_id,
+        "syncCheckStartedAt": room.sync_check_started_at,
+        "roomPlayoutDelayMs": room.room_playout_delay_ms,
+        "roomReturnReserveMs": room.room_return_reserve_ms,
+        "roomTimingSource": room.room_timing_source.value,
+        "singingTiming": room.singing_timing,
+        "autoStartPending": room.auto_start_pending,
+        "performanceId": room.performance_id,
+        "selectionId": room.selection_id,
+        "playlist": _encode_playlist(room.playlist),
+        "lastPerformanceId": room.last_performance_id,
+        "lastPerformanceAccuracy": room.last_performance_accuracy,
+        "performanceHistory": room.performance_history,
+        "sharedSongs": [_encode_song(song) for song in room.shared_songs],
+        "participants": [_encode_participant(item) for item in room.participants.values()],
+    }
+    return dumps(payload)
 
 
 def _encode_playlist(playlist: RoomPlaylist | None) -> dict[str, object] | None:
@@ -215,7 +216,24 @@ def _decode_room(payload: str) -> Room:
         playlist=_decode_playlist(raw.get("playlist")),
         last_performance_id=_optional_int(raw.get("lastPerformanceId")),
         last_performance_accuracy=_optional_float(raw.get("lastPerformanceAccuracy")),
+        performance_history=_decode_performance_history(raw.get("performanceHistory")),
     )
+
+
+def _decode_performance_history(raw: object) -> dict[int, dict[str, RoomPerformanceScore]]:
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        int(identifier): {
+            str(key): RoomPerformanceScore(
+                float(score["accuracy"]) if score["accuracy"] is not None else None,
+                float(score["sung_seconds"]),
+                bool(score["finished"]),
+            )
+            for key, score in scores.items()
+        }
+        for identifier, scores in raw.items()
+    }
 
 
 def _decode_timing_source(raw: dict[str, str]) -> TimingSource:

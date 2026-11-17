@@ -69,6 +69,7 @@ export interface BackendRecording {
     roomId: string;
     performanceId: number;
     overallScore?: number | null;
+    status?: 'pending' | 'complete' | 'unavailable' | null;
   } | null;
   recordingId: string;
   filePath: string;
@@ -228,6 +229,7 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
     ? {
         ...recording.roomPerformance,
         overallScore: recording.roomPerformance.overallScore ?? undefined,
+        status: recording.roomPerformance.status ?? undefined,
       }
     : undefined,
   id: recording.recordingId,

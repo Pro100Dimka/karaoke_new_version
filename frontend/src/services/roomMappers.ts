@@ -24,6 +24,7 @@ interface BackendRoomParticipant {
 }
 
 export interface BackendRoom {
+  performanceResults?: RoomStateDto['performanceResults'];
   selectionId?: number;
   playlist?: RoomPlaylist | null;
   lastPerformanceId?: number | null;
@@ -118,6 +119,7 @@ export const mapRoom = (
   performanceAccuracy: room.performanceAccuracy ?? undefined,
   lastPerformanceId: room.lastPerformanceId ?? undefined,
   lastPerformanceAccuracy: room.lastPerformanceAccuracy ?? undefined,
+  performanceResults: room.performanceResults,
   hostId: room.hostId,
   songId: room.songId ?? undefined,
   revision: room.revision ?? undefined,

@@ -71,6 +71,9 @@ class VoicePacketTrace {
     struct ReceiveEvent {
         PacketIdentity packet{};
         std::uint64_t socketMicros{0};
+        std::uint64_t pollStartedMicros{0};
+        std::uint64_t lastEmptyPollMicros{0};
+        std::uint64_t emptyPollsSinceDatagram{0};
         std::uint64_t processingMicros{0};
         std::uint64_t decisionMicros{0};
         std::uint64_t socketRoomFrame{0};

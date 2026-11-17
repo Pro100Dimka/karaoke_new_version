@@ -15,11 +15,12 @@ from backend.room.domain import (
     HostDisconnectPolicy,
     ReadinessState,
     Room,
+    RoomPerformanceResult,
     RoomPlaylist,
     RoomSong,
 )
 from backend.room.identifiers import normalize_room_id
-from backend.room.performance import group_performance_accuracy
+from backend.room.performance import group_performance_accuracy, performance_result
 
 router = APIRouter(prefix="/rooms")
 
@@ -132,6 +133,7 @@ class PublishLibraryDto(ActorDto):
 
 
 class RoomDto(ApiModel):
+    performance_results: dict[str, RoomPerformanceResult] = Field(default_factory=dict)
     playlist: PlaylistDto | None = None
     room_id: str
     host_id: str
@@ -395,6 +397,10 @@ def _room(room: Room) -> RoomDto:
         performance_accuracy=group_performance_accuracy(room),
         last_performance_id=room.last_performance_id,
         last_performance_accuracy=room.last_performance_accuracy,
+        performance_results={
+            str(identifier): performance_result(room, identifier)
+            for identifier in {*room.performance_history, room.performance_id}
+        },
         host_id=room.host_id,
         song_id=room.song_id,
         revision=room.revision,

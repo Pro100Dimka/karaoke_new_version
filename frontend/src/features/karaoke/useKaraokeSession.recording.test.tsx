@@ -1,6 +1,9 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startSession, karaokeRecordingFixtureState } from './karaokeRecordingFixture';
+import {
+  startSession,
+  karaokeRecordingFixtureState,
+} from './karaokeRecordingFixture';
 import { useKaraokeSession } from './useKaraokeSession';
 import { recordingCoordinator } from '../../services/recordingCoordinator';
 import { pythonClient } from '../../services/pythonClient';
@@ -8,6 +11,9 @@ import { audioClient } from '../../services/audioClient';
 import { usePositionPolling } from './usePositionPolling';
 import { useAudioRecovery } from './useAudioRecovery';
 import { store } from '../../providers/store';
+import { useRoomPlayback } from '../../providers/application';
+import { useKaraokeRecording } from './useKaraokeRecording';
+import type { RoomStateDto, SongDto } from '../../contracts/models';
 const { dialogs, roomState, monitoringPreference } =
   karaokeRecordingFixtureState;
 describe('karaoke recording ownership', () => {
@@ -330,6 +336,57 @@ describe('karaoke recording ownership', () => {
     await finishing;
     expect(result.current.recordingId).toBe('take');
     expect(store.cancelPlaylist).toHaveBeenCalledOnce();
+
+    roomState.playbackEnabled = true;
+    const selected: RoomStateDto = {
+      code: 'room',
+      hostId: 'host',
+      role: 'host',
+      participants: [],
+      playbackLocked: false,
+      songId: 'song',
+      performanceId: 1,
+      playbackState: 'stopped',
+    };
+    const song: SongDto = {
+      id: 'song',
+      title: 'Song',
+      artist: 'Singer',
+      language: 'Auto',
+      status: 'ready',
+      durationSeconds: 60,
+      createdAt: '',
+      coverState: 'Fallback',
+      activeRevision: 1,
+      projectFormatVersion: 1,
+    };
+    const roomTake = renderHook(
+      ({ room }) =>
+        useKaraokeRecording({
+          room,
+          roomPlayback: useRoomPlayback(),
+          dispatch: vi.fn(),
+          playbackGeneration: { current: 0 },
+          songRef: { current: song },
+          positionRef: { current: 0 },
+          speedRef: { current: 1 },
+          keyRef: { current: 0 },
+        }),
+      { initialProps: { room: selected } },
+    );
+    roomTake.rerender({
+      room: { ...selected, performanceId: 2, playbackState: 'playing' },
+    });
+    await act(async () => {
+      await roomTake.result.current.startRecording();
+    });
+    roomTake.rerender({
+      room: { ...selected, songId: undefined, performanceId: 3 },
+    });
+    await act(async () => {
+      await roomTake.result.current.finishLocalPerformance();
+    });
+    expect(roomState.playback.finalPerformance).toHaveBeenCalledWith(2);
   });
 
   it('saves at natural EOF without cancelling the remaining playlist', async () => {

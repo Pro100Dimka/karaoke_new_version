@@ -71,6 +71,7 @@ class SqlRecordingRepository:
             raise KeyError(recording.recording_id)
         row.display_name = recording.display_name
         row.file_status = recording.file_status
+        row.session_json = dumps(recording.session_metadata)
         self.changed.add(recording.recording_id)
 
     def update_file(self, recording_id: str, path: Path, metadata: RecordingFileMetadata) -> None:

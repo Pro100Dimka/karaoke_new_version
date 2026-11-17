@@ -157,6 +157,9 @@ struct NetworkDiagnostics {
     bool sendEnabled{false};
     bool sendMmcssActive{false};
     bool receiveMmcssActive{false};
+    std::uint32_t voicePriorityDscp{0};
+    bool voicePriorityActive{false};
+    std::uint32_t voicePriorityError{0};
     std::uint32_t directPeerCount{0};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};

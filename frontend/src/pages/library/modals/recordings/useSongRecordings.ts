@@ -347,7 +347,7 @@ export const useSongRecordings = (
     }, 'studioMasterFailed');
 
   useEffect(() => {
-    onAnalysisReady(analysisRecordId);
+    if (analysisRecordId) onAnalysisReady(analysisRecordId);
   }, [analysisRecordId, onAnalysisReady]);
   const openLatest = useRef(open);
   useEffect(() => {

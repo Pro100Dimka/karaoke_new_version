@@ -232,7 +232,8 @@ void VoicePacketTrace::exportCsv(const std::string& pathPrefix) const {
             "sourceEndpoint,wireHash,payloadHash,horizonFrame,queueEpoch,queueStartFrame,"
             "queueFrames,pcmHash,pcmEnergy,pcmPeak,pcmZeroFrames,dueInFrames,targetDelayFrames,"
             "packetFrames,decodedFrames,sourceOffsetFrames,correctedFrames,lateSkipFrames,"
-            "queueFillFrames,viaRelay,queueAccepted");
+            "queueFillFrames,viaRelay,queueAccepted,pollStartedMicros,lastEmptyPollMicros,"
+            "emptyPollsSinceDatagram");
         for (const auto& event : receiveEvents()) {
             writePacket(out, event.packet);
             out << ',' << enumName(event.stage, stages) << ',' << reasonName(event.reason) << ','
@@ -248,7 +249,9 @@ void VoicePacketTrace::exportCsv(const std::string& pathPrefix) const {
                 << event.packetFrames << ',' << event.decodedFrames << ','
                 << event.sourceOffsetFrames << ',' << event.correctedFrames << ','
                 << event.lateSkipFrames << ',' << event.queueFillFrames << ','
-                << event.viaRelay << ',' << event.queueAccepted << '\n';
+                << event.viaRelay << ',' << event.queueAccepted << ','
+                << event.pollStartedMicros << ',' << event.lastEmptyPollMicros << ','
+                << event.emptyPollsSinceDatagram << '\n';
         }
         finishCsv(out);
     }

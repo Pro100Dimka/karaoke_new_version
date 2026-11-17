@@ -23,7 +23,7 @@ from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.start_studio_master import PublishStudioMaster, StartStudioMaster
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
-from backend.recordings.update_recording import UpdateRecordingName
+from backend.recordings.update_recording import UpdateRecording
 from backend.settings.queries import get_settings
 
 
@@ -49,7 +49,7 @@ def build_recording_cases(
         register,
         GetRecording(runtime.database),
         ListRecordings(runtime.database),
-        UpdateRecordingName(runtime.database),
+        UpdateRecording(runtime.database),
         DeleteRecording(runtime.database, storage, project.journal),
         analysis,
         ListRecordingAnalyses(runtime.database),

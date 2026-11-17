@@ -32,30 +32,51 @@ const remote = (
 });
 
 describe('shared room library', () => {
-  it("adds another participant's ready songs and keeps an exact local copy local", () => {
-    const result = mergeRoomLibrary(
-      [local('same'), local('older', 1)],
-      [
-        remote('friend', 'same'),
-        remote('friend', 'older', 2),
-        remote('friend', 'remote-only', 3),
-      ],
-      'self',
-    );
+  it.each(['source', 'project'])(
+    'merges matching %s hashes independently of local song IDs',
+    (hash) => {
+      const result = mergeRoomLibrary(
+        [
+          local('same'),
+          local('older', 1),
+          {
+            ...local('my-alias', 8),
+            sourceHash: 'a'.repeat(64),
+            projectHash: 'b'.repeat(64),
+          },
+        ],
+        [
+          remote('friend', 'same'),
+          remote('friend', 'older', 2),
+          remote('friend', 'remote-only', 3),
+          {
+            ...remote('friend', 'their-alias', 2),
+            sourceHash: (hash === 'source' ? 'a' : 'c').repeat(64),
+            projectHash: (hash === 'project' ? 'b' : 'd').repeat(64),
+          },
+        ],
+        'self',
+      );
 
-    expect(
-      result.find((song) => song.id === 'same')?.roomOwnerId,
-    ).toBeUndefined();
-    expect(result.find((song) => song.id === 'older')?.roomOwnerId).toBe(
-      'friend',
-    );
-    expect(result.find((song) => song.id === 'remote-only')).toMatchObject({
-      title: 'Shared',
-      status: 'ready',
-      activeRevision: 3,
-      roomOwnerId: 'friend',
-    });
-  });
+      expect(
+        result.find((song) => song.id === 'same')?.roomOwnerId,
+      ).toBeUndefined();
+      expect(result.find((song) => song.id === 'older')?.roomOwnerId).toBe(
+        'friend',
+      );
+      expect(result.find((song) => song.id === 'remote-only')).toMatchObject({
+        title: 'Shared',
+        status: 'ready',
+        activeRevision: 3,
+        roomOwnerId: 'friend',
+      });
+      expect(result).toHaveLength(4);
+      expect(
+        result.find((song) => song.id === 'my-alias')?.roomOwnerId,
+      ).toBeUndefined();
+      expect(result.some((song) => song.id === 'their-alias')).toBe(false);
+    },
+  );
 
   it("does not duplicate the current participant's published songs", () => {
     expect(

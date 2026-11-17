@@ -1,4 +1,7 @@
-import type { RoomPerformanceSummary, SongDto } from '../../contracts/models';
+import type {
+  RoomPerformanceCompletion,
+  SongDto,
+} from '../../contracts/models';
 import type {
   KaraokeAudioPort,
   KaraokeBackendPort,
@@ -53,7 +56,7 @@ export class KaraokeRecordingCoordinator {
   }
 
   async finish(
-    roomPerformance?: Promise<RoomPerformanceSummary | undefined>,
+    roomPerformance?: RoomPerformanceCompletion,
   ): Promise<{ saved: boolean; recordingId?: string }> {
     this.invalidate();
     const generation = this.generation;
@@ -75,7 +78,6 @@ export class KaraokeRecordingCoordinator {
       saved = false;
     }
     await stopAudio();
-    await roomPerformance;
     return { saved, recordingId };
   }
 }

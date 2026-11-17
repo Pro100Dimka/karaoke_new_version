@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import { useRoomVoicePolls, roomVoicePollingFixtureState } from './roomVoicePollingFixture';
+import {
+  useRoomVoicePolls,
+  roomVoicePollingFixtureState,
+} from '../../test/roomVoicePollingFixture';
 import { speakingLevelOf } from './roomSpeakingLevelsStore';
 import { type RoomStateDto } from '../../contracts/models';
 const { mocks } = roomVoicePollingFixtureState;

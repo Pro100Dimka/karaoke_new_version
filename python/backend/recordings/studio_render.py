@@ -284,19 +284,20 @@ class MasterRender:
 
     def _finish_voice(self) -> None:
         target = self.work / "spatial-voice.wav"
-        effects: dict[str, object] = {"status": "existing-effects-preserved", "dryPreserved": True}
-        if self.process_voice:
-            effects = apply_reference_space(
-                self.renderer,
-                self.reference_vocal,
-                self.user_vocal,
-                self.balanced,
-                target,
-                self.cancel,
-                full_reference=self.space_reference,
-            )
+        # The space planner measures existing effects and adds only the missing contribution.
+        # An unavailable dry stem does not mean that the recorded voice already has those effects.
+        effects = apply_reference_space(
+            self.renderer,
+            self.reference_vocal,
+            self.user_vocal,
+            self.balanced,
+            target,
+            self.cancel,
+            full_reference=self.space_reference,
+        )
         self.processing["referenceEffects"] = effects
         self.processing["space"] = effects["status"]
+        self.processing["effectsApplied"] = effects["status"] == "matched"
         if target.is_file():
             self.balanced = target
         self.processing["voiceOutputGainDb"] = 0.0

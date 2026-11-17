@@ -136,6 +136,7 @@ export const ukPerformance = {
   consoleMode: 'Режим',
   masterVolume: 'Загальна гучність',
   roomPerformanceOverall: 'Спільна оцінка',
+  roomPerformancePending: 'Очікуємо результати учасників',
   roomPerformancePersonal: 'Особиста оцінка',
   roomPerformanceDuetHint:
     'Тиша не оцінюється. Враховується лише заспівана частина.',

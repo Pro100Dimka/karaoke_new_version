@@ -282,6 +282,10 @@ export interface RoomPlaylist {
 }
 
 export interface RoomStateDto {
+  performanceResults?: Record<
+    string,
+    { complete: boolean; score?: number | null }
+  >;
   selectionId?: number;
   playlist?: RoomPlaylist;
   lastPerformanceId?: number;
@@ -333,6 +337,12 @@ export interface RoomPerformanceSummary {
   roomId: string;
   performanceId: number;
   overallScore?: number;
+  status?: 'pending' | 'complete' | 'unavailable';
+}
+
+export interface RoomPerformanceCompletion {
+  summary: RoomPerformanceSummary;
+  result: Promise<RoomPerformanceSummary>;
 }
 
 export interface RecordingDto {

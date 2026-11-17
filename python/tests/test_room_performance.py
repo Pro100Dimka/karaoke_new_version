@@ -91,7 +91,8 @@ def test_zero_sung_duration_keeps_the_group_unassessed(duet):
     assert client.get(f"/rooms/{code}").json()["performanceAccuracy"] is None
 
 
-def test_final_group_result_waits_for_both_singers_and_survives_clear(duet):
+@pytest.mark.parametrize("transition", ["none", "clear", "next-song"])
+def test_final_group_result_waits_for_both_singers_and_survives_clear(duet, transition):
     client, code, room = duet
     for participant, accuracy in (("host", 70), ("guest", 90)):
         response = client.post(
@@ -108,7 +109,25 @@ def test_final_group_result_waits_for_both_singers_and_survives_clear(duet):
         snapshot = client.get(f"/rooms/{code}").json()
         if participant == "host":
             assert snapshot["lastPerformanceId"] is None
-    assert snapshot["lastPerformanceAccuracy"] == 80
+            if transition != "none":
+                assert (
+                    client.post(
+                        f"/rooms/{code}/song/clear", json={"participantId": "host"}
+                    ).status_code
+                    == 200
+                )
+            if transition == "next-song":
+                assert (
+                    client.post(
+                        f"/rooms/{code}/song",
+                        json={"participantId": "host", "songId": "next", "revision": 1},
+                    ).status_code
+                    == 200
+                )
+    assert snapshot["performanceResults"][str(room["performanceId"])] == {
+        "complete": True,
+        "score": 80,
+    }
     cleared = client.post(f"/rooms/{code}/song/clear", json={"participantId": "host"})
     assert cleared.status_code == 200
     assert cleared.json()["lastPerformanceId"] == room["performanceId"]

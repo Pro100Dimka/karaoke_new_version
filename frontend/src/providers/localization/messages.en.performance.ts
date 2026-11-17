@@ -158,6 +158,7 @@ export const enPerformance = {
   analysisFailed: 'Analysis failed',
   analysisStale: 'Analysis is stale',
   roomPerformanceOverall: 'Group score',
+  roomPerformancePending: 'Waiting for participants’ results',
   roomPerformancePersonal: 'Personal score',
   roomPerformanceDuetHint:
     'Only the parts you sing count. Silence is not scored.',

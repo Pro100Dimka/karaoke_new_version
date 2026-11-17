@@ -229,6 +229,7 @@ def test_completed_live_analysis_is_available_without_any_ai_work(
             "roomId": "duet-room",
             "performanceId": 7,
             "overallScore": 84,
+            "status": None,
         }
         assert (
             client.get(f"/recordings/{recording['recordingId']}").json()["analysisStatus"]
@@ -578,7 +579,8 @@ def test_recording_name_and_status_are_backend_authoritative(tmp_path: Path) -> 
     write_wav(source)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         song = ready_song(client, source)
-        recording = register_recording(client, song)
+        pending = {"roomId": "duet", "performanceId": 7, "status": "pending"}
+        recording = register_recording(client, song, session_metadata={"roomPerformance": pending})
 
         renamed = client.patch(
             f"/recordings/{recording['recordingId']}", json={"displayName": "My best take"}
@@ -588,16 +590,51 @@ def test_recording_name_and_status_are_backend_authoritative(tmp_path: Path) -> 
         assert renamed.json()["displayName"] == "My best take"
         assert renamed.json()["fileStatus"] == "Ready"
         assert renamed.json()["analysisStatus"] == "NotAnalyzed"
+        final = {**pending, "status": "complete", "overallScore": 84}
+        completed = client.patch(
+            f"/recordings/{recording['recordingId']}", json={"roomPerformance": final}
+        )
+        assert completed.status_code == 200, completed.text
+        assert completed.json()["roomPerformance"] == final
+        assert completed.json()["displayName"] == "My best take"
+        rejected = client.patch(
+            f"/recordings/{recording['recordingId']}",
+            json={"roomPerformance": {**final, "performanceId": 8}},
+        )
+        assert rejected.status_code == 409
+        assert (
+            client.get(f"/recordings/{recording['recordingId']}").json()["roomPerformance"] == final
+        )
 
 
+@pytest.mark.parametrize("room_mix", [False, True])
 def test_studio_master_creates_a_separate_adaptively_balanced_recording(
     tmp_path: Path,
+    monkeypatch,
+    room_mix: bool,
 ) -> None:
+    from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+
+    render = FfmpegStudioMasterRenderer.render
+    pitch_enabled = []
+
+    def capture(renderer, *args, **kwargs):
+        pitch_enabled.append(kwargs.get("pitch") is not None)
+        return render(renderer, *args, **kwargs)
+
+    monkeypatch.setattr(FfmpegStudioMasterRenderer, "render", capture)
     source = tmp_path / "song.wav"
     write_wav(source, frequency=220.0)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         song = ready_song(client, source)
-        recording = register_recording(client, song, frequency=440.0)
+        recording = register_recording(
+            client,
+            song,
+            frequency=440.0,
+            session_metadata={"roomPerformance": {"roomId": "duet", "performanceId": 7}}
+            if room_mix
+            else None,
+        )
 
         started = client.post(f"/recordings/{recording['recordingId']}/studio-master")
 
@@ -623,6 +660,7 @@ def test_studio_master_creates_a_separate_adaptively_balanced_recording(
         assert Path(recording["filePath"]).is_file()
         assert len(originals) == 2
         assert job["report"]["balance"]["vocalGainDb"] is not None
+        assert pitch_enabled == [not room_mix]
 
 
 @pytest.mark.parametrize("property_name", ["balance", "effects", "duration"])

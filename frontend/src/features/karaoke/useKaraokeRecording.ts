@@ -1,4 +1,10 @@
-import { useCallback, useRef, useState, type MutableRefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from 'react';
 import { tr } from '@neo-ui-kit/react';
 import { useNotify } from '../../providers/notifications';
 import { ask } from '../../providers/dialog';
@@ -42,6 +48,11 @@ export const useKaraokeRecording = ({
     audioClient,
   );
   const recordingWork = recordingWorkRef.current;
+  const performanceId = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (room?.songId && room.playbackState === 'playing')
+      performanceId.current = room.performanceId;
+  }, [room?.songId, room?.playbackState, room?.performanceId]);
   const [recording, setRecording] = useState<RecordingUiState>('idle');
   const [recordingId, setRecordingId] = useState<string | undefined>();
   const recordingRef = useRef(recording);
@@ -50,7 +61,9 @@ export const useKaraokeRecording = ({
     playbackGeneration.current++;
     dispatch({ type: 'STOPPING' });
     setRecording('stopping');
-    const result = await recordingWork.finish(roomPlayback?.finalPerformance());
+    const result = await recordingWork.finish(
+      roomPlayback?.finalPerformance(performanceId.current),
+    );
     if (result.recordingId) {
       setRecordingId(result.recordingId);
       notify(tr('recordingSaved'), 'success');

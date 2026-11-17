@@ -3,7 +3,7 @@ import type {
   KaraokeNoteScore,
   PlaybackSnapshot,
   SongDto,
-  RoomPerformanceSummary,
+  RoomPerformanceCompletion,
 } from '../../contracts/models';
 
 export type KaraokeAudioPort = Pick<
@@ -44,7 +44,7 @@ export interface KaraokeRecordingPort {
     adjustment: PlaybackAdjustment,
   ): Promise<RecordingStatus>;
   stop(
-    roomPerformance?: Promise<RoomPerformanceSummary | undefined>,
+    roomPerformance?: RoomPerformanceCompletion,
     onCaptured?: () => Promise<void>,
   ): Promise<RecordingStatus>;
   pause(): Promise<RecordingStatus>;

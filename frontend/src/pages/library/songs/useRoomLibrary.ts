@@ -7,6 +7,7 @@ import {
   sharedStateOf,
 } from '../../../application/room/roomModel';
 import type { SongDto } from '../../../contracts/models';
+import { sameRoomSong } from '../../../application/room/roomLibrary';
 import { useRoomLibraryCommands } from '../../../providers/application';
 import { useNotify } from '../../../providers/notifications';
 import { store } from '../../../providers/store';
@@ -103,7 +104,19 @@ export const useRoomLibrary = ({
   const songSelection = useCallback(
     (song: SongDto) =>
       room && canControlRoom(room) && song.status === 'ready'
-        ? { role: room.role, selected: room.songId === song.id }
+        ? {
+            role: room.role,
+            selected:
+              room.songId === song.id ||
+              Boolean(
+                room.sharedSongs?.some(
+                  (shared) =>
+                    shared.songId === room.songId &&
+                    shared.revision === room.revision &&
+                    sameRoomSong(song, shared),
+                ),
+              ),
+          }
         : undefined,
     [room],
   );

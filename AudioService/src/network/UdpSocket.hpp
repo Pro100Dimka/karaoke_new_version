@@ -39,11 +39,21 @@ class UdpSocket {
         return lastSourceIdentity_;
     }
     [[nodiscard]] std::uint16_t localPort() const noexcept;
+    [[nodiscard]] bool voicePriorityActive() const noexcept {
+        return voicePriorityActive_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] std::uint32_t voicePriorityDscp() const noexcept {
+        return voicePriorityDscp_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] std::uint32_t voicePriorityError() const noexcept {
+        return voicePriorityError_.load(std::memory_order_acquire);
+    }
     void close() noexcept;
 
   private:
 #ifdef _WIN32
     std::uintptr_t socket_{~std::uintptr_t{0}};
+    void* voicePriorityHandle_{nullptr};
 #else
     int socket_{-1};
 #endif
@@ -51,4 +61,8 @@ class UdpSocket {
     bool lastFromDefault_{false};     // receive thread
     std::uint64_t lastSourceIdentity_{0}; // receive thread
     std::atomic<std::uint32_t> receiveTimeoutMs_{0};
+    std::atomic<std::uint32_t> voicePriorityDscp_{0};
+    std::atomic<bool> voicePriorityActive_{false};
+    std::atomic<std::uint32_t> voicePriorityError_{0};
+    void configureVoicePriority() noexcept;
 };

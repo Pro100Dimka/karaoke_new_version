@@ -230,19 +230,38 @@ def test_reference_balance_is_independent_of_channel_count(tmp_path: Path):
     assert abs(result["median"]) < 0.01
 
 
-def test_new_plan_reads_stems_without_modifying_them(tmp_path: Path):
+@pytest.mark.parametrize("source_suffix", [".wav", ".flac"])
+@pytest.mark.parametrize("dry_state", ["ready", "incomplete", "absent"])
+def test_new_plan_reads_stems_without_modifying_them(tmp_path: Path, source_suffix, dry_state):
     from backend.recordings.studio_calibration import build_gain_plan
+    from backend.recordings.studio_audio import recording_stems
 
     time = np.arange(8000 * 4) / 8000
-    vocal, backing = tmp_path / "voice.wav", tmp_path / "backing.wav"
+    native = tmp_path / "recording.wav"
+    source = native.with_suffix(source_suffix)
+    vocal, backing = (Path(str(native) + suffix) for suffix in (".vocal.wav", ".backing.wav"))
     sf.write(vocal, 0.02 * np.sin(2 * np.pi * 500 * time), 8000, subtype="FLOAT")
     sf.write(backing, 0.1 * np.sin(2 * np.pi * 700 * time), 8000, subtype="FLOAT")
-    before = [path.read_bytes() for path in (vocal, backing)]
+    sf.write(
+        source,
+        sf.read(vocal)[0] + sf.read(backing)[0],
+        8000,
+        subtype="PCM_24" if source_suffix == ".flac" else "FLOAT",
+    )
+    selected_voice = vocal
+    if dry_state != "absent":
+        dry = Path(str(native) + (".dry.wav" if dry_state == "ready" else ".dry-incomplete.wav"))
+        dry.write_bytes(vocal.read_bytes())
+        if dry_state == "ready":
+            selected_voice = dry
+    original_files = {path: path.read_bytes() for path in tmp_path.iterdir()}
+    assert recording_stems(source, prefer_dry=True) == (selected_voice, backing)
+    assert recording_stems(source) == (vocal, backing)
     plan = build_gain_plan(
         FfmpegStudioMasterRenderer(ProcessRunner()), vocal, backing, 0.5, threading.Event()
     )
     assert plan.report["globalGainDb"] > 3
-    assert [path.read_bytes() for path in (vocal, backing)] == before
+    assert {path: path.read_bytes() for path in original_files} == original_files
 
 
 def test_studio_separation_does_not_select_kaggle(tmp_path: Path):
@@ -663,7 +682,7 @@ def test_added_reverb_is_gentler_without_reducing_direct_voice():
 
 
 @pytest.mark.parametrize("dry", [False, True])
-def test_reference_space_is_added_only_to_a_dry_voice(tmp_path, monkeypatch, dry):
+def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path, monkeypatch, dry):
     from types import SimpleNamespace
     from unittest.mock import Mock
     import backend.recordings.studio_render as module
@@ -685,9 +704,18 @@ def test_reference_space_is_added_only_to_a_dry_voice(tmp_path, monkeypatch, dry
         processing={},
     )
     MasterRender._finish_voice(render)
-    assert apply.call_count == int(dry)
+    apply.assert_called_once_with(
+        render.renderer,
+        balanced,
+        balanced,
+        balanced,
+        target,
+        render.cancel,
+        full_reference=balanced,
+    )
     assert render.balanced == balanced
     assert balanced.read_bytes() == b"balanced voice"
-    assert render.processing["space"] == ("matched" if dry else "existing-effects-preserved")
+    assert render.processing["space"] == "matched"
+    assert render.processing["effectsApplied"] is True
     assert render.processing["voiceOutputGainDb"] == 0
     assert not target.exists()

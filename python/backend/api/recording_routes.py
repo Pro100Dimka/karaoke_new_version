@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Mapping
+from typing import Annotated, Literal, Mapping
 
 from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import Field, ValidationError
 
 from backend.analysis.domain import AnalysisResult
-from backend.domain_errors import ConflictError
+from backend.domain_errors import ConflictError, NotFoundError
 from backend.api.base_dto import ApiModel, JobRefDto
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
@@ -46,6 +46,7 @@ class RoomPerformanceDto(ApiModel):
     room_id: str = Field(min_length=1, max_length=128)
     performance_id: int = Field(ge=0)
     overall_score: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    status: Literal["pending", "complete", "unavailable"] | None = None
 
 
 class RecordingDto(ApiModel):
@@ -67,6 +68,7 @@ class RecordingDto(ApiModel):
 
 class UpdateRecordingDto(ApiModel):
     display_name: str | None = Field(default=None, max_length=300)
+    room_performance: RoomPerformanceDto | None = None
 
 
 class RecordingPageDto(ApiModel):
@@ -155,7 +157,14 @@ def get_recording(recording_id: str, app: ContainerDep) -> RecordingDto:
 def update_recording(
     recording_id: str, body: UpdateRecordingDto, app: ContainerDep
 ) -> RecordingDto:
-    return _recording(app, app.recordings.update_name.execute(recording_id, body.display_name))
+    if body.room_performance is not None:
+        return _recording(
+            app,
+            app.recordings.update.room_result(
+                recording_id, body.room_performance.model_dump(by_alias=True, exclude_none=True)
+            ),
+        )
+    return _recording(app, app.recordings.update.execute(recording_id, body.display_name))
 
 
 @router.delete("/{recording_id}", status_code=204)
@@ -203,6 +212,13 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         and isinstance(studio_master.get("sourceRecordingId"), str)
         else None
     )
+    room_performance = _room_performance(recording)
+    if source_recording_id and room_performance:
+        try:
+            source = app.recordings.get.execute(source_recording_id)
+            room_performance = _room_performance(source) or room_performance
+        except NotFoundError:
+            pass  # A preserved master remains readable after deleting its original take.
     try:
         size_bytes = recording.file_path.stat().st_size
     except OSError:
@@ -221,7 +237,7 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         analysis_status=analysis_status,
         source_recording_id=source_recording_id,
         size_bytes=size_bytes,
-        room_performance=_room_performance(recording),
+        room_performance=room_performance,
     )
 
 

@@ -1,5 +1,15 @@
 import type { RoomSongDto, SongDto } from '../../contracts/models';
 
+/** Catalog identity is separate from the exact processed project required for playback. */
+export const sameRoomSong = (
+  first: Pick<SongDto, 'sourceHash' | 'projectHash'>,
+  second: Pick<SongDto, 'sourceHash' | 'projectHash'>,
+): boolean =>
+  Boolean(
+    (first.sourceHash && first.sourceHash === second.sourceHash) ||
+    (first.projectHash && first.projectHash === second.projectHash),
+  );
+
 const asRemoteSong = (song: RoomSongDto): SongDto => ({
   id: song.songId,
   title: song.title,
@@ -27,17 +37,24 @@ export const mergeRoomLibrary = (
   const merged = new Map(localSongs.map((song) => [song.id, song]));
   for (const shared of sharedSongs) {
     if (shared.ownerParticipantId === selfParticipantId) continue;
-    const local = merged.get(shared.songId);
+    const local =
+      merged.get(shared.songId) ??
+      [...merged.values()].find((song) => sameRoomSong(song, shared));
     const sameProject = shared.projectHash
       ? local?.projectHash === shared.projectHash
       : local?.activeRevision === shared.revision;
-    if (sameProject && local?.status === 'ready') continue;
+    if (
+      local?.status === 'ready' &&
+      (sameProject || local.id !== shared.songId)
+    )
+      continue;
     if (
       !local ||
       !sameProject ||
       shared.revision > local.activeRevision ||
       local.status !== 'ready'
     ) {
+      if (local) merged.delete(local.id);
       merged.set(shared.songId, asRemoteSong(shared));
     }
   }

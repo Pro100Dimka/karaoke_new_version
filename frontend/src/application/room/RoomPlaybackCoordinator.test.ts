@@ -1,7 +1,9 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import type { ParticipantDto, RoomStateDto } from '../../contracts/models';
 import { RoomSessionController } from './RoomSessionController';
 import { RoomPlaybackCoordinator } from './RoomPlaybackCoordinator';
+
+afterEach(() => vi.useRealTimers());
 
 const room = (code = 'A'): RoomStateDto => ({
   code,
@@ -111,47 +113,76 @@ it('acknowledges the saved take and applies the server playlist selection', asyn
   expect(session.getScope()?.getRoom()?.songId).toBe('two');
 });
 
-it('publishes the analysis composite in the background and obtains a canonical saved result', async () => {
-  const { transport, session } = setup();
-  session.setSnapshot({ ...room(), songId: 'song', performanceId: 7 });
-  const playback = new RoomPlaybackCoordinator(session.getScope()!, transport);
-  const score = {
-    hitNotes: 1,
-    totalNotes: 1,
-    assessedPitchSeconds: 2,
-    pitchAccuracyPercent: 90,
-    rhythmAccuracyPercent: 60,
-    noteStabilityPercent: 30,
-  };
-  await playback.publishPerformance(7, score);
-  await playback.publishPerformance(7, score);
-  expect(transport.publishPerformance).toHaveBeenCalledOnce();
-  expect(transport.publishPerformance).toHaveBeenLastCalledWith(
-    'A',
-    7,
-    60,
-    2,
-    false,
-  );
-  transport.getRoom.mockResolvedValue({
-    ...room(),
-    performanceId: 7,
-    lastPerformanceId: 7,
-    lastPerformanceAccuracy: 84,
-  });
-  expect(await playback.finalPerformance()).toEqual({
-    roomId: 'A',
-    performanceId: 7,
-    overallScore: 84,
-  });
-  expect(transport.publishPerformance).toHaveBeenLastCalledWith(
-    'A',
-    7,
-    60,
-    2,
-    true,
-  );
-});
+it.each([false, true])(
+  'obtains a delayed canonical result for the correct take, singer=%s',
+  async (singer) => {
+    vi.useFakeTimers();
+    const { transport, session } = setup();
+    session.setSnapshot({ ...room(), songId: 'song', performanceId: 7 });
+    const playback = new RoomPlaybackCoordinator(
+      session.getScope()!,
+      transport,
+    );
+    const score = {
+      hitNotes: 1,
+      totalNotes: 1,
+      assessedPitchSeconds: 2,
+      pitchAccuracyPercent: 90,
+      rhythmAccuracyPercent: 60,
+      noteStabilityPercent: 30,
+    };
+    if (singer) {
+      await playback.publishPerformance(7, score);
+      await playback.publishPerformance(7, score);
+      expect(transport.publishPerformance).toHaveBeenCalledOnce();
+      expect(transport.publishPerformance).toHaveBeenLastCalledWith(
+        'A',
+        7,
+        60,
+        2,
+        false,
+      );
+    }
+    transport.getRoom.mockResolvedValue({
+      ...room(),
+      performanceId: 7,
+      performanceResults: { '7': { complete: false, score: null } },
+    });
+    const completion = playback.finalPerformance();
+    expect(completion?.summary).toEqual({
+      roomId: 'A',
+      performanceId: 7,
+      status: 'pending',
+    });
+    let completed = false;
+    void completion?.result.then(() => {
+      completed = true;
+    });
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(completed).toBe(false);
+    transport.getRoom.mockResolvedValue({
+      ...room(),
+      performanceId: 8,
+      lastPerformanceId: 8,
+      lastPerformanceAccuracy: 95,
+      performanceResults: { '7': { complete: true, score: 84 } },
+    });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(await completion?.result).toEqual({
+      roomId: 'A',
+      performanceId: 7,
+      overallScore: 84,
+      status: 'complete',
+    });
+    expect(transport.publishPerformance).toHaveBeenLastCalledWith(
+      'A',
+      7,
+      singer ? 60 : 0,
+      singer ? 2 : 0,
+      true,
+    );
+  },
+);
 
 it('coalesces duplicate starts within one room generation', async () => {
   const { transport, session } = setup();
@@ -256,7 +287,7 @@ it('preserves a newer server readiness snapshot over a delayed ready reply', asy
   session.setSnapshot(newer);
   pending.resolve(selectedRoom('ready'));
   await reporting;
-  expect(session.getRoom()).toBe(newer);
+  expect(session.getRoom()).toEqual(newer);
   transport.setRoomReadiness.mockResolvedValueOnce(selectedRoom('ready'));
   await playback.reportReady('song', 1);
   expect(transport.setRoomReadiness).toHaveBeenCalledTimes(2);

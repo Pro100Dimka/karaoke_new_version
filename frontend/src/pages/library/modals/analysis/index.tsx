@@ -96,11 +96,14 @@ export const PerformanceAnalysisModal = ({
 }: PerformanceAnalysisModalProps) => {
   useLocale();
   const guarded = useGuardedAction();
-  const analyzedTakeId = recordings.find((recording) => recording.id === analysis?.recordingId)
-    ?.sourceRecordingId ?? analysis?.recordingId;
+  const analyzedTakeId =
+    recordings.find((recording) => recording.id === analysis?.recordingId)
+      ?.sourceRecordingId ?? analysis?.recordingId;
   const [viewedId, setViewedId] = useState(analyzedTakeId);
   useEffect(() => setViewedId(analyzedTakeId), [analyzedTakeId]);
-  const list = analyzedTakeId ? takeList(recordings, analyzedTakeId) : recordings;
+  const list = analyzedTakeId
+    ? takeList(recordings, analyzedTakeId)
+    : recordings;
   if (!analysis && !pending && !failure) return null;
   const viewed =
     list.find(
@@ -227,25 +230,34 @@ export const PerformanceAnalysisModal = ({
                         <Typography variant="eyebrow" tone="accent">
                           {tr(
                             overallScore === undefined
-                              ? 'roomPerformanceUnavailable'
+                              ? 'roomPerformanceOverall'
                               : gradeLabel(overallScore),
                           )}
                         </Typography>
                         <Stack direction="row" gap={2} align="baseline">
                           <Typography
                             as="strong"
-                            variant="display"
+                            variant={
+                              overallScore === undefined ? 'caption' : 'display'
+                            }
                             data-role="analysis-score"
                           >
-                            {overallScore ?? '···'}
+                            {overallScore ??
+                              tr(
+                                roomPerformance?.status === 'pending'
+                                  ? 'roomPerformancePending'
+                                  : 'roomPerformanceUnavailable',
+                              )}
                           </Typography>
-                          <Typography variant="caption" tone="muted">
-                            {tr(
-                              roomPerformance
-                                ? 'roomPerformanceOverall'
-                                : 'analysisOverall',
-                            )}
-                          </Typography>
+                          {overallScore !== undefined && (
+                            <Typography variant="caption" tone="muted">
+                              {tr(
+                                roomPerformance
+                                  ? 'roomPerformanceOverall'
+                                  : 'analysisOverall',
+                              )}
+                            </Typography>
+                          )}
                         </Stack>
                         {roomPerformance && (
                           <>

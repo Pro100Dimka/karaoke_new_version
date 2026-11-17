@@ -130,7 +130,7 @@ endfunction()
 audioservice_apply_warnings(audioservice_core)
 
 if(WIN32)
-    target_link_libraries(audioservice_core PRIVATE ole32 avrt winmm ws2_32 mfplat mfreadwrite mfuuid propsys)
+    target_link_libraries(audioservice_core PRIVATE ole32 avrt winmm ws2_32 qwave mfplat mfreadwrite mfuuid propsys)
 endif()
 
 find_package(Threads REQUIRED)
