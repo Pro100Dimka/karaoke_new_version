@@ -181,6 +181,7 @@ html[data-tv-screen] body {
   text-transform: uppercase;
 }
 .lyricsRows {
+  --lyrics-active-font: calc(clamp(1.75rem, 1rem + 3.2vw, 3.25rem) * 1.5);
   --lyrics-row-height: clamp(5rem, 7vw, 7rem);
   display: flex;
   flex-direction: column;
@@ -194,8 +195,8 @@ html[data-tv-screen] body {
   gap: 0;
 }
 .lyricsRows[data-layout='credits'] {
-  --lyrics-credit-font: clamp(1.125rem, 2.25vw, 2.5rem);
-  --lyrics-row-height: calc(var(--lyrics-credit-font) * 1.5);
+  --lyrics-credit-font: var(--lyrics-active-font);
+  --lyrics-row-height: calc(var(--lyrics-credit-font) * 1.2);
   overflow: hidden;
   mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
 }
@@ -221,7 +222,7 @@ html[data-tv-screen] body {
 .lyricsRows[data-layout='credits'] .lyrics.ad-karaoke-lyrics > p {
   font-size: var(--lyrics-credit-font);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.1;
   transform: none;
   animation: none;
 }
@@ -242,7 +243,7 @@ html[data-tv-screen] body {
   display: none;
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-current {
-  font-size: calc(clamp(1.75rem, 1rem + 3.2vw, 3.25rem) * 1.5);
+  font-size: var(--lyrics-active-font);
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-next {
   color: #fff;
