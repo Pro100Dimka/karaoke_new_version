@@ -70,6 +70,13 @@ class FakeClipProcesses(ProcessRunner):
             )
         else:
             assert "-an" in command
+            assert command[command.index("-vf") + 1] == (
+                "scale=w='min(1280,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:"
+                "force_divisible_by=2,fps=fps='min(source_fps,30)'"
+            )
+            assert command[command.index("-c:v") + 1] == "libx264"
+            assert command[command.index("-pix_fmt") + 1] == "yuv420p"
+            assert command[command.index("-movflags") + 1] == "+faststart"
             shutil.copyfile(command[command.index("-i") + 1], command[-1])
         return ProcessResult(0, b"", b"")
 

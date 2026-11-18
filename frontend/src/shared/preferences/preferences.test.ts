@@ -15,6 +15,24 @@ describe('parsePreferences', () => {
       }).karaokePlaylists,
     ).toEqual([{ id: 'p', name: 'Songs', songIds: ['b', 'a'] }]);
     expect(parsePreferences({}).karaokePlaylists).toEqual([]);
+    expect(parsePreferences({})).toMatchObject({
+      karaokeLyricsLayout: 'classic',
+      karaokeLyricsLines: 2,
+    });
+    for (const layout of ['classic', 'credits', 'alternating']) {
+      expect(
+        parsePreferences({
+          karaokeLyricsLayout: layout,
+          karaokeLyricsLines: 4,
+        }),
+      ).toMatchObject({ karaokeLyricsLayout: layout, karaokeLyricsLines: 4 });
+    }
+    expect(
+      parsePreferences({
+        karaokeLyricsLayout: 'unknown',
+        karaokeLyricsLines: 99,
+      }),
+    ).toMatchObject({ karaokeLyricsLayout: 'classic', karaokeLyricsLines: 2 });
   });
   it('ignores an unsupported installer language', () => {
     vi.stubGlobal('desktop', { initialLanguage: 'de' });

@@ -57,7 +57,7 @@ export const useRoomLibrary = ({
     const { query, sort, direction, ...shared } = sharedLibraryView(room);
     setQuery(query);
     setViewFilters((current) =>
-      sameViewFilters(current, shared) ? current : shared,
+      sameViewFilters(current, shared) ? current : { ...current, ...shared },
     );
     if (
       preferences.librarySort !== sort ||

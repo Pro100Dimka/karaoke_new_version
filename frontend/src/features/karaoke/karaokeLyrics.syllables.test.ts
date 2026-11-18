@@ -57,11 +57,12 @@ describe('syllable fill', () => {
     expect(syllableProgress(saved, 1)).toBeLessThan(2 / 3);
   });
   it.each(['так', 'ТВІЙ', 'шаг', 'big'])(
-    'keeps the held part of %s on its vowel instead of its consonants',
+    'keeps the approximate hold in %s on its vowel instead of its consonants',
     (text) => {
       const saved = Object.freeze({
         ...word(text, 0, 2),
         letters: Object.freeze([...text].map((_, i) => i / text.length)),
+        lettersApproximate: true,
       });
       const vowel = [...text].findIndex((c) =>
         /[aeiouyаеёиоуыэюяіїє]/i.test(c),
@@ -98,9 +99,13 @@ describe('syllable fill', () => {
     expect(syllableProgress(saved, 0.8)).toBeLessThan(1);
   });
   it.each(['тобі', 'тоби'])(
-    'keeps measured syllable entries in %s and gives the held part to its vowel',
+    'keeps syllable entries in approximate %s and gives the held part to its vowel',
     (text) => {
-      const saved = { ...word(text, 0, 1), letters: [0, 0.08, 0.16, 0.26] };
+      const saved = {
+        ...word(text, 0, 1),
+        letters: [0, 0.08, 0.16, 0.26],
+        lettersApproximate: true,
+      };
       expect(syllableProgress(saved, 0.16)).toBeCloseTo(0.5);
       expect(syllableProgress(saved, 0.26)).toBeCloseTo(
         0.5 + (0.25 * 0.1) / 0.14,
@@ -112,7 +117,10 @@ describe('syllable fill', () => {
     },
   );
   it('keeps the held vowel active before passing the closing consonant', () => {
-    const saved = { ...word('дим', 0, 1), letters: [0, 0.1, 0.2] };
+    const measured = { ...word('дим', 0, 1), letters: [0, 0.1, 0.2] };
+    expect(syllableProgress(measured, 0.2)).toBeCloseTo(2 / 3);
+    expect(syllableProgress(measured, 0.6)).toBeCloseTo(5 / 6);
+    const saved = { ...measured, lettersApproximate: true };
     expect(syllableProgress(saved, 0.2)).toBeCloseTo(1 / 3 + 0.06 / 0.72 / 3);
     expect(syllableProgress(saved, 0.6)).toBeCloseTo(1 / 3 + 0.46 / 0.72 / 3);
     expect(syllableProgress(saved, 0.94)).toBeGreaterThan(2 / 3);
@@ -155,6 +163,7 @@ describe('syllable fill', () => {
       const saved = Object.freeze({
         ...word(text, 0, end),
         letters: Object.freeze(letters.map((t) => t / end)),
+        lettersApproximate: true,
       });
       const geometry = [...text].map(
         (_, i) => [i / text.length, (i + 1) / text.length] as const,
@@ -179,6 +188,7 @@ it('does not flash the last half of a syllable when CTC puts its vowel at the wo
   const saved = Object.freeze({
     ...word('me', 0, 0.6),
     letters: Object.freeze([0, 0.58 / 0.6]),
+    lettersApproximate: true,
   });
   expect(syllableProgress(saved, 0.14)).toBeCloseTo(0.5);
   expect(syllableProgress(saved, 0.3)).toBeCloseTo(0.5 + (0.5 * 0.16) / 0.46);

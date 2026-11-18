@@ -1867,6 +1867,24 @@ def test_alignment_uses_the_more_complete_independent_audio_view(monkeypatch):
     assert heard == complete
     assert len(calls) == 2
 
+    prefix = payload(complete[:split])
+    ending = {**payload(complete[split:], offset), "startSeconds": offset}
+    for alternatives in [(prefix, ending), (ending, prefix)]:
+        recognition = {
+            **payload([*complete[:1], *complete[2:split]]),
+            "alternatives": list(alternatives),
+        }
+        _, _, heard = speech._alignment_evidence(
+            Path("vocals.wav"),
+            np.ones(160),
+            "Ukrainian",
+            "\n".join(case["expected"]),
+            np.ones(160),
+            recognition=recognition,
+        )
+        assert heard == complete, "an ending must retain the strongest preceding audio view"
+        assert len(calls) == 2
+
 
 @pytest.mark.parametrize("target", ["cpu", "cuda"])
 def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkeypatch, target):
@@ -2017,6 +2035,11 @@ def test_a_genuine_long_vowel_follows_audio_without_a_duration_ceiling() -> None
 
     assert stretched[0].end == pytest.approx(12.0, abs=0.05)
     assert stretched[0].letters == words[0].letters
+    samples = np.zeros(13 * _RATE, np.float32)
+    samples[_RATE : 12 * _RATE] = 0.4 * np.sin(2 * np.pi * 220 * np.arange(11 * _RATE) / _RATE)
+    samples[2 * _RATE :] *= 0.05
+    quiet = with_sung_ends(words, samples)
+    assert quiet[0].end == pytest.approx(12.0, abs=0.05), "a quiet harmonic hold is not a release"
 
 
 def test_actual_final_word_releases_untranscribed_instrumental_outro() -> None:
@@ -2062,6 +2085,38 @@ def test_actual_phrase_end_does_not_follow_a_different_instrumental_source(case_
     assert timed.end + offset >= case["independentVoiceCoreEnd"]
     assert timed.end + offset < case["beforeUnrelatedMelody"]
     assert timed.start == word.start
+
+    with np.load(Path(__file__).with_name("fixtures") / "sung-repeat-bounds.npz") as fixture:
+        case = json.loads(str(fixture["metadata"]))["endings"][case_index]
+        offset = case["offset"]
+        source = case["word"]
+        word = AlignedWord(
+            source["text"],
+            source["start"] - offset,
+            source["end"] - offset,
+            tuple(t - offset for t in source["letters"]),
+            source["score"],
+        )
+        following = case["following"]
+        neighbour = AlignedWord(
+            following["text"],
+            following["start"] - offset,
+            following["end"] - offset,
+            tuple(t - offset for t in following["letters"]),
+        )
+        prefix = f"end{case_index}_"
+        result = with_sung_ends(
+            [word, neighbour],
+            fixture[prefix + "vocal"],
+            instrumental=fixture[prefix + "backing"],
+            voiced=fixture[prefix + "activity"],
+            harmonics=(fixture[prefix + "envelope"], fixture[prefix + "periodicity"]),
+            audible=fixture[prefix + "audible"],
+            periodicity=fixture[prefix + "periodicity"],
+        )[0]
+    assert result.end + offset < case["releaseCheckBefore"]
+    assert result.end >= round(word.end, 3), "the confirmed terminal consonant remains intact"
+    assert result.letters == word.letters
 
 
 @pytest.mark.parametrize("quiet", [False, True])
@@ -3371,6 +3426,9 @@ def test_a_word_correction_cannot_collapse_its_neighbour_to_a_tied_start(
     import torch
     from backend.ai_worker import ctc
     from backend.ai_worker.word_guidance import with_word_guidance
+    import json
+
+    align_window = ctc._align_window
 
     words = [
         AlignedWord(text, start, start + 0.3, (start,), 0.01)
@@ -3395,6 +3453,43 @@ def test_a_word_correction_cannot_collapse_its_neighbour_to_a_tied_start(
     )
 
     assert result == words
+
+    monkeypatch.setattr(ctc, "_align_window", align_window)
+    with np.load(Path(__file__).with_name("fixtures") / "sung-repeat-bounds.npz") as fixture:
+        case = json.loads(str(fixture["metadata"]))
+        original = [
+            AlignedWord(
+                **{
+                    **word,
+                    "letters": tuple(word["letters"]),
+                    "diagnostics": tuple(word["diagnostics"]),
+                }
+            )
+            for word in case["words"]
+        ]
+        corrected = ordered(
+            with_word_guidance(
+                original,
+                torch.from_numpy(fixture["scores"]),
+                case["step"],
+                [ctc.Window(**window) for window in case["windows"]],
+                {int(index): tuple(bounds) for index, bounds in case["heard"].items()},
+                fixture["voiced"],
+                case["margin"],
+                recognized=case["recognized"],
+                alternatives=case["alternatives"],
+                onsets=case["onsets"],
+            )
+        )
+    word = corrected[case["targetIndex"]]
+    assert word.start == pytest.approx(original[case["targetIndex"]].start, abs=0.1)
+    assert len(corrected) == len(original)
+    assert all(start < end for start, end in zip(word.letters, (*word.letters[1:], word.end)))
+    assert "ApproximateLetterTiming" not in word.diagnostics
+    assert all(
+        corrected[index].start < case["heard"][str(index)][1] + case["margin"]
+        for index in range(case["targetIndex"], len(corrected))
+    ), "repairing one suffix must not move its following repeats into the last occurrence"
 
 
 @pytest.mark.parametrize("prefix", ["overlap", "uncertain"])

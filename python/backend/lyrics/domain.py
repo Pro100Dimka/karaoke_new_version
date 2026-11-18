@@ -53,8 +53,11 @@ class Word:
     notes: Sequence[Note]
     # Start time of every character of ``text``, for highlighting the sung letter; may be empty.
     letters: Sequence[float] = ()
+    letters_approximate: bool = False
 
     def validate(self) -> None:
+        if not isinstance(self.letters_approximate, bool):
+            raise ValueError("Letter timing quality must be boolean")
         if not 0 <= self.start < self.end or not isfinite(self.end):
             raise ValueError("Word timing must be finite, nonnegative and have positive duration")
         if self.letters and len(self.letters) != len(self.text):

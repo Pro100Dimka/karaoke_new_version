@@ -51,7 +51,7 @@ export const ukLibrary = {
   'library.search.status': 'Статус',
   'library.search.language': 'Мова',
   'library.search.duration': 'Тривалість',
-  'library.search.artwork': 'Обкладинка',
+  'library.search.playlist': 'Плейлист',
   'library.search.all': 'Усі',
   'library.search.recent': 'Дата додавання',
   'library.search.title': 'Назва',

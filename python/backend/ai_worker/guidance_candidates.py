@@ -138,22 +138,47 @@ def _recognized_cores(
     onsets: Sequence[float] = (),
     reviewed: frozenset[int] = frozenset(),
 ) -> list[tuple[int, ctc.AlignedWord, tuple[float, float]]]:
-    return [
-        (index, candidate, interval)
-        for index in range(window.first, window.last)
-        if (interval := heard.get(index)) is not None
-        for candidate in _candidates(
-            words[index],
+    result: list[tuple[int, ctc.AlignedWord, tuple[float, float]]] = []
+    for index in range(window.first, window.last):
+        interval = heard.get(index)
+        if interval is None:
+            continue
+        following = heard.get(index + 1)
+        word = words[index]
+        crossed = _crosses_recognized_word(word, interval, following, margin)
+        candidates = _candidates(
+            word,
             scores,
             frame_seconds,
-            window,
+            replace(window, start=max(window.start, word.start)) if crossed else window,
             interval,
             voiced,
             margin,
             onsets,
-            review=index in reviewed,
+            review=index in reviewed or crossed,
         )
-    ]
+        result.extend((index, candidate, interval) for candidate in candidates)
+    return result
+
+
+def _crosses_recognized_word(
+    word: ctc.AlignedWord,
+    interval: tuple[float, float],
+    following: tuple[float, float] | None,
+    margin: float,
+) -> bool:
+    # A correct opening cannot validate suffix letters borrowed from a later repeat.
+    return (
+        following is not None
+        and interval[0] - margin <= word.start < interval[1]
+        and interval[1] <= following[0]
+        and any(
+            char.isalnum()
+            and char.casefold() not in "ьъ"
+            and moment > following[0] + ctc._HEARD_DISAGREEMENT_SECONDS
+            for char, moment in zip(word.text, word.letters)
+        )
+    )
 
 
 def _unrecognized_runs(

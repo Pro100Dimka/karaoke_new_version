@@ -33,6 +33,7 @@ import {
   type LyricLine,
 } from './karaokeLyrics';
 import type { KaraokeNoteScore, PitchFrame } from '../../contracts/models';
+import type { Preferences } from '../../shared/preferences/preferences';
 import { RollFx, StageFx, useShowEngine } from './show/ShowLayers';
 import type { ShowEngine } from './show/showEngine';
 
@@ -88,11 +89,13 @@ const PianoRoll = observer(
       () => pitchRange(notes, vocalRange),
       [notes, vocalRange],
     );
-    const hidden = !previewReady || !notes.some(
-      (note) =>
-        note.end >= position - span * rollLead &&
-        note.start <= position + span * (1 - rollLead),
-    );
+    const hidden =
+      !previewReady ||
+      !notes.some(
+        (note) =>
+          note.end >= position - span * rollLead &&
+          note.start <= position + span * (1 - rollLead),
+      );
     const frameRef = useRef<HTMLDivElement>(null);
     const panel = useDetachedPanel(
       'pianoRoll',
@@ -214,22 +217,88 @@ const PianoRoll = observer(
   },
 );
 
-/** The two lines on screen: the one being sung fills word by word and breathes with the drums; the next waits below. */
+/** The same timed lines support a fixed preview, scrolling credits and alternating slots. */
 const Lyrics = ({
   position,
-  shown,
+  lines,
+  lineIndex,
+  layout,
+  lineCount,
   phase,
   reducedMotion,
   font,
 }: {
   position: number;
-  shown: readonly (LyricLine | undefined)[];
+  lines: readonly LyricLine[];
+  lineIndex: number;
+  layout: Preferences['karaokeLyricsLayout'];
+  lineCount: number;
   phase: LineDisplayPhase;
   reducedMotion: boolean;
   font: string;
 }) => {
   useLocale();
-  const [current, next] = shown;
+  const current = lines[lineIndex];
+  const count = layout === 'alternating' ? 2 : lineCount;
+  // The credits camera follows musical time, independently of the highlighted row.
+  const nextScroll = lines.findIndex((line) => line.start > position);
+  const scrollIndex = Math.max(
+    0,
+    (nextScroll < 0 ? lines.length : nextScroll) - 1,
+  );
+  const scrollLine = lines[scrollIndex];
+  const scrollEnd =
+    lines[scrollIndex + 1]?.start ?? scrollLine?.end ?? position;
+  const scroll =
+    scrollIndex +
+    Math.max(
+      0,
+      Math.min(
+        1,
+        (position - (scrollLine?.start ?? position)) /
+          Math.max(0.001, scrollEnd - (scrollLine?.start ?? position)),
+      ),
+    );
+  const rows = useMemo(() => {
+    const before = layout === 'credits' ? Math.floor(count / 2) : 0;
+    const firstRow =
+      layout === 'credits' ? scrollIndex - before - 1 : lineIndex;
+    return Array.from(
+      { length: count + (layout === 'credits' ? 2 : 0) },
+      (_, slot) => {
+        const index = firstRow + slot;
+        const line = lines[index];
+        if (!line || !current) return [];
+        const first = Math.min(index, lineIndex);
+        const last = Math.max(index, lineIndex);
+        if (
+          lines
+            .slice(first, last)
+            .some(
+              (left, offset) =>
+                (lines[first + offset + 1]?.start ?? Infinity) - left.end >
+                lyricSilenceSeconds,
+            )
+        )
+          return [];
+        return [
+          {
+            line,
+            active: index === lineIndex,
+            slot:
+              layout === 'alternating'
+                ? index % 2
+                : index -
+                  (layout === 'credits' ? scrollIndex - before : lineIndex),
+          },
+        ];
+      },
+    ).flat();
+  }, [lines, current, lineIndex, layout, count, scrollIndex]);
+  const previews = useMemo(
+    () => rows.filter((row) => !row.active).flatMap((row) => row.line.words),
+    [rows],
+  );
   // Preview from "3"; saved word times keep the text unfilled until singing starts.
   const { countdown } = phase;
   const textVisible =
@@ -241,7 +310,7 @@ const Lyrics = ({
     position,
     font,
     syllableProgress,
-    textVisible ? (next?.words ?? noWords) : noWords,
+    textVisible ? previews : noWords,
   );
   return (
     <>
@@ -257,17 +326,44 @@ const Lyrics = ({
       <div
         className="lyricsPanel"
         hidden={!textVisible}
-        style={{ opacity: phase.kind === 'countdown' ? 1 : (phase.opacity ?? 1) }}
+        style={{
+          opacity: phase.kind === 'countdown' ? 1 : (phase.opacity ?? 1),
+        }}
       >
-        <KaraokeLyrics
+        <div
           id={id}
-          className="lyrics"
+          className="lyricsRows"
+          data-layout={layout}
           data-reduced-motion={reducedMotion || undefined}
-          current={textVisible ? (current?.words ?? noWords) : noWords}
-          next={textVisible ? (next?.words ?? noWords) : noWords}
-          currentKey={current?.start}
-          nextKey={next?.start}
-        />
+          style={{
+            height:
+              layout === 'credits'
+                ? `calc(${count} * var(--lyrics-row-height))`
+                : undefined,
+          }}
+        >
+          {textVisible &&
+            rows.map(({ line, active, slot }) => (
+              <KaraokeLyrics
+                key={line.start}
+                className="lyrics"
+                data-lyric-row=""
+                data-reduced-motion={reducedMotion || undefined}
+                data-slot={slot}
+                style={{
+                  order: slot,
+                  transform:
+                    layout === 'credits'
+                      ? `translateY(${(slot - (scroll - scrollIndex)) * 100}%)`
+                      : undefined,
+                }}
+                current={active ? line.words : noWords}
+                next={active ? noWords : line.words}
+                currentKey={`${line.start}-current-${active}`}
+                nextKey={`${line.start}-next-${active}`}
+              />
+            ))}
+        </div>
       </div>
     </>
   );
@@ -308,16 +404,11 @@ export const KaraokeStage = observer(
       [document],
     );
     const lineIndex = currentLineIndex(lines, position);
-    const current = lines[lineIndex];
-    const next = lines[lineIndex + 1];
-    const preview =
-      current && next && next.start - current.end <= lyricSilenceSeconds
-        ? next
-        : undefined;
-    const shown = [current, preview];
     const phase = upcomingLinePhase(lines, lineIndex, position);
     const showNotes = useMemo(() => {
-      const words = new Set(lines.flatMap((line) => line.words.map((word) => word.id)));
+      const words = new Set(
+        lines.flatMap((line) => line.words.map((word) => word.id)),
+      );
       return (document?.notes ?? [])
         .filter((note) => words.has(note.wordId))
         .map((note) => ({
@@ -384,7 +475,10 @@ export const KaraokeStage = observer(
           {showLyrics && (
             <Lyrics
               position={position}
-              shown={shown}
+              lines={lines}
+              lineIndex={lineIndex}
+              layout={preferences.karaokeLyricsLayout}
+              lineCount={preferences.karaokeLyricsLines}
               phase={phase}
               reducedMotion={reducedMotion}
               font={preferences.headingFont}

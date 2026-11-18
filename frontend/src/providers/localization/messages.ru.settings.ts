@@ -1,6 +1,11 @@
 import type { enSettings } from './messages.en.settings';
 
 export const ruSettings = {
+  karaokeLyricsLayout: 'Движение текста караоке',
+  'karaokeLyricsLayout.classic': 'Обычный',
+  'karaokeLyricsLayout.credits': 'Прокрутка как титры',
+  'karaokeLyricsLayout.alternating': 'Чередование двух строк',
+  karaokeLyricsLines: 'Строк на экране',
   errorProcessingNotConfigured:
     'Укажите ключ доступа к обработке в настройках ENV.',
   errorProcessingAccessDenied: 'Сервер отклонил ключ доступа к обработке.',

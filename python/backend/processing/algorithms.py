@@ -130,7 +130,16 @@ def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequ
         if note.end - note.start > 1e-8
         and any(_has_pitch(point) and note.start <= point.time < note.end for point in points)
     )
-    return Word(word.text, word.start, word.end, measured, word.letters)
+    return Word(
+        word.text,
+        word.start,
+        word.end,
+        measured,
+        word.letters,
+        bool(
+            {"ApproximateLetterTiming", "LetterTimingReviewRequired"}.intersection(word.diagnostics)
+        ),
+    )
 
 
 def _vocal_activity(

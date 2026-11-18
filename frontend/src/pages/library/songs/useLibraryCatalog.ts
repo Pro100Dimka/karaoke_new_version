@@ -44,11 +44,16 @@ export const useLibraryCatalog = (
     }),
     [viewFilters, preferences.librarySort, preferences.librarySortDirection],
   );
-  const completeCatalog = !!room || selecting || filters.sort === 'played';
-  const serverFilter = useMemo(
-    () => ({ ...filters, query: deferredQuery }),
-    [filters, deferredQuery],
+  const playlist = preferences.karaokePlaylists.find(
+    (item) => item.id === filters.playlist,
   );
+  const completeCatalog =
+    !!room || selecting || filters.sort === 'played' || !!playlist;
+  const serverFilter = useMemo(() => {
+    // Playlist membership is local; keep the existing server search contract.
+    const { playlist: _playlist, ...search } = filters;
+    return { ...search, artwork: 'all' as const, query: deferredQuery };
+  }, [filters, deferredQuery]);
   const client = useQueryClient();
   const { pythonEpoch } = store.application.services;
   const { jobs } = useJobs();
@@ -123,13 +128,19 @@ export const useLibraryCatalog = (
   const visibleSongs = useMemo(
     () =>
       completeCatalog
-        ? selectLibrarySongs(songs, serverFilter, played)
+        ? selectLibrarySongs(
+            playlist
+              ? songs.filter((song) => playlist.songIds.includes(song.id))
+              : songs,
+            serverFilter,
+            played,
+          )
         : serverFilter.sort === 'recent'
           ? [...songs].sort((a, b) =>
               compareAddedSongs(a, b, serverFilter.direction),
             )
           : songs,
-    [songs, completeCatalog, serverFilter, played],
+    [songs, completeCatalog, serverFilter, played, playlist],
   );
 
   return {

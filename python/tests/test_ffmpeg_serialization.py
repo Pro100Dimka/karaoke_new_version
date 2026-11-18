@@ -130,6 +130,28 @@ def test_lyrics_document_serialization_round_trip() -> None:
         (Word("la", 0.0, 1.0, (Note(69, 0.1, 0.9),)),),
     )
     assert decode_document(encode_document(document)) == document
+    from backend.ai.domain import WordTiming
+    from backend.api.song_dto import lyrics_document, lyrics_document_dto
+    from backend.processing.algorithms import construct_document, MusicMetadata
+
+    approximate = construct_document(
+        "Title",
+        "Artist",
+        1.0,
+        "la",
+        [WordTiming("la", 0.0, 1.0, 0.8, (0.0, 0.2), ("ApproximateLetterTiming",))],
+        [],
+        MusicMetadata(None, None),
+    )
+    assert getattr(approximate.words[0], "letters_approximate", False)
+    assert decode_document(encode_document(approximate)) == approximate
+    dto = lyrics_document_dto(approximate)
+    assert dto.model_dump(by_alias=True)["words"][0]["lettersApproximate"] is True
+    assert lyrics_document(dto) == approximate
+    assert (
+        "lettersApproximate"
+        not in lyrics_document_dto(document).model_dump(by_alias=True)["words"][0]
+    )
 
 
 def test_canonical_json_preserves_unicode_and_utc_timestamp() -> None:

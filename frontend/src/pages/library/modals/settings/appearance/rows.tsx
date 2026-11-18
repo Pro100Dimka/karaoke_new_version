@@ -314,6 +314,45 @@ export const AppearanceFields = observer(
                     </Grid>
                   ))}
                   <Grid
+                    span={{ base: 'full', sm: 6 }}
+                    className="ad-form-field"
+                  >
+                    <Select
+                      label={tr('karaokeLyricsLayout')}
+                      value={p.karaokeLyricsLayout}
+                      options={(
+                        ['classic', 'credits', 'alternating'] as const
+                      ).map((value) => ({
+                        value,
+                        label: tr(`karaokeLyricsLayout.${value}`),
+                      }))}
+                      onValueChange={(value) =>
+                        update('karaokeLyricsLayout', value)
+                      }
+                    />
+                  </Grid>
+                  <Grid
+                    span={{ base: 'full', sm: 6 }}
+                    className="ad-form-field"
+                  >
+                    <Select
+                      label={tr('karaokeLyricsLines')}
+                      value={
+                        p.karaokeLyricsLayout === 'alternating'
+                          ? 2
+                          : p.karaokeLyricsLines
+                      }
+                      disabled={p.karaokeLyricsLayout === 'alternating'}
+                      options={[1, 2, 3, 4].map((value) => ({
+                        value,
+                        label: String(value),
+                      }))}
+                      onValueChange={(value) =>
+                        update('karaokeLyricsLines', value)
+                      }
+                    />
+                  </Grid>
+                  <Grid
                     span={{ base: 'full', sm: 4 }}
                     className="ad-form-field"
                   >

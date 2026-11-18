@@ -62,24 +62,25 @@ export const useLyricFill = (
   useLayoutEffect(() => {
     const observeLine = () => {
       const root = host.document.getElementById(id);
-      const line = root?.querySelector<HTMLElement>('.ad-lyrics-current');
+      const line = root?.querySelector<HTMLElement>(
+        '.ad-lyrics-current:not(:empty)',
+      );
       if (!root || !line) return;
       let width = 0;
       const measure = () => {
         width = root.clientWidth;
         if (!width) return;
-        for (const [selector, minimum] of [
-          ['.ad-lyrics-current', 24],
-          ['.ad-lyrics-next', 18],
-        ] as const) {
-          const row = root.querySelector<HTMLElement>(selector);
-          if (!row) continue;
+        for (const row of root.querySelectorAll<HTMLElement>(
+          '.ad-lyrics-current:not(:empty), .ad-lyrics-next:not(:empty)',
+        )) {
+          const minimum = row.matches('.ad-lyrics-current') ? 24 : 18;
           row.style.removeProperty('font-size');
           row.style.whiteSpace = 'nowrap';
           row.style.textAlign = 'left';
           const base = parseFloat(host.getComputedStyle(row).fontSize);
           const natural = row.scrollWidth;
-          const fitted = natural > width ? base * (width - 2) / natural : base;
+          const fitted =
+            natural > width ? (base * (width - 2)) / natural : base;
           const size = Math.max(Math.min(base, minimum), fitted);
           row.style.fontSize = `${size}px`;
           row.style.whiteSpace = fitted < size ? 'normal' : 'nowrap';

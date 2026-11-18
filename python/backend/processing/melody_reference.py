@@ -16,8 +16,8 @@ _PEAK_AMPLITUDE = 0.5
 class RenderMelodyReference:
     """Synthesizes a listen-only audio rendering of a document's own notes, so the melody the pipeline
     extracted can be heard by ear the same way the reference vocal already can. AudioService mixes the
-    result in as a monitor-only source (never the performance-mix recording tap), so the timbre only
-    needs to carry pitch clearly, not sound musical."""
+    result in as a monitor-only source, never the performance-mix recording tap. A soft piano-like
+    attack and decaying harmonics keep the guide comfortable without changing its notes."""
 
     def run(self, document: LyricsDocument, workspace: Path) -> Path:
         total_frames = max(1, round(document.duration * _SAMPLE_RATE_HZ))
@@ -38,7 +38,17 @@ def _add_note(mix: np.ndarray, midi_note: int, start_seconds: float, end_seconds
         return
     frequency_hz = 440.0 * (2.0 ** ((midi_note - 69) / 12.0))
     time_seconds = np.arange(frame_count, dtype=np.float32) / _SAMPLE_RATE_HZ
-    tone = np.sin(2.0 * np.pi * frequency_hz * time_seconds).astype(np.float32)
+    phase = 2.0 * np.pi * frequency_hz * time_seconds
+    tone = np.zeros(frame_count, dtype=np.float32)
+    for harmonic, strength, decay in [
+        (1, 1.0, 1.8),
+        (2, 0.22, 0.7),
+        (3, 0.08, 0.35),
+        (4, 0.03, 0.2),
+    ]:
+        if harmonic * frequency_hz < _SAMPLE_RATE_HZ / 2:
+            tone += strength * np.exp(-time_seconds / decay) * np.sin(harmonic * phase)
+    tone /= 1.33
     # A hard note-boundary edge clicks; a short linear fade at each end makes consecutive notes audible
     # as distinct pitches instead of one continuous buzz.
     fade_frames = min(round(_FADE_SECONDS * _SAMPLE_RATE_HZ), frame_count // 2)

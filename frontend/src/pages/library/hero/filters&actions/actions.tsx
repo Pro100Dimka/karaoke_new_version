@@ -63,6 +63,7 @@ const LibraryActions = observer((props: LibraryActionsProps) => {
       <LibrarySearchField
         query={query}
         filters={filters}
+        playlists={store.preferences.karaokePlaylists}
         locked={locked}
         onQueryChange={changeQuery}
         onFiltersApply={applyFilters}

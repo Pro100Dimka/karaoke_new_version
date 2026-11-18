@@ -187,3 +187,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.songCard .songDeleteAction.ad-icon-button {
+  color: var(--ad-muted);
+  opacity: 0.65;
+}
+.songCard .songDeleteAction.ad-icon-button:is(:hover, :focus-visible) {
+  color: var(--ad-danger);
+  opacity: 1;
+}

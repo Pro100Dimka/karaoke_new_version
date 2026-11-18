@@ -155,7 +155,7 @@ export class StageFxRenderer {
     };
     const consoleCard = box('.karaokeConsoleCard');
     this.layout.anchors = {
-      lyrics: box('.ad-lyrics-current'),
+      lyrics: box('.ad-lyrics-current:not(:empty)'),
       roll: box('.pianoRoll .ad-melody-roll-lane'),
       rollPanel: box(':scope > .pianoRoll'),
       consoleVisible: Boolean(
@@ -265,7 +265,7 @@ export class StageFxRenderer {
     this.setStyle(
       '--show-music-beat',
       (beat * 0.4).toFixed(5),
-      '.ad-lyrics-current',
+      '.ad-lyrics-current:not(:empty)',
     );
     this.setStyle(
       '--show-console-glow',

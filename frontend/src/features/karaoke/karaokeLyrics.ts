@@ -14,7 +14,6 @@ export interface LyricLine {
 const maxWordsPerLine = 8;
 export const lyricSilenceSeconds = 3;
 
-/** Number of words on each written line, or null when the lyrics do not split into exactly these words. */
 const writtenLineSizes = (
   lyrics: string | undefined,
   wordCount: number,
@@ -64,12 +63,6 @@ const groupWords = (
   return lines;
 };
 
-/**
- * Written rows are upper bounds: a half-beat breath, or a shorter breath after
- * punctuation, also begins a phrase. Continuous singing is never split by punctuation alone.
- * Only boundaries between words are used, so held vowels and their notes stay intact.
- * The same phrases feed lyrics and the piano roll; persisted words/timings remain untouched.
- */
 export const buildLines = (
   words: readonly EditorWord[],
   lyrics?: string,
@@ -94,7 +87,6 @@ export const buildLines = (
         activity.some(([start, end]) => start < line.end && end > line.start),
     );
 
-/** Holds the finished line briefly, then points at the upcoming one; -1 without lyrics. */
 export const currentLineIndex = (
   lines: readonly LyricLine[],
   position: number,
@@ -124,10 +116,6 @@ export interface LineDisplayPhase {
   countdown?: number;
 }
 
-/**
- * Counts down alone after a long gap, then gives the singer time to read before entry.
- * Ordinary short gaps retain their text without a countdown.
- */
 export const upcomingLinePhase = (
   lines: readonly LyricLine[],
   lineIndex: number,
@@ -176,7 +164,6 @@ const spokenIndices = (text: string): number[] =>
     .map((character, index) => (silentCharacter.test(character) ? -1 : index))
     .filter((index) => index >= 0);
 
-/** Convert a phonetic interval to the actual glyph width; spacing and punctuation are untimed. */
 const glyphProgress = (
   text: string,
   indices: readonly number[],
@@ -201,7 +188,6 @@ const consonantSeconds = 0.07;
 const consonantSweepSeconds = 0.14;
 const consonantShareLimit = 0.4;
 
-/** Seconds each character takes: consonants are brief, the vowels share the rest, so a held "друууууг" lingers on the vowel. */
 const characterSeconds = (
   text: string,
   duration: number,
@@ -229,10 +215,6 @@ const characterSeconds = (
   );
 };
 
-/**
- * Fraction of the word's text (0..1) that has been sung, using the saved word and letter boundaries.
- * Without letter timings the consonant/vowel distribution is approximate; it never changes the word's bounds.
- */
 export const letterProgress = (
   word: EditorWord,
   position: number,
@@ -264,12 +246,6 @@ export const letterProgress = (
   return 1;
 };
 
-/**
- * The letters array has one measured start time per character of the word's text (including punctuation,
- * which the backend times the same way it times every character, even though it never actually sounds).
- * Punctuation, whitespace and silent signs are skipped as independent sounds. Otherwise a trailing
- * period or ь can claim the final interval while the preceding sounding group is still active.
- */
 const timedLetterProgress = (
   starts: readonly number[],
   text: string,
@@ -304,7 +280,6 @@ const timedLetterProgress = (
   );
 };
 
-/** Preserve syllable entries, passing consonants briefly and holding the vowel. */
 export const syllableProgress = (
   word: EditorWord,
   position: number,
@@ -321,6 +296,23 @@ export const syllableProgress = (
     )
   )
     return (position - word.start) / (word.end - word.start);
+  const starts = word.letters ?? [];
+  const hasAnchors = (points: readonly number[]) =>
+    points.every((index, i) => {
+      const at = starts[index];
+      return (
+        at !== undefined &&
+        at >= 0 &&
+        at < 1 &&
+        (i === 0 || at > (starts[points[i - 1] ?? 0] ?? 0))
+      );
+    });
+  if (
+    !word.lettersApproximate &&
+    starts.length === characters.length &&
+    hasAnchors(indices)
+  )
+    return letterProgress(word, position, geometry);
   const nuclei = indices.flatMap((index, i) =>
     vowels.test(characters[index] ?? '') ? [i] : [],
   );
@@ -328,7 +320,10 @@ export const syllableProgress = (
     return letterProgress(
       {
         ...word,
-        end: Math.min(word.end, word.start + consonantSweepSeconds * indices.length),
+        end: Math.min(
+          word.end,
+          word.start + consonantSweepSeconds * indices.length,
+        ),
         letters: undefined,
       },
       position,
@@ -346,18 +341,7 @@ export const syllableProgress = (
       onset++;
     groups.push(indices[onset] ?? 0);
   }
-  const starts = word.letters ?? [];
-  const measured =
-    starts.length > 0 &&
-    groups.every((index, i) => {
-      const at = starts[index];
-      return (
-        at !== undefined &&
-        at >= 0 &&
-        at < 1 &&
-        (i === 0 || at > (starts[groups[i - 1] ?? 0] ?? 0))
-      );
-    });
+  const measured = hasAnchors(groups);
   // Missing or collapsed syllable anchors cannot define a separate visual interval.
   const duration = word.end - word.start;
   const boundaries = measured ? groups : [indices[0] ?? 0];
@@ -367,23 +351,26 @@ export const syllableProgress = (
     const begin = measured ? (starts[first] ?? 0) : 0;
     const end = last === undefined ? 1 : (starts[last] ?? 1);
     const text = characters.slice(first, last).join('');
-    const seconds = characterSeconds(text, (end - begin) * duration, consonantSweepSeconds);
+    const seconds = characterSeconds(
+      text,
+      (end - begin) * duration,
+      consonantSweepSeconds,
+    );
     let at = begin;
     for (const [index, local] of spokenIndices(text).entries()) {
       phonetic[first + local] = at;
       at += (seconds[index] ?? 0) / duration;
     }
   }
-  const layout =
-    geometry ??
-    characters.map(
-      (_, i) => [i / characters.length, (i + 1) / characters.length] as const,
-    );
   return timedLetterProgress(
     phonetic,
     word.text,
-    (position - word.start) / (word.end - word.start),
-    layout,
+    (position - word.start) / duration,
+    geometry ??
+      characters.map((_, i) => [
+        i / characters.length,
+        (i + 1) / characters.length,
+      ]),
   );
 };
 
@@ -398,7 +385,6 @@ interface PitchRange {
   max: number;
 }
 
-/** Vertical range for the piano roll; a display choice only, it never alters audio. */
 export const pitchRange = (
   notes: readonly EditorNote[],
   range: VocalRange,
@@ -416,7 +402,6 @@ export const pitchRange = (
   };
 };
 
-/** Converts a detected frequency to a fractional MIDI note so pitch distance is measured musically. */
 export const pitchHzToMidi = (
   pitchHz: number | undefined,
 ): number | undefined =>
@@ -424,7 +409,6 @@ export const pitchHzToMidi = (
     ? 69 + 12 * Math.log2(pitchHz / 440)
     : undefined;
 
-/** The revision's measured target; note edits carry the contour with them. */
 export const targetPitchAt = (
   note: Pick<EditorNote, 'start' | 'end' | 'pitch' | 'contour'>,
   position: number,
@@ -455,7 +439,6 @@ export const targetPitchAt = (
   return note.pitch + left[1] + (right[1] - left[1]) * weight;
 };
 
-/** Only reliable parts of the saved contour can require a pitch hit. */
 export const scorableNoteDuration = (
   note: Pick<EditorNote, 'start' | 'end' | 'contour'>,
 ): number => {
@@ -473,19 +456,13 @@ export const scorableNoteDuration = (
   return Math.max(0, note.end - note.start) * fraction;
 };
 
-/** A full semitone is forgiving enough for ordinary karaoke singing while still rejecting the adjacent note. */
 export const karaokePitchToleranceSemitones = 1;
 
-/** Weak periodicity is an uncertain measurement, not evidence of a wrong sung note. */
 export const reliablePitchHz = (
   pitchHz: number | undefined,
   confidence = 1,
 ): number | undefined => (confidence >= 0.8 ? pitchHz : undefined);
 
-/**
- * Pitch proximity in the 0..1 range across the practical karaoke tolerance; exact pitch is 1.
- * Keeping this continuous lets the live marker become greener as the singer approaches the target.
- */
 export const pitchAccuracy = (
   pitchHz: number | undefined,
   targetMidi: number | undefined,
@@ -498,7 +475,6 @@ export const pitchAccuracy = (
   );
 };
 
-/** A voiced sample counts as matching while it stays within the practical karaoke tolerance. */
 export const pitchMatchesTarget = (
   pitchHz: number | undefined,
   targetMidi: number,
@@ -510,7 +486,6 @@ export const pitchMatchesTarget = (
   );
 };
 
-/** A note is awarded after accurate voice covers at least half of its full duration. */
 export const noteHitReached = (
   matchedSeconds: number,
   durationSeconds: number,

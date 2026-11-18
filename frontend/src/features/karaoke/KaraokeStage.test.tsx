@@ -6,6 +6,7 @@ import type { EditorDocument } from '../../application/editor/editorModel';
 import { KaraokeStage } from './KaraokeStage';
 import { SceneBackdrop } from './SceneBackdrop';
 import { desktopClient } from '../../services/desktopClient';
+import { store } from '../../providers/store';
 
 const probe = vi.hoisted(() => {
   const props: MelodyRollProps[] = [];
@@ -23,7 +24,12 @@ vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
 }));
 vi.mock('../../providers/store', () => ({
   store: {
-    preferences: { reducedMotion: false, headingFont: 'default' },
+    preferences: {
+      reducedMotion: false,
+      headingFont: 'default',
+      karaokeLyricsLayout: 'classic',
+      karaokeLyricsLines: 2,
+    },
     online: { room: null },
   },
 }));
@@ -81,6 +87,10 @@ const view = (position: number, source = document) => (
   />
 );
 beforeEach(() => {
+  Object.assign(store.preferences, {
+    karaokeLyricsLayout: 'classic',
+    karaokeLyricsLines: 2,
+  });
   probe.props.length = 0;
   probe.mounts = 0;
 });
@@ -90,16 +100,31 @@ it('stops retrying failed song and fallback videos while allowing a new source',
   vi.spyOn(desktopClient, 'sceneVideoUrl').mockResolvedValue('fallback.mp4');
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const createElement = window.document.createElement.bind(window.document);
-  vi.spyOn(window.document, 'createElement').mockImplementation((tag, options) => {
-    const element = createElement(tag, options);
-    if (tag === 'video') Object.assign(element, {
-      load() {}, getVideoPlaybackQuality: () => ({ totalVideoFrames: 0, droppedVideoFrames: 0 }),
-      requestVideoFrameCallback: () => 1, cancelVideoFrameCallback() {},
-    });
-    return element;
-  });
-  const backdrop = (videoUrl: string) => <SceneBackdrop theme="dark" videoUrl={videoUrl}
-    positionSeconds={0} playing={false} rate={1} />;
+  vi.spyOn(window.document, 'createElement').mockImplementation(
+    (tag, options) => {
+      const element = createElement(tag, options);
+      if (tag === 'video')
+        Object.assign(element, {
+          load() {},
+          getVideoPlaybackQuality: () => ({
+            totalVideoFrames: 0,
+            droppedVideoFrames: 0,
+          }),
+          requestVideoFrameCallback: () => 1,
+          cancelVideoFrameCallback() {},
+        });
+      return element;
+    },
+  );
+  const backdrop = (videoUrl: string) => (
+    <SceneBackdrop
+      theme="dark"
+      videoUrl={videoUrl}
+      positionSeconds={0}
+      playing={false}
+      rate={1}
+    />
+  );
   const view = render(backdrop('song.mp4'));
   await act(async () => {});
   const own = view.container.querySelector('video');
@@ -112,7 +137,9 @@ it('stops retrying failed song and fallback videos while allowing a new source',
   fireEvent.error(fallback);
   expect(view.container.querySelector('video')).toBeNull();
   view.rerender(backdrop('new-song.mp4'));
-  expect(view.container.querySelector('video')?.getAttribute('src')).toBe('new-song.mp4');
+  expect(view.container.querySelector('video')?.getAttribute('src')).toBe(
+    'new-song.mp4',
+  );
 });
 
 it('shows both lyric lines at three, fitting their width without resizing during highlighting', () => {
@@ -156,6 +183,55 @@ it('shows both lyric lines at three, fitting their width without resizing during
     fontSize: '18px',
     whiteSpace: 'normal',
   });
+  Object.assign(store.preferences, { karaokeLyricsLines: 3 });
+  rerender(view(20.2));
+  expect(screen.getByText('three')).toBeInTheDocument();
+  Object.assign(store.preferences, { karaokeLyricsLayout: 'alternating' });
+  rerender(view(21.2));
+  expect(screen.getByText('two').closest('[data-lyric-row]')).toHaveAttribute(
+    'data-slot',
+    '1',
+  );
+  expect(screen.getByText('three').closest('[data-lyric-row]')).toHaveAttribute(
+    'data-slot',
+    '0',
+  );
+  Object.assign(store.preferences, { karaokeLyricsLayout: 'credits' });
+  rerender(view(22.2));
+  expect(screen.getByText('two').closest('[data-lyric-row]')).toHaveAttribute(
+    'data-slot',
+    '0',
+  );
+  expect(
+    screen.getByText('three').closest('.ad-lyrics-current'),
+  ).toBeInTheDocument();
+  expect(
+    parseFloat(
+      screen.getByText('three').style.getPropertyValue('--ad-lyric-fill'),
+    ),
+  ).toBeGreaterThan(0);
+  expect(screen.getByText('four').closest('[data-lyric-row]')).toHaveAttribute(
+    'data-slot',
+    '2',
+  );
+  const creditsRow = screen
+    .getByText('three')
+    .closest<HTMLElement>('[data-lyric-row]');
+  const previousTransform = creditsRow?.style.transform;
+  rerender(view(22.4));
+  expect(screen.getByText('three').closest('[data-lyric-row]')).toBe(
+    creditsRow,
+  );
+  expect(creditsRow?.style.transform).not.toBe(previousTransform);
+  expect(
+    screen.getByText('three').closest('.ad-lyrics-current'),
+  ).toBeInTheDocument();
+  Object.assign(store.preferences, {
+    karaokeLyricsLayout: 'classic',
+    karaokeLyricsLines: 1,
+  });
+  rerender(view(22.2));
+  expect(screen.queryByText('four')).not.toBeInTheDocument();
 });
 
 it('does not reveal lyrics before the three second countdown', () => {

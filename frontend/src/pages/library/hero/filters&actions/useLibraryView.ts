@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { object, picklist, safeParse, string } from 'valibot';
+import {
+  fallback,
+  object,
+  optional,
+  picklist,
+  safeParse,
+  string,
+} from 'valibot';
 import type { LibraryViewFilters } from './search-field';
 import { readJson, writeJson } from '../../../../shared/storage/localStore';
 
@@ -20,7 +27,8 @@ const viewSchema = object({
     ]),
     language: picklist(['all', 'Auto', 'Ukrainian', 'Russian', 'English']),
     duration: picklist(['all', 'short', 'medium', 'long']),
-    artwork: picklist(['all', 'with', 'without']),
+    artwork: fallback(picklist(['all']), 'all'),
+    playlist: optional(string(), 'all'),
   }),
 });
 
@@ -36,6 +44,7 @@ const defaultView = (): LibraryView => ({
     language: 'all',
     duration: 'all',
     artwork: 'all',
+    playlist: 'all',
   },
 });
 

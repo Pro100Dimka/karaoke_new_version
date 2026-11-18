@@ -49,7 +49,7 @@ export const enLibrary = {
   'library.search.status': 'Status',
   'library.search.language': 'Language',
   'library.search.duration': 'Duration',
-  'library.search.artwork': 'Artwork',
+  'library.search.playlist': 'Playlist',
   'library.search.all': 'All',
   'library.search.recent': 'Date added',
   'library.search.title': 'Title',

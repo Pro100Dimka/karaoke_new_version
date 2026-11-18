@@ -104,15 +104,22 @@ def independent_words(
 ) -> list[list[tuple[str, float, float]]]:
     """Reuse the job's verified independent views before reconstructing another full mix."""
     candidates = [heard_words(recognition if recognition is not None else recognize(vocal))]
+    endings: list[tuple[float, list[HeardWord]]] = []
     alternatives = recognition.get("alternatives", []) if recognition is not None else []
     if isinstance(alternatives, list):
         for view in alternatives:
             if isinstance(view, dict) and (words := heard_words(view)):
-                # A separately decoded ending extends the preceding timeline. A suffix
-                # alone cannot beat whole-song coverage when choosing alignment anchors.
                 offset = float(str(view.get("startSeconds", 0)))
-                prefix = [word for word in candidates[0] if word[2] <= offset] if offset else []
-                candidates.append([*prefix, *words])
+                if offset:
+                    endings.append((offset, words))
+                else:
+                    candidates.append(words)
+    # The original mix can supply a stronger preceding context than the isolated vocal.
+    whole_views = tuple(candidates)
+    for offset, words in endings:
+        candidates.extend(
+            [*(word for word in context if word[2] <= offset), *words] for context in whole_views
+        )
     if instrumental is not None and len(candidates) == 1:
         backing = np.pad(
             instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental)))

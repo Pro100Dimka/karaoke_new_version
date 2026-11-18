@@ -319,9 +319,16 @@ body:has(.titleBarFullscreen) dialog.ad-dialog > header {
   width: 1.5rem;
   height: 1.75rem;
 }
-.radioTransport .ad-icon-button[data-variant='primary'] {
+.radioTransport .ad-icon-button[data-ad-variant='primary'] {
   width: 2.25rem;
   height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  flex: 0 0 2.25rem;
+  padding: 0;
+  box-sizing: border-box;
+  aspect-ratio: 1;
+  border-radius: 50%;
 }
 .radioNext svg {
   transform: rotate(180deg);

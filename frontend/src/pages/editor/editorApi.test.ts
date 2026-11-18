@@ -59,6 +59,7 @@ describe('editorApi music metadata', () => {
             start: 1800,
             end: 1806,
             letters: [1800, 1800.4],
+            lettersApproximate: true,
             notes: [
               { note: 62, start: 1800.4, end: 1802 },
               { note: 64, start: 1803, end: 1805.8 },
@@ -75,6 +76,7 @@ describe('editorApi music metadata', () => {
     expect(document.revision).toBe(7);
     expect(document.words.map((word) => word.id)).toEqual(['word-0', 'word-1']);
     expect(document.words[1]?.letters?.[1]).toBeCloseTo(0.4 / 6, 10);
+    expect(document.words[1]).toMatchObject({ lettersApproximate: true });
     expect(document.notes.map((note) => note.wordId)).toEqual([
       'word-0',
       'word-1',

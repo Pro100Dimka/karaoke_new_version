@@ -18,9 +18,9 @@ import type {
   ProcessingJobDto,
   SongDto,
 } from '../../../../../contracts/models';
-import { ProcessingErrorDialog } from '../../../modals/processing/ProcessingError';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
+import { ProcessingErrorDialog } from '../../../modals/processing/ProcessingError';
 import {
   songStatusPresentation,
   type SongActionId,
@@ -29,11 +29,17 @@ import { useGuardedAction } from '../../useGuardedAction';
 import { useSongActions } from '../../useSongActions';
 import { ProcessingSignal } from './processing-signal';
 
+type CardActionId = SongActionId | 'rehearsal';
 const actionMeta: Record<
-  SongActionId,
-  { label: string; icon: string; variant?: 'danger' }
+  CardActionId,
+  { label: string; icon: string; variant?: 'secondary' }
 > = {
   play: { label: 'play', icon: 'play' },
+  rehearsal: {
+    label: 'recordingRehearsal',
+    icon: 'music',
+    variant: 'secondary',
+  },
   cancelQueued: { label: 'cancelQueueItem', icon: 'stop' },
   processingDetails: { label: 'openProcessingDetails', icon: 'list' },
   recordings: { label: 'recordings', icon: 'headphones' },
@@ -44,7 +50,6 @@ const actionMeta: Record<
   delete: {
     label: 'deleteSong',
     icon: 'trash',
-    variant: 'danger',
   },
 };
 
@@ -119,9 +124,13 @@ export const SongCard = memo(
     };
     const [failedArtwork, setFailedArtwork] = useState<string | null>(null);
     const presentation = songStatusPresentation[song.status];
-    const allowed: readonly SongActionId[] = song.roomOwnerId
+    const allowed: readonly CardActionId[] = song.roomOwnerId
       ? ['play']
-      : presentation.actions;
+      : presentation.actions.flatMap((id): CardActionId[] =>
+          id === 'play' && !roomSelection && song.status === 'ready'
+            ? [id, 'rehearsal']
+            : [id],
+        );
     const actions = {
       play: () => onPlay(song),
       cancelQueued: () =>
@@ -130,6 +139,7 @@ export const SongCard = memo(
           await pythonClient.cancelProcessing(song.jobId);
           await refreshSongs(client);
         }),
+      rehearsal: () => onPlay(song, true),
       processingDetails: () => onOpenProcessing(song.id),
       recordings: () => onOpenRecordings(song),
       settings: () => onOpenSettings(song),
@@ -138,7 +148,7 @@ export const SongCard = memo(
       viewError: () => void showError(),
       retry: () => void retry(),
       delete: () => void confirmDelete(song),
-    } satisfies Record<SongActionId, () => void>;
+    } satisfies Record<CardActionId, () => void>;
     const primary = presentation.primaryAction;
 
     return (
@@ -149,7 +159,7 @@ export const SongCard = memo(
         className="songCard"
         data-selected={selection?.checked || undefined}
         style={{ height: '100%' }}
-        aria-label={`${song.artist} — ${song.title}`}
+        aria-label={`${song.artist} - ${song.title}`}
       >
         {selection && (
           <div className="songCardSelection">
@@ -230,21 +240,10 @@ export const SongCard = memo(
               style={{ marginTop: 'auto', minWidth: 0 }}
               onClick={(event) => event.stopPropagation()}
             >
-              {!roomSelection && song.status === 'ready' && (
-                <IconButton
-                  round
-                  size="sm"
-                  variant="secondary"
-                  icon="music"
-                  style={{ flexShrink: 0 }}
-                  label={tr('recordingRehearsal')}
-                  disabled={playbackDisabled}
-                  onClick={() => onPlay(song, true)}
-                />
-              )}
               {allowed.map((id) => (
                 <IconButton
                   key={id}
+                  className={id === 'delete' ? 'songDeleteAction' : undefined}
                   round
                   size="sm"
                   style={{ flexShrink: 0 }}
@@ -254,9 +253,12 @@ export const SongCard = memo(
                       : actionMeta[id].icon
                   }
                   label={tr(actionMeta[id].label)}
-                  variant={actionMeta[id].variant ?? (id === primary ? 'primary' : 'ghost')}
+                  variant={
+                    actionMeta[id].variant ??
+                    (id === primary ? 'primary' : 'ghost')
+                  }
                   disabled={
-                    (id === 'play' && playbackDisabled) ||
+                    (['play', 'rehearsal'].includes(id) && playbackDisabled) ||
                     (id === 'retry' && Boolean(retrying))
                   }
                   onClick={actions[id]}

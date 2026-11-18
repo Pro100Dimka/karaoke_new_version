@@ -10,7 +10,10 @@ import {
 } from '@neo-ui-kit/react';
 import { useRef, useState } from 'react';
 import type { SongStatus } from '../../../../contracts/models';
-import type { LibrarySortDirection } from '../../../../shared/preferences/preferences';
+import type {
+  KaraokePlaylist,
+  LibrarySortDirection,
+} from '../../../../shared/preferences/preferences';
 import type {
   LibraryArtworkFilter,
   LibraryDurationFilter,
@@ -25,13 +28,15 @@ export interface LibraryFilters {
   language: LibraryLanguageFilter;
   duration: LibraryDurationFilter;
   artwork: LibraryArtworkFilter;
+  playlist?: string;
   sort: LibrarySort;
   direction: LibrarySortDirection;
 }
 
 export type LibraryViewFilters = Omit<LibraryFilters, 'sort' | 'direction'>;
 
-const fields: { [K in keyof LibraryFilters]: readonly LibraryFilters[K][] } = {
+type SearchField = Exclude<keyof LibraryFilters, 'artwork' | 'playlist'>;
+const fields: { [K in SearchField]: readonly LibraryFilters[K][] } = {
   sort: ['recent', 'title', 'artist', 'played', 'duration', 'bpm'],
   direction: ['asc', 'desc'],
   status: [
@@ -45,7 +50,6 @@ const fields: { [K in keyof LibraryFilters]: readonly LibraryFilters[K][] } = {
     'invalid',
   ],
   duration: ['all', 'short', 'medium', 'long'],
-  artwork: ['all', 'with', 'without'],
   language: ['all', 'Auto', 'Ukrainian', 'Russian', 'English'],
 };
 const languageNames = new Map(Object.entries(languageLabels));
@@ -54,15 +58,17 @@ type SearchProps = {
   query: string;
   filters: LibraryFilters;
   locked: boolean;
+  playlists: readonly KaraokePlaylist[];
   onQueryChange(value: string): void;
   onFiltersApply(filters: LibraryFilters): void;
 };
 export default function LibrarySearchField(props: SearchProps) {
   const { query, filters, locked } = props;
+  const playlist = props.playlists.find((item) => item.id === filters.playlist);
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   if (locked && open) setOpen(false);
-  const select = <K extends keyof LibraryFilters>(key: K) => (
+  const select = <K extends SearchField>(key: K) => (
     <Select<LibraryFilters[K]>
       key={key}
       label={tr(`library.search.${key}`)}
@@ -117,8 +123,22 @@ export default function LibrarySearchField(props: SearchProps) {
         label={tr('filtersAndSorting')}
       >
         <Grid columns={{ base: 1, sm: 2 }} gap={3}>
-          {open &&
-            (Object.keys(fields) as (keyof LibraryFilters)[]).map(select)}
+          {open && (Object.keys(fields) as SearchField[]).map(select)}
+          <Select
+            label={tr('library.search.playlist')}
+            value={playlist?.id ?? 'all'}
+            options={[
+              { value: 'all', label: tr('library.search.all') },
+              ...props.playlists.map(({ id, name }) => ({
+                value: id,
+                label: name,
+              })),
+            ]}
+            searchable
+            onValueChange={(playlist) =>
+              props.onFiltersApply({ ...filters, playlist })
+            }
+          />
           <Button
             variant="primary"
             size="sm"
@@ -130,6 +150,7 @@ export default function LibrarySearchField(props: SearchProps) {
                 language: 'all',
                 duration: 'all',
                 artwork: 'all',
+                playlist: 'all',
                 sort: 'recent',
                 direction: 'desc',
               })

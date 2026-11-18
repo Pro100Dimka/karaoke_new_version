@@ -81,6 +81,7 @@ class WordDto(ApiModel):
     end: float
     notes: list[NoteDto]
     letters: list[float] = []
+    letters_approximate: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
 class LyricsDocumentDto(ApiModel):
@@ -169,6 +170,7 @@ def lyrics_document_dto(document: LyricsDocument) -> LyricsDocumentDto:
                 for item in word.notes
             ],
             letters=list(word.letters),
+            letters_approximate=word.letters_approximate,
         )
         for word in document.words
     ]
@@ -204,6 +206,7 @@ def lyrics_document(dto: LyricsDocumentDto) -> LyricsDocument:
                 for note in word.notes
             ),
             tuple(word.letters),
+            word.letters_approximate,
         )
         for word in dto.words
     )

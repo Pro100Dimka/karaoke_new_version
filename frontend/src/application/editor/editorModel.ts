@@ -15,6 +15,7 @@ export interface EditorWord {
   end: number;
   /** Where each character starts inside the word, as a fraction (0..1) of its duration; absent when not timed. */
   letters?: readonly number[];
+  lettersApproximate?: boolean;
 }
 
 export interface EditorDocument {

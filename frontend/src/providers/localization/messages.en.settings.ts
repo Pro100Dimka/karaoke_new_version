@@ -1,4 +1,9 @@
 export const enSettings = {
+  karaokeLyricsLayout: 'Karaoke text movement',
+  'karaokeLyricsLayout.classic': 'Classic',
+  'karaokeLyricsLayout.credits': 'Scrolling credits',
+  'karaokeLyricsLayout.alternating': 'Alternating two lines',
+  karaokeLyricsLines: 'Lines on screen',
   errorProcessingNotConfigured:
     'Enter the processing access key in ENV settings.',
   errorProcessingAccessDenied: 'The processing access key was rejected.',

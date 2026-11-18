@@ -104,9 +104,8 @@ class YoutubeClipDownloader:
             str(template),
             "--format",
             (
-                "bestvideo[vcodec^=avc1][ext=mp4][height>=720][height<=1080]/"
-                "bestvideo[ext=mp4][height>=720][height<=1080]/"
-                "bestvideo[height>=720][height<=1080]/bestvideo/best"
+                "bestvideo[vcodec^=avc1][ext=mp4][height<=720][fps<=30]/"
+                "bestvideo[height<=720][fps<=30]/bestvideo[height<=720]/bestvideo/best"
             ),
         ]
 
@@ -128,13 +127,14 @@ class YoutubeClipDownloader:
                 "-sn",
                 "-dn",
                 "-vf",
-                "scale='min(1920,iw)':-2",
+                "scale=w='min(1280,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:"
+                "force_divisible_by=2,fps=fps='min(source_fps,30)'",
                 "-c:v",
                 "libx264",
                 "-preset",
                 "fast",
                 "-crf",
-                "20",
+                "23",
                 "-pix_fmt",
                 "yuv420p",
                 "-movflags",

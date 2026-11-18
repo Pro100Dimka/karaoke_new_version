@@ -18,6 +18,7 @@ interface BackendWord {
   end: number;
   notes: BackendNote[];
   letters?: number[];
+  lettersApproximate?: boolean;
 }
 interface BackendEditor {
   songId: string;
@@ -53,6 +54,7 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
     start: word.start,
     end: word.end,
     letters: letterFractions(word),
+    ...(word.lettersApproximate ? { lettersApproximate: true } : {}),
   }));
   const notes = value.document.words.flatMap((word, wordIndex) =>
     word.notes.map((note, noteIndex) => ({
@@ -104,6 +106,7 @@ const backendDocument = (song: SongDto, document: EditorDocument) => {
       text: word.text,
       start: word.start,
       end: word.end,
+      ...(word.lettersApproximate ? { lettersApproximate: true } : {}),
       letters: word.letters?.map((fraction) =>
         Math.min(
           word.end,

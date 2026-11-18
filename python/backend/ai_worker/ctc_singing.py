@@ -5,7 +5,9 @@ import re
 import numpy as np
 from backend.ai_worker.timing import (
     _BRIDGED_GAP_SECONDS,
+    _ONSET_RISE_DB,
     _bridged,
+    _levels,
     _first_long_silence as _first_long_silence,
     _runs,
     audible_frames,
@@ -52,11 +54,14 @@ def with_sung_ends(
     step = _VOICE_HOP / _VOICE_RATE
     continuation = _sung_continuation(samples, voiced, audible, periodicity)
     periodic = _bridged(periodicity >= 0.5, round(_BRIDGED_GAP_SECONDS / step))
+    release_periodic = _bridged(periodicity >= 0.5, round(_SILENT_START_SECONDS / step) - 1)
+    levels = _levels(samples, _VOICE_HOP)[0]
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         limit = words[index + 1].start if index + 1 < len(words) else len(voiced) * step
         continued = continued_frames(voiced, harmonics, (word.start, word.end, limit), step)
         end = _sung_end(word, continued, continuation, periodicity, periodic, limit)
+        end = _phonetic_release(word, levels, release_periodic, end, step)
         silence = _first_long_silence(continued, word.start, end, step)
         letters = word.letters
         if silence is not None:
@@ -69,6 +74,63 @@ def with_sung_ends(
         end = round(max(end, word.start + 0.001), 3)
         result.append(replace(word, end=end, letters=letters, diagnostics=tuple(flags)))
     return result
+
+
+def _phonetic_release(
+    word: AlignedWord, levels: np.ndarray, periodic: np.ndarray, end: float, step: float
+) -> float:
+    """Keep a completed consonant from following quieter nonperiodic residue."""
+    ending = next((char.casefold() for char in reversed(word.text) if char.isalpha()), "")
+    if (
+        word.score <= _PREFERENCE
+        or not ending
+        or ending in "aeiouyаеёиоуыэюяіїє"
+        or len(word.letters) != len(word.text)
+    ):
+        return end
+    last_letter = max(
+        (
+            t
+            for char, t in zip(word.text, word.letters)
+            if char.isalpha() and char.casefold() not in "ьъ"
+        ),
+        default=word.start,
+    )
+    first = max(0, round(max(last_letter, word.end - _SILENT_START_SECONDS) / step))
+    core = levels[max(0, round(word.start / step)) : round(word.end / step)]
+    terminal = levels[first : round(word.end / step)]
+    if not len(core) or not len(terminal):
+        return end
+    threshold = float(np.percentile(core, 95)) - _ONSET_RISE_DB
+    if float(np.median(terminal)) <= threshold:
+        return end
+    return _quiet_release(word, levels, periodic, threshold, first, end, step)
+
+
+def _quiet_release(
+    word: AlignedWord,
+    levels: np.ndarray,
+    periodic: np.ndarray,
+    threshold: float,
+    first: int,
+    end: float,
+    step: float,
+) -> float:
+    last = min(len(levels), round(end / step))
+    needed = round(_SILENT_START_SECONDS / step)
+    for begin, stop in _runs(levels[first:last] > threshold, False):
+        # Only a release adjoining the phonetic core can establish its ending.
+        # A later quiet dip belongs to the continuing sound, not the core's release.
+        if (first + begin) * step > word.end + _BRIDGED_GAP_SECONDS:
+            break
+        support = periodic[
+            first + begin : min(
+                first + stop, first + begin + round(_SILENCE_ENDS_WORD_SECONDS / step)
+            )
+        ]
+        if stop - begin >= needed and not bool(support.all()):
+            return min(end, max(word.end, (first + begin) * step))
+    return end
 
 
 def _sung_continuation(

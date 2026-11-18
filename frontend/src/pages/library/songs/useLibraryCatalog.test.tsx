@@ -1,20 +1,34 @@
-import { act, renderHook } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react';
+import { tr } from '@neo-ui-kit/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { pythonClient } from '../../../services/pythonClient';
 import { libraryChanged } from '../../../services/backendEvents';
 import { useLibraryCatalog } from './useLibraryCatalog';
+import { store } from '../../../providers/store';
+import LibrarySearchField from '../hero/filters&actions/search-field';
 
 vi.mock('../../../services/pythonClient', () => ({
   pythonClient: {
     searchSongs: vi.fn(async () => ({ items: [], nextCursor: null })),
+    listSongs: vi.fn(async () => []),
   },
 }));
 vi.mock('../../../providers/store', () => ({
   store: {
     online: { room: null },
-    preferences: { librarySort: 'recent', librarySortDirection: 'desc' },
+    preferences: {
+      librarySort: 'recent',
+      librarySortDirection: 'desc',
+      karaokePlaylists: [],
+    },
     application: { services: { pythonEpoch: 0 } },
   },
 }));
@@ -69,4 +83,64 @@ it('reuses recent searches, invalidates changes and expires unused results', asy
   await act(() => vi.advanceTimersByTimeAsync(1));
   expect(pythonClient.searchSongs).toHaveBeenCalledTimes(5);
   unmount();
+  store.preferences.karaokePlaylists = [
+    { id: 'p', name: 'Favourites', songIds: ['kept'] },
+  ];
+  const song = {
+    id: 'kept',
+    title: 'Keep',
+    artist: 'Singer',
+    language: 'English' as const,
+    status: 'ready' as const,
+    durationSeconds: 60,
+    createdAt: '2026-01-01',
+    coverState: 'Fallback' as const,
+    activeRevision: 1,
+    projectFormatVersion: 1,
+  };
+  vi.mocked(pythonClient.searchSongs).mockResolvedValue({
+    items: [song, { ...song, id: 'other', title: 'Other' }],
+    nextCursor: null,
+  });
+  vi.mocked(pythonClient.listSongs).mockResolvedValue([
+    song,
+    { ...song, id: 'other', title: 'Other' },
+  ]);
+  client.clear();
+  const playlist = renderHook(
+    () => useLibraryCatalog('', { ...filters, playlist: 'p' }, false),
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    },
+  );
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(playlist.result.current.visibleSongs.map((song) => song.id)).toEqual([
+    'kept',
+  ]);
+  expect(playlist.result.current.completeCatalog).toBe(true);
+  playlist.unmount();
+  const search = render(
+    <LibrarySearchField
+      query=""
+      filters={{
+        ...filters,
+        playlist: 'deleted',
+        sort: 'recent',
+        direction: 'desc',
+      }}
+      playlists={[]}
+      locked={false}
+      onQueryChange={vi.fn()}
+      onFiltersApply={vi.fn()}
+    />,
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: tr('filtersAndSorting') }),
+  );
+  expect(
+    screen.getByLabelText(tr('library.search.playlist')),
+  ).toHaveTextContent(tr('library.search.all'));
+  search.unmount();
 });

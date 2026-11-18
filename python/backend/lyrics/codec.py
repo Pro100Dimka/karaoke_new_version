@@ -65,16 +65,13 @@ def encode_document(document: LyricsDocument) -> str:
                     "start": word.start,
                     "end": word.end,
                     "letters": list(word.letters),
+                    **({"lettersApproximate": True} if word.letters_approximate else {}),
                     "notes": [
                         {
                             "note": note.note,
                             "start": note.start,
                             "end": note.end,
-                            **(
-                                {"contour": [list(point) for point in note.contour]}
-                                if note.contour
-                                else {}
-                            ),
+                            **({"contour": list(map(list, note.contour))} if note.contour else {}),
                         }
                         for note in word.notes
                     ],
@@ -123,12 +120,16 @@ def _word(value: JsonValue) -> Word:
     notes_raw = value.get("notes")
     if not isinstance(notes_raw, list):
         raise ValueError("notes must be an array")
+    approximate = value.get("lettersApproximate", False)
+    if not isinstance(approximate, bool):
+        raise ValueError("lettersApproximate must be boolean")
     return Word(
         text=_text(value, "text"),
         start=_number(value, "start"),
         end=_number(value, "end"),
         notes=tuple(_note(item) for item in notes_raw),
         letters=_letters(value.get("letters")),
+        letters_approximate=approximate,
     )
 
 

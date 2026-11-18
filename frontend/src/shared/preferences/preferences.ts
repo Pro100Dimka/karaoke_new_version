@@ -103,6 +103,8 @@ export interface Preferences {
   librarySortDirection: LibrarySortDirection;
   karaokeShowNotes: boolean;
   karaokeShowLyrics: boolean;
+  karaokeLyricsLayout: 'classic' | 'credits' | 'alternating';
+  karaokeLyricsLines: number;
   karaokeAutoHideConsole: boolean;
   /** Restore the singer's monitoring choice when a new local Karaoke song opens. */
   karaokeMonitoring: boolean;
@@ -162,6 +164,8 @@ export const defaultPreferences = (): Preferences => ({
   librarySortDirection: 'desc',
   karaokeShowNotes: true,
   karaokeShowLyrics: true,
+  karaokeLyricsLayout: 'classic',
+  karaokeLyricsLines: 2,
   karaokeAutoHideConsole: true,
   karaokeMonitoring: false,
   musicGain: 0.82,
@@ -396,6 +400,16 @@ export const parsePreferences = (raw: unknown): Preferences => {
       value.karaokeAutoHideConsole,
       base.karaokeAutoHideConsole,
     ),
+    karaokeLyricsLayout: oneOf(
+      value.karaokeLyricsLayout,
+      ['classic', 'credits', 'alternating'],
+      base.karaokeLyricsLayout,
+    ),
+    karaokeLyricsLines:
+      typeof value.karaokeLyricsLines === 'number' &&
+      [1, 2, 3, 4].includes(value.karaokeLyricsLines)
+        ? value.karaokeLyricsLines
+        : base.karaokeLyricsLines,
     karaokeMonitoring: booleanValue(
       value.karaokeMonitoring,
       base.karaokeMonitoring,

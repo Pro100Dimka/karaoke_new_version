@@ -51,7 +51,7 @@ export const ruLibrary = {
   'library.search.status': 'Статус',
   'library.search.language': 'Язык',
   'library.search.duration': 'Длительность',
-  'library.search.artwork': 'Обложка',
+  'library.search.playlist': 'Плейлист',
   'library.search.all': 'Все',
   'library.search.recent': 'Дата добавления',
   'library.search.title': 'Название',

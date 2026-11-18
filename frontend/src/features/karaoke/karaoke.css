@@ -180,15 +180,65 @@ html[data-tv-screen] body {
   justify-items: stretch;
   text-transform: uppercase;
 }
+.lyricsRows {
+  --lyrics-row-height: clamp(5rem, 7vw, 7rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  position: relative;
+}
+.lyricsRows .lyrics.ad-karaoke-lyrics {
+  width: 100%;
+  margin: 0;
+  gap: 0;
+}
+.lyricsRows[data-layout='credits'] {
+  overflow: hidden;
+  mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+}
+.lyricsRows[data-layout='credits'] > .lyrics {
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--lyrics-row-height);
+  align-content: center;
+  will-change: transform;
+}
+.lyricsRows[data-layout='alternating'] > .lyrics {
+  min-height: 0;
+  align-content: center;
+}
+.lyricsRows[data-reduced-motion] > .lyrics {
+  transition: none;
+}
 .lyrics.ad-karaoke-lyrics > p {
   min-width: 0;
   overflow-wrap: anywhere;
+  animation: lyrics-line-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.lyricsRows[data-layout='credits'] .lyrics > p {
+  animation: none;
+}
+.lyricsRows[data-reduced-motion] .lyrics > p {
+  animation: none;
+}
+@keyframes lyrics-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.3rem) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.lyrics.ad-karaoke-lyrics > p:empty {
+  display: none;
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-current {
   font-size: calc(clamp(1.75rem, 1rem + 3.2vw, 3.25rem) * 1.5);
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-next {
-  animation: none;
   color: #fff;
   font-weight: 600;
   text-shadow:

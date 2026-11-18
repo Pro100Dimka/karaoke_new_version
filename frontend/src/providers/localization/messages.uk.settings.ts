@@ -1,6 +1,11 @@
 import type { enSettings } from './messages.en.settings';
 
 export const ukSettings = {
+  karaokeLyricsLayout: 'Рух тексту караоке',
+  'karaokeLyricsLayout.classic': 'Звичайний',
+  'karaokeLyricsLayout.credits': 'Прокручування як титри',
+  'karaokeLyricsLayout.alternating': 'Чергування двох рядків',
+  karaokeLyricsLines: 'Рядків на екрані',
   errorProcessingNotConfigured:
     'Укажіть ключ доступу до обробки в налаштуваннях ENV.',
   errorProcessingAccessDenied: 'Сервер відхилив ключ доступу до обробки.',
