@@ -148,14 +148,22 @@ it('shows both lyric lines at three, fitting their width without resizing during
     const style = computedStyle(element);
     style.fontSize =
       (element instanceof HTMLElement && element.style.fontSize) ||
-      (element.matches('.ad-lyrics-current') ? '64px' : '32px');
+      (element.closest('[data-layout="credits"]')
+        ? '32px'
+        : element.matches('.ad-lyrics-current')
+          ? '64px'
+          : '32px');
     return style;
   });
   vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(200);
   const measure = vi
     .spyOn(Element.prototype, 'scrollWidth', 'get')
     .mockImplementation(function (this: Element) {
-      return this.matches('.ad-lyrics-current') ? 400 : 160;
+      return this.closest('[data-layout="credits"]')
+        ? 160
+        : this.matches('.ad-lyrics-current')
+          ? 400
+          : 160;
     });
   const { rerender } = render(view(17.01));
   expect(screen.getByRole('timer')).toHaveTextContent('3');
@@ -196,6 +204,7 @@ it('shows both lyric lines at three, fitting their width without resizing during
     'data-slot',
     '0',
   );
+  measure.mockReturnValue(160);
   Object.assign(store.preferences, { karaokeLyricsLayout: 'credits' });
   rerender(view(22.2));
   expect(screen.getByText('two').closest('[data-lyric-row]')).toHaveAttribute(
@@ -223,6 +232,12 @@ it('shows both lyric lines at three, fitting their width without resizing during
     creditsRow,
   );
   expect(creditsRow?.style.transform).not.toBe(previousTransform);
+  expect(screen.getByText('three').closest('.ad-lyrics-current')).toHaveStyle({
+    fontSize: '32px',
+  });
+  expect(screen.getByText('four').closest('.ad-lyrics-next')).toHaveStyle({
+    fontSize: '32px',
+  });
   expect(
     screen.getByText('three').closest('.ad-lyrics-current'),
   ).toBeInTheDocument();

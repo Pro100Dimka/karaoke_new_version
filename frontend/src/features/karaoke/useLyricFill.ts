@@ -73,7 +73,11 @@ export const useLyricFill = (
         for (const row of root.querySelectorAll<HTMLElement>(
           '.ad-lyrics-current:not(:empty), .ad-lyrics-next:not(:empty)',
         )) {
-          const minimum = row.matches('.ad-lyrics-current') ? 24 : 18;
+          const minimum =
+            root.dataset.layout !== 'credits' &&
+            row.matches('.ad-lyrics-current')
+              ? 24
+              : 18;
           row.style.removeProperty('font-size');
           row.style.whiteSpace = 'nowrap';
           row.style.textAlign = 'left';

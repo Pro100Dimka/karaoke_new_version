@@ -314,7 +314,21 @@ export const AppearanceFields = observer(
                     </Grid>
                   ))}
                   <Grid
-                    span={{ base: 'full', sm: 6 }}
+                    span={{ base: 'full', sm: 4 }}
+                    className="ad-form-field"
+                  >
+                    <Select
+                      label={tr('language')}
+                      value={p.language}
+                      options={(['uk', 'ru', 'en'] as const).map((value) => ({
+                        value,
+                        label: tr(`language.${value}`),
+                      }))}
+                      onValueChange={(value) => update('language', value)}
+                    />
+                  </Grid>
+                  <Grid
+                    span={{ base: 'full', sm: 8 }}
                     className="ad-form-field"
                   >
                     <Select
@@ -332,7 +346,7 @@ export const AppearanceFields = observer(
                     />
                   </Grid>
                   <Grid
-                    span={{ base: 'full', sm: 6 }}
+                    span={{ base: 'full', sm: 4 }}
                     className="ad-form-field"
                   >
                     <Select
@@ -350,20 +364,6 @@ export const AppearanceFields = observer(
                       onValueChange={(value) =>
                         update('karaokeLyricsLines', value)
                       }
-                    />
-                  </Grid>
-                  <Grid
-                    span={{ base: 'full', sm: 4 }}
-                    className="ad-form-field"
-                  >
-                    <Select
-                      label={tr('language')}
-                      value={p.language}
-                      options={(['uk', 'ru', 'en'] as const).map((value) => ({
-                        value,
-                        label: tr(`language.${value}`),
-                      }))}
-                      onValueChange={(value) => update('language', value)}
                     />
                   </Grid>
                   {(
