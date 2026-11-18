@@ -431,13 +431,66 @@ def test_same_song_lyrics_allow_a_shortened_audio_edit() -> None:
     )
 
 
-def test_a_different_song_is_rejected_so_the_model_transcribes() -> None:
-    candidate = LyricsCandidate("other text", "Совсем другая песня", "Другой", 190.0, "fake-lyrics")
+@pytest.mark.parametrize(
+    "case",
+    [
+        "metadata",
+        "single",
+        "second-provider",
+        "same-provider",
+        "cached-offline",
+        "local",
+        "provider-outage",
+    ],
+)
+def test_a_different_song_is_rejected_so_the_model_transcribes(case) -> None:
+    from dataclasses import replace
+    from backend.lyrics.discovery import LyricsDiscoveryResult, PreparedLyrics
 
-    lyrics, source = _discover(candidate, _song("Кофе мой друг", "Нервы"))
-
-    assert source == "ASR"
-    assert lyrics != "other text"
+    heard = "Первый свет над городами\nНаши голоса над морем\nСнова поезда уходят\nТихий дождь стучит по крышам"
+    foreign = "Иные речи о погоде\nТёмный лес хранит чужие тайны\nЗабытые страницы скрывают правду"
+    title, artist = ("Совсем другая песня", "Другой") if case == "metadata" else ("T", "A")
+    wrong = LyricsCandidate(foreign, title, artist, 188, "first")
+    hints = tuple(LyricLineTiming(5 + i * 10, line) for i, line in enumerate(heard.splitlines()))
+    correct = LyricsCandidate(heard, "T", "A", 188, "second", hints)
+    candidates = (wrong, correct) if case == "same-provider" else (wrong,)
+    first = FakeLyricsProvider([candidates, candidates], provider_id="first")
+    second = FakeLyricsProvider([(correct,)], provider_id="second")
+    if case == "provider-outage":
+        second.outcomes = [DependencyError("ProviderUnavailable", "catalog unavailable")]
+    providers = (first, second) if case in ["second-provider", "provider-outage"] else (first,)
+    offline = case == "cached-offline"
+    prepared = (
+        PreparedLyrics(LyricsDiscoveryResult(foreign, "first", ("LyricsCatalogCached",)), ())
+        if offline
+        else None
+    )
+    sidecar = SimpleNamespace(read=lambda _: foreign) if case == "local" else _NoSidecar()
+    ai = _TranscriptAi(heard)
+    result = LyricsDiscovery(sidecar, providers, LyricsMatchPolicy()).discover(
+        replace(_song("T", "A"), source_path=Path("source.mp3")),
+        Path("voice.wav"),
+        ai,
+        threading.Event(),
+        online_enabled=not offline,
+        execution=EXECUTION,
+        prepared=prepared,
+    )
+    if case == "local":
+        assert result.lyrics == foreign and result.source == "LocalSidecar"
+        return
+    assert result.lyrics == heard
+    expected = {"second-provider": "second", "same-provider": "first"}.get(case, "ASR")
+    assert result.source == expected
+    assert result.timing_hints == (
+        correct.timing_hints if case in ["second-provider", "same-provider"] else ()
+    )
+    if case in ["single", "second-provider", "cached-offline", "provider-outage"]:
+        assert "LyricsCatalogRejected" in result.warnings
+    if case == "provider-outage":
+        assert "second:ProviderUnavailable" in result.warnings
+    if offline:
+        assert first.outcomes == [candidates, candidates]
 
 
 def test_plain_catalog_text_can_borrow_timings_from_a_matching_synced_version() -> None:
@@ -594,7 +647,7 @@ class _TranscriptAi(FakeAiProvider):
         return self.text
 
 
-@pytest.mark.parametrize("last_repeats", [1, 3])
+@pytest.mark.parametrize("last_repeats", [1, 3, 20])
 @pytest.mark.parametrize("quiet_line_missed_by_asr", [False, True])
 def test_catalog_omitted_middle_and_final_refrains_are_restored_from_performance(
     last_repeats,

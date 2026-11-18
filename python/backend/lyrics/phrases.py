@@ -281,6 +281,29 @@ def _same_vocabulary(expected: str, actual: str) -> bool:
     return _lyrics_match(*vocabularies)
 
 
+def _catalog_matches_performance(lyrics: str, transcripts: Sequence[str]) -> bool:
+    """Reject unrelated catalogues only when recognition contains enough distinct words.
+
+    Reusable adjacent-word anchors tolerate missed verses and additional sung repeats.
+    A weak recognition result cannot establish that a catalogue is wrong.
+    """
+    expected = [_lyrics_key(word) for word in clean_lyrics(lyrics, "Auto").split()]
+    pairs = set(zip(expected, expected[1:]))
+    checked = False
+    for transcript in transcripts:
+        heard = [_lyrics_key(word) for word in transcript.split() if _lyrics_key(word)]
+        if len(heard) < 12 or len({word for word in heard if len(word) >= 3}) < 8:
+            continue
+        checked = True
+        matched: set[int] = set()
+        for index, pair in enumerate(zip(heard, heard[1:])):
+            if pair in pairs:
+                matched.update((index, index + 1))
+        if len(matched) >= max(4, len(heard) * 0.2):
+            return True
+    return not checked
+
+
 def _best_catalog_version(
     candidates: Sequence[LyricsCandidate],
     distances: dict[LyricsCandidate, float],

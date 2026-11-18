@@ -23,6 +23,7 @@ from backend.lyrics.phrases import (
     _performed_coverage as _performed_coverage,
     _timed_catalog_version as _timed_catalog_version,
     _catalog_distances,
+    _catalog_matches_performance,
     _line_matches as _line_matches,
     _lyrics_key as _lyrics_key,
     _merge_lines as _merge_lines,
@@ -113,10 +114,9 @@ class LyricsDiscovery:
             reference_vocal,
             asr,
             cancel,
-            source.found,
-            source.warnings,
+            source,
             execution,
-            source.transcripts,
+            online_enabled,
         )
 
     def lookup(self, song: Song, cancel: threading.Event, online_enabled: bool) -> PreparedLyrics:
@@ -146,15 +146,13 @@ class LyricsDiscovery:
         reference_vocal: Path,
         asr: AiProvider,
         cancel: threading.Event,
-        found: LyricsDiscoveryResult | None,
-        warnings: Sequence[str],
+        source: PreparedLyrics,
         execution: ExecutionContext,
-        prefetched: Sequence[str] | None = None,
+        online_enabled: bool,
     ) -> LyricsDiscoveryResult:
-        # Separation can remove a sung entry. Recognize both views independently;
-        # reconciliation counts occurrences, rather than concatenating their transcripts.
+        found, warnings = source.found, list(source.warnings)
         recognized, ending = self._transcripts(
-            song, reference_vocal, asr, cancel, found, execution, prefetched
+            song, reference_vocal, asr, cancel, found, execution, source.transcripts
         )
         language = lyrics_language(song, found.lyrics if found else "")
         transcripts = [
@@ -162,6 +160,10 @@ class LyricsDiscovery:
             for lyrics in recognized
         ]
         found = self._recognized_version(song, found, transcripts)
+        if source.found is not None and found is None:
+            warnings.append("LyricsCatalogRejected")
+            if online_enabled:
+                found = self._from_online(song, cancel, warnings, transcripts=transcripts)
         for lyrics in transcripts:
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
@@ -247,12 +249,24 @@ class LyricsDiscovery:
     def _recognized_version(
         self, song: Song, found: LyricsDiscoveryResult | None, transcripts: Sequence[str]
     ) -> LyricsDiscoveryResult | None:
-        if found is None or not found.alternatives:
+        if found is None or found.source in ["LocalSidecar", "EmbeddedLyrics", "ASR"]:
             return found
+        alternatives = tuple(
+            item
+            for item in found.alternatives
+            if _catalog_matches_performance(item.lyrics, transcripts)
+        )
+        if not alternatives:
+            return (
+                found
+                if not found.alternatives
+                and _catalog_matches_performance(found.lyrics, transcripts)
+                else None
+            )
         selected = self._select_version(
             song,
-            found.alternatives,
-            found.alternatives[0],
+            alternatives,
+            alternatives[0],
             None,
             list(found.warnings),
             found.source,
@@ -327,6 +341,8 @@ class LyricsDiscovery:
         cancel: threading.Event,
         warnings: list[str],
         previous: LyricsDiscoveryResult | None = None,
+        *,
+        transcripts: Sequence[str] = (),
     ) -> LyricsDiscoveryResult | None:
         for provider in self._online:
             try:
@@ -334,13 +350,24 @@ class LyricsDiscovery:
             except DependencyError as exc:
                 warnings.append(f"{provider.provider_id}:{exc.code}")
                 continue
+            candidates = tuple(
+                item
+                for item in candidates
+                if _catalog_matches_performance(item.lyrics, transcripts)
+            )
             matches = [item for item in candidates if self._matches(song, item)]
             if matches:
                 eligible = [
                     item for item in candidates if self._matches(song, item, check_artist=False)
                 ]
                 return self._select_version(
-                    song, eligible, matches[0], previous, warnings, provider.provider_id
+                    song,
+                    eligible,
+                    matches[0],
+                    previous,
+                    warnings,
+                    provider.provider_id,
+                    transcripts,
                 )
         return None
 
