@@ -229,6 +229,7 @@ it('restores personal participant gain and effects after reconnect without recre
   });
   const { audioClient } = await import('./audioClient');
   await audioClient.joinVoiceSession('room', 'self');
+  expect(audioClient.participantVolume('friend')).toBe(2);
   await audioClient.setParticipantVolume('friend', 4);
   const effects = [
     ['reverb', 0.35],

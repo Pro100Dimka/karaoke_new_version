@@ -43,6 +43,58 @@ def decode_timing_hints(value: object, duration: float) -> tuple[LyricLineTiming
     )
 
 
+def reconcile_timing_hints(
+    lyrics: str, hints: tuple[LyricLineTiming, ...]
+) -> tuple[LyricLineTiming, ...]:
+    """Map mixed lead/backing cues to complete written lines, preferring the first equal match."""
+    lines = [line.strip() for line in lyrics.splitlines() if line.strip()]
+    lead = [line.casefold().split() for line in lines]
+    cues = [hint.text.casefold().split() for hint in hints]
+    matches = [[_timed_line_match(line, cue) for line in lead] for cue in cues]
+    if not any(
+        weight and len(cue) > len(line) and cue != line * (len(cue) // len(line))
+        for cue, row in zip(cues, matches)
+        for line, weight in zip(lead, row)
+    ):
+        return hints
+    return tuple(
+        hints[i]
+        if cues[i] == lead[j] * (len(cues[i]) // len(lead[j]))
+        else LyricLineTiming(hints[i].start, lines[j])
+        for i, j in _timed_line_path(matches)
+    )
+
+
+def _timed_line_match(line: list[str], cue: list[str]) -> int:
+    if not line:
+        return 0
+    repeated = len(cue) % len(line) == 0 and cue == line * (len(cue) // len(line))
+    return len(line) if repeated or len(line) >= 3 and cue[: len(line)] == line else 0
+
+
+def _timed_line_path(matches: list[list[int]]) -> list[tuple[int, int]]:
+    size = len(matches[0]) if matches else 0
+    scores = [[0] * (size + 1) for _ in range(len(matches) + 1)]
+    for i in reversed(range(len(matches))):
+        for j in reversed(range(size)):
+            scores[i][j] = max(
+                scores[i + 1][j],
+                scores[i][j + 1],
+                matches[i][j] + scores[i + 1][j + 1] if matches[i][j] else 0,
+            )
+    result: list[tuple[int, int]] = []
+    i = j = 0
+    while i < len(matches) and j < size:
+        if matches[i][j] and scores[i][j] == matches[i][j] + scores[i + 1][j + 1]:
+            result.append((i, j))
+            i, j = i + 1, j + 1
+        elif scores[i + 1][j] >= scores[i][j + 1]:
+            i += 1
+        else:
+            j += 1
+    return result
+
+
 def encode_document(document: LyricsDocument) -> str:
     document.validate()
     return dumps(

@@ -100,6 +100,7 @@ export const createAudioPlayers = (
     recordingId: string,
     owner: symbol | undefined,
     kind: 'recording' | 'song',
+    gain?: number,
   ): Promise<PlaybackSnapshot> => {
     const generation = ++previewGeneration;
     const previousOwner = previewOwner;
@@ -149,11 +150,18 @@ export const createAudioPlayers = (
         previewKind = kind;
         previewServiceInstanceId = values.ServiceInstanceId;
       }
+      if (gain !== undefined) {
+        await ops.command('SetGain', { target: 'preview', value: gain });
+        assertCurrent();
+      }
       if (loadRequired || state !== playingState)
         await ops.command('PlayRecordingPreview');
       return ops.snapshot('playing');
     } catch (error) {
-      if (generation === previewGeneration && previewRecordingId === previousRecordingId)
+      if (
+        generation === previewGeneration &&
+        previewRecordingId === previousRecordingId
+      )
         previewOwner = previousOwner;
       throw error;
     } finally {
@@ -203,8 +211,9 @@ export const createAudioPlayers = (
     async setRadioGain(gain) {
       await ops.command('SetRadioGain', { value: gain });
     },
-    playRecording: (id, owner) => playPreview(id, owner, 'recording'),
-    playSongPreview: (id, owner) => playPreview(id, owner, 'song'),
+    playRecording: (id, owner, gain) =>
+      playPreview(id, owner, 'recording', gain),
+    playSongPreview: (id, owner, gain) => playPreview(id, owner, 'song', gain),
     async pauseRecordingPreview(owner) {
       if (!ownsPreview(owner)) return;
       await ops.command('PauseRecordingPreview');
@@ -220,7 +229,8 @@ export const createAudioPlayers = (
       await ops.command('SeekRecordingPreview', { frame });
     },
     stopRecordingPreview: stopPreview,
-    async setPreviewVolume(gain) {
+    async setPreviewVolume(gain, owner) {
+      if (!ownsPreview(owner)) return;
       await ops.command('SetGain', { target: 'preview', value: gain });
     },
     async recordingPreviewStatus(owner) {

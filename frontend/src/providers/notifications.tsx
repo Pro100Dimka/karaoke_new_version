@@ -15,6 +15,7 @@ import warningUrl from '../assets/sounds/notice-warning.ogg';
 import errorUrl from '../assets/sounds/notice-error.ogg';
 import invitationUrl from '../assets/sounds/notice-invitation.ogg';
 import { operationFailures } from '../shared/errors';
+import { store } from './store';
 
 export type NotificationIntent = 'info' | 'success' | 'warning' | 'error';
 type Notify = (
@@ -35,8 +36,12 @@ let sounding: HTMLAudioElement | undefined;
 /** Short, bounded interface sounds; a new notice replaces the tail instead of building a noisy queue. */
 export const playNotificationSound = (kind: keyof typeof soundUrls): void => {
   sounding?.pause();
+  if (store.preferences.notificationVolume === 0) {
+    sounding = undefined;
+    return;
+  }
   sounding = new Audio(soundUrls[kind]);
-  sounding.volume = 0.45;
+  sounding.volume = store.preferences.notificationVolume / 100;
   void sounding.play().catch(() => undefined);
 };
 

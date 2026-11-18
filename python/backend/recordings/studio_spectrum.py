@@ -240,6 +240,7 @@ class SpectrumPlan(TypedDict):
     bands: list[dict[str, float]]
     ratioDb: list[float]
     clarityBands: NotRequired[list[dict[str, float]]]
+    clarityAutomation: NotRequired[dict[str, object]]
 
 
 def _paired_octave_rows(
@@ -264,6 +265,10 @@ def _paired_octave_rows(
                 continue
             if gain_plan is not None:
                 time = (singer.tell() - len(vocal) + np.arange(len(vocal))) / singer.samplerate
+                if gain_plan.presence is not None and np.interp(
+                    time[len(time) // 2], gain_plan.times, gain_plan.presence
+                ) < 1:
+                    continue
                 gain = np.interp(time, gain_plan.times, gain_plan.gains)
                 vocal *= np.power(10.0, gain[:, None] / 20)
             if music_center:
@@ -315,9 +320,6 @@ def measure_mix_spectrum(voice: Path, backing: Path, cancel: threading.Event) ->
 def plan_presence_eq(
     voice: Path, backing: Path, plan: GainPlan, cancel: threading.Event
 ) -> list[dict[str, float]]:
-    presence = plan.report.get("presenceCompensationDb")
-    if not isinstance(presence, (int, float)) or presence < 1:
-        return []
     rows = _paired_octave_rows(voice, backing, cancel, gain_plan=plan, music_center=True)
     if not rows:
         return []

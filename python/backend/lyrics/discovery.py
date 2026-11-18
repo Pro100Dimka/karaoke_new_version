@@ -9,7 +9,12 @@ from typing import Sequence
 
 from backend.ai.ports import AiProvider, BatchTranscriber
 from backend.domain_errors import DependencyError, DomainError
-from backend.lyrics.codec import decode_document, decode_timing_hints, decode_lrc
+from backend.lyrics.codec import (
+    decode_document,
+    decode_timing_hints,
+    decode_lrc,
+    reconcile_timing_hints,
+)
 from backend.lyrics.phrases import (
     _complete_repeats as _complete_repeats,
     _lyrics_match as _lyrics_match,
@@ -164,7 +169,14 @@ class LyricsDiscovery:
                 found = LyricsDiscoveryResult(lyrics, "ASR", tuple(warnings))
         if found is None:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
-        return self._ending(song, reference_vocal, asr, cancel, found, execution, ending)
+        found = self._ending(song, reference_vocal, asr, cancel, found, execution, ending)
+        return replace(
+            found,
+            timing_hints=reconcile_timing_hints(found.lyrics, found.timing_hints),
+            repeat_baseline_hints=reconcile_timing_hints(
+                found.repeat_baseline or found.lyrics, found.repeat_baseline_hints
+            ),
+        )
 
     def _transcripts(
         self,
@@ -429,6 +441,13 @@ def lyrics_language(song: Song, lyrics: str = "") -> Language:
 def _with_completed_repeats(
     found: LyricsDiscoveryResult, lyrics: str, cancel: threading.Event
 ) -> LyricsDiscoveryResult:
+    lead_hints = reconcile_timing_hints(found.lyrics, found.timing_hints)
+    if lead_hints != found.timing_hints and [hint.text for hint in lead_hints] == [
+        line.strip() for line in found.lyrics.splitlines() if line.strip()
+    ]:
+        # Complete lead cues exclude concurrent backing. ASR hears both parts and
+        # cannot establish an extra lead occurrence from the combined transcript.
+        return found
     completed = _complete_repeats(found.lyrics, lyrics, cancel)
     before = Counter(_lyrics_key(line) for line in found.lyrics.splitlines())
     after = Counter(_lyrics_key(line) for line in completed.splitlines())

@@ -59,7 +59,7 @@ const channels: readonly {
   needsMicrophone: boolean;
   initial: number;
 }[] = [
-  { id: 'mic', label: 'mixerMicrophone', needsMicrophone: true, initial: 1 },
+  { id: 'mic', label: 'mixerMicrophone', needsMicrophone: true, initial: 2 },
   { id: 'music', label: 'music', needsMicrophone: false, initial: 1 },
   { id: 'reference', label: 'mixerGuide', needsMicrophone: false, initial: 0 },
   { id: 'melody', label: 'mixerMelody', needsMicrophone: false, initial: 0 },

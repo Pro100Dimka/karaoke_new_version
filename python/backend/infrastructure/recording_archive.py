@@ -25,15 +25,11 @@ _WORKING_FILES = (
     "recording.wav",
     "recording.flac",
     "recording.original.wav",
-    "recording.wav.backing.wav",
-    "recording.wav.vocal.wav",
-    "recording.wav.dry.wav",
-    "recording.wav.dry-incomplete.wav",
 )
 
 
 class RecordingArchive:
-    """Publish lossless pairs before removing working stems; resume from a disk marker."""
+    """Archive listening mixes while retaining separate sources for subsequent mastering."""
 
     def __init__(
         self,

@@ -118,7 +118,11 @@ def test_recorded_bass_resonance_does_not_cancel_a_different_reference_tail():
 
 
 @pytest.mark.parametrize("local_gain", [0.0, 0.2])
-def test_full_reference_supplies_only_a_missing_tail(tmp_path, monkeypatch, local_gain):
+@pytest.mark.parametrize("raw_gain", [0.0, 0.4])
+@pytest.mark.parametrize("recorded_is_dry", [False, True])
+def test_full_reference_supplies_only_a_missing_tail(
+    tmp_path, monkeypatch, local_gain, raw_gain, recorded_is_dry
+):
     import backend.recordings.studio_space as module
 
     raw, local, full, output = [
@@ -128,7 +132,7 @@ def test_full_reference_supplies_only_a_missing_tail(tmp_path, monkeypatch, loca
     for path in [raw, local, full]:
         sf.write(path, samples, 8000, subtype="FLOAT")
     profiles = {
-        raw: SpaceProfile(),
+        raw: SpaceProfile(decay_seconds=0.4, reverb_gain=raw_gain, decay_count=5),
         local: SpaceProfile(
             decay_seconds=0.5, reverb_gain=local_gain, decay_count=4 if local_gain else 1
         ),
@@ -136,11 +140,21 @@ def test_full_reference_supplies_only_a_missing_tail(tmp_path, monkeypatch, loca
     }
     monkeypatch.setattr(module, "analyze_space", lambda path, *a: profiles[path])
     report = module.apply_reference_space(
-        object(), local, raw, raw, output, threading.Event(), full_reference=full
+        object(),
+        local,
+        raw,
+        raw,
+        output,
+        threading.Event(),
+        full_reference=full,
+        recorded_is_dry=recorded_is_dry,
     )
     expected = profiles[local] if local_gain else profiles[full]
-    assert report["applied"]["decay_seconds"] == expected.decay_seconds
-    assert report["applied"]["reverb_gain"] == expected.reverb_gain * 0.5
+    added = expected.reverb_gain * 0.5 if recorded_is_dry or not raw_gain else 0
+    assert report["applied"]["decay_seconds"] == (expected.decay_seconds if added else 0)
+    assert report["applied"]["reverb_gain"] == added
+    wet_energy = np.mean((sf.read(output)[0] - samples) ** 2)
+    assert wet_energy > 1e-8 if added else wet_energy < 1e-12
     assert report["reverbEvidenceSource"] == ("performed-section" if local_gain else "full-song")
 
 
@@ -228,8 +242,11 @@ def test_master_balance_uses_backing_independently_of_reference_level(
     )
     if varying_effect:
 
-        def spatial_energy(renderer, reference, recorded, voice, target, cancel, *, full_reference):
+        def spatial_energy(
+            renderer, reference, recorded, voice, target, cancel, *, full_reference, recorded_is_dry
+        ):
             assert full_reference == paths["reference"]
+            assert recorded_is_dry
             samples, rate = sf.read(voice)
             wet = np.roll(samples, round(rate * 0.137))
             wet[: round(rate * 0.137)] = 0
@@ -300,7 +317,7 @@ def test_master_clarity_only_corrects_supported_dark_voice(tmp_path, dark, secon
     assert path.read_bytes() == original
 
 
-def test_master_preserves_performed_backing_dynamics(tmp_path, monkeypatch):
+def test_master_preserves_project_backing_dynamics_independently_of_monitor(tmp_path, monkeypatch):
     from backend.recordings.studio_render import MasterRender
     from backend.recordings.studio_master import FfmpegStudioMasterRenderer
     from backend.infrastructure.process_runner import ProcessRunner
@@ -344,7 +361,7 @@ def test_master_preserves_performed_backing_dynamics(tmp_path, monkeypatch):
     )
     for index in (5, 15, 25):
         level = 10 * np.log10(np.mean(observed[0][index * rate : (index + 1) * rate] ** 2))
-        assert level == pytest.approx(recorded[index * 10], abs=1.6)
+        assert level == pytest.approx(original[index * 10], abs=1.6)
     assert paths["music"].read_bytes() == initial
 
 
@@ -379,7 +396,9 @@ def test_master_body_correction_does_not_require_treble_boost():
     assert filters[0].endswith("g=-2.500000")
 
 
-def test_master_body_correction_follows_measured_coloration(tmp_path):
+@pytest.mark.parametrize("reference_gain", [None, 0.0, 0.01, 1.0])
+@pytest.mark.parametrize("stereo", [False, True])
+def test_master_body_correction_follows_measured_coloration(tmp_path, reference_gain, stereo):
     from scipy.signal import butter, sosfilt
     from backend.recordings.studio_audio import _profile
     from backend.recordings.studio_dynamics import _voice_filters
@@ -398,6 +417,59 @@ def test_master_body_correction_follows_measured_coloration(tmp_path):
     filters, _ = _voice_filters(voice, _profile(voice, cancel), cancel, original)
     cuts = [item for item in filters if item.startswith("equalizer=") and ":g=-" in item]
     assert any(350 <= float(item.split(":")[0].split("=")[-1]) <= 700 for item in cuts)
+
+    from backend.recordings.studio_voice import integrate_voice
+    from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+    from backend.infrastructure.process_runner import ProcessRunner
+
+    time = np.arange(rate * 12 + 37) / rate
+    body = np.where(time < 4, 0.2, 0.03) * np.sin(2 * np.pi * 350 * time)
+    samples = body + 0.035 * np.sin(2 * np.pi * 1000 * time)
+    guide = 0.03 * np.sin(2 * np.pi * 350 * time)
+    guide += 0.035 * np.sin(2 * np.pi * 1000 * time)
+    music = np.where(time < 4, 0.04, 0.2) * np.sin(2 * np.pi * 1700 * time)
+    music[time >= 8] = 0
+    if stereo:
+        samples, guide, music = [np.column_stack((x, -x)) for x in (samples, guide, music)]
+        guide = np.pad(guide, ((rate * 3, 0), (0, 0)))
+    backing = tmp_path / "backing.wav"
+    guide *= 1 if reference_gain is None else reference_gain
+    for path, data in [(voice, samples), (original, guide), (backing, music)]:
+        sf.write(path, data, rate, subtype="FLOAT")
+    before = [path.read_bytes() for path in (voice, original, backing)]
+    axis = (np.arange(121) + 0.5) * 0.1
+    output, report = integrate_voice(
+        FfmpegStudioMasterRenderer(ProcessRunner()),
+        voice,
+        backing,
+        original,
+        tmp_path / "integrated.wav",
+        cancel,
+        reference_timing=None if reference_gain is None else (axis, axis + (3 if stereo else 0)),
+    )
+    actual, actual_rate = sf.read(output)
+    assert actual_rate == rate and actual.shape == samples.shape
+    assert np.isfinite(actual).all()
+    assert [path.read_bytes() for path in (voice, original, backing)] == before
+    curve = report["bodyCutDb"]
+    assert max(curve) <= 4.5 and max(report["placementTrimDb"]) <= 2.5
+    assert np.mean(curve[10:30]) > 3 if reference_gain else max(curve) == 0
+    # Allow the one-second detector to settle after the first, much louder body section.
+    assert np.mean(curve[73:78]) < 0.1
+    assert np.mean(report["placementTrimDb"][10:30]) > 2
+    assert np.mean(report["placementTrimDb"][60:75]) < 0.05
+    spectra = [
+        _profile(path, cancel, voice_band=True, band_hz=band)
+        for path in (voice, output)
+        for band in [(150, 600), (600, 3500)]
+    ]
+    body_change = np.mean((spectra[2] - spectra[3] - spectra[0] + spectra[1])[10:30])
+    assert body_change < -3 if reference_gain else abs(body_change) < 0.1
+    selected = (time >= 7.3) & (time < 7.8)
+    np.testing.assert_allclose(actual[selected], samples[selected], atol=2e-4)
+    np.testing.assert_allclose(actual[-rate:], samples[-rate:], atol=2e-4)
+    if stereo:
+        np.testing.assert_allclose(actual[:, 0], -actual[:, 1], atol=1e-7)
 
 
 def test_master_air_correction_does_not_boost_upper_midrange():

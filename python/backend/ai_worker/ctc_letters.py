@@ -6,6 +6,7 @@ import torch
 
 from backend.ai_worker.ctc_domain import (
     AlignedWord as AlignedWord,
+    _LARGEST_LAG_SECONDS,
     _HEARD_DISAGREEMENT_SECONDS as _HEARD_DISAGREEMENT_SECONDS,
     _PREFERENCE as _PREFERENCE,
     _SILENCE_ENDS_WORD_SECONDS as _SILENCE_ENDS_WORD_SECONDS,
@@ -62,7 +63,34 @@ def with_sung_letters(
         elif _sung_letters_disagree(word, original, candidate, frame_seconds):
             flags = (*word.diagnostics, "LetterTimingReviewRequired", "ApproximateLetterTiming")
             result[index] = replace(word, diagnostics=tuple(dict.fromkeys(flags)))
-    return result
+    return [_with_letter_confidence(word, scores, frame_seconds, activity) for word in result]
+
+
+def _with_letter_confidence(
+    word: AlignedWord, scores: torch.Tensor, step: float, activity: np.ndarray
+) -> AlignedWord:
+    """Check held letters individually, preserving their measured times and real fast sounds."""
+    if len(word.letters) != len(word.text):
+        return word
+    tokens = _character_tokens(word.text)
+    voice_step = _VOICE_HOP / _VOICE_RATE
+    for index, (start, end) in enumerate(zip(word.letters, (*word.letters[1:], word.end))):
+        if end - start <= _HEARD_DISAGREEMENT_SECONDS or len(tokens[index]) != 1:
+            continue
+        first_voice, stop_voice = round(start / voice_step), round(end / voice_step)
+        if not (
+            0 <= first_voice < stop_voice <= len(activity)
+            and bool(activity[first_voice:stop_voice].all())
+        ):
+            continue
+        # Permit the existing onset calibration before rejecting a token's support.
+        first = max(0, round((start - _LARGEST_LAG_SECONDS) / step))
+        stop = min(len(scores), round((start + _LARGEST_LAG_SECONDS) / step) + 1)
+        if first < stop and float(scores[first:stop, tokens[index][0]].exp().max()) >= _PREFERENCE:
+            continue
+        flags = (*word.diagnostics, "LetterTimingReviewRequired", "ApproximateLetterTiming")
+        return replace(word, diagnostics=tuple(dict.fromkeys(flags)))
+    return word
 
 
 def _collapsed_letter_review(

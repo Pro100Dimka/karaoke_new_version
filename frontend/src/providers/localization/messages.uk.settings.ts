@@ -56,6 +56,7 @@ export const ukSettings = {
   microphoneKnob: 'Мікрофон',
   inputMonitoring: 'Моніторинг входу',
   noiseKnob: 'Шум',
+  notificationVolume: 'Гучність сповіщень',
   audioDevicesAndMonitoring: 'Пристрої та прослуховування',
   audioInputDevice: 'Пристрій введення',
   audioOutputDevice: 'Пристрій виведення',

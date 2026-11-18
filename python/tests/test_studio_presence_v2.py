@@ -9,14 +9,19 @@ from backend.recordings.studio_audio import _write_gain_envelope
 from backend.recordings.studio_calibration import build_gain_plan, validate_gain_plan
 
 
-def render_plan(root: Path, voice: np.ndarray, music: np.ndarray, *, overlap: float = 0.5):
+def render_plan(root: Path, voice: np.ndarray, music: np.ndarray, *, overlap=0.5, reference=None):
     vocal, backing, output = (root / name for name in ["voice.wav", "backing.wav", "out.wav"])
     sf.write(vocal, voice, 8000, subtype="FLOAT")
     sf.write(backing, music, 8000, subtype="FLOAT")
     before = [path.read_bytes() for path in (vocal, backing)]
     cancel = threading.Event()
     plan = build_gain_plan(
-        FfmpegStudioMasterRenderer(ProcessRunner()), vocal, backing, overlap, cancel
+        FfmpegStudioMasterRenderer(ProcessRunner()),
+        vocal,
+        backing,
+        overlap,
+        cancel,
+        reference_balance=reference,
     )
     _write_gain_envelope(vocal, output, plan.times, plan.gains, cancel)
     assert [path.read_bytes() for path in (vocal, backing)] == before
@@ -34,30 +39,59 @@ def rms_db(samples):
     return 10 * np.log10(max(float(np.mean(samples**2)), 1e-12))
 
 
-def test_single_plan_keeps_steady_singing_steady(tmp_path):
-    _, voice = tone()
-    actual, plan, qc = render_plan(tmp_path, voice, voice)
+@pytest.mark.parametrize("expression_db", [0, 3])
+def test_single_plan_keeps_steady_singing_steady(tmp_path, expression_db):
+    time, music = tone()
+    voice = music * 10 ** (expression_db * np.sin(2 * np.pi * time) / 20)
+    actual, plan, qc = render_plan(tmp_path, voice, music)
     levels = [rms_db(actual[i * 8000 : (i + 1) * 8000]) for i in range(1, 7)]
     assert np.ptp(levels) < 0.2
     assert qc["p90ErrorDb"] < 1
     assert plan.report["method"] == "single-context-envelope"
+    if expression_db:
+        before = np.array([rms_db(block) for block in voice.reshape(-1, 160)])
+        after = np.array([rms_db(block) for block in actual.reshape(-1, 160)])
+        interior = slice(50, -50)
+        # Preserve the direction and some depth of a singer's deliberate emphasis.
+        assert np.corrcoef(before[interior], after[interior])[0, 1] > 0.9
+        assert np.ptp(after[interior]) > 0.25 * np.ptp(before[interior])
+        from dataclasses import replace
+        from backend.recordings.studio_audio import _profile
+
+        identity = replace(
+            plan,
+            target=_profile(tmp_path / "voice.wav", threading.Event(), frame_seconds=0.02)
+            + plan.offset,
+        )
+        assert (
+            validate_gain_plan(tmp_path / "voice.wav", identity, threading.Event())["p90ErrorDb"]
+            < 0.001
+        )
+        louder = tmp_path / "louder.wav"
+        sf.write(louder, voice * 2, 8000, subtype="FLOAT")
+        assert validate_gain_plan(louder, identity, threading.Event())["p90ErrorDb"] > 5.9
 
 
 @pytest.mark.parametrize("scale", [0.1, 1.0, 3.0])
-def test_single_plan_is_independent_of_input_gain(tmp_path, scale):
+@pytest.mark.parametrize("weak_reference", [False, True])
+def test_single_plan_is_independent_of_input_gain(tmp_path, scale, weak_reference):
     _, voice = tone()
-    actual, _, _ = render_plan(tmp_path, voice * scale, voice)
+    reference = None
+    if weak_reference:
+        reference = ((np.arange(80) + 0.5) * 0.1, np.full(80, -47.03), np.full(80, -29.03))
+    actual, _, _ = render_plan(tmp_path, voice * scale, voice, reference=reference)
     assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(0, abs=0.2)
 
 
-def test_short_loud_and_quiet_words_are_leveled_by_one_controller(tmp_path):
+@pytest.mark.parametrize("burst_seconds", [0.02, 0.2])
+def test_short_loud_and_quiet_words_are_leveled_by_one_controller(tmp_path, burst_seconds):
     time, voice = tone()
-    voice[(time >= 4) & (time < 4.2)] *= 4
+    voice[(time >= 4) & (time < 4 + burst_seconds)] *= 4
     voice[(time >= 5) & (time < 5.2)] *= 0.25
     _, music = tone()
     actual, _, qc = render_plan(tmp_path, voice, music)
     baseline = rms_db(actual[2 * 8000 : 3 * 8000])
-    assert rms_db(actual[round(4.02 * 8000) : round(4.18 * 8000)]) - baseline < 4
+    assert rms_db(actual[round(4.0 * 8000) : round((4 + burst_seconds) * 8000)]) - baseline < 4
     assert rms_db(actual[round(5.02 * 8000) : round(5.18 * 8000)]) - baseline > -4
     assert qc["p90ErrorDb"] < 3
 
@@ -144,11 +178,24 @@ def test_breath_protection_does_not_guess_a_gain_without_voiced_neighbors(tmp_pa
     assert report["protectedSeconds"] == 0
 
 
-def test_plan_follows_a_musical_crescendo(tmp_path):
+@pytest.mark.parametrize("with_reference", [False, True])
+def test_plan_follows_a_musical_crescendo(tmp_path, with_reference):
     time, voice = tone(12)
     music = voice * np.interp(time, [0, 4, 8, 12], [0.1, 0.1, 1, 1])
-    actual, _, qc = render_plan(tmp_path, voice, music)
-    assert rms_db(actual[9 * 8000 : 11 * 8000]) - rms_db(actual[8000 : 3 * 8000]) > 12
+    axis = (np.arange(120) + 0.5) * 0.1
+    reference = None
+    if with_reference:
+        reference = (
+            axis,
+            np.full(120, -29.03),
+            -29.03 + 20 * np.log10(np.interp(axis, [0, 4, 8, 12], [0.1, 0.1, 1, 1])),
+        )
+    actual, _, qc = render_plan(tmp_path, voice, music, reference=reference)
+    difference = rms_db(actual[9 * 8000 : 11 * 8000]) - rms_db(actual[8000 : 3 * 8000])
+    if with_reference:
+        assert abs(difference) < 3
+    else:
+        assert difference > 12
     assert qc["p90ErrorDb"] < 3
 
 
@@ -178,15 +225,33 @@ def test_overlap_changes_placement_without_song_specific_parameters(tmp_path):
     assert rms_db(second[8000:-8000]) - rms_db(first[8000:-8000]) == pytest.approx(3, abs=0.1)
 
 
-def test_balance_keeps_vocal_harmonics_audible_above_a_shared_bass_body(tmp_path):
+@pytest.mark.parametrize("changing_density", [False, True])
+def test_balance_keeps_vocal_harmonics_audible_above_a_shared_bass_body(tmp_path, changing_density):
     time, music = tone(frequency=900)
     voice = 0.05 * np.sin(2 * np.pi * 150 * time) + 0.035 * np.sin(2 * np.pi * 900 * time)
+    if changing_density:
+        music[time >= 4] = 0.05 * np.sin(2 * np.pi * 150 * time[time >= 4])
     actual, plan, _ = render_plan(tmp_path, voice, music)
-    section = actual[8000:-8000]
+    section = actual[8000:24000]
     axis = np.arange(len(section)) / 8000
     amplitude = 2 * abs(np.mean(section * np.exp(-2j * np.pi * 900 * axis)))
     assert 20 * np.log10(amplitude / 0.05) == pytest.approx(0, abs=0.5)
     assert plan.report["presenceCompensationDb"] > 0
+    if changing_density:
+        from backend.recordings.studio_calibration import _presence_correction
+
+        correction = _presence_correction(
+            tmp_path / "voice.wav",
+            tmp_path / "backing.wav",
+            plan.times,
+            np.zeros_like(plan.gains),
+            plan.active,
+            0,
+            threading.Event(),
+        )
+        local = np.broadcast_to(correction, plan.times.shape)
+        assert np.median(local[(plan.times > 1) & (plan.times < 3)]) > 2.5
+        assert np.median(local[(plan.times > 5) & (plan.times < 7)]) < 0.5
 
 
 def test_center_presence_does_not_raise_voice_over_side_only_music(tmp_path):

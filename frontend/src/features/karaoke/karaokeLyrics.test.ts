@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { word, line } from './karaokeLyricsFixture';
-import { buildLines, currentLineIndex, letterProgress, pitchAccuracy, noteHitReached, pitchMatchesTarget, pitchHzToMidi, pitchRange, targetPitchAt, scorableNoteDuration, upcomingLinePhase } from './karaokeLyrics';
+import {
+  buildLines,
+  currentLineIndex,
+  letterProgress,
+  pitchAccuracy,
+  noteHitReached,
+  pitchMatchesTarget,
+  pitchHzToMidi,
+  pitchRange,
+  targetPitchAt,
+  scorableNoteDuration,
+  upcomingLinePhase,
+} from './karaokeLyrics';
 describe('karaoke lyrics model', () => {
   it("does not grade an uncertain reference fundamental as a singer's wrong note", () => {
     const note = {
@@ -58,11 +70,19 @@ describe('karaoke lyrics model', () => {
     ]);
   });
 
-  it('limits how many words share a line', () => {
+  it('uses musical duration rather than a word count when phrase boundaries are missing', () => {
     const words = Array.from({ length: 10 }, (_, index) =>
       word(String(index), index, index + 0.9),
     );
-    expect(buildLines(words).map((line) => line.words.length)).toEqual([8, 2]);
+    expect(buildLines(words).map((line) => line.words.length)).toEqual([6, 4]);
+    const fast = words.map((item, index) => ({
+      ...item,
+      start: index * 0.2,
+      end: (index + 1) * 0.2,
+    }));
+    expect(
+      buildLines(fast, undefined, 120).map((line) => line.words.length),
+    ).toEqual([10]);
   });
 
   it('points at the upcoming line during a gap and the last line after the end', () => {
@@ -130,7 +150,7 @@ describe('karaoke lyrics model', () => {
     },
   );
 
-  it('keeps brief articulation gaps together and limits oversized written lines too', () => {
+  it('preserves a written phrase longer than eight words', () => {
     const words = Array.from({ length: 10 }, (_, index) =>
       word(String(index), index, index + 0.9),
     );
@@ -141,7 +161,7 @@ describe('karaoke lyrics model', () => {
         .map((item) => item.text)
         .join(' ') + '\n9';
     expect(buildLines(words, lyrics).map((line) => line.words.length)).toEqual([
-      8, 1, 1,
+      9, 1,
     ]);
     expect(words).toEqual(original);
   });

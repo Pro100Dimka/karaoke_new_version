@@ -13,10 +13,9 @@ def _phrase_lines(
     activity: Sequence[tuple[float, float]],
     bpm: float | None = None,
 ) -> str:
-    """Persist readable phrases at written boundaries, breaths, and the eight-word limit."""
-    pause_seconds = (
-        max(0.2, min(0.35, 30 / bpm)) if bpm and math.isfinite(bpm) and bpm > 0 else 0.35
-    )
+    """Retain written and recognized phrases; use musical duration only without those boundaries."""
+    beat_seconds = 60 / bpm if bpm and math.isfinite(bpm) and bpm > 0 else None
+    pause_seconds = max(0.2, min(0.35, beat_seconds / 2)) if beat_seconds else 0.35
     boundaries: set[int] = set()
     count = 0
     for line in lyrics.splitlines():
@@ -31,7 +30,8 @@ def _phrase_lines(
         for left, right in pairwise(activity)
         if right[0] - left[1] >= pause_seconds
     ]
-    lines = _laid_out_phrases(words, boundaries, pauses, pause_seconds)
+    phrase_seconds = (4 * beat_seconds if beat_seconds else 6) if len(boundaries) <= 1 else math.inf
+    lines = _laid_out_phrases(words, boundaries, pauses, pause_seconds, phrase_seconds)
     _join_short_prefixes(lines)
     return "\n".join(" ".join(word.text for word in line) for line in lines)
 
@@ -108,15 +108,16 @@ def _starts_phrase(
     written_index: int,
     boundaries: set[int],
     pauses: Sequence[tuple[float, float]],
-    row_length: int,
+    row_start: float,
     pause_seconds: float,
+    phrase_seconds: float,
 ) -> bool:
     return (
         any(previous_index < boundary <= written_index for boundary in boundaries)
         or "RecoveredVocalization" in word.diagnostics
         or "RecoveredVocalization" in previous.diagnostics
         or "RecognizedPhraseEntry" in word.diagnostics
-        or row_length >= 8
+        or word.start - row_start >= phrase_seconds
         or word.start - previous.end >= pause_seconds
         or any(
             previous.start < start < word.start and end <= word.start + 0.15
@@ -130,6 +131,7 @@ def _laid_out_phrases(
     boundaries: set[int],
     pauses: Sequence[tuple[float, float]],
     pause_seconds: float,
+    phrase_seconds: float,
 ) -> list[list[WordTiming]]:
     lines: list[list[WordTiming]] = []
     written_index = 0
@@ -147,8 +149,9 @@ def _laid_out_phrases(
             written_index,
             boundaries,
             pauses,
-            len(lines[-1]),
+            lines[-1][0].start,
             pause_seconds,
+            phrase_seconds,
         ):
             lines.append([])
         lines[-1].append(word)

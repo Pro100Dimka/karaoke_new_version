@@ -1,5 +1,5 @@
 from __future__ import annotations
-from backend.recordings.studio_delivery import MasterDelivery
+from backend.recordings.studio_delivery import MasterDelivery, measure_mix_loudness
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space
 from numpy.typing import NDArray
@@ -33,7 +33,7 @@ from backend.recordings.studio_calibration import (
     validate_gain_plan,
     vocal_activity,
 )
-from backend.recordings.studio_voice import shape_voice
+from backend.recordings.studio_voice import shape_voice, integrate_voice
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
 
@@ -79,6 +79,9 @@ class MasterRender:
     plan: GainPlan = field(init=False)
     overlap: float = field(default=0.0, init=False)
     spectral: SpectrumPlan = field(init=False)
+    reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = field(
+        default=None, init=False
+    )
 
     def run(self) -> StudioMasterBalance:
         self.info = sf.info(self.performance_mix)
@@ -93,14 +96,15 @@ class MasterRender:
         with TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory:
             self.work = Path(directory)
             self._prepare_stems()
+            project_backing = self.original_instrumental
             self._scope_reference()
             self._recover_stems()
+            self._prepare_master_backing(project_backing)
             bypass = self._analyze()
             if bypass is not None:
                 return bypass
             self._balance_performance()
-            pitch_correction = apply_reference_pitch(self)
-            self.processing["pitchCorrection"] = pitch_correction
+            self.processing["pitchCorrection"] = apply_reference_pitch(self)
             self._shape_voice()
             self._write_balanced()
             self._finish_voice()
@@ -165,7 +169,6 @@ class MasterRender:
                 origin - self.reference_origin if origin is not None else None,
                 self.cancel,
             )
-            self.vocal = self.user_vocal
             bypass = self._prepare_voice(profile_tasks)
             if bypass is not None:
                 return bypass
@@ -223,8 +226,47 @@ class MasterRender:
                 {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}
             ]
 
+    def _prepare_master_backing(self, project: Path) -> None:
+        raw = self.pitch_adjustments or [
+            {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}
+        ]
+        points = parse_playback_adjustments(raw)
+        ends = [point.elapsed_seconds for point in points[1:]] + [self.info.duration]
+        if (
+            len(points) != len(raw)
+            or points[0].elapsed_seconds != 0
+            or any(end <= point.elapsed_seconds for point, end in zip(points, ends))
+        ):
+            raise DependencyError(
+                "StudioMasterTimelineUnavailable", "Recording timeline is invalid"
+            )
+        graph = f"[0:a]asplit={len(points)}" + "".join(f"[s{i}]" for i in range(len(points))) + ";"
+        for i, (point, end) in enumerate(zip(points, ends)):
+            duration = end - point.elapsed_seconds
+            transform = (
+                f"rubberband=tempo={point.playback_rate:.12f}:pitch={2 ** (point.key_shift / 12):.12f},"
+                if point.playback_rate != 1 or point.key_shift != 0
+                else ""
+            )
+            graph += (
+                f"[s{i}]atrim=start={point.source_seconds:.12f}:"
+                f"duration={duration * point.playback_rate:.12f},asetpts=PTS-STARTPTS,"
+                f"{transform}aresample={self.info.samplerate},apad,"
+                f"atrim=end_sample={round(duration * self.info.samplerate)}[p{i}];"
+            )
+        graph += "".join(f"[p{i}]" for i in range(len(points)))
+        graph += f"concat=n={len(points)}:v=0:a=1,apad,atrim=end_sample={self.info.frames}[out]"
+        self.backing = self.work / "master-backing.wav"
+        self.renderer._mix(
+            project,
+            project,
+            graph,
+            ["-ac", str(self.output_channels), "-c:a", "pcm_f32le", str(self.backing)],
+            self.cancel,
+        )
+        self.processing["backingSource"] = "project-timeline-without-monitor-gains"
+
     def _balance_performance(self) -> None:
-        # _analyze already measured these unchanged stems with the same broadband detector.
         self.processing.update(
             balanceSource="performance-and-backing",
             levelingBand="broadband",
@@ -239,14 +281,28 @@ class MasterRender:
             axis = (np.arange(len(levels)) + 0.5) * _PROFILE_SECONDS
             profiles.append(np.interp(positions, axis, levels, left=-120, right=-120))
         self.backing_db, self.reference_db, self.original_db = profiles
-        self.gains = np.zeros_like(self.voice_db)
+        if self.timing_known:
+            vocal, music = measure_mix_loudness(
+                self.renderer, self.reference_vocal, self.original_instrumental, self.cancel
+            )
+            axis = (np.arange(len(vocal)) + 1) * 0.1 - 0.2
+            reference = [
+                np.interp(self.source_times, axis, values, left=-120, right=-120)
+                for values in (vocal, music)
+            ]
+            self.reference_balance = self.times, *reference
         self.reliable = vocal_activity(self.voice_db)
 
     def _shape_voice(self) -> None:
         evidence = measure_mix_spectrum(self.vocal, self.backing, self.cancel)
         self.overlap = evidence["overlap"]
         self.plan = build_gain_plan(
-            self.renderer, self.vocal, self.backing, self.overlap, self.cancel
+            self.renderer,
+            self.vocal,
+            self.backing,
+            self.overlap,
+            self.cancel,
+            reference_balance=self.reference_balance,
         )
         evidence["clarityBands"] = plan_presence_eq(
             self.vocal, self.backing, self.plan, self.cancel
@@ -259,15 +315,20 @@ class MasterRender:
             self.work / "shaped-voice.wav",
             self.cancel,
             plan=evidence,
+            automation=self.plan,
         )
         self.processing["spectralPlan"] = evidence
         self.spectral = evidence
-        self.overlap = evidence["overlap"]
 
     def _write_balanced(self) -> None:
         if self.spectral["bands"]:
             self.plan = build_gain_plan(
-                self.renderer, self.vocal, self.backing, self.overlap, self.cancel
+                self.renderer,
+                self.vocal,
+                self.backing,
+                self.overlap,
+                self.cancel,
+                reference_balance=self.reference_balance,
             )
         self.balanced = self.work / "planned-voice.wav"
         self.peak_bound = 0.0
@@ -284,8 +345,6 @@ class MasterRender:
 
     def _finish_voice(self) -> None:
         target = self.work / "spatial-voice.wav"
-        # The space planner measures existing effects and adds only the missing contribution.
-        # An unavailable dry stem does not mean that the recorded voice already has those effects.
         effects = apply_reference_space(
             self.renderer,
             self.reference_vocal,
@@ -294,12 +353,22 @@ class MasterRender:
             target,
             self.cancel,
             full_reference=self.space_reference,
+            recorded_is_dry=self.process_voice,
         )
         self.processing["referenceEffects"] = effects
         self.processing["space"] = effects["status"]
         self.processing["effectsApplied"] = effects["status"] == "matched"
         if target.is_file():
             self.balanced = target
+        self.balanced, self.processing["mixIntegration"] = integrate_voice(
+            self.renderer,
+            self.balanced,
+            self.backing,
+            self.reference_vocal,
+            self.work / "integrated-voice.wav",
+            self.cancel,
+            reference_timing=(self.times, self.source_times) if self.timing_known else None,
+        )
         self.processing["voiceOutputGainDb"] = 0.0
 
     def _balance_report(self) -> StudioMasterBalance:
@@ -381,7 +450,7 @@ class MasterRender:
         raw_profile = _profile(self.user_vocal, self.cancel)
         confident = raw_profile > max(-80.0, float(np.percentile(raw_profile, 90)) - 25)
         if np.count_nonzero(confident) * _PROFILE_SECONDS < 3:
-            shutil.copyfile(self.performance_mix, self.target)
+            shutil.copyfile(self.backing, self.target)
             profiles = [raw_profile, *(future.result() for future in profile_tasks)]
             voice_level, backing_level, reference_level, original_level = (
                 float(np.median(levels)) for levels in profiles

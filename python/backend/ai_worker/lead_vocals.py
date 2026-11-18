@@ -181,6 +181,10 @@ def with_lead_vocals(
     )
     if not backing:
         return words
+    entries = {
+        index: max(entry, _preceding_core_end(words, index, backing))
+        for index, entry in entries.items()
+    }
     lead = ordered(
         [
             replace(
@@ -202,6 +206,21 @@ def with_lead_vocals(
         else next(remaining)
         for index, word in enumerate(words)
     ]
+
+
+def _preceding_core_end(words: Sequence[AlignedWord], index: int, backing: frozenset[int]) -> float:
+    previous = next((words[i] for i in range(index - 1, -1, -1) if i not in backing), None)
+    if previous is None:
+        return 0.0
+    last = max(
+        (
+            moment
+            for char, moment in zip(previous.text, previous.letters)
+            if char.isalnum() and char.casefold() not in "ьъ"
+        ),
+        default=previous.start,
+    )
+    return min(previous.end, last + _STEP)
 
 
 def _backing_context(

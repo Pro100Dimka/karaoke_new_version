@@ -184,7 +184,10 @@ describe('central room voice transport', () => {
     const transport = await import('./RoomServerTransport');
     await transport.joinRoomVoice('room', 'host');
     await vi.advanceTimersByTimeAsync(5000);
-    await transport.setRoomVoiceParticipantGain('guest', 0.5);
+    await transport.setRoomVoiceParticipantGain('guest', 4);
+    expect(
+      requests.find((r) => r.path === '/voice/participant-gain')?.body.gain,
+    ).toBe(4);
     expect(
       requests.find((r) => r.path === '/voice/join')?.body.direct,
     ).not.toBe(true);
@@ -454,20 +457,35 @@ describe('central room voice transport', () => {
     await transport.leaveRoomVoice();
   });
   it('sends personal effects to the authenticated server mixer instead of a native participant', async () => {
-    const requests: Array<{path: string; body: Record<string, unknown>}> = [];
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      const path = new URL(url).pathname;
-      requests.push({path, body: JSON.parse(String(init?.body ?? '{}'))});
-      return new Response(JSON.stringify(path === '/voice/join' ? {voiceToken: '0000000000000001'} : {}));
-    }));
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url).pathname;
+        requests.push({ path, body: JSON.parse(String(init?.body ?? '{}')) });
+        return new Response(
+          JSON.stringify(
+            path === '/voice/join' ? { voiceToken: '0000000000000001' } : {},
+          ),
+        );
+      }),
+    );
     const transport = await import('./RoomServerTransport');
     await transport.joinRoomVoice('room', 'host');
     await transport.setRoomVoiceParticipantEffect('guest', 'octave', -1);
-    expect(requests.at(-1)).toEqual({path: '/voice/participant-effect', body: {
-      roomId: 'room', participantId: 'host', sourceParticipantId: 'guest',
-      voiceToken: '0000000000000001', effect: 'octave', value: -1,
-    }});
-    expect(sendAudioRequest.mock.calls.map(([request]) => request.command)).toEqual(['JoinMediaSession']);
+    expect(requests.at(-1)).toEqual({
+      path: '/voice/participant-effect',
+      body: {
+        roomId: 'room',
+        participantId: 'host',
+        sourceParticipantId: 'guest',
+        voiceToken: '0000000000000001',
+        effect: 'octave',
+        value: -1,
+      },
+    });
+    expect(
+      sendAudioRequest.mock.calls.map(([request]) => request.command),
+    ).toEqual(['JoinMediaSession']);
   });
-
 });

@@ -7,8 +7,10 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter1d, uniform_filter1d, maximum_filter1d, minimum_filter1d
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _profile
 from backend.recordings.studio_delivery import measure_mix_loudness
+from backend.recordings.studio_dynamics import _slow_gain_envelope
 
 _STEP = 0.02
+_REFERENCE_MAX_ATTENUATION_LU = 3.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +21,24 @@ class GainPlan:
     target: NDArray[np.float64]
     offset: NDArray[np.float64]
     report: dict[str, object]
+    presence: np.ndarray | None = None
+
+    def report_automation(
+        self, presence: np.ndarray, placement: np.ndarray, global_gain: float
+    ) -> None:
+        self.report.update(
+            globalGainDb=global_gain,
+            placementLu=float(np.median(placement[self.active])),
+            presenceCompensationDb=float(np.median(presence[self.active])),
+            localBalance={
+                "stepSeconds": 0.5,
+                "gainDb": self.gains[::25].round(2).tolist(),
+                "presenceDb": presence[::25].round(2).tolist(),
+                "placementLu": placement[::25].round(2).tolist(),
+            },
+            gainMinDb=float(np.min(self.gains)),
+            gainMaxDb=float(np.max(self.gains)),
+        )
 
 
 def vocal_activity(levels: NDArray[np.float64]) -> NDArray[np.bool_]:
@@ -52,13 +72,8 @@ def _detector(
     offset = np.interp(
         times, meter_times[valid], gaussian_filter1d(offsets, sigma=2, mode="nearest")
     )
-    level = (
-        10
-        * np.log10(
-            np.maximum(gaussian_filter1d(10 ** (rms / 10), sigma=1.5, mode="nearest"), 1e-12)
-        )
-        + offset
-    )
+    # Detect the actual 20 ms level; the gain envelope below provides the smoothing.
+    level = rms + offset
     return times, level, m, meter_times, active, offset
 
 
@@ -67,8 +82,8 @@ def _target_levels(
     level: np.ndarray,
     music: np.ndarray,
     meter_times: np.ndarray,
-    baseline: float,
-    placement: float,
+    baseline: np.ndarray,
+    placement: np.ndarray,
 ) -> np.ndarray:
     # Near-silent backing must not drag down a continuing vocal phrase.
     audible = vocal_activity(music) & (music > -70) & (meter_times >= 0)
@@ -78,8 +93,9 @@ def _target_levels(
         )
         target = np.interp(times, meter_times[audible], accompaniment) + placement
     else:
-        target = np.full_like(level, baseline)
-    return np.asarray(target + 0.15 * (level - baseline), dtype=float)
+        target = baseline.copy()
+    # Retain phrase emphasis while keeping unusually loud syllables inside the backing.
+    return np.asarray(target + 0.4 * np.minimum(level - baseline, 5.0), dtype=float)
 
 
 def _presence_correction(
@@ -88,22 +104,24 @@ def _presence_correction(
     times: np.ndarray,
     gains: np.ndarray,
     active: np.ndarray,
-    placement: float,
+    placement: float | np.ndarray,
     cancel: threading.Event,
-) -> float:
+) -> np.ndarray:
     vocal = _profile(voice, cancel, voice_band=True, band_hz=(600, 3500))
     full = _profile(voice, cancel)
-    if np.mean(10 ** (vocal / 10)) < 0.01 * np.mean(10 ** (full / 10)):
-        return 0.0
     music = _profile(backing, cancel, voice_band=True, center=True, band_hz=(600, 3500))
     axis = (np.arange(len(vocal)) + 0.5) * 0.1
+    full = np.interp(times, axis, full)
     vocal = np.interp(times, axis, vocal)
     music = np.interp(times, axis, music)
-    valid = active & (music > -70) & (vocal > -80)
-    if not valid.any():
-        return 0.0
-    prominence = float(np.median((vocal + gains - music)[valid]))
-    return float(np.clip(placement - prominence, 0, 3.0 - placement))
+    voicing = _voicing_profile(voice, cancel)
+    confidence = np.interp(times, (np.arange(len(voicing)) + 0.5) * 0.04, voicing)
+    valid = active & (music > -70) & (vocal > -80) & (vocal > full - 20)
+    valid &= confidence >= 0.65
+    correction = np.where(
+        valid, np.clip(placement - (vocal + gains - music), 0, np.clip(3.0 - placement, 3, 6)), 0
+    )
+    return np.asarray(gaussian_filter1d(correction, sigma=0.25 / _STEP, mode="nearest"))
 
 
 def _voicing_profile(voice: Path, cancel: threading.Event) -> np.ndarray:
@@ -157,8 +175,43 @@ def _protect_unvoiced(
     }
 
 
+def _context_levels(
+    times: np.ndarray,
+    level: np.ndarray,
+    active: np.ndarray,
+    overlap: float,
+    reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    baseline = gaussian_filter1d(level * active, sigma=0.75 / _STEP, mode="nearest")
+    baseline /= np.maximum(
+        gaussian_filter1d(active.astype(float), sigma=0.75 / _STEP, mode="nearest"), 1e-9
+    )
+    placement = np.full_like(level, -3.0 + 3.0 * overlap)
+    if reference_balance is None:
+        return baseline, placement
+    positions, vocal, music = reference_balance
+    valid = vocal_activity(vocal) & (vocal > -70) & (music > -70)
+    if np.count_nonzero(valid) < 10:
+        return baseline, placement
+    confidence = np.clip((vocal - np.percentile(vocal[valid], 80) + 12) / 6, 0, 1)
+    strong = valid & (music >= np.percentile(music[valid], 70)) & (confidence >= 0.5)
+    ratio = vocal - music
+    anchor = float(np.median(ratio[strong if strong.any() else valid]))
+    relative = np.interp(positions, positions[valid], ratio[valid]) - anchor
+    phrase = np.clip(_slow_gain_envelope(relative, seconds=3.0), -_REFERENCE_MAX_ATTENUATION_LU, 24)
+    reliable = gaussian_filter1d(confidence * valid, sigma=5, mode="nearest")
+    placement += np.interp(times, positions, phrase * reliable)
+    return baseline, placement
+
+
 def build_gain_plan(
-    renderer: MasterRenderer, voice: Path, backing: Path, overlap: float, cancel: threading.Event
+    renderer: MasterRenderer,
+    voice: Path,
+    backing: Path,
+    overlap: float,
+    cancel: threading.Event,
+    *,
+    reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> GainPlan:
     times, level, music, meter_times, active, offset = _detector(renderer, voice, backing, cancel)
     report: dict[str, object] = {
@@ -167,40 +220,37 @@ def build_gain_plan(
     }
     if not active.any():
         return GainPlan(times, np.zeros_like(level), active, level, offset, report)
-    baseline = float(np.median(level[active]))
-    placement = -3.0 + 3.0 * overlap
+    baseline, placement = _context_levels(times, level, active, overlap, reference_balance)
     target = _target_levels(times, level, music, meter_times, baseline, placement)
     # Support softer words before breath protection, without flattening the whole performance.
-    soft_word_lift = np.clip((baseline - level) * 0.25, 0.0, 1.5)
+    soft_word_lift = np.clip((baseline - level) * 0.15, 0.0, 2.0)
     target += soft_word_lift
     desired, protection = _protect_unvoiced(voice, times, target - level, active, cancel)
     # Include breath protection's attenuation when measuring the final vocal presence.
-    presence = _presence_correction(voice, backing, times, desired, active, placement, cancel)
+    presence_target = np.maximum(placement, -3.0 + 3.0 * overlap)
+    presence = _presence_correction(voice, backing, times, desired, active, presence_target, cancel)
     desired += presence + 1.5
     report["unvoicedProtection"] = protection
     global_gain = float(np.median(desired[active]))
     gains = _smoothed_gains(times, desired, active, global_gain)
     report.update(
-        globalGainDb=global_gain,
-        placementLu=placement,
-        presenceCompensationDb=presence,
         vocalLiftDb=1.5,
         softWordLiftMaxDb=float(np.max(soft_word_lift[active])),
         presenceBandHz=[600, 3500],
         overlap=overlap,
         dynamicRangeDb=float(np.ptp(np.percentile(desired[active], [10, 90]))),
-        gainMinDb=float(np.min(gains)),
-        gainMaxDb=float(np.max(gains)),
     )
-    return GainPlan(times, gains, active, level + desired, offset, report)
+    plan = GainPlan(times, gains, active, level + desired, offset, report, presence)
+    plan.report_automation(presence, placement, global_gain)
+    return plan
 
 
 def _smoothed_gains(
     times: np.ndarray, desired: np.ndarray, active: np.ndarray, global_gain: float
 ) -> np.ndarray:
-    gains = gaussian_filter1d(
-        np.interp(times, times[active], desired[active]), sigma=0.05 / _STEP, mode="nearest"
-    )
+    # Look ahead one frame so smoothing cannot let a short loud syllable escape its own gain.
+    envelope = minimum_filter1d(np.interp(times, times[active], desired[active]), size=3)
+    gains = gaussian_filter1d(envelope, sigma=0.02 / _STEP, mode="nearest")
     gate = gaussian_filter1d(
         maximum_filter1d(active.astype(float), size=9), sigma=1, mode="nearest"
     )
@@ -210,14 +260,15 @@ def _smoothed_gains(
 
 def validate_gain_plan(voice: Path, plan: GainPlan, cancel: threading.Event) -> dict[str, object]:
     rms = _profile(voice, cancel, frame_seconds=_STEP)
-    measured = (
+    measured, expected = [
         10
         * np.log10(
-            np.maximum(gaussian_filter1d(10 ** (rms / 10), sigma=1.5, mode="nearest"), 1e-12)
+            np.maximum(gaussian_filter1d(10 ** (values / 10), sigma=1.5, mode="nearest"), 1e-12)
         )
         + plan.offset
-    )
-    error = np.abs((measured - plan.target)[plan.active])
+        for values in (rms, plan.target - plan.offset)
+    ]
+    error = np.abs((measured - expected)[plan.active])
     p90 = float(np.percentile(error, 90)) if error.size else 0.0
     return {
         "method": "measured-envelope-residual",

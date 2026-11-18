@@ -70,15 +70,16 @@ describe('recording preview ownership', () => {
       if (replacement !== 'valid') {
         if (replacement === 'native-failure') {
           command.mockImplementation(async (name) => {
-            if (name === 'LoadRecordingPreview') throw new Error('Could not open recording');
+            if (name === 'LoadRecordingPreview')
+              throw new Error('Could not open recording');
             return '';
           });
         } else {
-        pythonRequest.mockResolvedValue({
-          ok: replacement === 'preparing',
-          status: replacement === 'preparing' ? 200 : 404,
-          body: { filePath: 'other.wav', fileStatus: 'Preparing' },
-        });
+          pythonRequest.mockResolvedValue({
+            ok: replacement === 'preparing',
+            status: replacement === 'preparing' ? 200 : 404,
+            body: { filePath: 'other.wav', fileStatus: 'Preparing' },
+          });
         }
         await expect(players.playRecording('other', second)).rejects.toThrow();
         expect((await players.recordingPreviewStatus(first)).recordingId).toBe(
@@ -172,14 +173,24 @@ describe('recording preview ownership', () => {
       const second = Symbol('second');
       await players.playRecording('take', first);
       await players.pauseRecordingPreview(first);
-      await players.playRecording('take', second);
+      await players.playRecording('take', second, 0.3);
+      expect(command.mock.calls.slice(-2)).toEqual([
+        ['SetGain', { target: 'preview', value: 0.3 }],
+        ['PlayRecordingPreview'],
+      ]);
       command.mockClear();
 
       await players.pauseRecordingPreview(first);
       await players.seekRecordingPreview(12, first);
       await players.stopRecordingPreview(first);
+      await players.setPreviewVolume(0.1, first);
 
       expect(command).not.toHaveBeenCalled();
+      await players.setPreviewVolume(0.4, second);
+      expect(command).toHaveBeenLastCalledWith('SetGain', {
+        target: 'preview',
+        value: 0.4,
+      });
       expect(
         (await players.recordingPreviewStatus(first)).recordingId,
       ).toBeNull();

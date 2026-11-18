@@ -53,6 +53,7 @@ export const enSettings = {
   microphoneKnob: 'Microphone',
   inputMonitoring: 'Input monitoring',
   noiseKnob: 'Noise',
+  notificationVolume: 'Notification volume',
   audioDevicesAndMonitoring: 'Devices and listening',
   audioInputDevice: 'Input device',
   audioOutputDevice: 'Output device',

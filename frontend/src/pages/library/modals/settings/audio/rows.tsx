@@ -22,6 +22,10 @@ import type { useAudioSettings } from './useAudioSettings';
 import type { useInputMonitoring } from './useInputMonitoring';
 import FormButton from '../form-button';
 import {
+  volumeFromKnob,
+  volumeToKnob,
+} from '../../../../../shared/utils/mixerLevel';
+import {
   effectFromKnob,
   effectToKnob,
 } from '../../../../../features/karaoke/console/voiceEffects';
@@ -211,7 +215,7 @@ export const AudioFields = observer(
                   {...rotaryProps}
                   max={4}
                   displayScale={25}
-                  resetValue={1}
+                  resetValue={2}
                   label={tr('microphoneKnob')}
                   value={store.preferences.voiceGain}
                   onValueChange={(voiceGain) =>
@@ -250,6 +254,23 @@ export const AudioFields = observer(
                         ...store.preferences,
                         noiseSuppression: effectFromKnob(noiseSuppression),
                       }).noiseSuppression,
+                    })
+                  }
+                />
+              </Grid>
+              <Grid span="full" className="ad-form-field">
+                <RotaryKnob
+                  {...rotaryProps}
+                  max={1}
+                  resetValue={volumeToKnob(0.45)}
+                  suffix="%"
+                  label={tr('notificationVolume')}
+                  value={volumeToKnob(
+                    store.preferences.notificationVolume / 100,
+                  )}
+                  onValueChange={(value) =>
+                    store.updatePreferences({
+                      notificationVolume: volumeFromKnob(value) * 100,
                     })
                   }
                 />

@@ -160,14 +160,14 @@ export const createRoomVoice = (
   reconcileWindowsMode: () => Promise<void>,
 ): RoomVoiceMethods => ({
   async setParticipantMuted(participantId, muted) {
-    const gain = muted ? 0 : (voice.gains.get(participantId) ?? 1);
+    const gain = muted ? 0 : (voice.gains.get(participantId) ?? 2);
     await desktopBridge().setRoomVoiceParticipantGain(participantId, gain);
     if (muted) voice.muted.add(participantId);
     else voice.muted.delete(participantId);
   },
 
   participantMuted: (participantId) => voice.muted.has(participantId),
-  participantVolume: (participantId) => voice.gains.get(participantId) ?? 1,
+  participantVolume: (participantId) => voice.gains.get(participantId) ?? 2,
 
   async setParticipantVolume(participantId, gain) {
     voice.gains.set(participantId, gain);

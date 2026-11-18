@@ -56,6 +56,7 @@ export const ruSettings = {
   microphoneKnob: 'Микрофон',
   inputMonitoring: 'Мониторинг входа',
   noiseKnob: 'Шум',
+  notificationVolume: 'Громкость уведомлений',
   audioDevicesAndMonitoring: 'Устройства и прослушивание',
   audioInputDevice: 'Устройство ввода',
   audioOutputDevice: 'Устройство вывода',

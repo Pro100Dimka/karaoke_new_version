@@ -11,7 +11,6 @@ export interface LyricLine {
   end: number;
 }
 
-const maxWordsPerLine = 8;
 export const lyricSilenceSeconds = 3;
 
 const writtenLineSizes = (
@@ -31,8 +30,14 @@ const writtenLineSizes = (
 const groupWords = (
   words: readonly EditorWord[],
   sizes: readonly number[] | null,
-  pauseSeconds: number,
+  bpm: number | undefined,
 ): EditorWord[][] => {
+  const beatSeconds =
+    bpm && Number.isFinite(bpm) && bpm > 0 ? 60 / bpm : undefined;
+  const pauseSeconds = beatSeconds
+    ? Math.max(0.2, Math.min(0.35, beatSeconds / 2))
+    : 0.35;
+  const phraseSeconds = beatSeconds ? 4 * beatSeconds : 6;
   let writtenEnd = sizes?.[0] ?? words.length;
   let writtenLine = 0;
   const lines: EditorWord[][] = [];
@@ -46,7 +51,8 @@ const groupWords = (
       !current ||
       !previous ||
       writtenBreak ||
-      current.length >= maxWordsPerLine ||
+      (!sizes &&
+        word.start - (current[0]?.start ?? word.start) >= phraseSeconds) ||
       gap >= pauseSeconds ||
       (/[,;:.!?…]$/.test(previous.text) && gap >= pauseSeconds / 4);
     const orphanPreposition =
@@ -69,13 +75,7 @@ export const buildLines = (
   bpm?: number,
   activity?: EditorDocument['vocalActivity'],
 ): readonly LyricLine[] =>
-  groupWords(
-    words,
-    writtenLineSizes(lyrics, words.length),
-    bpm && Number.isFinite(bpm) && bpm > 0
-      ? Math.max(0.2, Math.min(0.35, 30 / bpm))
-      : 0.35,
-  )
+  groupWords(words, writtenLineSizes(lyrics, words.length), bpm)
     .map((group) => ({
       words: group,
       start: group[0]?.start ?? 0,
@@ -341,7 +341,8 @@ export const syllableProgress = (
       onset++;
     groups.push(indices[onset] ?? 0);
   }
-  const measured = hasAnchors(groups);
+  const measured =
+    hasAnchors(groups) && hasAnchors(nuclei.map((i) => indices[i] ?? 0));
   // Missing or collapsed syllable anchors cannot define a separate visual interval.
   const duration = word.end - word.start;
   const boundaries = measured ? groups : [indices[0] ?? 0];

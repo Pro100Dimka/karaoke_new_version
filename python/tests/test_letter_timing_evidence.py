@@ -26,16 +26,43 @@ def _emissions(text: str, frames: tuple[int, ...]) -> tuple[torch.Tensor, list[i
     return probabilities, tokens
 
 
-def test_real_disagreeing_odin_letters_remain_explicitly_unresolved() -> None:
-    # Recorded v3 output, not a phonetic reference. The paired cached emissions
-    # disagree by 320/400 ms on и/н, but their probabilities are too weak to repair.
-    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
-        scores = torch.from_numpy(fixture["clean_entry_scores"])
-        vocal = fixture["clean_entry_vocal"].astype(np.float32)
-        backing = fixture["clean_entry_instrumental"].astype(np.float32)
-    word = AlignedWord("один", 8.62, 9.94, (8.62, 9.36, 9.38, 9.40), 0.0019060261965933023)
+@pytest.mark.parametrize(
+    "fixture_name,prefix,word",
+    [
+        (
+            "wildways-verse-entry",
+            "clean_entry",
+            AlignedWord("один", 8.62, 9.94, (8.62, 9.36, 9.38, 9.40), 0.0019060261965933023),
+        ),
+        (
+            "adele-sung-letters",
+            "clean_entry",
+            AlignedWord("deep", 0.62, 3.82, (0.62, 0.72, 1.02, 1.26), 0.9),
+        ),
+        (
+            "adele-sung-letters",
+            "your",
+            AlignedWord("your", 0.3, 1.86, (0.3, 0.38, 1.46, 1.82), 0.9),
+        ),
+    ],
+)
+def test_real_disagreeing_sung_letters_remain_explicitly_unresolved(
+    fixture_name: str,
+    prefix: str,
+    word: AlignedWord,
+) -> None:
+    # Fixed real acoustic evidence. A supplied aggregate word confidence must
+    # not conceal an unsupported letter, including one inside the word.
+    with np.load(Path(__file__).with_name("fixtures") / f"{fixture_name}.npz") as fixture:
+        scores = torch.from_numpy(fixture[f"{prefix}_scores"])
+        vocal = fixture[f"{prefix}_vocal"].astype(np.float32)
+        backing = fixture[f"{prefix}_instrumental"].astype(np.float32)
     fixed = with_sung_letters(
-        [word], scores, 0.02, singing_frames(vocal, backing, 16_000, 160), {0: (8.62, 9.94)}
+        [word],
+        scores,
+        0.02,
+        singing_frames(vocal, backing, 16_000, 160),
+        {0: (word.start, word.end)},
     )[0]
 
     assert (fixed.start, fixed.end, fixed.letters, fixed.score) == (
@@ -46,7 +73,7 @@ def test_real_disagreeing_odin_letters_remain_explicitly_unresolved() -> None:
     )
     assert "LetterTimingReviewRequired" in fixed.diagnostics
     assert "ApproximateLetterTiming" in fixed.diagnostics
-    payload = alignment_payload([fixed], {0: (8.62, 9.94)})["words"][0]
+    payload = alignment_payload([fixed], {0: (word.start, word.end)})["words"][0]
     assert "LetterTimingReviewRequired" in payload["diagnostics"]
     warnings = alignment_warnings(
         [

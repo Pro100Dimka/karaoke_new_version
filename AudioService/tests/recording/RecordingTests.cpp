@@ -1687,6 +1687,21 @@ void performanceMixContainsConfiguredAutoTune() {
             expect(tailPeak > 0.0001F,
                    "saved performance retains the voice effect after the singer stops");
         }
+        WavDecoder dryDecoder;
+        dryDecoder.open(path.string() + ".dry.wav");
+        std::vector<float> dry(recorded.size());
+        dryDecoder.read(dry, recordedFrames);
+        std::uint32_t dryCrossings = 0;
+        for (std::size_t index = first + 2U; index < first + rate; index += 2U)
+            if (dry[index - 2U] <= 0.0F && dry[index] > 0.0F)
+                ++dryCrossings;
+        expect(dryCrossings >= 222 && dryCrossings <= 226,
+               "the master source retains the original 448 Hz voice for every karaoke effect");
+        float dryTail = 0.0F;
+        for (std::size_t index = rate * 4U + rate / 5U; index < rate * 5U; ++index)
+            dryTail = std::max(dryTail, std::abs(dry[index]));
+        expect(dryTail < 0.000001F,
+               "the master source contains no karaoke reverb, delay or echo tail");
     }
 }
 

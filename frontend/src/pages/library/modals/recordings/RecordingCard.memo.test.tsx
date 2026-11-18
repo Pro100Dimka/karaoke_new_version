@@ -75,7 +75,7 @@ afterEach(() => {
   });
 });
 
-it('keeps every recording volume knob on the one shared preview gain', async () => {
+it('keeps recording player volumes independent without changing another active player', async () => {
   const gain = vi
     .spyOn(audioClient, 'setPreviewVolume')
     .mockResolvedValue(undefined);
@@ -104,9 +104,10 @@ it('keeps every recording volume knob on the one shared preview gain', async () 
   if (!firstKnob) throw new Error('Recording volume knob missing');
   fireEvent.change(firstKnob, { target: { value: '0.5' } });
   await waitFor(() => {
-    for (const knob of knobs) expect(knob).toHaveValue('0.5');
+    expect(knobs[0]).toHaveValue('0.5');
+    expect(knobs[1]).toHaveValue('1');
   });
-  expect(gain).toHaveBeenLastCalledWith(expect.closeTo(10 ** (-30 / 20), 12));
+  expect(gain).not.toHaveBeenCalled();
 });
 
 it('does not redraw unrelated takes on progress updates, but updates their selected versions', () => {

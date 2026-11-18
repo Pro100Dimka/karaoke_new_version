@@ -65,6 +65,16 @@ def test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line
     assert document.lyrics == "one two\nthree four\nfive six"
     assert decode_document(encode_document(document)).lyrics == document.lyrics
     assert [word.text for word in document.words] == text.split()
+    phrase = "one two three four five six seven eight nine ten"
+    timings = tuple(
+        WordTiming(text, i * 0.3, (i + 1) * 0.3, 1) for i, text in enumerate(phrase.split())
+    )
+    source = phrase + "\nlast"
+    all_words = (*timings, WordTiming("last", 3, 3.3, 1))
+    document = construct_document("t", "a", 4, source, all_words, (), MusicMetadata(120, None))
+    assert document.lyrics == source
+    fallback = construct_document("t", "a", 3, phrase, timings, (), MusicMetadata(120, None))
+    assert fallback.lyrics == "one two three four five six seven\neight nine ten"
 
 
 @pytest.mark.parametrize("lead_start,backing_start,backing_end", [(2.1, 2, 2.1), (2, 2.2, 2.3)])

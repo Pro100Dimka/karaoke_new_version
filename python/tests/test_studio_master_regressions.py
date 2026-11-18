@@ -263,6 +263,38 @@ def test_new_plan_reads_stems_without_modifying_them(tmp_path: Path, source_suff
     assert plan.report["globalGainDb"] > 3
     assert {path: path.read_bytes() for path in original_files} == original_files
 
+    from contextlib import contextmanager
+    from datetime import datetime, UTC
+    from types import SimpleNamespace
+    from backend.infrastructure.recording_archive import RecordingArchive
+    from backend.recordings.domain import Recording
+    from backend.analysis.domain import AnalysisState
+
+    archived = source.with_suffix(".flac")
+    sf.write(archived, sf.read(source)[0], 8000, subtype="PCM_24")
+    recording = Recording("take", source, 4, 8000, 1, datetime.now(UTC))
+
+    @contextmanager
+    def transaction():
+        yield SimpleNamespace(
+            recordings=SimpleNamespace(
+                get=lambda _: recording,
+                update_file=lambda *args: None,
+            ),
+            commit=lambda: None,
+        )
+
+    archive = RecordingArchive.__new__(RecordingArchive)
+    archive._root, archive._cancel = tmp_path.resolve(), threading.Event()
+    archive._uow = SimpleNamespace(create=transaction)
+    archive._analyses = lambda _: [SimpleNamespace(state=AnalysisState.SUCCEEDED)]
+    marker = tmp_path / "archive-pending.json"
+    marker.write_text("{}")
+    archive._publish("take", [(recording, archived)], marker)
+    assert recording_stems(archived, prefer_dry=True) == (selected_voice, backing)
+    for path in [selected_voice, backing]:
+        assert path.read_bytes() == original_files[path]
+
 
 def test_studio_separation_does_not_select_kaggle(tmp_path: Path):
     from types import SimpleNamespace
@@ -291,7 +323,8 @@ def test_compression_is_bypassed_without_reference_transitions():
     assert _reference_compression(recorded, reference)["ratio"] == 1
 
 
-def test_seek_reference_contains_only_performed_sections(tmp_path: Path):
+@pytest.mark.parametrize("speed,key", [(1, 0), (1.25, 2), (0.75, -3)])
+def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key):
     from backend.recordings.studio_reference import scope_reference
 
     path = tmp_path / "reference.wav"
@@ -305,6 +338,29 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path):
     actual, _ = sf.read(vocal)
     np.testing.assert_array_equal(actual, np.r_[samples[:2000], samples[8000:10000]])
     assert report["referenceTimelineRebuilt"]
+
+    render = MasterRender.__new__(MasterRender)
+    render.renderer = FfmpegStudioMasterRenderer(ProcessRunner())
+    render.work, render.cancel = tmp_path, threading.Event()
+    render.info, render.output_channels, render.processing = sf.info(vocal), 1, {}
+    render.pitch_adjustments = adjustments
+    render._prepare_master_backing(path)
+    np.testing.assert_array_equal(sf.read(render.backing)[0], actual)
+
+    time = np.arange(8000) / 8000
+    tones = np.sin(2 * np.pi * np.where(time < 0.5, 400, 800) * time) * 0.1
+    sf.write(path, tones, 8000, subtype="FLOAT")
+    render.pitch_adjustments = [
+        {"elapsedSeconds": 0, "sourceSeconds": 0.2, "playbackRate": speed, "keyShift": key}
+    ]
+    render._prepare_master_backing(path)
+    changed, rate = sf.read(render.backing)
+    assert rate == 8000 and changed.shape == actual.shape
+    for start, end, frequency in [(0.03, 0.13, 400), (0.43, 0.49, 800)]:
+        block = changed[round(start * rate) : round(end * rate)]
+        spectrum = abs(np.fft.rfft(block * np.hanning(len(block)), n=16384))
+        peak = np.fft.rfftfreq(16384, 1 / rate)[np.argmax(spectrum)]
+        assert peak == pytest.approx(frequency * 2 ** (key / 12), abs=3)
 
 
 def test_existing_effects_duplicate_output_channels_use_stereo(tmp_path: Path):
@@ -364,9 +420,17 @@ def test_old_space_estimators_cannot_modify_the_new_space_path(tmp_path, monkeyp
     )
 
 
-@pytest.mark.parametrize("masked, body_frequency", [(False, 150), (True, 150), (True, 400)])
+@pytest.mark.parametrize(
+    "masked, body_frequency, changing_density",
+    [
+        (False, 150, False),
+        (True, 150, False),
+        (True, 400, False),
+        (True, 150, True),
+    ],
+)
 def test_presence_eq_restores_words_without_turning_up_the_bass(
-    tmp_path, monkeypatch, masked, body_frequency
+    tmp_path, monkeypatch, masked, body_frequency, changing_density
 ):
     rate = 8000
     time = np.arange(rate * 8) / rate
@@ -374,9 +438,12 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
     body = 0.12 if masked else 0.015
     voice = body * np.sin(2 * np.pi * body_frequency * time)
     voice += 0.035 * np.sin(2 * np.pi * 900 * time) + 0.02 * np.sin(2 * np.pi * 1800 * time)
+    reference = voice + (0.015 - body) * np.sin(2 * np.pi * body_frequency * time)
     music = 0.05 * np.sin(2 * np.pi * 900 * time) + 0.03 * np.sin(2 * np.pi * 1800 * time)
+    if changing_density:
+        music[time >= 4] = 0.05 * np.sin(2 * np.pi * 150 * time[time >= 4])
     paths = [tmp_path / f"{name}.wav" for name in ["voice", "music", "ref", "original", "mix"]]
-    for path, data in zip(paths, [voice, music, voice, music, voice + music]):
+    for path, data in zip(paths, [voice, music, reference, music, voice + music]):
         sf.write(path, np.repeat(data[:, None], 2, axis=1), rate, subtype="FLOAT")
     deliver, captured = MasterRender._deliver, {}
 
@@ -393,7 +460,7 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
         exact_stems=True,
         adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
-    signal = captured["voice"][rate:-rate]
+    signal = captured["voice"][rate : 3 * rate]
     axis = np.arange(len(signal)) / rate
 
     def amplitude(frequency):
@@ -408,6 +475,20 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
         assert any(band["gainDb"] > 0 for band in result.processing["spectralPlan"]["bands"])
     else:
         assert abs(relative_change) < 0.3
+    if changing_density:
+        signal = captured["voice"][5 * rate : 7 * rate]
+        # Clarity EQ remains off here; the new body correction may still remove coloration.
+        clarity = result.processing["spectralPlan"]["clarityAutomation"]["weight"]
+        assert max(clarity[10:14]) < 0.01
+        assert np.mean(result.processing["mixIntegration"]["bodyCutDb"][50:70]) > 1
+        assert (
+            0.3
+            < (
+                20 * np.log10(amplitude(900) / amplitude(body_frequency))
+                - 20 * np.log10(0.035 / body)
+            )
+            < 3
+        )
 
 
 def test_pitch_transition_does_not_cancel_a_phase_shifted_syllable(tmp_path):
@@ -692,6 +773,8 @@ def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path,
     balanced.write_bytes(b"balanced voice")
     apply = Mock(return_value={"status": "matched"})
     monkeypatch.setattr(module, "apply_reference_space", apply)
+    integration = Mock(return_value=(balanced, {"method": "local-tone-and-placement"}))
+    monkeypatch.setattr(module, "integrate_voice", integration)
     render = SimpleNamespace(
         process_voice=dry,
         work=tmp_path,
@@ -699,6 +782,8 @@ def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path,
         reference_vocal=balanced,
         user_vocal=balanced,
         balanced=balanced,
+        backing=balanced,
+        timing_known=False,
         cancel=threading.Event(),
         space_reference=balanced,
         processing={},
@@ -712,10 +797,20 @@ def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path,
         target,
         render.cancel,
         full_reference=balanced,
+        recorded_is_dry=dry,
     )
     assert render.balanced == balanced
     assert balanced.read_bytes() == b"balanced voice"
     assert render.processing["space"] == "matched"
     assert render.processing["effectsApplied"] is True
     assert render.processing["voiceOutputGainDb"] == 0
+    integration.assert_called_once_with(
+        render.renderer,
+        balanced,
+        balanced,
+        balanced,
+        tmp_path / "integrated-voice.wav",
+        render.cancel,
+        reference_timing=None,
+    )
     assert not target.exists()

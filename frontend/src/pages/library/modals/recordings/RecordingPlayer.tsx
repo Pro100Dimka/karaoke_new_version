@@ -1,10 +1,5 @@
-import { observeOperation } from '../../../../shared/errors';
 import { pythonClient } from '../../../../services/pythonClient';
 import { useGuardedAction } from '../../songs/useGuardedAction';
-import { audioClient as preview } from '../../../../services/audioClient';
-import { observer } from 'mobx-react-lite';
-import { runInAction } from 'mobx';
-import { store } from '../../../../providers/store';
 import {
   AnimatedBorder,
   Button,
@@ -66,17 +61,23 @@ export const RecordingPlayer = ({
     );
   return (
     <AnimatedBorder className="recordingPlayer">
-      <RecordingTransport media={song ?? recording} original={!!song} />
-      <div className="recordingVolume">
-        <RecordingVolume />
-      </div>
+      <RecordingTransport
+        key={`${!!song}:${(song ?? recording).id}`}
+        media={song ?? recording}
+        original={!!song}
+      />
     </AnimatedBorder>
   );
 };
 
-const RecordingVolume = observer(() => {
+const RecordingVolume = ({
+  volume,
+  onChange,
+}: {
+  volume: number;
+  onChange(value: number): void;
+}) => {
   useLocale();
-  const volume = store.playback.previewVolume;
   return (
     <RotaryKnob
       diameter={58}
@@ -89,18 +90,11 @@ const RecordingVolume = observer(() => {
       resetValue={1}
       value={volumeToKnob(volume)}
       onValueChange={(position) => {
-        const value = volumeFromKnob(position);
-        void observeOperation(
-          'errors.previewVolume',
-          preview.setPreviewVolume(value),
-        ).then(
-          () => runInAction(() => { store.playback.previewVolume = value; }),
-          () => undefined,
-        );
+        onChange(volumeFromKnob(position));
       }}
     />
   );
-});
+};
 
 const RecordingTransport = ({
   media,
@@ -111,10 +105,8 @@ const RecordingTransport = ({
 }) => {
   useLocale();
   const peaks = useRecordingPeaks(media.id, original);
-  const { playing, position, toggle, seek } = useRecordingPlayback(
-    media,
-    original,
-  );
+  const { playing, position, toggle, seek, volume, changeVolume } =
+    useRecordingPlayback(media, original);
   return (
     <>
       <IconButton
@@ -137,6 +129,9 @@ const RecordingTransport = ({
           <span>{formatTime(position)}</span>
           <span>{formatTime(media.durationSeconds)}</span>
         </Typography>
+      </div>
+      <div className="recordingVolume">
+        <RecordingVolume volume={volume} onChange={changeVolume} />
       </div>
     </>
   );

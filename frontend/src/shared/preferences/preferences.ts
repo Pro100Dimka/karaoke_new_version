@@ -124,6 +124,7 @@ export interface Preferences {
   radioStation: string;
   radioYoutubePlaylist: string;
   radioVolume: number;
+  notificationVolume: number;
   displayName: string;
   /** This computer's profile photo, stored beside the display name for restart-safe rendering. */
   profilePhoto: string;
@@ -169,7 +170,7 @@ export const defaultPreferences = (): Preferences => ({
   karaokeAutoHideConsole: true,
   karaokeMonitoring: false,
   musicGain: 0.82,
-  voiceGain: 0.68,
+  voiceGain: 2,
   referenceGain: 0,
   melodyGain: 0,
   masterGain: 1,
@@ -187,6 +188,7 @@ export const defaultPreferences = (): Preferences => ({
   radioStation: '',
   radioYoutubePlaylist: '',
   radioVolume: 35,
+  notificationVolume: 45,
   displayName: '',
   profilePhoto: '',
   audio: defaultAudioRequest(),
@@ -444,6 +446,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
         ? value.radioStation
         : base.radioStation,
     radioVolume: percentage(value.radioVolume, base.radioVolume),
+    notificationVolume: percentage(
+      value.notificationVolume,
+      base.notificationVolume,
+    ),
     radioYoutubePlaylist:
       typeof value.radioYoutubePlaylist === 'string'
         ? value.radioYoutubePlaylist.slice(0, 1000)

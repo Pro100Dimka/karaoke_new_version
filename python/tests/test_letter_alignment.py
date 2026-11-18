@@ -793,14 +793,17 @@ def test_single_phrase_coverage_matches_exhaustive_paths():
 
 @pytest.mark.parametrize("text", ["hey", "go", "гей"])
 @pytest.mark.parametrize("recognized", [True, False])
+@pytest.mark.parametrize("tight_prefix", [False, True])
 def test_lead_recovery_preserves_solo_replies_and_only_cuts_the_overlapping_neighbour(
-    text, recognized
+    text, recognized, tight_prefix
 ):
     from backend.ai_worker.recognition import with_lead_vocals
 
     words = [
         AlignedWord(text, 1, 1.2, (1, 1.1), 0.8, ("AcousticRepeatRetimed",)),
-        AlignedWord("night", 2, 4, (2, 2.4, 2.8, 3.2, 3.3), 0.8),
+        AlignedWord("night", 3.4, 4, (3.4, 3.5, 3.6, 3.7, 3.8), 0.8)
+        if tight_prefix
+        else AlignedWord("night", 2, 4, (2, 2.4, 2.8, 3.2, 3.3), 0.8),
         AlignedWord(text, 4, 4.2, (), 0.055),
         AlignedWord("we", 4.2, 4.6, (4.2, 4.4), 0.8),
         AlignedWord("sing", 4.6, 5, (), 0.8),
@@ -817,7 +820,11 @@ def test_lead_recovery_preserves_solo_replies_and_only_cuts_the_overlapping_neig
     if recognized:
         assert result is words
     else:
-        assert result[1].end == result[3].start == 3.4
+        expected_entry = 3.81 if tight_prefix else 3.4
+        assert result[1].end == pytest.approx(expected_entry)
+        assert result[3].start == pytest.approx(expected_entry)
+        assert result[1].letters[-1] < result[1].end
+        assert result[1].start == words[1].start
         assert result[3].end == words[3].end
         assert "IndependentLeadEntry" in result[3].diagnostics
         assert "ApproximateLetterTiming" in result[3].diagnostics
@@ -1536,6 +1543,16 @@ def test_transcription_keeps_word_evidence_for_the_following_alignment(monkeypat
     transcript = speech.transcribe(Path("vocal.wav"), "English")
     assert transcript["text"] == "we sing"
     assert transcript["segments"] == result["segments"]
+    phrases = [
+        "А я к тебе кричу через подельки города всего,",
+        "Вот крокотный мир, в котором ты живешь.",
+    ]
+    result.update(text=" ".join(phrases), segments=[{"text": text} for text in phrases])
+    transcript = speech.transcribe(Path("vocal.wav"), "Russian")
+    assert transcript["text"] == "\n".join(phrases)
+    assert transcript["segments"] == result["segments"]
+    result["segments"] = [{"text": "unrelated words"}]
+    assert speech.transcribe(Path("vocal.wav"), "Russian")["text"] == " ".join(phrases)
 
 
 @pytest.mark.parametrize("reuse_vocal", [False, True])
@@ -2397,7 +2414,13 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
     word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
 
     assert word["confidence"] == 0.8
-    assert word["diagnostics"] == ["RecognizedWord", "AsrCtcBoundaryDisagreement"]
+    assert word["diagnostics"] == [
+        "LetterTimingReviewRequired",
+        "ApproximateLetterTiming",
+        "RecognizedWord",
+        "AsrCtcBoundaryDisagreement",
+    ]
+    assert word["letters"] == [1.0, 1.1, 1.2, 10.9]
     assert word["end"] > 11.0, "diagnostic evidence must not silently cap the word at ASR's end"
 
 
@@ -3740,7 +3763,7 @@ def test_a_catalog_timing_made_for_another_release_is_moved_onto_this_recording(
     )
 
 
-def test_catalog_timings_that_already_fit_are_left_alone() -> None:
+def test_catalog_timings_use_corroborated_entries_without_changing_fitting_cues() -> None:
     from backend.ai_worker.speech import _shifted_hints
 
     words = "a b c d e f".split()
@@ -3752,6 +3775,27 @@ def test_catalog_timings_that_already_fit_are_left_alone() -> None:
     assert [item["start"] for item in _shifted_hints(words, hints, whole)] == [
         index * 4.0 for index in range(6)
     ]
+
+    import json
+    from dataclasses import replace
+
+    with np.load(Path(__file__).with_name("fixtures") / "adele-sung-letters.npz") as fixture:
+        case = json.loads(str(fixture["metadata"]))["catalogueChorus"]
+    cores = [AlignedWord(**{**w, "letters": tuple(w["letters"])}) for w in case["cores"]]
+    words = [w.text for w in cores]
+    from backend.lyrics.codec import reconcile_timing_hints
+    from backend.lyrics.ports import LyricLineTiming
+
+    hints = tuple(LyricLineTiming(**hint) for hint in case["hints"])
+    aligned = reconcile_timing_hints(case["lyrics"], hints)
+    assert aligned == (LyricLineTiming(case["expectedStart"], "Rolling in the deep"),)
+    clean_hints = [{"start": hint.start, "text": hint.text} for hint in aligned]
+    fixed = _shifted_hints(words, clean_hints, cores)
+    assert fixed[0]["start"] == pytest.approx(case["expectedStart"])
+    unsupported = [replace(w, score=0.01) for w in cores]
+    assert _shifted_hints(words, clean_hints, unsupported)[0]["start"] == case["expectedStart"]
+    repeats = (LyricLineTiming(230, "дозволиш мені дозволиш мені"),)
+    assert reconcile_timing_hints("дозволиш мені\nдозволиш мені", repeats) == repeats
 
 
 def test_whisper_settles_which_phrase_a_word_belongs_to_when_the_model_is_unsure() -> None:

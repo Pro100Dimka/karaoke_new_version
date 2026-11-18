@@ -68,10 +68,11 @@ def apply_reference_space(
     cancel: threading.Event,
     *,
     full_reference: Path | None = None,
+    recorded_is_dry: bool = False,
 ) -> dict[str, object]:
     expected, existing = analyze_space(reference, cancel), analyze_space(recorded, cancel)
     expected, tail_source = _reference_tail(expected, full_reference, reference, cancel)
-    selected = _planned_space(expected, existing)
+    selected = _planned_space(expected, SpaceProfile() if recorded_is_dry else existing)
     response, field = _side_plan(reference, recorded, voice, cancel)
     bands = plan_reference_band_space(expected, full_reference or reference, voice, cancel)
     wet = _render_separate_buses(
@@ -89,6 +90,7 @@ def apply_reference_space(
         "status": "matched" if wet.get("buses") else "no-supported-addition",
         "reference": asdict(expected),
         "recorded": asdict(existing),
+        "existingEffectsPolicy": "dry-capture" if recorded_is_dry else "estimated-wet-stem",
         "reverbEvidenceSource": tail_source,
         "applied": asdict(selected),
         "wetBalance": wet,

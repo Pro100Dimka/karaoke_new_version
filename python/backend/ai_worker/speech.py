@@ -268,7 +268,18 @@ def transcribe(
         text = [
             token for index, token in enumerate(text) if intervals[index][0] < intervals[index][1]
         ]
-    return {"text": " ".join(text), "segments": result.get("segments", [])}
+    segments = result.get("segments", [])
+    lines = [
+        [token for token in segment["text"].split() if any(c.isalpha() for c in token)]
+        for segment in (segments if isinstance(segments, list) else [])
+        if isinstance(segment, dict) and isinstance(segment.get("text"), str)
+    ]
+    transcript = (
+        "\n".join(" ".join(line) for line in lines if line)
+        if [token for line in lines for token in line] == text
+        else " ".join(text)
+    )
+    return {"text": transcript, "segments": segments}
 
 
 def transcribe_many(

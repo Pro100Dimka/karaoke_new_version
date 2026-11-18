@@ -298,7 +298,7 @@ const setRoomVoiceParticipantControl = (
   if (!session)
     return Promise.reject(new Error('Room voice session is not active'));
   const kind = control === 'gain' ? 'gain' : 'effect';
-  const [minimum, maximum] = ({ gain: [0, 2], effect: [-1, 1] } as const)[kind];
+  const [minimum, maximum] = ({ gain: [0, 4], effect: [-1, 1] } as const)[kind];
   const bounded = Math.max(minimum, Math.min(maximum, value));
   const key = `${sourceParticipantId}:${control}`;
   const existing = pendingControls.get(key);

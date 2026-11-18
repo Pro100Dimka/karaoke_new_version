@@ -21,6 +21,7 @@ import type { ParticipantDto } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
 import { fixedKnobWidth } from '../../shared/ui/knobWidth';
 import { roomVoiceSettings, useRoomVoice } from '../../providers/application';
+import { store } from '../../providers/store';
 import { usePersonPhoto } from '../social/usePersonPhoto';
 import type { RoomVoiceSettings } from '../../contracts/models';
 import { RoomPersonMenu } from './RoomPersonMenu';
@@ -63,7 +64,7 @@ const SpeakingMeter = ({
   );
 };
 
-/** Shared singer settings and personal listening mute. */
+/** Shared singer effects, personal listening volume and mute. */
 export const RoomPersonCard = observer(
   ({
     participant,
@@ -90,6 +91,24 @@ export const RoomPersonCard = observer(
       ? { ...participant.voiceSettings, ...preview }
       : undefined;
     const notify = useNotify();
+    const [listeningGain, setListeningGain] = useState(
+      () => voice?.participantVolume(participant.id) ?? 2,
+    );
+    const changeVolume = (value: number) => {
+      if (participant.self) {
+        store.updatePreferences({ voiceGain: value });
+        return;
+      }
+      setListeningGain(value);
+      void voice
+        ?.setParticipantVolume(participant.id, value)
+        .catch((error: unknown) =>
+          notify(
+            error instanceof Error ? error.message : String(error),
+            'error',
+          ),
+        );
+    };
     const [muted, setMuted] = useState(() =>
       participant.self
         ? !(voice?.microphoneEnabled() ?? true)
@@ -106,6 +125,19 @@ export const RoomPersonCard = observer(
             : voice.participantMuted(participant.id),
         );
     }, [voice, participant.id, participant.self, externalToggles]);
+    useEffect(() => {
+      if (!voice || participant.self) return;
+      const gain = voice.participantVolume(participant.id);
+      setListeningGain(gain);
+      void voice
+        .setParticipantVolume(participant.id, gain)
+        .catch((error: unknown) =>
+          notify(
+            error instanceof Error ? error.message : String(error),
+            'error',
+          ),
+        );
+    }, [voice, participant.id, participant.self, notify]);
 
     const toggleMute = async () => {
       if (!voice) return;
@@ -196,23 +228,22 @@ export const RoomPersonCard = observer(
               label={tr('liveInputLevel')}
             />
           </div>
-          {/* Changes the singer's saved microphone gain for everyone in the room. */}
-          {!participant.self && (
-            <RotaryKnob
-              diameter={personKnobDiameter}
-              style={fixedKnobWidth(personKnobDiameter)}
-              className="roomPersonKnob"
-              min={0}
-              max={4}
-              step={0.01}
-              resetValue={1}
-              displayScale={25}
-              label={tr('participantVolume', { name: participant.name })}
-              disabled={!participant.voiceSettings}
-              value={effects?.voiceGain ?? 0}
-              onValueChange={(value) => updateEffect('voiceGain', value)}
-            />
-          )}
+          <RotaryKnob
+            diameter={personKnobDiameter}
+            style={fixedKnobWidth(personKnobDiameter)}
+            className="roomPersonKnob"
+            min={0}
+            max={4}
+            step={0.01}
+            resetValue={2}
+            displayScale={25}
+            label={tr('participantVolume', { name: participant.name })}
+            disabled={!participant.self && !voice}
+            value={
+              participant.self ? store.preferences.voiceGain : listeningGain
+            }
+            onValueChange={changeVolume}
+          />
           <Stack gap={1}>
             <IconButton
               round

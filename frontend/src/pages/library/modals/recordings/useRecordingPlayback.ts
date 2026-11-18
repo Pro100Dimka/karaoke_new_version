@@ -17,6 +17,7 @@ export const useRecordingPlayback = (
 ) => {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
+  const [volume, setVolume] = useState(1);
   const owns = useRef(false);
   const owner = useRef(Symbol('recording-preview'));
   const generation = useRef(0);
@@ -41,6 +42,7 @@ export const useRecordingPlayback = (
       await preview[original ? 'playSongPreview' : 'playRecording'](
         id,
         owner.current,
+        volume,
       );
       if (request !== generation.current) return;
       if (pendingSeek.current !== null) {
@@ -56,7 +58,16 @@ export const useRecordingPlayback = (
         reportOperationFailure('errors.previewPlayback', error);
       }
     }
-  }, [id, original, playing, release, preview]);
+  }, [id, original, playing, release, preview, volume]);
+
+  const changeVolume = (value: number) => {
+    setVolume(value);
+    if (owns.current)
+      void observeOperation(
+        'errors.previewVolume',
+        preview.setPreviewVolume(value, owner.current),
+      ).catch(() => undefined);
+  };
 
   const seek = useCallback(
     async (seconds: number) => {
@@ -108,5 +119,5 @@ export const useRecordingPlayback = (
     };
   }, [id, original, preview, release]);
 
-  return { playing, position, toggle, seek };
+  return { playing, position, toggle, seek, volume, changeVolume };
 };

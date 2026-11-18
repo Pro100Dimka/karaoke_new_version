@@ -462,12 +462,20 @@ export interface AudioServiceClient {
   setPitchShift(semitones: number, isCurrent?: () => boolean): Promise<void>;
   setDspParameter(name: string, value: number): Promise<void>;
   setDspEnabled(enabled: boolean): Promise<void>;
-  playRecording(recordingId: string, owner?: symbol): Promise<PlaybackSnapshot>;
-  playSongPreview(songId: string, owner?: symbol): Promise<PlaybackSnapshot>;
+  playRecording(
+    recordingId: string,
+    owner?: symbol,
+    gain?: number,
+  ): Promise<PlaybackSnapshot>;
+  playSongPreview(
+    songId: string,
+    owner?: symbol,
+    gain?: number,
+  ): Promise<PlaybackSnapshot>;
   pauseRecordingPreview(owner?: symbol): Promise<void>;
   seekRecordingPreview(positionSeconds: number, owner?: symbol): Promise<void>;
   stopRecordingPreview(owner?: symbol, recordingId?: string): Promise<void>;
-  setPreviewVolume(gain: number): Promise<void>;
+  setPreviewVolume(gain: number, owner?: symbol): Promise<void>;
   recordingPreviewStatus(owner?: symbol): Promise<RecordingPreviewStatus>;
   observeRecordingPreview(
     owner: symbol,

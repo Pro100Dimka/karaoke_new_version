@@ -12,19 +12,27 @@ import type { RoomSessionScope } from './RoomSessionController';
 import { RoomVoiceCoordinator } from './RoomVoiceCoordinator';
 import { RoomVoiceSettingsCoordinator } from './RoomVoiceSettingsCoordinator';
 import type { RoomStateDto, RoomVoiceSettings } from '../../contracts/models';
+import { store } from '../../providers/store';
 
 const uiSettings = vi.hoisted(() => ({
   change: vi.fn(async (): Promise<void> => undefined),
+  participantVolume: vi.fn(() => 2),
+  setParticipantVolume: vi.fn(async (): Promise<void> => undefined),
+  participantMuted: vi.fn(() => false),
+  microphoneEnabled: vi.fn(() => true),
+  notify: vi.fn(),
 }));
 vi.mock('../../providers/application', () => ({
-  useRoomVoice: () => null,
+  useRoomVoice: () => uiSettings,
   roomVoiceSettings: uiSettings,
 }));
-vi.mock('../../providers/notifications', () => ({ useNotify: () => vi.fn() }));
+vi.mock('../../providers/notifications', () => ({
+  useNotify: () => uiSettings.notify,
+}));
 
-it('keeps rapid knob movements while the room settings request is pending', async () => {
+it('keeps rapid personal volume movements without changing the singer settings', async () => {
   const releases: (() => void)[] = [];
-  uiSettings.change.mockImplementation(
+  uiSettings.setParticipantVolume.mockImplementation(
     () => new Promise<void>((resolve) => releases.push(resolve)),
   );
   const participant = {
@@ -55,7 +63,7 @@ it('keeps rapid knob movements while the room settings request is pending', asyn
   const knob = screen.getByRole('slider');
   for (let index = 0; index < 3; index++)
     fireEvent.keyDown(knob, { key: 'ArrowUp' });
-  expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(0.71);
+  expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(2.03);
   view.rerender(
     createElement(RoomPersonCard, {
       ...props,
@@ -65,7 +73,7 @@ it('keeps rapid knob movements while the room settings request is pending', asyn
       },
     }),
   );
-  expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(0.71);
+  expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(2.03);
   view.rerender(
     createElement(RoomPersonCard, {
       ...props,
@@ -78,8 +86,29 @@ it('keeps rapid knob movements while the room settings request is pending', asyn
   await act(async () => {
     releases.forEach((release) => release());
   });
-  expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(0.71);
+  expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(2.03);
+  expect(uiSettings.setParticipantVolume).toHaveBeenLastCalledWith(
+    'other',
+    2.03,
+  );
+  expect(uiSettings.change).not.toHaveBeenCalled();
   cleanup();
+  const previous = store.preferences.voiceGain;
+  store.updatePreferences({ voiceGain: 2 });
+  render(
+    createElement(RoomPersonCard, {
+      ...props,
+      participant: { ...participant, self: true },
+    }),
+  );
+  const ownKnob = screen.getByRole('slider');
+  expect(Number(ownKnob.getAttribute('aria-valuenow'))).toBe(2);
+  fireEvent.keyDown(ownKnob, { key: 'ArrowUp' });
+  expect(store.preferences.voiceGain).toBeCloseTo(2.01);
+  act(() => store.updatePreferences({ voiceGain: 3 }));
+  expect(Number(ownKnob.getAttribute('aria-valuenow'))).toBe(3);
+  cleanup();
+  store.updatePreferences({ voiceGain: previous });
 });
 
 const setup = () => {

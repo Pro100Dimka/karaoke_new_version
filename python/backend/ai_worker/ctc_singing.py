@@ -121,7 +121,7 @@ def _quiet_release(
     for begin, stop in _runs(levels[first:last] > threshold, False):
         # Only a release adjoining the phonetic core can establish its ending.
         # A later quiet dip belongs to the continuing sound, not the core's release.
-        if (first + begin) * step > word.end + _BRIDGED_GAP_SECONDS:
+        if first + begin > round((word.end + _BRIDGED_GAP_SECONDS) / step):
             break
         support = periodic[
             first + begin : min(

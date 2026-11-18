@@ -115,6 +115,25 @@ def test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quie
     if not extra_supported:
         assert "UnverifiedExtraRepeats" in verified.warnings
 
+    from backend.lyrics.ports import LyricLineTiming
+
+    # A complete lead catalogue already distinguishes simultaneous backing replies.
+    # Recognition of that backing must not add another occurrence of the lead.
+    mixed = LyricsDiscoveryResult(
+        baseline,
+        "Sidecar",
+        (),
+        (
+            LyricLineTiming(0, "keep my heart answer behind me"),
+            LyricLineTiming(1, "keep my heart"),
+            LyricLineTiming(2, "keep my heart answer behind me"),
+            LyricLineTiming(3, "I am alone"),
+        ),
+    )
+    assert _with_completed_repeats(
+        mixed, "keep my heart keep my heart keep my heart I am alone", Event()
+    ).lyrics == baseline
+
 
 @pytest.mark.parametrize("score", [0.02, 0.0])
 def test_independently_recognized_repeat_is_not_removed_solely_for_weak_ctc(score):

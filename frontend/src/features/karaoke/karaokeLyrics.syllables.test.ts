@@ -97,6 +97,18 @@ describe('syllable fill', () => {
     expect(syllableProgress(saved, 0.2)).toBeLessThan(0.75);
     expect(syllableProgress(saved, 0.34)).toBeGreaterThan(0.75);
     expect(syllableProgress(saved, 0.8)).toBeLessThan(1);
+    const starting = {
+      ...word('starting', 0, 0.52),
+      letters: [0, 0.1 / 0.52, 0.2 / 0.52, 0.34 / 0.52, 0.44 / 0.52, 1, 1, 1],
+      lettersApproximate: true,
+    };
+    const frames = Array.from({ length: 33 }, (_, i) =>
+      syllableProgress(starting, i * 0.016),
+    );
+    expect(
+      Math.max(...frames.slice(1).map((fill, i) => fill - (frames[i] ?? 0))),
+    ).toBeLessThanOrEqual(1 / starting.text.length);
+    expect(syllableProgress(starting, starting.end)).toBe(1);
   });
   it.each(['тобі', 'тоби'])(
     'keeps syllable entries in approximate %s and gives the held part to its vowel',
@@ -124,6 +136,15 @@ describe('syllable fill', () => {
     expect(syllableProgress(saved, 0.2)).toBeCloseTo(1 / 3 + 0.06 / 0.72 / 3);
     expect(syllableProgress(saved, 0.6)).toBeCloseTo(1 / 3 + 0.46 / 0.72 / 3);
     expect(syllableProgress(saved, 0.94)).toBeGreaterThan(2 / 3);
+    const deep = {
+      ...word('deep', 0, 3.2),
+      letters: [0, 0.1 / 3.2, 0.4 / 3.2, 0.64 / 3.2],
+    };
+    expect(syllableProgress(deep, 1.6)).toBeGreaterThan(0.75);
+    const reviewed = { ...deep, lettersApproximate: true };
+    expect(syllableProgress(reviewed, 1.6)).toBeGreaterThan(0.5);
+    expect(syllableProgress(reviewed, 1.6)).toBeLessThan(0.75);
+    expect(syllableProgress(reviewed, 3.2)).toBe(1);
   });
   it.each([{ letters: [0, 0.2, 1, 1] }, { letters: [0, 0, 0, 0] }])(
     'keeps unresolved syllables continuous within the word: $letters',
