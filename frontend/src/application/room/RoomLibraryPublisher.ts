@@ -11,7 +11,7 @@ type Library =
   | {
       type: 'publishing';
       timer: ReturnType<typeof setInterval>;
-      lastKey: string;
+      lastKey: string | undefined;
       uploaded: Set<string>;
       uploadId?: string;
       songs?: readonly SongDto[];
@@ -46,7 +46,7 @@ export class RoomLibraryPublisher {
     if (this.library.type === 'publishing') return;
     const running: Extract<Library, { type: 'publishing' }> = {
       type: 'publishing',
-      lastKey: '',
+      lastKey: undefined,
       uploaded: new Set(),
       readAt: 0,
       revision: 0,

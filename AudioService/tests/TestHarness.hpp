@@ -510,6 +510,7 @@ void audioReconfigurePreservesActiveKaraokeMedia();
 void karaokeTracksShareTransport();
 void radioStopsWhenPreviewActivates();
 void staleDecodedPcmNeverLeaksAfterSeek();
+void stoppingLoadingMediaWaitsForDecodedAudio();
 void recordingDurationCountsAcceptedPcm();
 void recordingPauseCreatesGapMetadata();
 void recordingWritesWav();

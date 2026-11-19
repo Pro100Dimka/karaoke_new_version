@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioClient } from '../services/audioClient';
 import {
   changeRadioStation,
+  setRadioStation,
   setYoutubePlaylist,
   subscribeRadio,
   toggleRadio,
@@ -11,6 +12,7 @@ import { store } from './store';
 import { runInAction } from 'mobx';
 import { useEffect, useLayoutEffect } from 'react';
 import type { RoomStateDto } from '../contracts/models';
+import { clearOperationFailure, operationFailures } from '../shared/errors';
 
 const appState = vi.hoisted(() => ({
   room: null as null | Record<string, unknown>,
@@ -106,6 +108,8 @@ describe('RadioConnection', () => {
     vi.mocked(audioClient.loadRadio).mockResolvedValue(undefined);
     appState.room = null;
     appState.audioEpoch = 0;
+    appState.publishSharedState.mockResolvedValue(undefined);
+    clearOperationFailure('errors.radioMetadata');
     vi.mocked(audioClient.diagnosticsDump).mockResolvedValue({
       RadioState: '3',
     });
@@ -135,6 +139,51 @@ describe('RadioConnection', () => {
       });
     });
   });
+
+  it.each([
+    ['toggle', () => toggleRadio()],
+    ['station change', () => setRadioStation('drone-zone')],
+  ])(
+    'reports a failed room radio %s so it can be retried',
+    async (_, change) => {
+      appState.room = {
+        code: 'ROOM',
+        role: 'participant',
+        collaborativeControl: true,
+        radioEnabled: false,
+        radioStationId: 'groove-salad',
+        libraryQuery: '',
+        libraryStatus: 'all',
+        librarySort: 'recent',
+      };
+      const error = new Error('Room connection lost');
+      appState.publishSharedState.mockRejectedValueOnce(error);
+      const failure = vi.fn();
+      const unsubscribe = operationFailures.subscribe(failure);
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      try {
+        render(<RadioConnection libraryActive={false} />);
+        act(change);
+        await waitFor(() =>
+          expect(failure).toHaveBeenCalledWith({
+            operation: 'errors.radioMetadata',
+            error,
+          }),
+        );
+        expect(store.radio.enabled).toBe(false);
+        expect(store.radio.stationId).toBe('groove-salad');
+        act(change);
+        await waitFor(() =>
+          expect(appState.publishSharedState).toHaveBeenCalledTimes(2),
+        );
+      } finally {
+        unsubscribe();
+        consoleError.mockRestore();
+      }
+    },
+  );
 
   it('plays playlist tracks through the radio slot, advances at EOF and repeats the playlist', async () => {
     vi.useFakeTimers();

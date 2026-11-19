@@ -5,7 +5,7 @@ import { desktopClient } from '../../services/desktopClient';
 import { useLibraryImport } from './modals/add-song/useLibraryImport';
 
 /** Owns desktop commands and file drops; the page only attaches its handlers. */
-export const useLibraryDesktop = (onInvitation: (code: string) => void) => {
+export const useLibraryDesktop = (onInvitation: (code?: string) => void) => {
   const backendReady = store.application.services.python.kind === 'ready';
   const { addSong, importFiles } = useLibraryImport();
   const [dragging, setDragging] = useState(false);
@@ -25,7 +25,7 @@ export const useLibraryDesktop = (onInvitation: (code: string) => void) => {
           void current.importFiles(command.paths);
           break;
         default:
-          if (command.code !== undefined) current.onInvitation(command.code);
+          current.onInvitation(command.code);
       }
     });
   }, [backendReady]);

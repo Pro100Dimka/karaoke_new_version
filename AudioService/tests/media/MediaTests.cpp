@@ -727,4 +727,36 @@ void staleDecodedPcmNeverLeaksAfterSeek() {
                        [](float sample) { return std::abs(sample - 0.75F) < 0.0001F; }),
            "old decoded PCM never leaks after seek generation changes");
 }
+
+void stoppingLoadingMediaWaitsForDecodedAudio() {
+    auto decoder = std::make_unique<BlockingDecoder>();
+    auto* decoderView = decoder.get();
+    MediaSource source{std::move(decoder)};
+    source.prepareOutput(48000, 1, 4096);
+    source.load("blocking-test");
+    decoderView->waitForFirstRead();
+
+    source.stop();
+    source.stop();
+    expect(source.snapshot().state == PlaybackState::Loading,
+           "Stop cannot report a loading source as ready before decoding completes");
+    bool rejected = false;
+    try {
+        source.play();
+    } catch (const std::logic_error&) {
+        rejected = true;
+        // The decoder remains loading until it can publish actual audio.
+    }
+    expect(rejected, "a stopped but still loading source cannot start empty playback");
+    if (!rejected)
+        source.stop();
+
+    decoderView->releaseFirstRead();
+    expect(source.waitUntilReady() == PlaybackState::Ready,
+           "a stopped load becomes ready after its decoder publishes audio");
+    source.play();
+    std::vector<float> output(128);
+    expect(source.render(output, 128) == 128,
+           "the loaded source can play normally after Stop during loading");
+}
 } // namespace Tests

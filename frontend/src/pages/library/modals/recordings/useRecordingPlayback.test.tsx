@@ -63,3 +63,70 @@ it('stops the audible preview if applying the initial waveform position fails', 
     failure,
   );
 });
+
+it('keeps the pending preview owned when seeking before it finishes loading', async () => {
+  let finishLoading!: () => void;
+  vi.mocked(audioClient.playRecording).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishLoading = () => resolve({} as never);
+      }),
+  );
+  vi.mocked(audioClient.recordingPreviewStatus).mockResolvedValue({
+    recordingId: null,
+    state: 'ready',
+    positionSeconds: 0,
+  });
+  const { result, unmount } = renderHook(() =>
+    useRecordingPlayback({ id: 'take' }),
+  );
+  let loading!: Promise<void>;
+  act(() => {
+    loading = result.current.toggle();
+  });
+  await act(() => result.current.seek(20));
+  unmount();
+  expect(audioClient.stopRecordingPreview).toHaveBeenCalledWith(
+    expect.any(Symbol),
+  );
+  await act(async () => {
+    finishLoading();
+    await loading;
+  });
+  expect(audioClient.seekRecordingPreview).not.toHaveBeenCalled();
+});
+
+it('can pause a preview that was positioned while it was still loading', async () => {
+  let finishLoading!: () => void;
+  vi.mocked(audioClient.playRecording).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishLoading = () => resolve({} as never);
+      }),
+  );
+  vi.mocked(audioClient.recordingPreviewStatus).mockResolvedValue({
+    recordingId: null,
+    state: 'ready',
+    positionSeconds: 0,
+  });
+  const { result } = renderHook(() => useRecordingPlayback({ id: 'take' }));
+  let loading!: Promise<void>;
+  act(() => {
+    loading = result.current.toggle();
+  });
+  await act(() => result.current.seek(20));
+  await act(async () => {
+    finishLoading();
+    await loading;
+  });
+  expect(audioClient.seekRecordingPreview).toHaveBeenCalledWith(
+    20,
+    expect.any(Symbol),
+  );
+  expect(result.current.playing).toBe(true);
+
+  await act(() => result.current.toggle());
+  expect(audioClient.pauseRecordingPreview).toHaveBeenCalledOnce();
+  expect(audioClient.playRecording).toHaveBeenCalledOnce();
+  expect(result.current.playing).toBe(false);
+});

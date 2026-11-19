@@ -104,7 +104,7 @@ const LibraryPage = observer(() => {
     setRoomOpen(false);
     setInvitationCode(undefined);
   }, []);
-  const openInvitation = useCallback((code: string) => {
+  const openInvitation = useCallback((code?: string) => {
     setInvitationCode(code);
     setRoomOpen(true);
   }, []);

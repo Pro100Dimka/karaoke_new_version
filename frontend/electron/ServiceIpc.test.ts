@@ -75,3 +75,43 @@ it('keeps audio streams through hash navigation and reports only audio command f
   await request(event, { command: 'Play' });
   expect(audioEvent).not.toHaveBeenCalled();
 });
+
+it('releases audio notification streams when a renderer crashes before a reload begins', () => {
+  const handlers = new Map<string, Parameters<TrustedIpc['handle']>[1]>();
+  const ipc: TrustedIpc = {
+    handle: (channel, listener) => {
+      handlers.set(channel, listener);
+    },
+    isRendererUrl: () => true,
+  };
+  const sender = Object.assign(new EventEmitter(), {
+    send: vi.fn(),
+    isDestroyed: () => false,
+  });
+  const event = { sender } as unknown as IpcMainInvokeEvent;
+  const stopSpectrum = vi.fn();
+  const stopPlayback = vi.fn();
+  subscribe
+    .mockReturnValueOnce(stopSpectrum)
+    .mockReturnValueOnce(stopPlayback);
+  registerServiceIpc(
+    ipc,
+    {} as Parameters<typeof registerServiceIpc>[1],
+    {} as Parameters<typeof registerServiceIpc>[2],
+  );
+  const listen = handlers.get(ipcChannels.audioSubscribe)!;
+  listen(event, { command: 'GetSpectrum', intervalMs: 50 });
+  listen(event, { command: 'GetPlaybackSnapshot', intervalMs: 16 });
+
+  sender.emit('render-process-gone', {}, { reason: 'crashed' });
+  expect(stopSpectrum).toHaveBeenCalledOnce();
+  expect(stopPlayback).toHaveBeenCalledOnce();
+
+  const stopReplacement = vi.fn();
+  subscribe.mockReturnValueOnce(stopReplacement);
+  listen(event, { command: 'GetSpectrum', intervalMs: 50 });
+  sender.emit('destroyed');
+  expect(stopReplacement).toHaveBeenCalledOnce();
+  expect(stopSpectrum).toHaveBeenCalledOnce();
+  expect(stopPlayback).toHaveBeenCalledOnce();
+});

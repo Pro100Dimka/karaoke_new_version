@@ -80,7 +80,7 @@ export const SongSettingsModal = ({
           values;
         await pythonClient.updateSong(song.id, {
           title: title.trim() || undefined,
-          artist: artist.trim() || undefined,
+          artist: artist.trim(),
           language,
           coverPath: coverPath || undefined,
           videoPath: videoPath || undefined,

@@ -39,6 +39,7 @@ const window = Object.assign(new EventEmitter(), {
   isVisible: () => true,
   isFocused: () => true,
   isMinimized: () => false,
+  show: vi.fn(),
   close: vi.fn(),
   loadURL: vi.fn(async (url: string) => {
     contents.mainFrame.url = url;
@@ -113,9 +114,12 @@ vi.mock('electron', () => ({
       },
     }),
   },
-  BrowserWindow: vi.fn(function () {
-    return window;
-  }),
+  BrowserWindow: Object.assign(
+    vi.fn(function () {
+      return window;
+    }),
+    { getAllWindows: () => [] },
+  ),
   ipcMain: {
     handle: (
       channel: string,
@@ -175,6 +179,7 @@ vi.mock('./Splash', () => ({
 vi.mock('./SceneProtocol', () => ({ registerSceneProtocol: vi.fn() }));
 vi.mock('./WindowState', () => ({
   loadWindowState: () => ({ width: 1280, height: 720 }),
+  saveWindowState: vi.fn(),
 }));
 vi.mock('./AudioServiceTransport', () => ({
   sendAudioRequest: mocks.sendAudioRequest,
@@ -493,6 +498,36 @@ it('requests relaunch through close approval and cancels it when the user stays'
     mocks.quit.mockClear();
   }
 });
+
+it.each(['reveal', 'close confirmation'])(
+  'resets %s when activation replaces a closed main window',
+  async (scenario) => {
+    const { ipcChannels } = await import('./ipcChannels');
+    const event = {
+      sender: contents,
+      senderFrame: contents.mainFrame,
+    } as IpcMainInvokeEvent;
+    mocks.handlers.get(ipcChannels.appReady)?.(event);
+    await mocks.handlers.get(ipcChannels.confirmClose)?.(event, true);
+    window.emit('closed');
+    // The fixture reuses the native-window stand-in for the new BrowserWindow.
+    window.removeAllListeners();
+    contents.removeAllListeners();
+    const shown = window.show.mock.calls.length;
+    mocks.appEvents.get('activate')?.({ preventDefault: vi.fn() });
+
+    if (scenario === 'reveal') {
+      mocks.handlers.get(ipcChannels.appReady)?.(event);
+      expect(window.show).toHaveBeenCalledTimes(shown + 1);
+    } else {
+      const closing = { preventDefault: vi.fn() };
+      contents.send.mockClear();
+      window.emit('close', closing);
+      expect(closing.preventDefault).toHaveBeenCalledOnce();
+      expect(contents.send).toHaveBeenCalledWith(ipcChannels.closeRequested);
+    }
+  },
+);
 
 it('defers Electron quit until owned service shutdown finishes', async () => {
   window.emit('closed');

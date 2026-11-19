@@ -3,6 +3,85 @@ import type { RoomStateDto, SongDto } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
 import { RoomProjectCoordinator } from './RoomProjectCoordinator';
 
+it('does not publish an empty placeholder while the initial library read is pending or retired', async () => {
+  vi.useFakeTimers();
+  const { services, coordinator } = setup();
+  const pending = deferred<readonly SongDto[]>();
+  services.python.listSongs.mockReturnValueOnce(pending.promise);
+  try {
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(services.room.publishLibrary).not.toHaveBeenCalled();
+
+    coordinator.setPythonReady(false);
+    pending.resolve([]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(services.room.publishLibrary).not.toHaveBeenCalled();
+
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(services.room.publishLibrary).toHaveBeenCalledExactlyOnceWith(
+      'room-a',
+      [],
+    );
+  } finally {
+    coordinator.stop();
+    vi.useRealTimers();
+  }
+});
+
+it('publishes an empty library once on joining and again after backend recovery', async () => {
+  vi.useFakeTimers();
+  const { services, coordinator } = setup();
+  try {
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(services.room.publishLibrary).toHaveBeenCalledExactlyOnceWith(
+      'room-a',
+      [],
+    );
+
+    coordinator.setPythonReady(false);
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(services.room.publishLibrary).toHaveBeenCalledTimes(2);
+    expect(services.room.publishLibrary).toHaveBeenLastCalledWith('room-a', []);
+  } finally {
+    coordinator.stop();
+    vi.useRealTimers();
+  }
+});
+
+it('withdraws songs deleted while the backend was unavailable', async () => {
+  vi.useFakeTimers();
+  const { services, coordinator } = setup();
+  const song = {
+    id: 'deleted-song',
+    activeRevision: 1,
+    status: 'ready',
+    title: 'Deleted song',
+    artist: 'Artist',
+  } as SongDto;
+  services.python.listSongs.mockResolvedValue([song]);
+  try {
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(services.room.publishLibrary).toHaveBeenLastCalledWith('room-a', [
+      song,
+    ]);
+
+    coordinator.setPythonReady(false);
+    services.python.listSongs.mockResolvedValue([]);
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(services.room.publishLibrary).toHaveBeenCalledTimes(2);
+    expect(services.room.publishLibrary).toHaveBeenLastCalledWith('room-a', []);
+  } finally {
+    coordinator.stop();
+    vi.useRealTimers();
+  }
+});
+
 it('refreshes the library on changes without reading it every second', async () => {
   vi.useFakeTimers();
   const { services, scope } = setup();

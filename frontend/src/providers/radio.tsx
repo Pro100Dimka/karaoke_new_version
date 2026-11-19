@@ -38,7 +38,11 @@ export const toggleRadio = () => {
     runInAction(() => {
       radio.prepareRequest++;
     });
-  if (store.online.room) void publishRadio(enabled, radio.stationId);
+  if (store.online.room)
+    void observeOperation(
+      'errors.radioMetadata',
+      publishRadio(enabled, radio.stationId),
+    ).catch(() => undefined);
   else
     runInAction(() => {
       radio.enabled = enabled;
@@ -47,7 +51,11 @@ export const toggleRadio = () => {
 export const setRadioStation = (id: string, enabled = store.radio.enabled) => {
   if (!store.radio.canControl) return;
   store.updatePreferences({ radioStation: id });
-  if (store.online.room) void publishRadio(enabled, id);
+  if (store.online.room)
+    void observeOperation(
+      'errors.radioMetadata',
+      publishRadio(enabled, id),
+    ).catch(() => undefined);
   else
     runInAction(() => {
       store.radio.enabled = enabled;

@@ -43,11 +43,33 @@ export const registerShellIpc = (
   window: () => BrowserWindow | null,
   notify: (title: string, body: string) => void,
 ): void => {
+  let detachRenderer = () => {};
+  const disconnect = () => {
+    detachRenderer();
+    detachRenderer = () => {};
+    shell.disconnect();
+  };
   trustedIpc.handle(ipcChannels.shellStatus, (_event, status: unknown) =>
     shell.report(status),
   );
-  trustedIpc.handle(ipcChannels.shellReady, (_event, ready: unknown) => {
-    if (ready !== true) return shell.disconnect();
+  trustedIpc.handle(ipcChannels.shellReady, (event, ready: unknown) => {
+    disconnect();
+    if (ready !== true) return;
+    const { sender } = event;
+    const navigation = (details: {
+      isMainFrame: boolean;
+      isSameDocument: boolean;
+    }) => {
+      if (details.isMainFrame && !details.isSameDocument) disconnect();
+    };
+    sender.on('did-start-navigation', navigation);
+    sender.once('render-process-gone', disconnect);
+    sender.once('destroyed', disconnect);
+    detachRenderer = () => {
+      sender.removeListener('did-start-navigation', navigation);
+      sender.removeListener('render-process-gone', disconnect);
+      sender.removeListener('destroyed', disconnect);
+    };
     shell.connect((command) => {
       const current = window();
       if (current && !current.isDestroyed())

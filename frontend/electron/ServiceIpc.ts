@@ -82,6 +82,7 @@ const registerBackendRequests = (
     subscriptions.set(command, stop);
     if (!observedSender) {
       observedSender = true;
+      event.sender.on('render-process-gone', stopNotifications);
       event.sender.on('did-start-navigation', (navigation) => {
         if (navigation.isMainFrame && !navigation.isSameDocument)
           stopNotifications();

@@ -188,7 +188,8 @@ void MediaSource::stop() noexcept {
     if (state == PlaybackState::Empty || state == PlaybackState::Failed)
         return;
     requestSeekLocked(0);
-    publishState(PlaybackState::Ready);
+    if (state != PlaybackState::Loading)
+        publishState(PlaybackState::Ready);
 }
 void MediaSource::seek(std::uint64_t sourceFrame, MonotonicTicks startAtTicks) {
     std::lock_guard lock(mutex_);

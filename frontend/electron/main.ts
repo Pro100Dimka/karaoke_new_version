@@ -212,6 +212,8 @@ const revealMainWindow = (): void => {
 };
 
 const openMainWindow = (roomParticipant: string): void => {
+  mainRevealed = false;
+  closeConfirmed = false;
   const window = createMainWindow({
     rendererUrl,
     trustedIpc,

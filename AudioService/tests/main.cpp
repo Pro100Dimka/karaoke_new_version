@@ -724,6 +724,8 @@ constexpr std::array tests{
     Test{"karaokeTracksShareTransport", Tests::karaokeTracksShareTransport},
     Test{"radioStopsWhenPreviewActivates", Tests::radioStopsWhenPreviewActivates},
     Test{"staleDecodedPcmNeverLeaksAfterSeek", Tests::staleDecodedPcmNeverLeaksAfterSeek},
+    Test{"stoppingLoadingMediaWaitsForDecodedAudio",
+         Tests::stoppingLoadingMediaWaitsForDecodedAudio},
     Test{"wavWriterReportsFinalizationAndRiffFailures",
          Tests::wavWriterReportsFinalizationAndRiffFailures},
     Test{"stopRecordingReportsWriterFailure", Tests::stopRecordingReportsWriterFailure},

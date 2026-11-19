@@ -19,6 +19,7 @@ export const useRecordingPlayback = (
   const [position, setPosition] = useState(0);
   const [volume, setVolume] = useState(1);
   const owns = useRef(false);
+  const loading = useRef(false);
   const owner = useRef(Symbol('recording-preview'));
   const generation = useRef(0);
   const pendingSeek = useRef<number | null>(null);
@@ -39,12 +40,14 @@ export const useRecordingPlayback = (
         return;
       }
       owns.current = true;
+      loading.current = true;
       await preview[original ? 'playSongPreview' : 'playRecording'](
         id,
         owner.current,
         volume,
       );
       if (request !== generation.current) return;
+      loading.current = false;
       if (pendingSeek.current !== null) {
         await preview.seekRecordingPreview(pendingSeek.current, owner.current);
         if (request !== generation.current) return;
@@ -58,6 +61,8 @@ export const useRecordingPlayback = (
         release();
         reportOperationFailure('errors.previewPlayback', error);
       }
+    } finally {
+      if (request === generation.current) loading.current = false;
     }
   }, [id, original, playing, release, preview, volume]);
 
@@ -74,12 +79,13 @@ export const useRecordingPlayback = (
     async (seconds: number) => {
       const request = generation.current;
       try {
-        const status = owns.current
-          ? await preview.recordingPreviewStatus(owner.current)
-          : null;
+        const status =
+          owns.current && !loading.current
+            ? await preview.recordingPreviewStatus(owner.current)
+            : null;
         if (request !== generation.current) return;
         if (!status || status.recordingId !== id) {
-          owns.current = false;
+          if (!loading.current) owns.current = false;
           setPlaying(false);
           setPosition(seconds);
           pendingSeek.current = seconds;
@@ -118,6 +124,7 @@ export const useRecordingPlayback = (
     pendingSeek.current = null;
     return () => {
       generation.current += 1;
+      loading.current = false;
       if (owns.current) {
         owns.current = false;
         void preview.stopRecordingPreview(owner.current).catch(() => undefined);
