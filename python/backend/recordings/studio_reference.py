@@ -107,7 +107,10 @@ def _reference_offset(
     offsets, scores = [], []
 
     with sf.SoundFile(backing) as take, sf.SoundFile(original) as reference:
-        for position in np.linspace(1, duration - 3, 3):
+        # Keep windows independent; one silent or separator-damaged intro must
+        # not veto agreeing accompaniment evidence across the rest of the take.
+        count = min(9, 1 + int((duration - 4) // 2))
+        for position in np.linspace(1, duration - 3, count):
             _check_cancel(cancel)
             start = origin + position - margin
             if start < 0 or start + 2 + 2 * margin > reference.frames / reference.samplerate:
@@ -120,9 +123,19 @@ def _reference_offset(
             peak, score = match
             offsets.append(peak / rate - margin)
             scores.append(score)
-    if len(offsets) < 3 or np.ptp(offsets) > 0.002:
+    return _reference_consensus(offsets, scores)
+
+
+def _reference_consensus(offsets: list[float], scores: list[float]) -> tuple[float, float]:
+    if len(offsets) < 3:
         return 0.0, 0.0
-    return float(np.median(offsets)), min(scores)
+    values = np.asarray(offsets)
+    groups = [(values >= start) & (values <= start + 0.002) for start in values]
+    agreeing = max(groups, key=np.count_nonzero)
+    # A local match cannot override changing delays or repeated musical sections.
+    if np.count_nonzero(agreeing) < max(3, math.ceil(len(values) * 0.75)):
+        return 0.0, 0.0
+    return float(np.median(values[agreeing])), float(np.min(np.asarray(scores)[agreeing]))
 
 
 def _read_reference(

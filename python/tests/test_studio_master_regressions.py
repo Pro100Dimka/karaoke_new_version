@@ -174,9 +174,9 @@ def test_initial_balance_preserves_capture_without_a_reference(tmp_path):
 
 def test_peak_limiter_preserves_timeline_and_tail(tmp_path: Path):
     rate = 8000
-    voice = np.zeros(rate)
-    voice[50] = 0.2
-    voice[-10] = 0.1
+    voice = 0.04 * np.sin(2 * np.pi * 500 * np.arange(rate) / rate)
+    voice[50] += 0.2
+    voice[-10] += 0.1
     v, b, output = (tmp_path / name for name in ("voice.wav", "backing.wav", "out.wav"))
     sf.write(v, voice, rate, subtype="FLOAT")
     sf.write(b, np.zeros_like(voice), rate, subtype="FLOAT")
@@ -197,6 +197,7 @@ def test_peak_limiter_preserves_timeline_and_tail(tmp_path: Path):
     )
     expected, _ = sf.read(resampled)
     gain = 10 ** (delivery["globalGainDb"] / 20)
+    assert delivery["plannedLimiterReductionDb"] == 0
     np.testing.assert_allclose(actual, expected * gain, atol=2e-6)
     assert np.argmax(abs(actual[: rate // 2])) == 50
     assert np.argmax(abs(actual[rate // 2 :])) + rate // 2 == rate - 10

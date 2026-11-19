@@ -112,10 +112,39 @@ def _delivery_plan(
     desired = target_i - source_i if source_i is not None else 0.0
     headroom = -1.3 - source_tp if source_tp is not None else 0.0
     # A target cannot force more than two dB of planned transient limiting.
-    gain = min(desired, headroom + 2.0, 12.0) if source_tp is not None else 0.0
+    # Capture/mixer attenuation is not a musical loudness choice. Restore it
+    # through one common gain, bounded by measured peaks rather than an input-
+    # level-dependent boost cap. Gated-out/empty signals retain zero gain.
+    gain = min(desired, headroom + 2.0) if source_tp is not None else 0.0
     return DeliveryPlan(
         reference_i, target_i, source_i, source_tp, gain, headroom, max(rate, min(192000, rate * 4))
     )
+
+
+def _gain_stage(
+    renderer: MasterRenderer,
+    source: Path,
+    target: Path,
+    measured: dict[str, float | None],
+    cancel: threading.Event,
+) -> tuple[Path, float]:
+    peak = measured["truePeakDbtp"]
+    if measured["integratedLufs"] is None or peak is None:
+        return source, 0.0
+    # A common floating-point working level makes both the compressor detector
+    # and R128's absolute gate independent of a valid capture's attenuation.
+    # Never promote an unmetered/fully gated signal into eligibility.
+    gain = -6.0 - peak
+    if gain == 0:
+        return source, gain
+    renderer._mix(
+        source,
+        source,
+        f"[0:a]volume={gain:.9f}dB[out]",
+        ["-c:a", "pcm_f32le", str(target)],
+        cancel,
+    )
+    return target, gain
 
 
 def _encode_limited(
@@ -178,6 +207,8 @@ def _delivery_report(
     correction: float,
     compression: dict[str, object],
     rate: int,
+    initial: dict[str, float | None],
+    working_gain: float,
 ) -> dict[str, object]:
     achieved_i = final["integratedLufs"]
     return {
@@ -187,10 +218,12 @@ def _delivery_report(
         "targetSource": "performed-reference"
         if plan.reference_i is not None
         else "conservative-fallback",
-        "inputIntegratedLufs": plan.source_i,
-        "inputTruePeakDbtp": plan.source_tp,
-        "globalGainDb": plan.gain + correction,
-        "gainDb": plan.gain + correction,
+        "inputIntegratedLufs": initial["integratedLufs"],
+        "inputTruePeakDbtp": initial["truePeakDbtp"],
+        "workingGainDb": working_gain,
+        "normalizationGainDb": plan.gain,
+        "globalGainDb": working_gain + plan.gain + correction,
+        "gainDb": working_gain + plan.gain + correction,
         "peakCorrectionDb": correction,
         "plannedLimiterReductionDb": max(0.0, plan.gain - plan.headroom),
         "glueCompression": compression,
@@ -217,12 +250,16 @@ def deliver_master(
     target.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".delivery-", dir=target.parent) as directory:
         work = Path(directory)
-        glued, compression = _glue(renderer, source, work / "glue.wav", cancel)
-        measured, original = _measure_pair(renderer, glued, reference, cancel)
+        initial, original = _measure_pair(renderer, source, reference, cancel)
+        staged, working_gain = _gain_stage(renderer, source, work / "staged.wav", initial, cancel)
+        glued, compression = _glue(renderer, staged, work / "glue.wav", cancel)
+        measured = initial if glued == source else measure_loudness(renderer, glued, cancel)
         plan = _delivery_plan(measured, original, info.samplerate)
         candidate = work / "candidate.wav"
         _encode_limited(renderer, glued, candidate, plan, info, cancel)
         candidate, final, correction = _verify_output(renderer, candidate, info, cancel)
         _check_cancel(cancel)
         candidate.replace(target)
-    return _delivery_report(plan, final, correction, compression, info.samplerate)
+    return _delivery_report(
+        plan, final, correction, compression, info.samplerate, initial, working_gain
+    )

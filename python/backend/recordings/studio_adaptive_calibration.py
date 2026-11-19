@@ -89,10 +89,23 @@ def _boost_limit(
     floor, evidence = _noise_evidence(path, levels, matched, cancel)
     target = float(np.median((levels + requested)[matched]))
     ceiling = min(-45.0, target - 30.0)
-    limit = (
-        _LOCAL_LIMIT_DB if floor is None else float(np.clip(ceiling - floor, 0, _TOTAL_LIMIT_DB))
+    supported_voice = evidence["method"] == "quiet-intervals-with-voiced-support"
+    # A confirmed quiet microphone needs calibration, not a lower vocal target.
+    # Its SNR is invariant to gain. An absolute pre-master noise ceiling cannot
+    # protect delivery noise: the later common master gain changes that level.
+    # Retain the stricter bound for continuous periodic signals without pauses;
+    # a stationary hum alone is not evidence of a clean vocal recording.
+    limit = _LOCAL_LIMIT_DB if floor is None else _TOTAL_LIMIT_DB
+    if floor is not None and not supported_voice:
+        limit = float(np.clip(ceiling - floor, 0, _TOTAL_LIMIT_DB))
+    evidence.update(
+        calibrationPolicy="confirmed-recording-SNR" if supported_voice else "conservative-bound",
+        estimatedSignalToNoiseDb=float(np.median(levels[matched])) - floor
+        if floor is not None
+        else None,
+        maximumPreMasterNoiseDbfs=None if supported_voice else ceiling,
+        supportedBoostDb=limit,
     )
-    evidence.update(maximumDeliveredNoiseDbfs=ceiling, supportedBoostDb=limit)
     return limit, evidence
 
 
@@ -108,6 +121,10 @@ def calibrate_gains(
     applied = float(np.clip(calibration, -_TOTAL_LIMIT_DB, limit))
     local = np.clip(requested - calibration, -_LOCAL_LIMIT_DB, _LOCAL_LIMIT_DB)
     gains = np.clip(applied + local, -_TOTAL_LIMIT_DB, limit)
+    floor = evidence.get("estimatedNoiseFloorDbfs")
+    evidence["estimatedPreMasterDryVocalNoiseDbfs"] = (
+        float(floor) + float(np.max(gains)) if isinstance(floor, (float, int)) else None
+    )
     return gains, {
         "inputCalibrationRequestedDb": calibration,
         "inputCalibrationDb": applied,

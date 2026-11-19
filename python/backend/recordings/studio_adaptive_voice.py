@@ -107,6 +107,18 @@ def _supported_cuts(
     return resonances
 
 
+def _color_noise_floor(voice: VoiceFeatures) -> np.ndarray:
+    quiet = ~voice.active & (voice.rms_db < voice.noise_floor_db + 2.5)
+    # Low-frequency room noise is not the noise floor of the presence/air band.
+    # Use only established quiet intervals; otherwise retain the conservative
+    # broadband fallback when the recording has no supported noise observation.
+    return (
+        np.percentile(voice.bands_db[quiet], 75, axis=0)
+        if voice.noise_confident and quiet.any()
+        else np.full(voice.bands_db.shape[1], voice.noise_floor_db)
+    )
+
+
 def _color_plan(
     voice: VoiceFeatures, reference: VoiceFeatures | None
 ) -> tuple[list[str], dict[str, object]]:
@@ -116,17 +128,24 @@ def _color_plan(
         return filters, {"bands": bands, "reason": "no-supported-reference-tone"}
     actual = np.median(voice.bands_db[voice.active], axis=0)
     expected = np.median(reference.bands_db[reference.active], axis=0)
+    noise = _color_noise_floor(voice)
     for band, frequency, kind in ((4, 2800.0, "equalizer"), (7, 11000.0, "treble")):
         if frequency >= min(voice.rate, reference.rate) * 0.4:
             continue
         difference = (expected[band] - expected[3]) - (actual[band] - actual[3])
         # Avoid lifting missing bandwidth, room hiss, and separated-stem artefacts.
-        if actual[band] < max(-85, voice.noise_floor_db + 8) or not 2 < difference < 18:
+        if actual[band] < max(-85, noise[band] + 8) or not 2 < difference < 18:
             continue
         gain = float(np.clip((difference - 1) * 0.25, 0, 1.5))
         filters.append(f"{kind}=f={frequency:.6f}:t=q:w=0.7:g={gain:.6f}")
         bands.append(
-            {"frequencyHz": frequency, "gainDb": gain, "referenceDifferenceDb": float(difference)}
+            {
+                "frequencyHz": frequency,
+                "gainDb": gain,
+                "referenceDifferenceDb": float(difference),
+                "estimatedNoiseFloorDbfs": float(noise[band]),
+                "signalToNoiseDb": float(actual[band] - noise[band]),
+            }
         )
     return filters, {
         "bands": bands,

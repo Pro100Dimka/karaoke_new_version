@@ -20,6 +20,10 @@ from backend.recordings.studio_adaptive_calibration import _periodicity
 from backend.recordings.studio_audio import _band_power, _check_cancel, _profile, _temporary_wave
 from backend.recordings.studio_space_analysis import _delay, _fit_decay, _read_evidence
 from backend.recordings.studio_space import _voice_activity_level, _activity_mask
+from backend.recordings.studio_field import (
+    plan_diffuse_field,
+    render_diffuse_send,
+)
 
 
 def estimate_tempo(backing: Path, cancel: threading.Event) -> tuple[float | None, float]:
@@ -314,6 +318,7 @@ def _plan_sends(
         "wetLowCutHz": 200.0,
         "wetDuckingDb": -20 * math.log10(0.75),
         "wetDuckingSmoothingMs": 50.0,
+        "diffuseField": {"applied": False},
         **delay_report,
     }
     return SendPlan(decay, amount, bpm, confidence, delay, delay_amount, report)
@@ -351,7 +356,7 @@ def _reverb_bus(
 
 
 def _render_send_buses(
-    voice: Path, work: Path, plan: SendPlan, cancel: threading.Event
+    voice: Path, work: Path, plan: SendPlan, reference: Path | None, cancel: threading.Event
 ) -> tuple[list[tuple[str, Path, float]], float]:
     buses = []
     dry_energy = 0.0
@@ -361,6 +366,24 @@ def _render_send_buses(
     if plan.delay_amount >= 0.015:
         bus, dry_energy = _delay_bus(voice, work, plan, cancel)
         buses.append(bus)
+    field = (
+        plan_diffuse_field(reference, sf.info(voice).samplerate, cancel)
+        if reference is not None and sf.info(voice).channels == 2
+        else None
+    )
+    if field is not None:
+        path = work / "diffuse-field.wav"
+        gain, dry_energy, plan.report["diffuseField"] = render_diffuse_send(
+            voice,
+            path,
+            field,
+            {name: source for name, source, _ in buses},
+            {name: amount for name, _, amount in buses},
+            cancel,
+        )
+        if gain > 0:
+            buses.append(("diffuse-field", path, gain))
+            plan.report["wetLowCutHz"] = min(200.0, float(field.band_hz[0]))
     return buses, dry_energy
 
 
@@ -436,17 +459,17 @@ def render_sends(
 ) -> dict[str, object]:
     _check_cancel(cancel)
     plan = _plan_sends(voice, backing, reference, recorded_is_dry, cancel)
-    if max(plan.amount, plan.delay_amount) < 0.015:
-        shutil.copyfile(voice, target)
-        return {
-            **plan.report,
-            "applied": False,
-            "status": "no-supported-addition",
-            "buses": {},
-            "tempoBpm": None,
-            "tempoConfidence": 0.0,
-        }
     with TemporaryDirectory(prefix=".sends-", dir=target.parent) as directory:
-        buses, dry_energy = _render_send_buses(voice, Path(directory), plan, cancel)
+        buses, dry_energy = _render_send_buses(voice, Path(directory), plan, reference, cancel)
+        if not buses:
+            shutil.copyfile(voice, target)
+            return {
+                **plan.report,
+                "applied": False,
+                "status": "no-supported-addition",
+                "buses": {},
+                "tempoBpm": None,
+                "tempoConfidence": 0.0,
+            }
         energy = _mix_returns(voice, target, buses, cancel)
     return _send_report(plan, energy, dry_energy)

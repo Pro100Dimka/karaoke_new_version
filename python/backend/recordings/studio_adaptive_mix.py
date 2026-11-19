@@ -280,4 +280,23 @@ def _completed_mix_report(
         timing.update(
             delivery=time.perf_counter() - delivery_started, total=time.perf_counter() - started
         )
+    _delivered_noise_estimate(report)
     return report
+
+
+def _delivered_noise_estimate(report: dict[str, object]) -> None:
+    balance, delivery = report.get("balance"), report.get("delivery")
+    if not isinstance(balance, dict) or not isinstance(delivery, dict):
+        return
+    evidence = balance.get("calibrationEvidence")
+    if not isinstance(evidence, dict):
+        return
+    before = evidence.get("estimatedPreMasterDryVocalNoiseDbfs")
+    gain = delivery.get("globalGainDb")
+    if isinstance(before, (float, int)) and isinstance(gain, (float, int)):
+        evidence.update(
+            estimatedDeliveredDryVocalNoiseDbfs=before + gain,
+            deliveryGainDb=gain,
+            deliveryEstimateScope="dry-vocal quiet-floor estimate plus maximum vocal and common "
+            "master gain; excludes FX returns and additional glue/limiter attenuation",
+        )
