@@ -8,7 +8,7 @@ import math
 import numpy as np
 import soundfile as sf
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter1d, median_filter, minimum_filter1d
+from scipy.ndimage import distance_transform_edt, gaussian_filter1d, median_filter, minimum_filter1d
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.scoring import parse_playback_adjustments
@@ -96,6 +96,11 @@ def _pitch_curve(
         0.0,
     )
     correction = gaussian_filter1d(median_filter(correction, size=31), sigma=8)
+    # Smoothing must not turn a short consonant or an uncertain reference note
+    # back into voiced material. Fade entirely inside the trusted interval;
+    # reapplying a hard mask alone would jump straight from a full shift to zero.
+    fade = np.clip((distance_transform_edt(eligible) - 1) / 8, 0, 1)
+    correction *= fade * fade * (3 - 2 * fade)
     return times, correction, voice, target, eligible
 
 

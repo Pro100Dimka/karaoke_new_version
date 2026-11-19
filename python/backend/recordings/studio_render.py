@@ -1,5 +1,5 @@
 from __future__ import annotations
-from backend.recordings.studio_delivery import MasterDelivery, measure_mix_loudness
+from backend.recordings.studio_delivery import MasterDelivery, measure_mix_loudness, preserve_mix
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space
 from numpy.typing import NDArray
@@ -450,7 +450,7 @@ class MasterRender:
         raw_profile = _profile(self.user_vocal, self.cancel)
         confident = raw_profile > max(-80.0, float(np.percentile(raw_profile, 90)) - 25)
         if np.count_nonzero(confident) * _PROFILE_SECONDS < 3:
-            shutil.copyfile(self.backing, self.target)
+            preserve_mix(self.renderer, self.performance_mix, self.target, self.cancel)
             profiles = [raw_profile, *(future.result() for future in profile_tasks)]
             voice_level, backing_level, reference_level, original_level = (
                 float(np.median(levels)) for levels in profiles
@@ -465,7 +465,7 @@ class MasterRender:
                 processing={
                     "effectsApplied": False,
                     "bypassReason": "insufficient-vocal-evidence",
-                    "outputChannels": self.info.channels,
+                    "outputChannels": self.output_channels,
                 },
             )
         self.vocal = self.work / "processed-voice.wav"

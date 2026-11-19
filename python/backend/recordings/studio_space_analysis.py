@@ -9,6 +9,7 @@ from scipy.ndimage import median_filter
 from scipy.optimize import nnls
 from scipy.signal import butter, find_peaks, resample_poly, sosfilt
 from backend.recordings.studio_audio import _check_cancel, _temporary_wave
+from backend.recordings.studio_echo import independent_echo_taps
 from backend.domain_errors import DependencyError
 
 
@@ -62,8 +63,9 @@ def _reference_width(path: Path, cancel: threading.Event) -> float:
 
 def analyze_space(path: Path, cancel: threading.Event) -> SpaceProfile:
     levels, cepstra, positions = _read_evidence(path, cancel)
-    delay, gain, support = _delay(cepstra)
-    taps = _echo_taps(cepstra)
+    taps, cepstra = independent_echo_taps(path, cepstra, positions, _echo_taps(cepstra), cancel)
+    delay, gain = max(taps, key=lambda tap: tap[1], default=(0.0, 0.0))
+    support = float(np.mean(cepstra[:, round(delay * 8000)] > 0.01)) if gain else 0.0
     decay, wet, count = _decay(levels)
     width = _reference_width(path, cancel)
     kind = ("slapback" if delay < 0.12 else "delay") if gain else "none"
@@ -315,10 +317,10 @@ def _read_evidence(
                 )
                 levels.extend(10 * np.log10(np.maximum(power, 1e-12)))
         if source.frames < block or not include_cepstra:
-            return np.asarray(levels), np.empty((0, 8193)), np.empty(0)
+            return np.asarray(levels), np.empty((0, 8001)), np.empty(0)
         energies, cepstra, positions = _sample_cepstra(source, cancel)
     if not energies:
-        return np.asarray(levels), np.empty((0, 8193)), np.empty(0)
+        return np.asarray(levels), np.empty((0, 8001)), np.empty(0)
     active = np.asarray(energies) > max(1e-8, float(np.percentile(energies, 75)) * 0.25)
     return np.asarray(levels), np.asarray(cepstra)[active], positions[active]
 
@@ -357,9 +359,12 @@ def _cepstrum(samples: np.ndarray, rate: int) -> np.ndarray:
     audio = resample_poly(samples, 8000 // divisor, rate // divisor, axis=0)
     # A tapered window changes the direct/echo ratio at different delays.
     # Use untapered blocks and require the peak to persist across independent blocks.
-    spectrum = np.abs(np.fft.rfft(audio, n=16384, axis=0))
+    # Padding a two-second block to 16384 inserts a 48-ms gap at 8 kHz.
+    # Its boundary comb can be mistaken for an echo in a pitched voice.
+    size = len(audio)
+    spectrum = np.abs(np.fft.rfft(audio, n=size, axis=0))
     logarithm = np.log(np.maximum(spectrum, np.max(spectrum) * 1e-8 + 1e-12))
-    return np.mean(np.fft.irfft(logarithm, n=16384, axis=0), axis=1)[:8193]
+    return np.mean(np.fft.irfft(logarithm, n=size, axis=0), axis=1)[: size // 2 + 1]
 
 
 def _delay(cepstra: np.ndarray) -> tuple[float, float, float]:

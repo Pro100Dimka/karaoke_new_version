@@ -77,6 +77,21 @@ def _detector(
     return times, level, m, meter_times, active, offset
 
 
+def _accompaniment_levels(
+    times: np.ndarray,
+    music: np.ndarray,
+    meter_times: np.ndarray,
+) -> np.ndarray | None:
+    # Near-silent backing must not drag down a continuing vocal phrase.
+    audible = vocal_activity(music) & (music > -70) & (meter_times >= 0)
+    if not audible.any():
+        return None
+    accompaniment = 10 * np.log10(
+        gaussian_filter1d(10 ** (music[audible] / 10), sigma=4, mode="nearest")
+    )
+    return np.asarray(np.interp(times, meter_times[audible], accompaniment), dtype=float)
+
+
 def _target_levels(
     times: np.ndarray,
     level: np.ndarray,
@@ -85,15 +100,8 @@ def _target_levels(
     baseline: np.ndarray,
     placement: np.ndarray,
 ) -> np.ndarray:
-    # Near-silent backing must not drag down a continuing vocal phrase.
-    audible = vocal_activity(music) & (music > -70) & (meter_times >= 0)
-    if audible.any():
-        accompaniment = 10 * np.log10(
-            gaussian_filter1d(10 ** (music[audible] / 10), sigma=4, mode="nearest")
-        )
-        target = np.interp(times, meter_times[audible], accompaniment) + placement
-    else:
-        target = baseline.copy()
+    accompaniment = _accompaniment_levels(times, music, meter_times)
+    target = baseline.copy() if accompaniment is None else accompaniment + placement
     # Retain phrase emphasis while keeping unusually loud syllables inside the backing.
     return np.asarray(target + 0.4 * np.minimum(level - baseline, 5.0), dtype=float)
 
@@ -190,12 +198,18 @@ def _context_levels(
     if reference_balance is None:
         return baseline, placement
     positions, vocal, music = reference_balance
+    accompaniment = _accompaniment_levels(positions, music, positions)
+    if accompaniment is None:
+        return baseline, placement
     valid = vocal_activity(vocal) & (vocal > -70) & (music > -70)
     if np.count_nonzero(valid) < 10:
         return baseline, placement
     confidence = np.clip((vocal - np.percentile(vocal[valid], 80) + 12) / 6, 0, 1)
     strong = valid & (music >= np.percentile(music[valid], 70)) & (confidence >= 0.5)
-    ratio = vocal - music
+    # Compare against the same smoothed/held accompaniment used by the target.
+    # Raw reference levels would compensate backing gaps a second time, including
+    # the partially filled loudness windows at each boundary.
+    ratio = vocal - accompaniment
     anchor = float(np.median(ratio[strong if strong.any() else valid]))
     relative = np.interp(positions, positions[valid], ratio[valid]) - anchor
     phrase = np.clip(_slow_gain_envelope(relative, seconds=3.0), -_REFERENCE_MAX_ATTENUATION_LU, 24)

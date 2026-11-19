@@ -60,6 +60,27 @@ def measure_mix_loudness(
     return np.asarray(profiles[b"voice"]), np.asarray(profiles[b"music"])
 
 
+def _delivery_gain(levels: dict[str, float]) -> float:
+    if not math.isfinite(levels["input_i"]) or not math.isfinite(levels["input_tp"]):
+        return 0.0
+    # A hot sum needs constant attenuation before the safety limiter; otherwise
+    # every loud syllable drives gain reduction on both the music and the voice.
+    return min(max(0.0, -14.0 - levels["input_i"]), -1.1 - levels["input_tp"])
+
+
+def preserve_mix(
+    renderer: MasterRenderer, source: Path, target: Path, cancel: threading.Event
+) -> None:
+    """Keep the original performance when there is too little voice to master safely."""
+    renderer._mix(
+        source,
+        source,
+        "[0:a]anull[out]",
+        ["-c:a", "pcm_f32le", str(target)],
+        cancel,
+    )
+
+
 @dataclass(slots=True)
 class MasterDelivery:
     renderer: MasterRenderer
@@ -96,12 +117,8 @@ class MasterDelivery:
             raise DependencyError(
                 "StudioMasterInvalidAudio", "Master loudness could not be measured"
             )
-        gain_db = 0.0
-        if math.isfinite(source_levels["input_i"]) and math.isfinite(source_levels["input_tp"]):
-            gain_db = max(
-                0.0, min(-14.0 - source_levels["input_i"], -1.1 - source_levels["input_tp"])
-            )
-        if gain_db > 0:
+        gain_db = _delivery_gain(source_levels)
+        if gain_db != 0:
             self.graph += f"volume={gain_db:.9f}dB,"
         # Both vocal sources use one constant mix gain and the same peak protection.
         self.graph += "alimiter=limit=0.891251:attack=5:release=80:level=0:latency=1,anull[out]"
@@ -117,7 +134,7 @@ class MasterDelivery:
             "loudnessRangeLu": levels["input_lra"],
             "verified": True,
             "limiterCeilingDbfs": -1.0,
-            "note": "One fixed gain raises quiet masters within measured true-peak headroom",
+            "note": "One fixed gain lifts quiet masters or attenuates hot sums within true-peak headroom",
         }
 
     def _encode(self) -> None:

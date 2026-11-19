@@ -24,6 +24,7 @@ from backend.recordings.studio_field import (
 from backend.recordings.studio_space_analysis import (
     _cepstrum as _cepstrum,
     _delay as _delay,
+    _missing_taps,
     SpaceProfile as SpaceProfile,
     analyze_space as analyze_space,
     match_space as match_space,
@@ -32,12 +33,9 @@ from backend.recordings.studio_space_analysis import (
 
 
 def _planned_space(expected: SpaceProfile, existing: SpaceProfile) -> SpaceProfile:
-    existing_taps = dict(existing.echo_taps)
-    taps = tuple(
-        (delay, max(0.0, gain - existing_taps.get(delay, 0.0)))
-        for delay, gain in expected.echo_taps
-    )
-    taps = tuple((delay, gain) for delay, gain in taps if gain > 0)
+    # Echo measurements are quantized and can move slightly after resampling
+    # or processing. Reuse the same-delay tolerance instead of stacking a tap.
+    taps = tuple((delay, gain) for delay, gain in _missing_taps(expected, existing) if gain > 0.001)
     bands = [expected.tail_band_hz, existing.tail_band_hz]
     comparable = not all(0 < low < high for low, high in bands) or (
         max(band[0] for band in bands) < min(band[1] for band in bands)
@@ -46,6 +44,7 @@ def _planned_space(expected: SpaceProfile, existing: SpaceProfile) -> SpaceProfi
     reverb = (
         math.sqrt(max(0.0, expected.reverb_gain**2 - present**2))
         if expected.decay_count >= 3
+        and (not comparable or existing.decay_seconds <= expected.decay_seconds)
         else 0.0
     )
     return SpaceProfile(
