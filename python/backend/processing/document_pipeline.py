@@ -8,8 +8,12 @@ from contextlib import nullcontext
 import threading
 from pathlib import Path
 
-from backend.ai.domain import PitchPoint, SeparatedAudio, WordTiming
-from backend.ai.ports import AlignmentReuseProvider, StreamingTranscriber
+from backend.ai.domain import AlignedTranscript, PitchPoint, SeparatedAudio, WordTiming
+from backend.ai.ports import (
+    AlignmentReuseProvider,
+    StreamingTranscriber,
+    TranscriptAlignmentProvider,
+)
 from backend.lyrics.discovery import (
     LyricsDiscovery,
     LyricsDiscoveryResult,
@@ -296,27 +300,59 @@ class BuildProcessingDocument:
         reports: list[StageReport],
         execution: ExecutionContext,
     ) -> tuple[LyricsDiscoveryResult, tuple[WordTiming, ...]]:
-        words = self._stages.run(
+        result = self._stages.run(
             "ForcedAlignment",
             CancellationPolicy.INTERRUPTIBLE,
             reports,
             context,
-            lambda: providers.alignment.align(
+            lambda: self._alignment_result(
+                song, prepared, discovery, providers, context, execution
+            ),
+            progress=0.72,
+        )
+        verified = (
+            discovery
+            if result.insertions_verified
+            else _verified_repeats(discovery, tuple(result.words))
+        )
+        if verified != discovery:
+            # An invented repeat shifts real words too: realign the retained text.
+            return self._align(song, prepared, verified, providers, context, reports, execution)
+        return replace(discovery, lyrics=result.lyrics), tuple(result.words)
+
+    def _alignment_result(
+        self,
+        song: Song,
+        prepared: PreparedAudio,
+        discovery: LyricsDiscoveryResult,
+        providers: ProcessingProviders,
+        context: JobContext,
+        execution: ExecutionContext,
+    ) -> AlignedTranscript:
+        provider = providers.alignment
+        language = lyrics_language(song, discovery.lyrics)
+        if discovery.source == "ASR" and isinstance(provider, TranscriptAlignmentProvider):
+            return provider.align_transcript(
                 prepared.reference_vocal,
                 discovery.lyrics,
-                lyrics_language(song, discovery.lyrics),
+                language,
+                context.cancel,
+                execution=execution,
+                instrumental=prepared.instrumental,
+                baseline_lyrics=discovery.repeat_baseline,
+            )
+        return AlignedTranscript(
+            discovery.lyrics,
+            provider.align(
+                prepared.reference_vocal,
+                discovery.lyrics,
+                language,
                 context.cancel,
                 timing_hints=discovery.timing_hints,
                 execution=execution,
                 instrumental=prepared.instrumental,
             ),
-            progress=0.72,
         )
-        verified = _verified_repeats(discovery, tuple(words))
-        if verified != discovery:
-            # An invented repeat shifts real words too: realign the retained text.
-            return self._align(song, prepared, verified, providers, context, reports, execution)
-        return discovery, tuple(words)
 
     def _stable_pitch(
         self,

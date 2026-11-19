@@ -7,9 +7,23 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Iterator, Mapping, Sequence
 
-from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
+from backend.ai.domain import (
+    AlignedTranscript,
+    AiProviderDescriptor,
+    PitchPoint,
+    SeparatedAudio,
+    WordTiming,
+)
 from backend.ai.ports import TranscriptionSource
 from backend.domain_errors import ConflictError, DependencyError, DomainError
+from backend.infrastructure.ai_payloads import (
+    _alignment_request,
+    _alignment_words as _alignment_words,
+    _pitch as _pitch,
+    _source_view as _source_view,
+    _text as _text,
+    _word as _word,
+)
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.process_runner import ProcessInput, ProcessRunner, ProcessResult
@@ -243,7 +257,13 @@ class CommandAiProvider:
         )
 
     def _recognition_for(
-        self, vocal: Path, language: Language, cancel: threading.Event, execution: ExecutionContext
+        self,
+        vocal: Path,
+        language: Language,
+        cancel: threading.Event,
+        execution: ExecutionContext,
+        *,
+        with_sources: bool = False,
     ) -> dict[str, JsonValue] | None:
         key = self._recognition_key(vocal, language, cancel, execution)
         with self._recognition_lock:
@@ -252,13 +272,14 @@ class CommandAiProvider:
         if recognition is None or key is None:
             return None
         alternatives: list[JsonValue] = [
-            payload
+            _source_view(payload, other[4], other[-1]) if with_sources else payload
             for other, payload in cached
             if other != key
             and (other[0], other[2], other[3]) == (key[0], key[2], key[3])
             and self._recognition_key(other[1], language, cancel, execution, other[-1]) == other
         ]
-        return {**recognition, "alternatives": alternatives}
+        primary = _source_view(recognition, key[4], key[-1]) if with_sources else recognition
+        return {**primary, "alternatives": alternatives}
 
     def align(
         self,
@@ -271,31 +292,80 @@ class CommandAiProvider:
         execution: ExecutionContext,
         instrumental: Path | None = None,
     ) -> Sequence[WordTiming]:
-        arguments = ["--input", str(vocal), "--language", language.value, "--lyrics", lyrics]
-        arguments.extend(self._alignment_arguments(vocal, cancel))
-        if instrumental is not None:
-            arguments.extend(["--instrumental", str(instrumental)])
-        if timing_hints:
-            arguments.extend(
-                [
-                    "--timing-hints",
-                    dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints]),
-                ]
+        payload = self._align_payload(
+            vocal,
+            lyrics,
+            language,
+            cancel,
+            timing_hints=timing_hints,
+            execution=execution,
+            instrumental=instrumental,
+        )
+        return _alignment_words(payload)
+
+    def align_transcript(
+        self,
+        vocal: Path,
+        lyrics: str,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+        instrumental: Path | None = None,
+        baseline_lyrics: str = "",
+    ) -> AlignedTranscript:
+        if self._descriptor.provider_id != "local-torch":
+            return AlignedTranscript(
+                lyrics,
+                self.align(
+                    vocal, lyrics, language, cancel, execution=execution, instrumental=instrumental
+                ),
             )
-        recognition = self._recognition_for(vocal, language, cancel, execution)
+        payload = self._align_payload(
+            vocal,
+            lyrics,
+            language,
+            cancel,
+            execution=execution,
+            instrumental=instrumental,
+            asr_lyrics=True,
+            baseline_lyrics=baseline_lyrics,
+        )
+        return AlignedTranscript(
+            _text(payload, "lyrics"),
+            _alignment_words(payload),
+            insertions_verified=payload.get("insertionsVerified") is True,
+        )
+
+    def _align_payload(
+        self,
+        vocal: Path,
+        lyrics: str,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        timing_hints: Sequence[LyricLineTiming] = (),
+        execution: ExecutionContext,
+        instrumental: Path | None = None,
+        asr_lyrics: bool = False,
+        baseline_lyrics: str = "",
+    ) -> dict[str, JsonValue]:
+        arguments = _alignment_request(
+            vocal, lyrics, language, timing_hints, instrumental, asr_lyrics, baseline_lyrics
+        )
+        arguments.extend(self._alignment_arguments(vocal, cancel))
+        recognition = self._recognition_for(
+            vocal, language, cancel, execution, with_sources=asr_lyrics
+        )
         if recognition is not None:
             arguments.append("--recognition-stdin")
-        payload = self._invoke(
+        return self._invoke(
             "align",
             arguments,
             cancel,
             execution=execution,
             input_data=dumps(recognition).encode("utf-8") if recognition is not None else None,
         )
-        values = payload.get("words")
-        if not isinstance(values, list):
-            raise DependencyError("AiProviderInvalidOutput", "Alignment response is malformed")
-        return tuple(_word(value) for value in values)
 
     def _alignment_arguments(self, vocal: Path, cancel: threading.Event) -> list[str]:
         with self._recognition_lock:
@@ -427,54 +497,3 @@ def _execution_environment(execution: ExecutionContext) -> Mapping[str, str]:
     if execution.cpu_fraction is not None:
         environment.update(KMP_BLOCKTIME="0", OMP_WAIT_POLICY="PASSIVE")
     return environment
-
-
-def _word(value: JsonValue) -> WordTiming:
-    if not isinstance(value, dict):
-        raise DependencyError("AiProviderInvalidOutput", "Alignment item is malformed")
-    start, end = _number(value, "start"), _number(value, "end")
-    if start < 0 or end <= start:
-        raise DependencyError("AiProviderInvalidOutput", "Alignment word has no positive duration")
-    letters = value.get("letters")
-    starts = (
-        tuple(float(item) for item in letters if isinstance(item, int | float))
-        if isinstance(letters, list)
-        else ()
-    )
-    diagnostics = value.get("diagnostics", [])
-    return WordTiming(
-        _text(value, "text"),
-        start,
-        end,
-        _number(value, "confidence"),
-        starts,
-        tuple(item for item in diagnostics if isinstance(item, str))
-        if isinstance(diagnostics, list)
-        else (),
-    )
-
-
-def _pitch(value: JsonValue) -> PitchPoint:
-    if not isinstance(value, dict):
-        raise DependencyError("AiProviderInvalidOutput", "Pitch item is malformed")
-    active = value.get("audioActive")
-    return PitchPoint(
-        _number(value, "time"),
-        _number(value, "frequency"),
-        _number(value, "confidence"),
-        active if isinstance(active, bool) else None,
-    )
-
-
-def _text(value: dict[str, JsonValue], key: str) -> str:
-    item = value.get(key)
-    if not isinstance(item, str) or not item:
-        raise DependencyError("AiProviderInvalidOutput", f"AI provider field {key} is invalid")
-    return item
-
-
-def _number(value: dict[str, JsonValue], key: str) -> float:
-    item = value.get(key)
-    if isinstance(item, bool) or not isinstance(item, int | float):
-        raise DependencyError("AiProviderInvalidOutput", f"AI provider field {key} is invalid")
-    return float(item)

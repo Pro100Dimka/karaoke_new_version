@@ -16,7 +16,10 @@ import torch
 import whisper
 
 from backend.ai.catalog import SPEECH_MODEL as SPEECH_MODEL
+from backend.ai_worker import acoustic_retry, asr_recovery
+from backend.ai_worker.asr_views import token_key
 from backend.ai_worker.speech_alignment import _AlignmentPass as _AlignmentPass
+from backend.ai_worker.speech_observations import RecognitionObservations, recognition_views
 from backend.ai_worker.ctc_bounds import _preserved_onset_letters as _preserved_onset_letters
 from backend.ai_worker.audio_io import read_mono as read_mono
 from backend.ai_worker.ctc import (
@@ -255,6 +258,10 @@ def transcribe(
         else vocal
     )
     result = _guidance(source, language, None, prefer_accelerated=True, model_cache=model_cache)
+    return _transcription_payload(result)
+
+
+def _transcription_payload(result: Mapping[str, object]) -> dict[str, object]:
     # Recognition of singing sometimes invents symbols and numbers ("1.5%"); only words with letters are lyrics.
     text = [
         token for token in str(result.get("text", "")).split() if any(c.isalpha() for c in token)
@@ -294,6 +301,19 @@ def transcribe_many(
     }
 
 
+def _observed_guidance(
+    language: str,
+    threads: int,
+    reuse: AlignmentReuse | None,
+    observations: RecognitionObservations | None,
+    source: Path | np.ndarray,
+) -> Mapping[str, object]:
+    result = _guidance(source, language, None, threads, prefer_accelerated=True, reuse=reuse)
+    if observations is not None:
+        observations.record(source, _transcription_payload(result))
+    return result
+
+
 def _alignment_evidence(
     vocal: Path,
     samples: np.ndarray,
@@ -303,6 +323,7 @@ def _alignment_evidence(
     recognition: Mapping[str, object] | None = None,
     independent_views: list[list[tuple[str, float, float]]] | None = None,
     reuse: AlignmentReuse | None = None,
+    observations: RecognitionObservations | None = None,
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
     """Independent recognition precedes CTC; the native models do not compete for memory."""
     threads = cpu_threads()
@@ -311,28 +332,74 @@ def _alignment_evidence(
         samples,
         instrumental,
         recognition,
-        lambda source: _guidance(
-            source, language, None, threads, prefer_accelerated=True, reuse=reuse
-        ),
+        partial(_observed_guidance, language, threads, reuse, observations),
     )
     if independent_views is not None:
         independent_views.extend(candidates)
-    heard = max(
+    heard = _best_alignment_view(lyrics, candidates)
+    torch.set_num_threads(threads)
+    scores, frame_seconds = _alignment_emission(samples, reuse)
+    scores = acoustic_retry.recover_emission(
+        samples,
+        scores,
+        frame_seconds,
+        lyrics,
+        _full_recognition_views(
+            recognition, candidates, observations.views if observations else ()
+        ),
+        partial(_alignment_emission, reuse=reuse),
+    )
+    alignment_model.cache_clear()
+    return scores, frame_seconds, heard
+
+
+def _best_alignment_view(lyrics: str, candidates: Sequence[list[HeardWord]]) -> list[HeardWord]:
+    return max(
         candidates,
         key=lambda view: (
             phrase_coverage(lyrics, view),
             len(_heard_timings(lyrics.split(), view, minimum_block=_MINIMUM_BLOCK)),
         ),
+        default=[],
     )
-    torch.set_num_threads(threads)
+
+
+def _alignment_emission(
+    samples: np.ndarray, reuse: AlignmentReuse | None = None
+) -> tuple[torch.Tensor, float]:
     if reuse is None:
-        scores, frame_seconds = emission(samples)
-    else:
-        # The frame grid is fixed by MMS; only the audio-dependent scores are reused.
-        scores = reuse.tensor(b"ctc:" + samples.tobytes(), lambda: emission(samples)[0])
-        frame_seconds = frame_stride_samples() / _SAMPLE_RATE
-    alignment_model.cache_clear()
-    return scores, frame_seconds, heard
+        return emission(samples)
+    # The frame grid is fixed by MMS; only the audio-dependent scores are reused.
+    scores = reuse.tensor(b"ctc:" + samples.tobytes(), lambda: emission(samples)[0])
+    return scores, frame_stride_samples() / _SAMPLE_RATE
+
+
+def _full_recognition_views(
+    recognition: Mapping[str, object] | None,
+    candidates: Sequence[list[HeardWord]],
+    fresh: Sequence[Mapping[str, object]] = (),
+) -> list[list[HeardWord]]:
+    raw = [*recognition_views(recognition), *fresh]
+    views: list[list[HeardWord]] = []
+    sources: set[str] = set()
+    for raw_view in raw:
+        source = raw_view.get("sourceId")
+        if raw_view.get("cropStart", raw_view.get("startSeconds", 0)) or (
+            isinstance(source, str) and source in sources
+        ):
+            continue
+        views.append(heard_words(raw_view))
+        if isinstance(source, str) and source:
+            sources.add(source)
+    if not raw:
+        views = list(candidates)
+    # Reconstructed full views contain the same observed prefix. They cannot
+    # corroborate one another when deciding whether another model call is justified.
+    unique: list[list[HeardWord]] = []
+    for view in views:
+        if view and view not in unique:
+            unique.append(view)
+    return unique
 
 
 def align(
@@ -344,9 +411,12 @@ def align(
     recognition: Mapping[str, object] | None = None,
     *,
     reuse: AlignmentReuse | None = None,
-) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-    audio, words = read_mono(vocal, _SAMPLE_RATE), lyrics.split()
+    asr_lyrics: bool = False,
+    asr_baseline: str = "",
+) -> dict[str, object]:
+    audio = read_mono(vocal, _SAMPLE_RATE)
     backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
+    observations = RecognitionObservations(audio, language, recognition)
     evidence = partial(
         _alignment_evidence,
         vocal,
@@ -357,8 +427,40 @@ def align(
         recognition,
         views := list[list[HeardWord]](),
     )
+    evidence = partial(evidence, observations=observations) if asr_lyrics else evidence
     scores, step, heard = evidence() if reuse is None else evidence(reuse=reuse)
+    verified = False
+    if asr_lyrics:
+        lyrics, verified = _recover_transcript_lyrics(
+            lyrics, observations, scores, step, asr_baseline
+        )
+        heard = _best_alignment_view(lyrics, views) or heard
     recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
-    return _AlignmentPass(audio, backing, scores, step, words, lyrics, heard, views).run(
-        timing_hints, recognize
+    payload = _AlignmentPass(
+        audio, backing, scores, step, lyrics.split(), lyrics, heard, views
+    ).run(timing_hints, recognize)
+    return (
+        dict(payload, lyrics=lyrics, insertionsVerified=verified) if asr_lyrics else dict(payload)
     )
+
+
+def _recover_transcript_lyrics(
+    lyrics: str,
+    observations: RecognitionObservations,
+    scores: torch.Tensor,
+    step: float,
+    baseline_lyrics: str = "",
+) -> tuple[str, bool]:
+    views = [*recognition_views(observations.recognition), *observations.views]
+    duration = len(observations.samples) / _SAMPLE_RATE
+    floor = baseline_lyrics or lyrics
+    recovered = (
+        asr_recovery.recover_lyrics(floor, views, scores, step, duration) if views else floor
+    )
+    remaining = iter(map(token_key, recovered.split()))
+    # Discovery may already have found repeats. Keep its existing acoustic check
+    # unless recovery also preserves every proposed occurrence in its original order.
+    preserved = all(
+        any(word == expected for word in remaining) for expected in map(token_key, lyrics.split())
+    )
+    return (recovered, True) if preserved else (lyrics, False)

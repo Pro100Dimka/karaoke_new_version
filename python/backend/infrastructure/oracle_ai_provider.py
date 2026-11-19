@@ -20,7 +20,7 @@ from backend.ai.domain import (
 )
 from backend.projects.ports import ProjectStorage
 from backend.domain_errors import DependencyError
-from backend.infrastructure.command_ai_provider import _number, _pitch, _word
+from backend.infrastructure.ai_payloads import _number, _pitch, _word
 from backend.infrastructure.processing_transport import (
     ProcessingTransport,
     read_bundle,

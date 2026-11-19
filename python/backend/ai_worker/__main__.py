@@ -46,6 +46,8 @@ def _parser() -> argparse.ArgumentParser:
     align_action.add_argument("--timing-hints")
     align_action.add_argument("--instrumental", type=Path)
     align_action.add_argument("--recognition-stdin", action="store_true")
+    align_action.add_argument("--asr-lyrics", action="store_true")
+    align_action.add_argument("--asr-baseline", default="")
     align_action.add_argument("--reuse-directory", type=Path)
     align_action.add_argument("--reuse-reserve", type=int, default=0)
     pitch_action = actions.add_parser("pitch")
@@ -73,26 +75,30 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
         )
         return transcribe_many(requests if args.stream_input else list(requests), args.language)
     if args.action == "align":
-        hints = loads_list(args.timing_hints) if args.timing_hints else []
-        recognition = (
-            loads_object(sys.stdin.buffer.read().decode("utf-8"))
-            if args.recognition_stdin
-            else None
-        )
-        operation = (
-            align
-            if args.reuse_directory is None
-            else partial(align, reuse=AlignmentReuse(args.reuse_directory, args.reuse_reserve))
-        )
-        return operation(
-            args.input,
-            args.lyrics,
-            args.language,
-            hints,
-            instrumental=args.instrumental,
-            recognition=recognition,
-        )
+        return _run_alignment(args)
     return pitch(args.input)
+
+
+def _run_alignment(args: argparse.Namespace) -> Mapping[str, object]:
+    hints = loads_list(args.timing_hints) if args.timing_hints else []
+    recognition = (
+        loads_object(sys.stdin.buffer.read().decode("utf-8")) if args.recognition_stdin else None
+    )
+    operation = (
+        align
+        if args.reuse_directory is None
+        else partial(align, reuse=AlignmentReuse(args.reuse_directory, args.reuse_reserve))
+    )
+    if args.asr_lyrics:
+        operation = partial(operation, asr_lyrics=True, asr_baseline=args.asr_baseline)
+    return operation(
+        args.input,
+        args.lyrics,
+        args.language,
+        hints,
+        instrumental=args.instrumental,
+        recognition=recognition,
+    )
 
 
 def main(argv: list[str]) -> int:

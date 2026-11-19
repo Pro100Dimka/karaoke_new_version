@@ -5,7 +5,13 @@ from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Callable, Iterable, Protocol, Sequence, runtime_checkable
 
-from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
+from backend.ai.domain import (
+    AlignedTranscript,
+    AiProviderDescriptor,
+    PitchPoint,
+    SeparatedAudio,
+    WordTiming,
+)
 from backend.lyrics.ports import LyricLineTiming
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
@@ -46,6 +52,21 @@ class AlignmentReuseProvider(Protocol):
     def reuse_alignment(
         self, workdir: Path, cancel: threading.Event
     ) -> AbstractContextManager[None]: ...
+
+
+@runtime_checkable
+class TranscriptAlignmentProvider(Protocol):
+    def align_transcript(
+        self,
+        vocal: Path,
+        lyrics: str,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+        instrumental: Path | None = None,
+        baseline_lyrics: str = "",
+    ) -> AlignedTranscript: ...
 
 
 @runtime_checkable

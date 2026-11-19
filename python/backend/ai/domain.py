@@ -42,6 +42,13 @@ class WordTiming:
 
 
 @dataclass(frozen=True, slots=True)
+class AlignedTranscript:
+    lyrics: str
+    words: Sequence[WordTiming]
+    insertions_verified: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class PitchPoint:
     time: float
     frequency: float
