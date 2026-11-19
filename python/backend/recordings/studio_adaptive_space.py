@@ -6,6 +6,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 import math
 import shutil
 import threading
@@ -14,9 +15,12 @@ import numpy as np
 import soundfile as sf
 from scipy.fft import irfft, next_fast_len, rfft
 from scipy.ndimage import gaussian_filter1d, median_filter
-from scipy.signal import butter, correlate, find_peaks, sosfilt, lfilter
+from scipy.signal import butter, sosfilt, lfilter
 
 from backend.recordings.studio_adaptive_calibration import _periodicity
+from backend.recordings.studio_arrangement import ArrangementMap
+from backend.recordings.studio_regional_space import render_regional_sends
+from backend.recordings.studio_regional_evidence import estimate_tempo as estimate_tempo
 from backend.recordings.studio_audio import _band_power, _check_cancel, _profile, _temporary_wave
 from backend.recordings.studio_space_analysis import _delay, _fit_decay, _read_evidence
 from backend.recordings.studio_space import _voice_activity_level, _activity_mask
@@ -24,31 +28,6 @@ from backend.recordings.studio_field import (
     plan_diffuse_field,
     render_diffuse_send,
 )
-
-
-def estimate_tempo(backing: Path, cancel: threading.Event) -> tuple[float | None, float]:
-    levels = _profile(backing, cancel, frame_seconds=0.02)
-    if len(levels) < 250 or np.percentile(levels, 90) - np.percentile(levels, 10) < 5:
-        return None, 0.0
-    envelope = 10 ** ((levels - np.max(levels)) / 20)
-    novelty = np.maximum(0, np.diff(envelope, prepend=envelope[0]))
-    energy = float(np.dot(novelty, novelty))
-    if energy < 1e-8:
-        return None, 0.0
-    curve = correlate(novelty, novelty, mode="full", method="fft")[len(novelty) - 1 :] / energy
-    low, high = 15, min(51, len(curve))
-    peaks, _ = find_peaks(curve[low - 1 : high + 1])
-    candidates = peaks + low - 1
-    candidates = candidates[(candidates >= low) & (candidates < high)]
-    if not len(candidates):
-        return None, 0.0
-    best = int(candidates[np.argmax(curve[candidates])])
-    confidence = float(np.clip(curve[best], 0, 1))
-    # Multiple repeated attacks must agree; sustained notes and short fills have no beat proof.
-    peaks_in_audio, _ = find_peaks(novelty, height=float(np.max(novelty)) * 0.25, distance=5)
-    if len(peaks_in_audio) < 6 or confidence < 0.5:
-        return None, confidence
-    return 60 / (best * 0.02), confidence
 
 
 def _tail_candidates(levels: np.ndarray) -> list[tuple[int, float, float]]:
@@ -294,7 +273,7 @@ def _plan_sends(
 ) -> SendPlan:
     decay, expected, support = _tail_evidence(reference, cancel) if reference else (0.0, 0.0, 0)
     # Digital dry capture still includes acoustic room decay and breathy releases.
-    existing_decay, existing, _ = _tail_evidence(voice, cancel)
+    existing_decay, existing, existing_count = _tail_evidence(voice, cancel)
     amount = math.sqrt(max(0.0, expected**2 - existing**2))
     delay, delay_amount, delay_report = _delay_plan(voice, reference, cancel)
     bpm, confidence = estimate_tempo(backing, cancel) if delay_amount >= 0.015 else (None, 0.0)
@@ -307,6 +286,8 @@ def _plan_sends(
         "referenceWetRatio": expected,
         "existingWetRatio": existing,
         "existingDecaySeconds": existing_decay,
+        "existingTailCount": existing_count,
+        "qualifiedExistingWetRatio": existing if existing_count >= 3 else 0.0,
         "reverbDecision": "supported-diffuse-tail"
         if amount >= 0.015
         else "unresolved-reference-space"
@@ -437,7 +418,9 @@ def _send_report(plan: SendPlan, energy: dict[str, float], dry_energy: float) ->
     return {
         **plan.report,
         "applied": True,
-        "status": "matched",
+        "status": "estimated-reference-ambience"
+        if set(energy) == {"diffuse-field"}
+        else "measured-reference-effects",
         "tempoBpm": plan.bpm,
         "tempoConfidence": plan.tempo_confidence,
         "delaySeconds": plan.delay_seconds if plan.delay_amount >= 0.015 else 0.0,
@@ -448,6 +431,29 @@ def _send_report(plan: SendPlan, energy: dict[str, float], dry_energy: float) ->
     }
 
 
+def _regional_returns(
+    voice: Path,
+    target: Path,
+    plan: SendPlan,
+    reference: Path | None,
+    arrangement: ArrangementMap,
+    buses: list[tuple[str, Path, float]],
+    cancel: threading.Event,
+) -> dict[str, object]:
+    ducker = WetDucker(sf.info(voice).samplerate, _voice_activity_level(voice, cancel))
+    return render_regional_sends(
+        voice,
+        target,
+        cancel,
+        reference=reference,
+        arrangement=arrangement,
+        base_report=plan.report,
+        legacy=buses,
+        legacy_duck=ducker.envelope,
+        existing_wet=math.hypot(cast(float, plan.report["qualifiedExistingWetRatio"]), plan.amount),
+    )
+
+
 def render_sends(
     voice: Path,
     backing: Path,
@@ -456,11 +462,17 @@ def render_sends(
     *,
     reference: Path | None = None,
     recorded_is_dry: bool = True,
+    arrangement: ArrangementMap | None = None,
 ) -> dict[str, object]:
     _check_cancel(cancel)
     plan = _plan_sends(voice, backing, reference, recorded_is_dry, cancel)
     with TemporaryDirectory(prefix=".sends-", dir=target.parent) as directory:
-        buses, dry_energy = _render_send_buses(voice, Path(directory), plan, reference, cancel)
+        field_reference = reference if arrangement is None else None
+        buses, dry_energy = _render_send_buses(
+            voice, Path(directory), plan, field_reference, cancel
+        )
+        if arrangement is not None:
+            return _regional_returns(voice, target, plan, reference, arrangement, buses, cancel)
         if not buses:
             shutil.copyfile(voice, target)
             return {

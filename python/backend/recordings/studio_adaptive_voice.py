@@ -13,6 +13,8 @@ from scipy.signal import find_peaks
 from backend.recordings.studio_audio import MasterRenderer
 from backend.recordings.studio_voice import render_voice_filters as _filter
 from backend.recordings.studio_adaptive_features import VoiceFeatures, analyze_voice, level_summary
+from backend.recordings.studio_arrangement import ArrangementMap
+from backend.recordings.studio_section_balance import render_section_tone
 from backend.recordings.studio_adaptive_dynamics import (
     compressor_plan,
     deess_voice,
@@ -183,11 +185,22 @@ def process_voice(
     cancel: threading.Event,
     *,
     reference: Path | None = None,
+    arrangement: ArrangementMap | None = None,
 ) -> dict[str, object]:
     measured = analyze_voice(source, cancel)
     origin = _reference(reference, cancel)
     with TemporaryDirectory(prefix=".vocal-inserts-", dir=target.parent) as directory:
-        report = _insert_chain(renderer, source, target, Path(directory), measured, origin, cancel)
+        report = _insert_chain(
+            renderer,
+            source,
+            target,
+            Path(directory),
+            measured,
+            origin,
+            cancel,
+            reference=reference,
+            arrangement=arrangement,
+        )
     report["order"] = [
         "subtractive-eq",
         "peak-compressor",
@@ -209,6 +222,9 @@ def _insert_chain(
     measured: VoiceFeatures,
     origin: VoiceFeatures | None,
     cancel: threading.Event,
+    *,
+    reference: Path | None,
+    arrangement: ArrangementMap | None,
 ) -> dict[str, object]:
     report: dict[str, object] = {}
     subtractive, report["subtractiveEq"] = _subtractive_plan(measured, origin)
@@ -228,7 +244,12 @@ def _insert_chain(
     measured = analyze_voice(deessed, cancel)
     coloring, report["colorEq"] = _color_plan(measured, origin)
     colored = work / "colored.wav"
-    _filter(renderer, deessed, colored, coloring, cancel)
+    color_base = work / "color-base.wav" if arrangement is not None else colored
+    _filter(renderer, deessed, color_base, coloring, cancel)
+    if arrangement is not None:
+        report["sectionTone"] = render_section_tone(
+            color_base, colored, reference, arrangement, cancel
+        )
     measured = analyze_voice(colored, cancel)
     report["saturation"] = saturate_voice(colored, target, work, cancel, measured)
     return report

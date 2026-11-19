@@ -235,7 +235,9 @@ def test_master_balance_uses_absolute_reference_before_space_sends(
     before_space = []
     sends = adaptive_mix.render_sends
 
-    def observe_space(voice, music, target, cancel, *, reference, recorded_is_dry):
+    def observe_space(
+        voice, music, target, cancel, *, reference, recorded_is_dry, arrangement=None
+    ):
         assert recorded_is_dry
         samples, rate = sf.read(voice)
         before_space.append(samples.copy())
@@ -244,7 +246,15 @@ def test_master_balance_uses_absolute_reference_before_space_sends(
             wet[: round(rate * 0.137)] = 0
             sf.write(target, samples + wet * 0.1, rate, subtype="FLOAT")
             return {"status": "matched", "applied": True, "dryPreserved": True}
-        return sends(voice, music, target, cancel, reference=reference, recorded_is_dry=True)
+        return sends(
+            voice,
+            music,
+            target,
+            cancel,
+            reference=reference,
+            recorded_is_dry=recorded_is_dry,
+            arrangement=arrangement,
+        )
 
     monkeypatch.setattr(adaptive_mix, "render_sends", observe_space)
     rng = np.random.default_rng(12)
@@ -279,7 +289,7 @@ def test_master_balance_uses_absolute_reference_before_space_sends(
         assert np.sqrt(np.mean(before_space[0] ** 2)) > 0.02
     else:
         assert plan["referenceUsed"]
-        assert plan["method"] == "absolute-reference-center-vocal-to-backing-ratio"
+        assert plan["method"] == "section-full-level-with-bounded-word-residual"
         expected = 10 * np.log10(np.mean(voice**2) / np.mean(backing**2)) + reference_db
         measured = 10 * np.log10(np.mean(before_space[0] ** 2) / np.mean(backing**2))
         assert measured == pytest.approx(expected, abs=1)

@@ -28,6 +28,21 @@ def _core(levels: np.ndarray, active: np.ndarray) -> np.ndarray:
     return active & (levels >= floor)
 
 
+def phrase_core_masks(
+    voice: np.ndarray,
+    reference: np.ndarray,
+    active: np.ndarray,
+    reference_active: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Select vocal evidence before replacing full levels with the balance band."""
+    own, expected = np.zeros(len(voice), dtype=bool), np.zeros(len(voice), dtype=bool)
+    for start, end in phrase_regions(active):
+        section = slice(start, end)
+        own[section] = _core(voice[section], active[section])
+        expected[section] = _core(reference[section], reference_active[section])
+    return own, expected
+
+
 def recording_presence_weights(
     voice: np.ndarray,
     reference: np.ndarray,
@@ -107,10 +122,9 @@ def _phrase_targets(
     voice: np.ndarray,
     reference: np.ndarray,
     music_scale: np.ndarray,
-    active: np.ndarray,
-    reference_active: np.ndarray,
+    own_core: np.ndarray,
+    reference_core: np.ndarray,
 ) -> np.ndarray:
-    own_core, reference_core = _core(voice, active), _core(reference, reference_active)
     half = round(WINDOW_SECONDS / STEP / 2)
     positions, targets = np.arange(0, len(voice), half), []
     width = min(len(voice), half * 2 + 1)
@@ -135,7 +149,8 @@ def phrase_gain_targets(
     reference: np.ndarray,
     music_scale: np.ndarray,
     active: np.ndarray,
-    reference_active: np.ndarray,
+    own_core: np.ndarray,
+    reference_core: np.ndarray,
     matched: np.ndarray,
 ) -> np.ndarray:
     desired = np.full(len(voice), np.nan)
@@ -144,8 +159,8 @@ def phrase_gain_targets(
             voice[start:end],
             reference[start:end],
             music_scale[start:end],
-            active[start:end],
-            reference_active[start:end],
+            own_core[start:end],
+            reference_core[start:end],
         )
     reliable = matched & np.isfinite(desired)
     calibration = float(np.median(desired[reliable])) if reliable.any() else 0.0

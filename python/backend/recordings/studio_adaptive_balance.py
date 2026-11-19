@@ -10,16 +10,17 @@ import numpy as np
 import soundfile as sf
 
 from backend.domain_errors import DependencyError
-from backend.recordings.studio_adaptive_calibration import calibrate_gains
+from backend.recordings.studio_adaptive_calibration import _periodicity, calibrate_gains
 from backend.recordings.studio_adaptive_phrases import (
     MAX_RIDE_DB_PER_SECOND,
     WINDOW_SECONDS,
+    phrase_core_masks,
     phrase_gain_targets,
     recording_presence_weights,
     section_ratio_errors,
     supported_reference_phrases,
 )
-from backend.recordings.studio_audio import _profile
+from backend.recordings.studio_audio import _check_cancel, _profile
 
 _STEP = 0.1
 
@@ -50,6 +51,8 @@ class ReferenceAnchor:
     rest_music_level: float
     voice_active: np.ndarray
     reference_active: np.ndarray
+    voice_core: np.ndarray
+    reference_core: np.ndarray
 
 
 def vocal_activity(levels: np.ndarray, dynamic_range: float = 36.0) -> np.ndarray:
@@ -73,11 +76,16 @@ def _presence_profile(path: Path, cancel: threading.Event) -> np.ndarray:
     return _profile(path, cancel, voice_band=True, band_hz=(800.0, high), center=True)
 
 
-def _band_support(band: np.ndarray, full: np.ndarray) -> tuple[np.ndarray, dict[str, object]]:
-    active = vocal_activity(full)
+def _band_noise_floor(band: np.ndarray, active: np.ndarray) -> tuple[float, float | None]:
     rests = band[~active]
     noise = float(np.median(rests)) if len(rests) >= 3 else None
     floor = max(-85.0, noise + 8) if noise is not None else -85.0
+    return floor, noise
+
+
+def _band_support(band: np.ndarray, full: np.ndarray) -> tuple[np.ndarray, dict[str, object]]:
+    active = vocal_activity(full)
+    floor, noise = _band_noise_floor(band, active)
     supported = active & (band - full >= -20) & (band > floor)
     relative = float(np.median((band - full)[active])) if active.any() else None
     return supported, {
@@ -158,7 +166,50 @@ def _empty_anchor(voice: np.ndarray, music: np.ndarray) -> ReferenceAnchor:
         0.0,
         vocal_activity(voice),
         empty.astype(bool),
+        empty.astype(bool),
+        empty.astype(bool),
     )
+
+
+def _periodic_core_support(
+    path: Path, candidates: np.ndarray, cancel: threading.Event
+) -> np.ndarray:
+    supported = np.zeros(len(candidates), dtype=bool)
+    if not candidates.any():
+        return supported
+    with sf.SoundFile(path) as source:
+        width = max(1, round(source.samplerate * _STEP))
+        for index in np.flatnonzero(candidates):
+            _check_cancel(cancel)
+            source.seek(int(index * width))
+            samples = source.read(width, always_2d=True, dtype="float64")
+            # Presence levels measure the center lead. A periodic side voice
+            # must not turn nonperiodic center residue into vocal evidence.
+            center = samples.mean(axis=1, keepdims=True)
+            supported[index] = _periodicity(center, source.samplerate) >= 0.8
+    return supported
+
+
+def _reference_core_masks(
+    paths: tuple[Path, Path],
+    levels: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+    activity: tuple[np.ndarray, np.ndarray],
+    weights: np.ndarray,
+    cancel: threading.Event,
+) -> tuple[np.ndarray, np.ndarray]:
+    voice, expected, actual, desired = levels
+    broad_cores = phrase_core_masks(voice, expected, *activity)
+    cores = phrase_core_masks(actual, desired, *activity)
+    # Preserve clear words, including aperiodic consonants. Extend their fixed
+    # phrase core only for confirmed dark vowels, not loud low-frequency residue.
+    for path, full, band, core, broad in zip(
+        paths, (voice, expected), (actual, desired), cores, broad_cores, strict=True
+    ):
+        floor, _ = _band_noise_floor(band, vocal_activity(full))
+        above_noise = (weights == 0) | (band > floor)
+        core |= _periodic_core_support(path, broad & ~core & above_noise, cancel)
+        core &= above_noise
+    return cores
 
 
 def _reference_anchor(
@@ -183,19 +234,23 @@ def _reference_anchor(
         vocal, reference, voice, expected, cancel
     )
     reference_active &= trusted
-    matched = voice_active & reference_active
+    levels = voice, expected, actual, desired
+    core_masks = _reference_core_masks(
+        (vocal, reference), levels, (voice_active, reference_active), weights, cancel
+    )
     return ReferenceAnchor(
         actual,
         desired,
         reference_music,
         actual_music,
-        matched,
+        voice_active & reference_active,
         weights,
         report,
         rests,
         scale,
         voice_active,
         reference_active,
+        *core_masks,
     )
 
 
@@ -220,7 +275,8 @@ def _desired_gains(times: np.ndarray, anchor: ReferenceAnchor, enabled: bool) ->
         anchor.reference,
         anchor.music - anchor.backing,
         anchor.voice_active,
-        anchor.reference_active,
+        anchor.voice_core,
+        anchor.reference_core,
         anchor.matched,
     )
 
@@ -255,6 +311,7 @@ def _balance_report(
         else "preserve-capture-balance-without-reliable-reference",
         "automationMethod": "phrase-reference-vocal-and-common-backing-calibration",
         "levelMeasure": "phrase-core-medians-with-recording-spectral-anchor",
+        "phraseCoreMeasure": "word-band-or-confirmed-dark-vowels-with-band-noise-rejection",
         "balanceWindowSeconds": WINDOW_SECONDS,
         "maxLocalRideDbPerSecond": MAX_RIDE_DB_PER_SECOND,
         "referenceEndBehavior": "hold-current-phrase-gain-and-preserve-input-calibration",

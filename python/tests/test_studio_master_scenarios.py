@@ -105,7 +105,9 @@ def test_master_scenario(name: str, tmp_path: Path, monkeypatch):
     processing = report["processing"]
     assert processing["qualityControl"]["verified"]
     assert processing["delivery"]["truePeakDbtp"] <= -1
-    assert processing["pipeline"] == "adaptive-studio-v1"
+    assert processing["pipeline"] == "adaptive-studio-v2"
+    assert processing["arrangement"]["frames"] == len(original)
+    assert processing["arrangement"]["timebase"] == "performed-timeline-seconds-from-zero"
     assert processing["gainPlan"]["gainApplications"] == 1
     assert len(gain_errors) == 1 and gain_errors[0] < 3
     assert processing["vocalChain"]["order"] == [
@@ -117,7 +119,7 @@ def test_master_scenario(name: str, tmp_path: Path, monkeypatch):
         "saturation",
     ]
     assert processing["mix"]["order"] == [
-        "referenceBalance",
+        "sectionBalance",
         "dynamicBackingEq",
         "parallelSpaceSends",
         "masterGlue",

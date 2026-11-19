@@ -25,6 +25,7 @@ from backend.recordings.studio_audio import (
 from backend.recordings.studio_adaptive_timing import align_voice
 from backend.recordings.studio_adaptive_voice import prepare_voice, process_voice
 from backend.recordings.studio_adaptive_mix import mix_and_master
+from backend.recordings.studio_arrangement import ArrangementMap, analyze_arrangement
 from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_sources import IDENTITY_TIMELINE, MasterSources, prepare_sources
@@ -50,6 +51,7 @@ class MasterRender:
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
     sources: MasterSources = field(init=False)
+    arrangement: ArrangementMap = field(init=False)
     backing: Path = field(init=False)
     vocal: Path = field(init=False)
     balanced: Path = field(init=False)
@@ -74,6 +76,7 @@ class MasterRender:
             self.work = Path(directory)
             self.processing = self._initial_report()
             self._stage("sources", "PreparingStudioSources", 0.58, self._prepare_stems)
+            self._stage("arrangement", "PreparingStudioSources", 0.60, self._arrange)
             self._analyze()
             self._stage("alignment", "AligningStudioVoice", 0.61, self._align)
             self._stage("preparation", "PreparingStudioVoice", 0.64, self._prepare_voice)
@@ -111,11 +114,12 @@ class MasterRender:
 
     def _initial_report(self) -> dict[str, object]:
         return {
-            "pipeline": "adaptive-studio-v1",
-            "version": 1,
+            "pipeline": "adaptive-studio-v2",
+            "version": 2,
             "vocalSource": "dry" if self.process_voice else "existing-effects",
             "order": [
                 "timeline",
+                "arrangement",
                 "noiseAndClipGain",
                 "pitch",
                 "subtractiveEq",
@@ -124,7 +128,7 @@ class MasterRender:
                 "deEssing",
                 "toneEq",
                 "saturation",
-                "referenceBalance",
+                "sectionBalance",
                 "dynamicBackingEq",
                 "parallelSpaceSends",
                 "masterGlue",
@@ -172,6 +176,15 @@ class MasterRender:
         # once. Pitch analysis must not apply those changes for a second time.
         self.adjustments = self.pitch_adjustments = IDENTITY_TIMELINE if self.timing_known else ()
 
+    def _arrange(self) -> None:
+        self.arrangement = analyze_arrangement(
+            self.backing,
+            self.sources.reference_vocal,
+            self.cancel,
+            reference_intervals=self.sources.reference_intervals,
+        )
+        self.processing["arrangement"] = self.arrangement.payload()
+
     def _analyze(self) -> None:
         self.voice_db = _profile(self.vocal, self.cancel)
         self.backing_db = _profile(self.backing, self.cancel)
@@ -208,7 +221,12 @@ class MasterRender:
     def _finish_voice(self) -> None:
         target = self.work / "processed-vocal.wav"
         self.processing["vocalChain"] = process_voice(
-            self.renderer, self.vocal, target, self.cancel, reference=self.sources.reference_vocal
+            self.renderer,
+            self.vocal,
+            target,
+            self.cancel,
+            reference=self.sources.reference_vocal,
+            arrangement=self.arrangement,
         )
         self.vocal = self.balanced = target
 
@@ -224,6 +242,7 @@ class MasterRender:
             reference_backing=self.sources.reference_backing,
             original_mix=self.sources.original_mix,
             recorded_is_dry=self.process_voice,
+            arrangement=self.arrangement,
             progress=self.progress,
         )
         self.processing.update(

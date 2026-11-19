@@ -34,7 +34,7 @@ def test_new_pipeline_does_not_call_legacy_gain_controllers(tmp_path, monkeypatc
         exact_stems=True,
         adjustments=[adjustment],
     )
-    assert result.processing["pipeline"] == "adaptive-studio-v1"
+    assert result.processing["pipeline"] == "adaptive-studio-v2"
     assert result.processing["gainPlan"]["gainApplications"] == 1
 
 

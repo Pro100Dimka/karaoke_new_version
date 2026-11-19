@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "pipeline": "adaptive-studio-v2",
+  "requestedCreativeCategories": 49,
+  "baseSpatialCategories": 2,
+  "scope": "Implementation inventory, not a claim of complete effect recognition or perceptual quality",
+  "effects": [
+    {
+      "id": "octaver",
+      "family": "pitch",
+      "name": "Октавер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "pitch-shifter",
+      "family": "pitch",
+      "name": "Питч-шифтер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "harmonizer",
+      "family": "pitch",
+      "name": "Гармонайзер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "auto-tune",
+      "family": "pitch",
+      "name": "Автотюн / Hard Tune",
+      "mode": "reference-pitch-correction",
+      "note": "Коррекция уверенно сопоставленных нот до пространства; режим Hard Tune по референсу отдельно не распознаётся.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "formant-shifter",
+      "family": "pitch",
+      "name": "Формант-шифтер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "vocoder",
+      "family": "pitch",
+      "name": "Вокодер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "talkbox",
+      "family": "pitch",
+      "name": "Толкбокс",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "doubler",
+      "family": "modulation",
+      "name": "Даблер / ADT",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "chorus",
+      "family": "modulation",
+      "name": "Хорус",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "flanger",
+      "family": "modulation",
+      "name": "Фленджер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "phaser",
+      "family": "modulation",
+      "name": "Фейзер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "tremolo",
+      "family": "modulation",
+      "name": "Тремоло",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "vibrato",
+      "family": "modulation",
+      "name": "Вибрато",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "rotary",
+      "family": "modulation",
+      "name": "Ротари / Leslie",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "autopan",
+      "family": "modulation",
+      "name": "Автопаннер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "distortion",
+      "family": "nonlinear",
+      "name": "Дисторшн",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "overdrive",
+      "family": "nonlinear",
+      "name": "Овердрайв",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "fuzz",
+      "family": "nonlinear",
+      "name": "Фузз",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "bitcrusher",
+      "family": "nonlinear",
+      "name": "Биткрашер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "saturation",
+      "family": "nonlinear",
+      "name": "Сатурация",
+      "mode": "signal-adaptive-insert",
+      "note": "Слабая сатурация в цепочке вокала; исходный сатуратор и его параметры не идентифицируются.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "lofi",
+      "family": "nonlinear",
+      "name": "Lo-Fi / Vinyl / Tape",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "wah",
+      "family": "filter",
+      "name": "Wah-Wah / Auto-Wah",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "envelope-filter",
+      "family": "filter",
+      "name": "Envelope Filter",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "ring-modulator",
+      "family": "filter",
+      "name": "Ring Modulator",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "comb-filter",
+      "family": "filter",
+      "name": "Comb Filter",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "reverse",
+      "family": "time",
+      "name": "Reverse / Reverse Reverb",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "trance-gate",
+      "family": "time",
+      "name": "Trance Gate / Chopper",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "stutter",
+      "family": "time",
+      "name": "Stutter / Glitch",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "tape-stop",
+      "family": "time",
+      "name": "Tape Stop",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "granular",
+      "family": "time",
+      "name": "Granular FX",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "stereo-widener",
+      "family": "psychoacoustic",
+      "name": "Stereo Widener / Imager",
+      "mode": "regional-spatial-property",
+      "note": "Меняется стереопространство отдельных посылов; ширина не считается доказательством конкретного widener-плагина.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "exciter",
+      "family": "psychoacoustic",
+      "name": "Эксайтер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "enhancer",
+      "family": "psychoacoustic",
+      "name": "Энхансер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "shimmer",
+      "family": "space",
+      "name": "Шиммер",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "gated-reverb",
+      "family": "space",
+      "name": "Gated Reverb",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "slapback",
+      "family": "space",
+      "name": "Слэпбэк",
+      "mode": "measured-delay-family",
+      "note": "Измеряемые повторы проверяются как delay; название и исходная цепочка не восстанавливаются по одному спектру.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "ping-pong",
+      "family": "space",
+      "name": "Ping-Pong Delay",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "convolution",
+      "family": "space",
+      "name": "Convolution / IR",
+      "mode": "rendering-method",
+      "note": "Синтезированный импульс используется для посыла; это не измеренная IR исходной студии.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "freeze",
+      "family": "spectral",
+      "name": "Spectral / Reverb Freeze",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "frequency-shifter",
+      "family": "spectral",
+      "name": "Frequency Shifter",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "morphing",
+      "family": "spectral",
+      "name": "Audio Morphing",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "cross-synthesis",
+      "family": "spectral",
+      "name": "Cross-Synthesis",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "amp-simulator",
+      "family": "amplifier",
+      "name": "Amp Simulator",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "cabinet-simulator",
+      "family": "amplifier",
+      "name": "Cabinet Simulator",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "megaphone",
+      "family": "amplifier",
+      "name": "Megaphone / Radio / Telephone",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "haas",
+      "family": "other",
+      "name": "Haas Effect",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "binaural",
+      "family": "other",
+      "name": "Binaural / 3D / 8D",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "waveshaper",
+      "family": "other",
+      "name": "Waveshaper",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "subharmonic",
+      "family": "other",
+      "name": "Sub-Harmonic Synthesizer",
+      "mode": "not-inferred",
+      "note": "Индивидуальный детектор и автоматический перенос этого эффекта в текущем конвейере не реализованы; отсутствие эффекта не утверждается.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "reverb",
+      "family": "base-space",
+      "name": "Реверберация",
+      "mode": "reference-regional-ambience",
+      "note": "Локальная задержанная энергия, подтверждённые хвосты и осторожный общий контекст; сохраняются mid и side, отдельно от dry.",
+      "exactPluginRecovered": false
+    },
+    {
+      "id": "delay",
+      "family": "base-space",
+      "name": "Дилей",
+      "mode": "reference-supported-send",
+      "note": "Подтверждённый повтор, отдельный посыл, проверка уже существующего эффекта; темп сообщается только при достаточной уверенности.",
+      "exactPluginRecovered": false
+    }
+  ]
+}

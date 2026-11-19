@@ -32,6 +32,7 @@ class MasterSources:
     rate: int
     channels: int
     report: dict[str, object]
+    reference_intervals: tuple[tuple[float, float], ...] = ()
 
 
 def _timeline_points(
@@ -135,6 +136,8 @@ class _SourcePreparation:
         self.report["backingSource"] = (
             "project-timeline-without-monitor-gains" if self.trusted else "recorded-accompaniment"
         )
+        intervals = self._reference_intervals()
+        self.report["referenceValidIntervals"] = [list(interval) for interval in intervals]
         return MasterSources(
             self.vocal,
             self.project if self.trusted else self.recorded_backing,
@@ -145,7 +148,33 @@ class _SourcePreparation:
             self.info.samplerate,
             self.channels,
             self.report,
+            intervals,
         )
+
+    def _reference_intervals(self) -> tuple[tuple[float, float], ...]:
+        if not self.trusted:
+            return ()
+        duration = self.info.frames / self.info.samplerate
+        available = min(
+            sf.info(self.reference_vocal).duration, sf.info(self.original_backing).duration
+        )
+        points, ends = _timeline_points(self.adjustments or IDENTITY_TIMELINE, duration)
+        shift = self.reference_shift / self.info.samplerate
+        intervals: list[tuple[float, float]] = []
+        for point, end in zip(points, ends, strict=True):
+            covered = min(
+                end - point.elapsed_seconds,
+                max(0, available - point.source_seconds) / point.playback_rate,
+            )
+            start = max(0.0, point.elapsed_seconds + shift)
+            finish = min(duration, point.elapsed_seconds + covered + shift)
+            if finish <= start:
+                continue
+            if intervals and abs(start - intervals[-1][1]) <= 1 / self.info.samplerate:
+                intervals[-1] = (intervals[-1][0], finish)
+            else:
+                intervals.append((start, finish))
+        return tuple(intervals)
 
     def _validate_stems(self) -> None:
         self.info = sf.info(self.mix)

@@ -31,6 +31,8 @@ from backend.recordings.studio_adaptive_balance import (
 )
 from backend.recordings.studio_adaptive_delivery import deliver_master
 from backend.recordings.studio_adaptive_space import render_sends
+from backend.recordings.studio_arrangement import ArrangementMap, analyze_arrangement
+from backend.recordings.studio_section_balance import plan_section_balance
 from backend.recordings.studio_mix_audit import audit_mix
 
 _STEP = 0.1
@@ -61,6 +63,7 @@ class DuckPlan:
     before_band: np.ndarray
     eligible: np.ndarray
     band_hz: tuple[float, float]
+    band_support: dict[str, object]
 
 
 def _duck_frequency(
@@ -84,6 +87,27 @@ def _duck_frequency(
     return float(np.average(centers, weights=weights)) if sum(weights) > 1e-12 else 2300.0
 
 
+def _vocal_band_support(
+    voice: np.ndarray, band: np.ndarray, active: np.ndarray
+) -> tuple[np.ndarray, dict[str, object]]:
+    quiet = (
+        voice < float(np.median(voice[active])) - 24
+        if active.any()
+        else np.zeros(len(voice), dtype=bool)
+    )
+    noise = float(np.percentile(band[quiet], 90)) if np.count_nonzero(quiet) >= 3 else None
+    # A dark vowel's strong fundamental must not disqualify audible upper harmonics.
+    # Compare the band with its own quiet noise; retain the old guard without evidence.
+    supported = band - voice > -15 if noise is None else band - noise >= 8
+    return supported, {
+        "method": "relative-band-fallback" if noise is None else "quiet-band-signal-to-noise",
+        "estimatedNoiseFloorDbfs": noise,
+        "minimumSignalToNoiseDb": 8.0 if noise is not None else None,
+        "minimumRelativeBandDb": -15.0 if noise is None else None,
+        "quietIntervalSeconds": float(np.count_nonzero(quiet) * _STEP),
+    }
+
+
 def _duck_plan(vocal: Path, backing: Path, cancel: threading.Event) -> DuckPlan | None:
     low, high = 1500.0, min(3500.0, sf.info(backing).samplerate * 0.45)
     if high <= low:
@@ -92,14 +116,15 @@ def _duck_plan(vocal: Path, backing: Path, cancel: threading.Event) -> DuckPlan 
     vband = _profile(vocal, cancel, voice_band=True, band_hz=(low, high))
     bband = _profile(backing, cancel, voice_band=True, band_hz=(low, high))
     active = _activity(voice)
-    eligible = active & _activity(music) & (vband - voice > -15) & (bband - music > -18)
+    supported, evidence = _vocal_band_support(voice, vband, active)
+    eligible = active & _activity(music) & supported & (bband - music > -18)
     if not eligible.any():
         return None
     center = _duck_frequency(vocal, backing, voice, music, eligible, high, cancel)
     requested = np.where(eligible, np.clip((bband - vband + 6) * 0.3, 0, 3), 0.0)
     reduction = gaussian_filter1d(requested, sigma=1.0, mode="constant")
     reduction[~active] = 0
-    return DuckPlan(center, reduction, bband, eligible, (low, high))
+    return DuckPlan(center, reduction, bband, eligible, (low, high), evidence)
 
 
 def _write_duck(backing: Path, target: Path, plan: DuckPlan, cancel: threading.Event) -> None:
@@ -146,6 +171,7 @@ def duck_backing(
         "activeSeconds": float(np.count_nonzero(plan.reduction > 0.05) * _STEP),
         "stereoLinked": True,
         "inactiveBackingPreserved": True,
+        "vocalBandSupport": plan.band_support,
     }
 
 
@@ -170,6 +196,7 @@ class MixInputs:
     reference_backing: Path | None
     original_mix: Path | None
     recorded_is_dry: bool
+    arrangement: ArrangementMap
 
 
 def _sum_stems(
@@ -204,8 +231,13 @@ def _mix_stages(
     progress: Callable[[str, float, float], None] | None,
 ) -> dict[str, object]:
     started = time.perf_counter()
-    plan = plan_balance(
-        inputs.vocal, inputs.backing, inputs.reference_vocal, inputs.reference_backing, cancel
+    plan = plan_section_balance(
+        inputs.vocal,
+        inputs.backing,
+        inputs.reference_vocal,
+        inputs.reference_backing,
+        inputs.arrangement,
+        cancel,
     )
     balanced, music, spatial = work / "balanced.wav", work / "backing.wav", work / "spatial.wav"
     _write_gain_envelope(inputs.vocal, balanced, plan.times, plan.gains, cancel)
@@ -221,12 +253,14 @@ def _mix_stages(
         cancel,
         reference=inputs.reference_vocal,
         recorded_is_dry=inputs.recorded_is_dry,
+        arrangement=inputs.arrangement,
     )
     _sum_stems(renderer, spatial, music, work / "mix.wav", cancel)
     return {
         "balance": plan.report,
         "backingEq": duck,
         "space": effects,
+        "arrangement": inputs.arrangement.payload(),
         "timingsSeconds": {"balance": balance_seconds},
     }
 
@@ -242,14 +276,18 @@ def mix_and_master(
     reference_backing: Path | None = None,
     original_mix: Path | None = None,
     recorded_is_dry: bool = True,
+    arrangement: ArrangementMap | None = None,
     progress: Callable[[str, float, float], None] | None = None,
 ) -> dict[str, object]:
     _check_cancel(cancel)
-    _validate_formats(vocal, backing)
+    info = _validate_formats(vocal, backing)
+    context = arrangement or analyze_arrangement(backing, reference_vocal, cancel)
+    if (context.frames, context.rate) != (info.frames, info.samplerate):
+        raise DependencyError("StudioMasterStemMismatch", "Arrangement must cover the mix timeline")
     target.parent.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
     inputs = MixInputs(
-        vocal, backing, reference_vocal, reference_backing, original_mix, recorded_is_dry
+        vocal, backing, reference_vocal, reference_backing, original_mix, recorded_is_dry, context
     )
     with TemporaryDirectory(prefix=".adaptive-mix-", dir=target.parent) as directory:
         work = Path(directory)
@@ -269,7 +307,7 @@ def _completed_mix_report(
     report: dict[str, object], started: float, delivery_started: float
 ) -> dict[str, object]:
     report["order"] = [
-        "referenceBalance",
+        "sectionBalance",
         "dynamicBackingEq",
         "parallelSpaceSends",
         "masterGlue",

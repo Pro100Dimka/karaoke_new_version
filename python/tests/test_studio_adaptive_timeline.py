@@ -168,7 +168,7 @@ def test_short_vocal_remains_audible_in_new_product_path(tmp_path, microphone_ga
     selected = (t > 1.1) & (t < 1.6)
     amplitude = abs(np.mean(actual[selected] * np.exp(-2j * np.pi * 700 * t[selected]))) * 2
     assert amplitude > 0.02, "Short singing must not be replaced with instrumental only"
-    assert report.processing["pipeline"] == "adaptive-studio-v1"
+    assert report.processing["pipeline"] == "adaptive-studio-v2"
     gain_plan = report.processing["gainPlan"]
     assert report.payload()["maxBoostDb"] == gain_plan["maxBoostDb"]
     music_amplitude = abs(np.mean(actual[selected] * np.exp(-2j * np.pi * 160 * t[selected]))) * 2
