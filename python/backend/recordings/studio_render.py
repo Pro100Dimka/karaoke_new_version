@@ -1,5 +1,5 @@
 from __future__ import annotations
-from backend.recordings.studio_delivery import MasterDelivery, measure_mix_loudness, preserve_mix
+from backend.recordings.studio_delivery import MasterDelivery, preserve_mix
 from backend.recordings.studio_quality import inspect_master
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
@@ -42,6 +42,8 @@ from backend.recordings.studio_voice import (
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
 from backend.recordings.studio_reference_level import analyze_reference_level
+from backend.recordings.studio_reference_context import prepare_reference_context
+from backend.recordings.studio_vocal_context import ReferenceBody
 from backend.ai.domain import PitchPoint
 
 
@@ -92,6 +94,7 @@ class MasterRender:
         default=None, init=False
     )
     reference_level_correction_db: float | None = field(default=None, init=False)
+    reference_body: ReferenceBody | None = field(default=None, init=False)
     reference_presence: tuple[np.ndarray, np.ndarray, np.ndarray] | None = field(
         default=None, init=False
     )
@@ -308,15 +311,7 @@ class MasterRender:
             profiles.append(np.interp(positions, axis, levels, left=-120, right=-120))
         self.backing_db, self.reference_db, self.original_db = profiles
         if self.timing_known:
-            vocal, music = measure_mix_loudness(
-                self.renderer, self.reference_vocal, self.original_instrumental, self.cancel
-            )
-            axis = (np.arange(len(vocal)) + 1) * 0.1 - 0.2
-            reference = [
-                np.interp(self.source_times, axis, values, left=-120, right=-120)
-                for values in (vocal, music)
-            ]
-            self.reference_balance = self.times, *reference
+            prepare_reference_context(self)
         self.reliable = vocal_activity(self.voice_db)
 
     def _gain_plan(self) -> GainPlan:
@@ -327,6 +322,7 @@ class MasterRender:
             self.overlap,
             self.cancel,
             reference_balance=self.reference_balance,
+            reference_body=self.reference_body,
             reference_presence=self.reference_presence,
             reference_level_correction_db=(
                 self.reference_level_correction_db if self.reference_balance is not None else None
