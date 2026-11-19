@@ -766,7 +766,7 @@ def test_added_reverb_is_gentler_without_reducing_direct_voice():
 def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path, monkeypatch, dry):
     from types import SimpleNamespace
     from unittest.mock import Mock
-    import backend.recordings.studio_render as module
+    import backend.recordings.studio_voice as module
 
     balanced = tmp_path / "balanced.wav"
     target = tmp_path / "spatial-voice.wav"
@@ -813,5 +813,6 @@ def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path,
         tmp_path / "integrated-voice.wav",
         render.cancel,
         reference_timing=None,
+        placement_calibrated=True,
     )
     assert not target.exists()

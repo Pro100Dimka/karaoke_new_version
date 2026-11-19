@@ -1,6 +1,8 @@
 from pathlib import Path
 import threading
+from typing import Protocol
 import numpy as np
+from numpy.typing import NDArray
 import soundfile as sf
 from scipy.ndimage import gaussian_filter1d
 from backend.recordings.studio_audio import (
@@ -13,6 +15,48 @@ from backend.recordings.studio_audio import (
 from backend.recordings.studio_calibration import GainPlan
 from backend.recordings.studio_sibilance import apply_sibilance_control
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum
+from backend.recordings.studio_space import apply_reference_space
+from backend.recordings.studio_layers import LayerRender, apply_reference_layers
+
+
+class VoiceFinishing(LayerRender, Protocol):
+    user_vocal: Path
+    reference_vocal: Path
+    backing: Path
+    times: NDArray[np.floating]
+    source_times: NDArray[np.floating]
+
+
+def finish_voice(render: VoiceFinishing) -> None:
+    direct = render.balanced
+    target = render.work / "spatial-voice.wav"
+    effects = apply_reference_space(
+        render.renderer,
+        render.reference_vocal,
+        render.user_vocal,
+        render.balanced,
+        target,
+        render.cancel,
+        full_reference=render.space_reference,
+        recorded_is_dry=render.process_voice,
+    )
+    render.processing["referenceEffects"] = effects
+    render.processing["space"] = effects["status"]
+    render.processing["effectsApplied"] = effects["status"] == "matched"
+    if target.is_file():
+        render.balanced = target
+    render.balanced, render.processing["mixIntegration"] = integrate_voice(
+        render.renderer,
+        render.balanced,
+        render.backing,
+        render.reference_vocal,
+        render.work / "integrated-voice.wav",
+        render.cancel,
+        reference_timing=(render.times, render.source_times) if render.timing_known else None,
+        placement_calibrated=True,
+    )
+    render.processing["voiceOutputGainDb"] = 0.0
+    apply_reference_layers(render, direct)
 
 
 def prepare_voice(
@@ -46,37 +90,61 @@ def integrate_voice(
     cancel: threading.Event,
     *,
     reference_timing: tuple[np.ndarray, np.ndarray] | None,
+    placement_calibrated: bool = False,
 ) -> tuple[Path, dict[str, object]]:
     """Place the processed voice locally without changing the backing or adding effects."""
     times, cuts = _body_correction(voice, reference, reference_timing, cancel)
-    toned = voice
-    if np.max(cuts) > 0:
-        filtered = _equalize(
-            renderer,
-            voice,
-            backing,
-            target.with_stem(target.stem + "-body"),
-            [{"frequencyHz": 350.0, "gainDb": -4.5}],
-            cancel,
-        )
-        toned = target.with_stem(target.stem + "-tone")
-        _blend_voice(voice, filtered, toned, times, cuts / 4.5, cancel)
-    vocal, music = [10 ** (_profile(path, cancel) / 10) for path in (toned, backing)]
-    contrast = 10 * np.log10(
-        gaussian_filter1d(vocal, 4) / np.maximum(gaussian_filter1d(music, 4), 1e-12)
+    toned = _render_body_correction(renderer, voice, backing, target, times, cuts, cancel)
+    reduction = (
+        np.zeros_like(cuts)
+        if placement_calibrated
+        else _placement_reduction(toned, backing, cancel)
     )
-    audible = music > max(float(np.percentile(music, 80)) * 0.01, 1e-10)
-    reduction = gaussian_filter1d(np.clip(contrast - 1.5, 0, 2.5) * audible, 4)
     report: dict[str, object] = {
         "method": "local-tone-and-placement",
         "stepSeconds": 0.1,
         "bodyCutDb": cuts.round(4).tolist(),
         "placementTrimDb": reduction.round(4).tolist(),
+        "placementCalibrated": placement_calibrated,
     }
     if np.max(reduction) > 0:
         _write_gain_envelope(toned, target, times, -reduction, cancel)
         toned = target
+    _check_cancel(cancel)
     return toned, report
+
+
+def _render_body_correction(
+    renderer: MasterRenderer,
+    voice: Path,
+    backing: Path,
+    target: Path,
+    times: np.ndarray,
+    cuts: np.ndarray,
+    cancel: threading.Event,
+) -> Path:
+    if np.max(cuts) <= 0:
+        return voice
+    filtered = _equalize(
+        renderer,
+        voice,
+        backing,
+        target.with_stem(target.stem + "-body"),
+        [{"frequencyHz": 350.0, "gainDb": -4.5}],
+        cancel,
+    )
+    toned = target.with_stem(target.stem + "-tone")
+    _blend_voice(voice, filtered, toned, times, cuts / 4.5, cancel)
+    return toned
+
+
+def _placement_reduction(voice: Path, backing: Path, cancel: threading.Event) -> np.ndarray:
+    vocal, music = [10 ** (_profile(path, cancel) / 10) for path in (voice, backing)]
+    contrast = 10 * np.log10(
+        gaussian_filter1d(vocal, 4) / np.maximum(gaussian_filter1d(music, 4), 1e-12)
+    )
+    audible = music > max(float(np.percentile(music, 80)) * 0.01, 1e-10)
+    return np.asarray(gaussian_filter1d(np.clip(contrast - 1.5, 0, 2.5) * audible, 4))
 
 
 def _body_correction(

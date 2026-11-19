@@ -1,7 +1,6 @@
 from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery, measure_mix_loudness, preserve_mix
 from backend.recordings.studio_quality import inspect_master
-from backend.recordings.studio_space import apply_reference_space
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -33,10 +32,9 @@ from backend.recordings.studio_calibration import (
     validate_gain_plan,
     vocal_activity,
 )
-from backend.recordings.studio_voice import shape_voice, integrate_voice, prepare_voice
+from backend.recordings.studio_voice import shape_voice, finish_voice, prepare_voice
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
-from backend.recordings.studio_layers import apply_reference_layers
 from backend.ai.domain import PitchPoint
 
 
@@ -347,34 +345,7 @@ class MasterRender:
         self.reliable = np.interp(self.times, self.plan.times, self.plan.active.astype(float)) > 0.5
 
     def _finish_voice(self) -> None:
-        direct = self.balanced
-        target = self.work / "spatial-voice.wav"
-        effects = apply_reference_space(
-            self.renderer,
-            self.reference_vocal,
-            self.user_vocal,
-            self.balanced,
-            target,
-            self.cancel,
-            full_reference=self.space_reference,
-            recorded_is_dry=self.process_voice,
-        )
-        self.processing["referenceEffects"] = effects
-        self.processing["space"] = effects["status"]
-        self.processing["effectsApplied"] = effects["status"] == "matched"
-        if target.is_file():
-            self.balanced = target
-        self.balanced, self.processing["mixIntegration"] = integrate_voice(
-            self.renderer,
-            self.balanced,
-            self.backing,
-            self.reference_vocal,
-            self.work / "integrated-voice.wav",
-            self.cancel,
-            reference_timing=(self.times, self.source_times) if self.timing_known else None,
-        )
-        self.processing["voiceOutputGainDb"] = 0.0
-        apply_reference_layers(self, direct)
+        finish_voice(self)
 
     def _balance_report(self) -> StudioMasterBalance:
         output_info = sf.info(self.target)

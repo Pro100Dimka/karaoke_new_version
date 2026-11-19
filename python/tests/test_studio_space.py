@@ -256,7 +256,7 @@ def test_master_balance_uses_backing_independently_of_reference_level(
             return {"status": "matched", "dryPreserved": True}
 
         monkeypatch.setattr(
-            "backend.recordings.studio_render.apply_reference_space", spatial_energy
+            "backend.recordings.studio_voice.apply_reference_space", spatial_energy
         )
 
     rng = np.random.default_rng(12)
