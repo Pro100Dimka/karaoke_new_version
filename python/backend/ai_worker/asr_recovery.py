@@ -169,8 +169,9 @@ def _accept(proposal: AsrCandidate, scores: torch.Tensor, step: float) -> _Accep
 
 
 def _overlaps(left: AsrCandidate, right: AsrCandidate) -> bool:
+    same_insertion = left.first == left.last == right.first == right.last
     return (
-        left.first == right.first
+        (left.first == right.first and not same_insertion)
         or max(left.first, right.first) < min(left.last, right.last)
         or max(left.start, right.start) < min(left.end, right.end)
     )
@@ -183,7 +184,9 @@ def _apply(lyrics: str, accepted: Sequence[_Accepted]) -> str:
         if not any(_overlaps(item.proposal, previous) for previous in selected):
             selected.append(item.proposal)
     result = lyrics
-    for proposal in sorted(selected, key=lambda item: item.first, reverse=True):
+    # Separate sung islands can share one text gap. Insert the later island
+    # first so that inserting the earlier one preserves their acoustic order.
+    for proposal in sorted(selected, key=lambda item: (item.first, item.start), reverse=True):
         if proposal.first < proposal.last:
             first, last = spans[proposal.first].start(), spans[proposal.last - 1].end()
             text = proposal.text

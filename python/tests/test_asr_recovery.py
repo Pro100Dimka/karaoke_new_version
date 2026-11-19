@@ -179,6 +179,53 @@ def test_accepted_edit_preserves_whitespace_outside_its_span_and_is_not_duplicat
     assert _recover(monkeypatch, scores, [proposal, proposal], lyrics) == "\twe\n\ncan sing  \n"
 
 
+def _native_view(source, words):
+    return {
+        "sourceId": source,
+        "text": " ".join(word for word, _start in words),
+        "segments": [
+            {
+                "words": [
+                    {"word": word, "start": start, "end": start + 0.4}
+                    for word, start in words
+                ]
+            }
+        ],
+    }
+
+
+def test_separate_supported_islands_at_one_insertion_position_keep_their_temporal_order():
+    first = list(zip("we sail home".split(), [1.0, 2.0, 3.0], strict=True))
+    second = list(zip("birds sing softly".split(), [9.0, 10.0, 11.0], strict=True))
+    anchor = list(zip("stars guide us".split(), [20.0, 21.0, 22.0], strict=True))
+    views = [_native_view("vocal", anchor), _native_view("original", [*first, *second, *anchor])]
+    scores = _scores([(word, start, 0.95) for word, start in [*first, *second, *anchor]], 30)
+    proposals = asr_recovery.insertion_candidates("stars guide us", views, 30)
+    assert len(proposals) == 2 and all(item.first == item.last == 0 for item in proposals)
+    assert proposals[0].end < proposals[1].start
+    assert all(asr_recovery._accept(item, scores, STEP) is not None for item in proposals)
+
+    result = asr_recovery.recover_lyrics("stars guide us", views, scores, STEP, 30)
+
+    assert result == "we sail home birds sing softly stars guide us"
+
+
+@pytest.mark.parametrize("alternative", ["can", "could"])
+def test_overlapping_observations_at_one_position_cannot_duplicate_an_occurrence(
+    monkeypatch, alternative
+):
+    events = [("we", 0.3, 0.95), ("can", 1.2, 0.95), ("sing", 2.5, 0.95)]
+    if alternative != "can":
+        events.append((alternative, 1.5, 0.95))
+    scores = _scores(events)
+    proposals = [_proposal(), _proposal(candidate=(alternative,), start=1.1)]
+    assert all(asr_recovery._accept(item, scores, STEP) is not None for item in proposals)
+
+    result = _recover(monkeypatch, scores, proposals)
+
+    assert result in {"we can sing", f"we {alternative} sing"}
+
+
 def test_recovery_never_uses_uniform_timing_when_the_lattice_is_infeasible(monkeypatch):
     from backend.ai_worker import ctc
 

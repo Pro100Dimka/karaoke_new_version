@@ -64,11 +64,11 @@ def _valid_input(
 ) -> bool:
     return (
         bool(words)
+        and len(views) >= 2
         and audio.ndim == 1
         and len(audio) > 0
         and scores.ndim == 2
         and len(scores) > 0
-        and len(views) >= 2
         and isfinite(step)
         and step > 0
         and abs(step * _SAMPLE_RATE - ctc.frame_stride_samples()) < 1e-8
