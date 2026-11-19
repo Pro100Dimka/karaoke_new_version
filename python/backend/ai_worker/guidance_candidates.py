@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from functools import partial
 import numpy as np
 import torch
 from backend.ai_worker import ctc
@@ -146,19 +147,40 @@ def _recognized_cores(
         following = heard.get(index + 1)
         word = words[index]
         crossed = _crosses_recognized_word(word, interval, following, margin)
-        candidates = _candidates(
+        search = replace(window, start=max(window.start, word.start)) if crossed else window
+        align = partial(
+            _candidates,
             word,
             scores,
             frame_seconds,
-            replace(window, start=max(window.start, word.start)) if crossed else window,
-            interval,
-            voiced,
-            margin,
-            onsets,
+            interval=interval,
+            voiced=voiced,
+            margin=margin,
+            onsets=onsets,
             review=index in reviewed or crossed,
         )
+        candidates = align(search)
+        after = words[index + 1] if index + 1 < len(words) else None
+        bounded = _bounded_candidate_window(candidates, after, search)
+        if bounded is not None:
+            candidates += align(bounded)
         result.extend((index, candidate, interval) for candidate in candidates)
     return result
+
+
+def _bounded_candidate_window(
+    candidates: Sequence[ctc.AlignedWord], following: ctc.AlignedWord | None, window: ctc.Window
+) -> ctc.Window | None:
+    # Keep the original choices for joint repairs, and offer a crop that cannot
+    # borrow the following supported core when that neighbour stays in place.
+    if (
+        following is not None
+        and following.score > ctc._PREFERENCE
+        and window.start < following.start < window.end
+        and any(ctc._clips_letter_anchor(word, following.start) for word in candidates)
+    ):
+        return replace(window, end=following.start)
+    return None
 
 
 def _crosses_recognized_word(

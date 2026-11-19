@@ -306,6 +306,11 @@ def _compatible(
     original: ctc.AlignedWord,
     voiced: np.ndarray,
 ) -> bool:
-    return left.start < right.start and ctc._implausible(
-        [ctc.ordered([left, right])[0]], voiced
-    ) <= ctc._implausible([original], voiced)
+    return (
+        left.start < right.start
+        # Separate crops can reuse the same consonant. A closer recognition
+        # span cannot remove a supported letter from the preceding word.
+        and (left.score <= ctc._PREFERENCE or not ctc._clips_letter_anchor(left, right.start))
+        and ctc._implausible([ctc.ordered([left, right])[0]], voiced)
+        <= ctc._implausible([original], voiced)
+    )
