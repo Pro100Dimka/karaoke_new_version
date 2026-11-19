@@ -128,7 +128,6 @@ def _support(evidence: _Evidence) -> tuple[NDArray[np.bool_], NDArray[np.bool_]]
     base = (
         (evidence.mid_db > max(float(np.percentile(evidence.mid_db, 80)) - 25, -100))
         & (evidence.side_db > -30)
-        & (evidence.side_db < -3)
         & (evidence.residual > 0.7)
     )
     support = (
@@ -138,8 +137,9 @@ def _support(evidence: _Evidence) -> tuple[NDArray[np.bool_], NDArray[np.bool_]]
         & (evidence.side_confidence > 0.55)
         & (evidence.similarity > 0.55)
     )
-    # An anchor requires a separately detuned harmonic family, not just width,
-    # EQ, zero-lag panning, or ordinary harmonic/vibrato recurrence in one voice.
+    # Width alone cannot distinguish a strong independent double from an
+    # antiphase copy. Anchors require separately detuned harmonic evidence;
+    # the renderer measures achievable width under its unchanged return caps.
     strong = (
         base
         & (evidence.side_db > -26)

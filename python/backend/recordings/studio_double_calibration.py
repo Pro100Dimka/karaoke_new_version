@@ -136,18 +136,27 @@ def _fit_scale(region: _Region, rate: int) -> None:
         region.polarity = -1.0
         region.moments[4:6] *= -1
     dm, ds, wm, ws, cm, cs, count = region.moments
-    target, maximum = 10 ** (region.target / 10), 1 / region.nominal
+    fraction = 10 ** (-abs(region.target) / 10)
+    numerator, denominator = (1.0, fraction) if region.target >= 0 else (fraction, 1.0)
+    maximum = 1 / region.nominal
     if count < rate * 0.06 or min(dm, wm + ws) <= count * 1e-18:
         region.reason, region.scale = "insufficient-voiced-source", 0.0
         return
-    if ds >= target * dm:
+    if ds * denominator >= numerator * dm:
         region.reason, region.scale = "existing-stereo-exceeds-target", 0.0
         return
-    exact = _roots((ws - target * wm, 2 * (cs - target * cm), ds - target * dm))
+    exact = _roots(
+        (
+            ws * denominator - numerator * wm,
+            2 * (cs * denominator - numerator * cm),
+            ds * denominator - numerator * dm,
+        )
+    )
     stationary = _roots((ws * cm - cs * wm, ws * dm - ds * wm, cs * dm - ds * cm))
     candidates = [0.0, maximum, *(x for x in exact + stationary if 0 <= x <= maximum)]
     region.scale = min(
-        candidates, key=lambda x: (abs(math.log(_ratio(region.moments, x) / target)), x)
+        candidates,
+        key=lambda x: (abs(10 * math.log10(_ratio(region.moments, x)) - region.target), x),
     )
     region.capped = not any(abs(region.scale - root) < 1e-6 for root in exact)
 

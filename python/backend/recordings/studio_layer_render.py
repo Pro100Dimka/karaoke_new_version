@@ -31,9 +31,7 @@ _BLOCK = 32768
 
 def _valid_target(region: VocalLayerRegion) -> bool:
     target = region.target_side_to_mid_db
-    return target is None or (
-        region.kind == "double" and math.isfinite(target) and -30 < target < -3
-    )
+    return target is None or (region.kind == "double" and math.isfinite(target) and target > -30)
 
 
 def _paired_targets(regions: list[VocalLayerRegion]) -> list[VocalLayerRegion]:

@@ -182,7 +182,7 @@ def test_overlapping_automatic_pairs_use_one_smooth_complete_vocal_budget(tmp_pa
     )
 
 
-@pytest.mark.parametrize("target", [float("nan"), float("inf"), 1.0])
+@pytest.mark.parametrize("target", [float("nan"), float("inf"), -31.0])
 def test_invalid_automatic_target_does_not_touch_audio(tmp_path, target):
     rate = 16000
     _, _, own, _ = _voices(rate, 4)
