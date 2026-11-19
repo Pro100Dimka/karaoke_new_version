@@ -79,7 +79,7 @@ export const buildLines = (
     .map((group) => ({
       words: group,
       start: group[0]?.start ?? 0,
-      end: group.at(-1)?.end ?? 0,
+      end: group.reduce((end, word) => Math.max(end, word.end), 0),
     }))
     .filter(
       (line) =>
