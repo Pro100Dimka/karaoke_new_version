@@ -1,0 +1,114 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/features/room/RoomDock.test.tsx (2 tests | 2 failed) 100ms
+   × updates the visible room and host actions when a snapshot changes within the same session 79ms
+   × updates a participant friendship after the pushed inbox changes without a room snapshot 20ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/room/RoomDock.test.tsx > updates the visible room and host actions when a snapshot changes within the same session
+TestingLibraryElementError: Unable to find an accessible element with the role "listitem" and name "Friend"
+
+Here are the accessible roles:
+
+  complementary:
+
+  Name "onlineRoom":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"onlineRoom"[39m
+    [33mclass[39m=[32m"roomDock"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "participants":
+  [36m<ul[39m
+    [33maria-label[39m=[32m"participants"[39m
+    [33mclass[39m=[32m"roomPeople"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "Singer":
+  [36m<li[39m
+    [33maria-label[39m=[32m"Singer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "playlists":
+  [36m<button />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"onlineRoom"[39m
+      [33mclass[39m=[32m"roomDock"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"room status"[39m
+      [36m>[39m
+        [0mconnected[0m
+        [0m [0m
+        [0m [0m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33maria-label[39m=[32m"participants"[39m
+        [33mclass[39m=[32m"roomPeople"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33maria-label[39m=[32m"Singer"[39m
+        [36m>[39m
+          [0mSinger[0m
+          [0m [0m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<button>[39m
+        [0mplaylists[0m
+      [36m</button>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/features/room/RoomDock.test.tsx:162:17
+    160|   });
+    161|
+    162|   expect(screen.getByRole('listitem', { name: 'Friend' })).toBeVisible…
+       |                 ^
+    163|   expect(screen.getByLabelText('room status')).toHaveTextContent('reco…
+    164|   expect(screen.getByRole('button', { name: 'Party · 1/1' })).toBeVisi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/room/RoomDock.test.tsx > updates a participant friendship after the pushed inbox changes without a room snapshot
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Friend Friend
+Received:
+  Friend NonetransferHost
+ ❯ src/features/room/RoomDock.test.tsx:181:18
+    179|   act(() => store.setInbox({ ...inbox, friends: [{ ...friend, relation…
+    180|
+    181|   expect(person).toHaveTextContent('Friend Friend');
+       |                  ^
+    182|   expect(ports.people).toHaveBeenCalledTimes(1);
+    183| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  19:16:03
+   Duration  872ms (transform 165ms, setup 151ms, import 175ms, tests 100ms, environment 300ms)

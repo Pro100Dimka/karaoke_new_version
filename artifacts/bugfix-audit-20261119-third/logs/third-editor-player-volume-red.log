@@ -1,0 +1,40 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/modals/recordings/RecordingPlayer.interactions.test.tsx (2 tests | 2 failed) 231ms
+   × starts muted when the visible knob is muted while waiting for metadata 144ms
+   × starts muted when the visible knob is muted while waiting for native-ready 85ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/modals/recordings/RecordingPlayer.interactions.test.tsx > starts muted when the visible knob is muted while waiting for metadata
+ FAIL  src/pages/library/modals/recordings/RecordingPlayer.interactions.test.tsx > starts muted when the visible knob is muted while waiting for native-ready
+AssertionError: expected [ 'SetGain', …(1) ] to deeply equal [ 'SetGain', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "SetGain",
+    {
+      "target": "preview",
+-     "value": 0,
++     "value": 1,
+    },
+  ]
+
+ ❯ src/pages/library/modals/recordings/RecordingPlayer.interactions.test.tsx:80:31
+     78|     expect(playback).toBeGreaterThan(-1);
+     79|     const gainBeforePlaying = command.mock.calls.slice(0, playback).fi…
+     80|     expect(gainBeforePlaying).toEqual(['SetGain', { target: 'preview',…
+       |                               ^
+     81|   },
+     82| );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  19:20:02
+   Duration  756ms (transform 138ms, setup 94ms, import 165ms, tests 231ms, environment 160ms)

@@ -1,0 +1,22 @@
+{
+  "parent": "9d44f17dfa7fbc321c5dc8e8c8a722e9e511cfaf",
+  "files": {
+    "frontend/src/app/BootstrapGate.test.tsx": "ca7b8728293b1b38e979638715c2f9980f7f9cdc8062d55199e2e55edbfd8d80",
+    "frontend/src/app/BootstrapGate.tsx": "778e49ac23d617313adfd13d0a5f78e6c99639fd59d7873a6de89ff870e355fe",
+    "frontend/src/features/room/RoomDock.test.tsx": "bcfe7da59e529e542d5b42c45b25af5cc19570ddddc474d6d49a2811cde648b3",
+    "frontend/src/features/room/RoomDock.tsx": "331bbf33e5f24d98f8f0ebd9d0148ec64e9f851210cea1da97a88958d85a7313",
+    "frontend/src/features/social/SocialAlerts.test.tsx": "94892d56fa3d14ebd8d5ff241f652f5ac4f4dc542ad325660eac4b02b6828987",
+    "frontend/src/features/social/SocialAlerts.tsx": "a9c9ebceafb5103637ee630438ab8b53207830200d2ae19ecd0f94e854e2d1a8",
+    "frontend/src/pages/library/modals/recordings/RecordingPlayer.interactions.test.tsx": "ec0c7971a57048b4c3c9fbcd151d634ebd6caa2ad20c61d071a4c999a630a2d3",
+    "frontend/src/pages/library/songs/LibrarySongs.deletion.test.tsx": "b7c84cba15598adf3e10e8f16640d7b80eefd44bd94841152074978e05147f58",
+    "frontend/src/pages/library/songs/LibrarySongs.selection.test.tsx": "b5f26af782e50a52114fccc251cfdce5fcb756450daabf4782b0eddfc7b582b4",
+    "frontend/src/pages/library/songs/index.tsx": "49cac0316470a99a1440b4e68b6d2e6c59de03c9abd17126bc381afa92793876",
+    "frontend/src/pages/library/songs/librarySelectors.ts": "2e18fad046305f7ea560766a0c258c71a6b7097d1c2c64e91332d39b52f9e51e",
+    "frontend/src/pages/library/songs/useLibraryCatalog.test.tsx": "0f56181d135a764995649da772b201e9cfa339b12bdb5a18deca185629caca29",
+    "frontend/src/pages/library/songs/useLibraryCatalog.ts": "22e304e87b9b9dc86a53093bb7997fbca7686a84a2b61bef2a4b9775f79d50c4",
+    "frontend/src/providers/error-boundary.test.tsx": "1a539e35d5ce0c0f296022ee71a27f4af9b7ebcc085469e84be3cbf78b4d5577",
+    "frontend/src/providers/error-boundary.tsx": "ed81fd630cd795a34c3088e3971ce2cf6429118c16cf28d7bda2fb97a6845635",
+    "frontend/src/services/audioPlayers.test.ts": "f7ab67b595ac63c459fb5ef8a13c7ee318fc9e0b140dc43ec09054cfa71f63d7",
+    "frontend/src/services/audioPlayers.ts": "7474c8e6424fd8b97c50417ddcc52a226e8fa677e38ee7a87ddd018eca18cbb9"
+  }
+}

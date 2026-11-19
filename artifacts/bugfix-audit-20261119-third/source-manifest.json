@@ -1,0 +1,36 @@
+{
+  "parent": "9d44f17dfa7fbc321c5dc8e8c8a722e9e511cfaf",
+  "files": {
+    "frontend/scripts/generate-search-casefold.py": "291a3879b1ccc8fa96ffcab6011128ff6db80387e898f7ebae44a3f66b56e6b7",
+    "frontend/src/app/BootstrapGate.test.tsx": "ca7b8728293b1b38e979638715c2f9980f7f9cdc8062d55199e2e55edbfd8d80",
+    "frontend/src/app/BootstrapGate.tsx": "778e49ac23d617313adfd13d0a5f78e6c99639fd59d7873a6de89ff870e355fe",
+    "frontend/src/components/api-service.import.test.ts": "0640481c1de8726f5015f9972c12b186a40039354163692aec492b8233e0fa00",
+    "frontend/src/components/api-service.ts": "3931c2d20c89caea0cfa9aae772c76ed39077af3f95bd2707dabb9ad26015d26",
+    "frontend/src/features/room/RoomDock.test.tsx": "bcfe7da59e529e542d5b42c45b25af5cc19570ddddc474d6d49a2811cde648b3",
+    "frontend/src/features/room/RoomDock.tsx": "331bbf33e5f24d98f8f0ebd9d0148ec64e9f851210cea1da97a88958d85a7313",
+    "frontend/src/features/social/SocialAlerts.test.tsx": "94892d56fa3d14ebd8d5ff241f652f5ac4f4dc542ad325660eac4b02b6828987",
+    "frontend/src/features/social/SocialAlerts.tsx": "a9c9ebceafb5103637ee630438ab8b53207830200d2ae19ecd0f94e854e2d1a8",
+    "frontend/src/pages/library/modals/recordings/RecordingPlayer.interactions.test.tsx": "ec0c7971a57048b4c3c9fbcd151d634ebd6caa2ad20c61d071a4c999a630a2d3",
+    "frontend/src/pages/library/songs/LibrarySongs.deletion.test.tsx": "b7c84cba15598adf3e10e8f16640d7b80eefd44bd94841152074978e05147f58",
+    "frontend/src/pages/library/songs/LibrarySongs.selection.test.tsx": "b5f26af782e50a52114fccc251cfdce5fcb756450daabf4782b0eddfc7b582b4",
+    "frontend/src/pages/library/songs/index.tsx": "49cac0316470a99a1440b4e68b6d2e6c59de03c9abd17126bc381afa92793876",
+    "frontend/src/pages/library/songs/librarySelectors.ts": "3ffcd0b37988a01a77624b2b38ce3e139d344ca16e19f2b67e4d1be0ea18a0ce",
+    "frontend/src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx": "61a202f890b3229b2ac8bdf7733909114660aef8a82dd25821164a9e81524a74",
+    "frontend/src/pages/library/songs/useLibraryCatalog.test.tsx": "0b4719e2c33c3575f2382cfecbb5d5b72220ae2d497b519112d6117c9a26b687",
+    "frontend/src/pages/library/songs/useLibraryCatalog.ts": "366ec41bb57f773340fa687ac2e831529263858059fee825c9ab905ba2cab74b",
+    "frontend/src/providers/error-boundary.test.tsx": "1a539e35d5ce0c0f296022ee71a27f4af9b7ebcc085469e84be3cbf78b4d5577",
+    "frontend/src/providers/error-boundary.tsx": "ed81fd630cd795a34c3088e3971ce2cf6429118c16cf28d7bda2fb97a6845635",
+    "frontend/src/services/audioPlayers.test.ts": "f7ab67b595ac63c459fb5ef8a13c7ee318fc9e0b140dc43ec09054cfa71f63d7",
+    "frontend/src/services/audioPlayers.ts": "7474c8e6424fd8b97c50417ddcc52a226e8fa677e38ee7a87ddd018eca18cbb9",
+    "frontend/src/shared/utils/format.search-folding.test.ts": "499d02186a43eb500c0a598caa9c1733d66f3e25ee9ec6b548394fe0a688367f",
+    "frontend/src/shared/utils/format.ts": "ac27de9f6960cf4e89abe704cf8d1342267f1d1124fee0e758224d3f98674cb2",
+    "frontend/src/shared/utils/searchCasefold.generated.json": "1d39267f5aefdade61b8c766ab4702de680746c1f9bdd80563c4ec3d0ffd5c4d"
+  },
+  "testedLocalSourceCommit": "b0c1c6ff7fb9dd6598502fd7b4ea61eeaa64ab3f",
+  "testedSourceCommit": "a0559a6faa3b44e6edc00b1d63ddb00ed8b36e67",
+  "subtrees": {
+    "frontend": "ac025d077b3ae33f982c16b671c7e0a68fafff2e",
+    "python": "3a202b3d79595e223986ff8a657902becd443cee",
+    "AudioService": "4586162af8c579a3edf5aa0f9d4ef3dc72a04a76"
+  }
+}

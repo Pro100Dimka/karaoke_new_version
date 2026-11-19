@@ -1,0 +1,147 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/features/social/SocialAlerts.test.tsx (11 tests | 4 failed) 1355ms
+   × keeps an unanswered request to join after its one-shot notice is consumed (reconnected: false) 65ms
+   × keeps an unanswered request to join after its one-shot notice is consumed (reconnected: true) 15ms
+   × keeps a failed room approval retryable and removes it after the invitation is sent 1024ms
+   × lets the host dismiss a request without inviting the person 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > keeps an unanswered request to join after its one-shot notice is consumed (reconnected: false)
+ FAIL  src/features/social/SocialAlerts.test.tsx > keeps an unanswered request to join after its one-shot notice is consumed (reconnected: true)
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "social.acceptAction"
+
+There are no accessible roles. But there might be some inaccessible roles. If you wish to access them, then set the `hidden` option to `true`. Learn more about this here: https://testing-library.com/docs/dom-testing-library/api-queries#byrole
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-live[39m=[32m"polite"[39m
+      [33mclass[39m=[32m"socialAlerts"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/features/social/SocialAlerts.test.tsx:101:14
+     99|
+    100|     expect(
+    101|       screen.getByRole('button', { name: 'social.acceptAction' }),
+       |              ^
+    102|     ).toBeEnabled();
+    103|   },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > keeps a failed room approval retryable and removes it after the invitation is sent
+AssertionError: expected <button></button> to be null
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"socialAlerts"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [36m<div>[39m
+              [0msocial.joinRequested[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"socialAlertActions"[39m
+          [36m>[39m
+            [36m<button>[39m
+              [0msocial.acceptAction[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+- Expected:
+null
+
++ Received:
+<button>
+  social.acceptAction
+</button>
+
+ ❯ src/features/social/SocialAlerts.test.tsx:120:7
+    118|     expect(
+    119|       screen.queryByRole('button', { name: 'social.acceptAction' }),
+    120|     ).toBeNull(),
+       |       ^
+    121|   );
+    122|   expect(social.invitations.approve).toHaveBeenCalledTimes(2);
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > lets the host dismiss a request without inviting the person
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "close"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "social.acceptAction":
+  [36m<button />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-live[39m=[32m"polite"[39m
+      [33mclass[39m=[32m"socialAlerts"[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0msocial.joinRequested[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"socialAlertActions"[39m
+        [36m>[39m
+          [36m<button>[39m
+            [0msocial.acceptAction[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/features/social/SocialAlerts.test.tsx:129:26
+    127|   store.online.room = { code: 'ROOM', role: 'host' } as RoomStateDto;
+    128|   const view = render(<SocialAlerts inbox={joinRequestInbox} />);
+    129|   fireEvent.click(screen.getByRole('button', { name: 'close' }));
+       |                          ^
+    130|   view.rerender(<SocialAlerts inbox={inbox} />);
+    131|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 7 passed (11)
+   Start at  19:19:31
+   Duration  1.99s (transform 131ms, setup 138ms, import 110ms, tests 1.36s, environment 270ms)

@@ -1,0 +1,82 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+stderr | src/pages/library/songs/LibrarySongs.deletion.test.tsx > clears a selected song after deleting it through its own card
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/LibrarySongs.deletion.test.tsx > clears a selected song after deleting it through its own card
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/LibrarySongs.deletion.test.tsx > clears a selected song after deleting it through its own card
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/LibrarySongs.deletion.test.tsx > clears a selected song after deleting it through its own card
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/LibrarySongs.deletion.test.tsx > clears a selected song after deleting it through its own card
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+ ❯ src/pages/library/songs/LibrarySongs.deletion.test.tsx (1 test | 1 failed) 297ms
+   × clears a selected song after deleting it through its own card 296ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/songs/LibrarySongs.deletion.test.tsx > clears a selected song after deleting it through its own card
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <button
+  class="ad ad-button"
+  data-ad-component="Button"
+  data-ad-material="glass"
+  data-ad-variant="secondary"
+  type="button"
+>
+  <span
+    aria-hidden="true"
+    class="ad-button-fx"
+  >
+    <span
+      class="ad-button-plasma"
+    />
+  </span>
+  <span
+    aria-hidden="true"
+    class="ad-button-orbit"
+  />
+  <span
+    class="ad ad-icon"
+    data-ad-component="Icon"
+    data-ad-surface="none"
+  >
+    <svg
+      data-ad-component="IconAsset"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="m5 12 5 5L20 6"
+      />
+    </svg>
+  </span>
+
+  <span
+    class="ad-button-label"
+  >
+    Отмена
+  </span>
+</button> instead
+ ❯ src/pages/library/songs/LibrarySongs.deletion.test.tsx:147:9
+    145|   expect(
+    146|     screen.queryByRole('button', { name: tr('cancel') }),
+    147|   ).not.toBeInTheDocument();
+       |         ^
+    148|   expect(
+    149|     within(screen.getByRole('listitem', { name: 'Singer - second' })).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  19:20:16
+   Duration  1.43s (transform 524ms, setup 88ms, import 722ms, tests 297ms, environment 192ms)

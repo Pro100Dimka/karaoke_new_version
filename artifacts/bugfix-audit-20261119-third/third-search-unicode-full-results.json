@@ -1,0 +1,7548 @@
+{
+  "node": "v24.22.3",
+  "jsUnicode": "17.0",
+  "pythonUnicode": "15.0.0",
+  "scalarCount": 1112064,
+  "casefoldMappings": 1530,
+  "casefoldJsonBytes": 20115,
+  "counts": {
+    "localeLower": 370,
+    "upperLower": 267,
+    "nfkcWithFullFold": 37,
+    "nativeNfkc": 37,
+    "nativeScalarLower": 352
+  },
+  "samples": {
+    "Straße": {
+      "expected": "strasse",
+      "current": "straße",
+      "upperLower": "strasse",
+      "fullFold": "strasse"
+    },
+    "STRASSE": {
+      "expected": "strasse",
+      "current": "strasse",
+      "upperLower": "strasse",
+      "fullFold": "strasse"
+    },
+    "ΟΣ": {
+      "expected": "οσ",
+      "current": "ος",
+      "upperLower": "ος",
+      "fullFold": "οσ"
+    },
+    "οσ": {
+      "expected": "οσ",
+      "current": "οσ",
+      "upperLower": "ος",
+      "fullFold": "οσ"
+    },
+    "ος": {
+      "expected": "οσ",
+      "current": "ος",
+      "upperLower": "ος",
+      "fullFold": "οσ"
+    },
+    "İIıi": {
+      "expected": "i̇iıi",
+      "current": "i̇iıi",
+      "upperLower": "i̇iii",
+      "fullFold": "i̇iıi"
+    },
+    "Ꭰꭰ": {
+      "expected": "ᎠᎠ",
+      "current": "ꭰꭰ",
+      "upperLower": "ꭰꭰ",
+      "fullFold": "ᎠᎠ"
+    },
+    "AΣ": {
+      "expected": "aσ",
+      "current": "aς",
+      "upperLower": "aς",
+      "fullFold": "aσ"
+    },
+    "AΣA": {
+      "expected": "aσa",
+      "current": "aσa",
+      "upperLower": "aσa",
+      "fullFold": "aσa"
+    },
+    "AΣ́": {
+      "expected": "aσ́",
+      "current": "aς́",
+      "upperLower": "aς́",
+      "fullFold": "aσ́"
+    },
+    "AΣ́A": {
+      "expected": "aσ́a",
+      "current": "aσ́a",
+      "upperLower": "aσ́a",
+      "fullFold": "aσ́a"
+    },
+    "İ": {
+      "expected": "i̇",
+      "current": "i̇",
+      "upperLower": "i̇",
+      "fullFold": "i̇"
+    },
+    "ᾲ": {
+      "expected": "ὰι",
+      "current": "ᾲ",
+      "upperLower": "ὰι",
+      "fullFold": "ὰι"
+    }
+  },
+  "mismatches": {
+    "localeLower": [
+      {
+        "cp": 223,
+        "hex": "DF",
+        "input": "ß",
+        "expected": "ss",
+        "result": "ß"
+      },
+      {
+        "cp": 496,
+        "hex": "1F0",
+        "input": "ǰ",
+        "expected": "ǰ",
+        "result": "ǰ"
+      },
+      {
+        "cp": 837,
+        "hex": "345",
+        "input": "ͅ",
+        "expected": "ι",
+        "result": "ͅ"
+      },
+      {
+        "cp": 890,
+        "hex": "37A",
+        "input": "ͺ",
+        "expected": " ι",
+        "result": " ͅ"
+      },
+      {
+        "cp": 912,
+        "hex": "390",
+        "input": "ΐ",
+        "expected": "ΐ",
+        "result": "ΐ"
+      },
+      {
+        "cp": 944,
+        "hex": "3B0",
+        "input": "ΰ",
+        "expected": "ΰ",
+        "result": "ΰ"
+      },
+      {
+        "cp": 962,
+        "hex": "3C2",
+        "input": "ς",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 1010,
+        "hex": "3F2",
+        "input": "ϲ",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 5024,
+        "hex": "13A0",
+        "input": "Ꭰ",
+        "expected": "Ꭰ",
+        "result": "ꭰ"
+      },
+      {
+        "cp": 5025,
+        "hex": "13A1",
+        "input": "Ꭱ",
+        "expected": "Ꭱ",
+        "result": "ꭱ"
+      },
+      {
+        "cp": 5026,
+        "hex": "13A2",
+        "input": "Ꭲ",
+        "expected": "Ꭲ",
+        "result": "ꭲ"
+      },
+      {
+        "cp": 5027,
+        "hex": "13A3",
+        "input": "Ꭳ",
+        "expected": "Ꭳ",
+        "result": "ꭳ"
+      },
+      {
+        "cp": 5028,
+        "hex": "13A4",
+        "input": "Ꭴ",
+        "expected": "Ꭴ",
+        "result": "ꭴ"
+      },
+      {
+        "cp": 5029,
+        "hex": "13A5",
+        "input": "Ꭵ",
+        "expected": "Ꭵ",
+        "result": "ꭵ"
+      },
+      {
+        "cp": 5030,
+        "hex": "13A6",
+        "input": "Ꭶ",
+        "expected": "Ꭶ",
+        "result": "ꭶ"
+      },
+      {
+        "cp": 5031,
+        "hex": "13A7",
+        "input": "Ꭷ",
+        "expected": "Ꭷ",
+        "result": "ꭷ"
+      },
+      {
+        "cp": 5032,
+        "hex": "13A8",
+        "input": "Ꭸ",
+        "expected": "Ꭸ",
+        "result": "ꭸ"
+      },
+      {
+        "cp": 5033,
+        "hex": "13A9",
+        "input": "Ꭹ",
+        "expected": "Ꭹ",
+        "result": "ꭹ"
+      },
+      {
+        "cp": 5034,
+        "hex": "13AA",
+        "input": "Ꭺ",
+        "expected": "Ꭺ",
+        "result": "ꭺ"
+      },
+      {
+        "cp": 5035,
+        "hex": "13AB",
+        "input": "Ꭻ",
+        "expected": "Ꭻ",
+        "result": "ꭻ"
+      },
+      {
+        "cp": 5036,
+        "hex": "13AC",
+        "input": "Ꭼ",
+        "expected": "Ꭼ",
+        "result": "ꭼ"
+      },
+      {
+        "cp": 5037,
+        "hex": "13AD",
+        "input": "Ꭽ",
+        "expected": "Ꭽ",
+        "result": "ꭽ"
+      },
+      {
+        "cp": 5038,
+        "hex": "13AE",
+        "input": "Ꭾ",
+        "expected": "Ꭾ",
+        "result": "ꭾ"
+      },
+      {
+        "cp": 5039,
+        "hex": "13AF",
+        "input": "Ꭿ",
+        "expected": "Ꭿ",
+        "result": "ꭿ"
+      },
+      {
+        "cp": 5040,
+        "hex": "13B0",
+        "input": "Ꮀ",
+        "expected": "Ꮀ",
+        "result": "ꮀ"
+      },
+      {
+        "cp": 5041,
+        "hex": "13B1",
+        "input": "Ꮁ",
+        "expected": "Ꮁ",
+        "result": "ꮁ"
+      },
+      {
+        "cp": 5042,
+        "hex": "13B2",
+        "input": "Ꮂ",
+        "expected": "Ꮂ",
+        "result": "ꮂ"
+      },
+      {
+        "cp": 5043,
+        "hex": "13B3",
+        "input": "Ꮃ",
+        "expected": "Ꮃ",
+        "result": "ꮃ"
+      },
+      {
+        "cp": 5044,
+        "hex": "13B4",
+        "input": "Ꮄ",
+        "expected": "Ꮄ",
+        "result": "ꮄ"
+      },
+      {
+        "cp": 5045,
+        "hex": "13B5",
+        "input": "Ꮅ",
+        "expected": "Ꮅ",
+        "result": "ꮅ"
+      },
+      {
+        "cp": 5046,
+        "hex": "13B6",
+        "input": "Ꮆ",
+        "expected": "Ꮆ",
+        "result": "ꮆ"
+      },
+      {
+        "cp": 5047,
+        "hex": "13B7",
+        "input": "Ꮇ",
+        "expected": "Ꮇ",
+        "result": "ꮇ"
+      },
+      {
+        "cp": 5048,
+        "hex": "13B8",
+        "input": "Ꮈ",
+        "expected": "Ꮈ",
+        "result": "ꮈ"
+      },
+      {
+        "cp": 5049,
+        "hex": "13B9",
+        "input": "Ꮉ",
+        "expected": "Ꮉ",
+        "result": "ꮉ"
+      },
+      {
+        "cp": 5050,
+        "hex": "13BA",
+        "input": "Ꮊ",
+        "expected": "Ꮊ",
+        "result": "ꮊ"
+      },
+      {
+        "cp": 5051,
+        "hex": "13BB",
+        "input": "Ꮋ",
+        "expected": "Ꮋ",
+        "result": "ꮋ"
+      },
+      {
+        "cp": 5052,
+        "hex": "13BC",
+        "input": "Ꮌ",
+        "expected": "Ꮌ",
+        "result": "ꮌ"
+      },
+      {
+        "cp": 5053,
+        "hex": "13BD",
+        "input": "Ꮍ",
+        "expected": "Ꮍ",
+        "result": "ꮍ"
+      },
+      {
+        "cp": 5054,
+        "hex": "13BE",
+        "input": "Ꮎ",
+        "expected": "Ꮎ",
+        "result": "ꮎ"
+      },
+      {
+        "cp": 5055,
+        "hex": "13BF",
+        "input": "Ꮏ",
+        "expected": "Ꮏ",
+        "result": "ꮏ"
+      },
+      {
+        "cp": 5056,
+        "hex": "13C0",
+        "input": "Ꮐ",
+        "expected": "Ꮐ",
+        "result": "ꮐ"
+      },
+      {
+        "cp": 5057,
+        "hex": "13C1",
+        "input": "Ꮑ",
+        "expected": "Ꮑ",
+        "result": "ꮑ"
+      },
+      {
+        "cp": 5058,
+        "hex": "13C2",
+        "input": "Ꮒ",
+        "expected": "Ꮒ",
+        "result": "ꮒ"
+      },
+      {
+        "cp": 5059,
+        "hex": "13C3",
+        "input": "Ꮓ",
+        "expected": "Ꮓ",
+        "result": "ꮓ"
+      },
+      {
+        "cp": 5060,
+        "hex": "13C4",
+        "input": "Ꮔ",
+        "expected": "Ꮔ",
+        "result": "ꮔ"
+      },
+      {
+        "cp": 5061,
+        "hex": "13C5",
+        "input": "Ꮕ",
+        "expected": "Ꮕ",
+        "result": "ꮕ"
+      },
+      {
+        "cp": 5062,
+        "hex": "13C6",
+        "input": "Ꮖ",
+        "expected": "Ꮖ",
+        "result": "ꮖ"
+      },
+      {
+        "cp": 5063,
+        "hex": "13C7",
+        "input": "Ꮗ",
+        "expected": "Ꮗ",
+        "result": "ꮗ"
+      },
+      {
+        "cp": 5064,
+        "hex": "13C8",
+        "input": "Ꮘ",
+        "expected": "Ꮘ",
+        "result": "ꮘ"
+      },
+      {
+        "cp": 5065,
+        "hex": "13C9",
+        "input": "Ꮙ",
+        "expected": "Ꮙ",
+        "result": "ꮙ"
+      },
+      {
+        "cp": 5066,
+        "hex": "13CA",
+        "input": "Ꮚ",
+        "expected": "Ꮚ",
+        "result": "ꮚ"
+      },
+      {
+        "cp": 5067,
+        "hex": "13CB",
+        "input": "Ꮛ",
+        "expected": "Ꮛ",
+        "result": "ꮛ"
+      },
+      {
+        "cp": 5068,
+        "hex": "13CC",
+        "input": "Ꮜ",
+        "expected": "Ꮜ",
+        "result": "ꮜ"
+      },
+      {
+        "cp": 5069,
+        "hex": "13CD",
+        "input": "Ꮝ",
+        "expected": "Ꮝ",
+        "result": "ꮝ"
+      },
+      {
+        "cp": 5070,
+        "hex": "13CE",
+        "input": "Ꮞ",
+        "expected": "Ꮞ",
+        "result": "ꮞ"
+      },
+      {
+        "cp": 5071,
+        "hex": "13CF",
+        "input": "Ꮟ",
+        "expected": "Ꮟ",
+        "result": "ꮟ"
+      },
+      {
+        "cp": 5072,
+        "hex": "13D0",
+        "input": "Ꮠ",
+        "expected": "Ꮠ",
+        "result": "ꮠ"
+      },
+      {
+        "cp": 5073,
+        "hex": "13D1",
+        "input": "Ꮡ",
+        "expected": "Ꮡ",
+        "result": "ꮡ"
+      },
+      {
+        "cp": 5074,
+        "hex": "13D2",
+        "input": "Ꮢ",
+        "expected": "Ꮢ",
+        "result": "ꮢ"
+      },
+      {
+        "cp": 5075,
+        "hex": "13D3",
+        "input": "Ꮣ",
+        "expected": "Ꮣ",
+        "result": "ꮣ"
+      },
+      {
+        "cp": 5076,
+        "hex": "13D4",
+        "input": "Ꮤ",
+        "expected": "Ꮤ",
+        "result": "ꮤ"
+      },
+      {
+        "cp": 5077,
+        "hex": "13D5",
+        "input": "Ꮥ",
+        "expected": "Ꮥ",
+        "result": "ꮥ"
+      },
+      {
+        "cp": 5078,
+        "hex": "13D6",
+        "input": "Ꮦ",
+        "expected": "Ꮦ",
+        "result": "ꮦ"
+      },
+      {
+        "cp": 5079,
+        "hex": "13D7",
+        "input": "Ꮧ",
+        "expected": "Ꮧ",
+        "result": "ꮧ"
+      },
+      {
+        "cp": 5080,
+        "hex": "13D8",
+        "input": "Ꮨ",
+        "expected": "Ꮨ",
+        "result": "ꮨ"
+      },
+      {
+        "cp": 5081,
+        "hex": "13D9",
+        "input": "Ꮩ",
+        "expected": "Ꮩ",
+        "result": "ꮩ"
+      },
+      {
+        "cp": 5082,
+        "hex": "13DA",
+        "input": "Ꮪ",
+        "expected": "Ꮪ",
+        "result": "ꮪ"
+      },
+      {
+        "cp": 5083,
+        "hex": "13DB",
+        "input": "Ꮫ",
+        "expected": "Ꮫ",
+        "result": "ꮫ"
+      },
+      {
+        "cp": 5084,
+        "hex": "13DC",
+        "input": "Ꮬ",
+        "expected": "Ꮬ",
+        "result": "ꮬ"
+      },
+      {
+        "cp": 5085,
+        "hex": "13DD",
+        "input": "Ꮭ",
+        "expected": "Ꮭ",
+        "result": "ꮭ"
+      },
+      {
+        "cp": 5086,
+        "hex": "13DE",
+        "input": "Ꮮ",
+        "expected": "Ꮮ",
+        "result": "ꮮ"
+      },
+      {
+        "cp": 5087,
+        "hex": "13DF",
+        "input": "Ꮯ",
+        "expected": "Ꮯ",
+        "result": "ꮯ"
+      },
+      {
+        "cp": 5088,
+        "hex": "13E0",
+        "input": "Ꮰ",
+        "expected": "Ꮰ",
+        "result": "ꮰ"
+      },
+      {
+        "cp": 5089,
+        "hex": "13E1",
+        "input": "Ꮱ",
+        "expected": "Ꮱ",
+        "result": "ꮱ"
+      },
+      {
+        "cp": 5090,
+        "hex": "13E2",
+        "input": "Ꮲ",
+        "expected": "Ꮲ",
+        "result": "ꮲ"
+      },
+      {
+        "cp": 5091,
+        "hex": "13E3",
+        "input": "Ꮳ",
+        "expected": "Ꮳ",
+        "result": "ꮳ"
+      },
+      {
+        "cp": 5092,
+        "hex": "13E4",
+        "input": "Ꮴ",
+        "expected": "Ꮴ",
+        "result": "ꮴ"
+      },
+      {
+        "cp": 5093,
+        "hex": "13E5",
+        "input": "Ꮵ",
+        "expected": "Ꮵ",
+        "result": "ꮵ"
+      },
+      {
+        "cp": 5094,
+        "hex": "13E6",
+        "input": "Ꮶ",
+        "expected": "Ꮶ",
+        "result": "ꮶ"
+      },
+      {
+        "cp": 5095,
+        "hex": "13E7",
+        "input": "Ꮷ",
+        "expected": "Ꮷ",
+        "result": "ꮷ"
+      },
+      {
+        "cp": 5096,
+        "hex": "13E8",
+        "input": "Ꮸ",
+        "expected": "Ꮸ",
+        "result": "ꮸ"
+      },
+      {
+        "cp": 5097,
+        "hex": "13E9",
+        "input": "Ꮹ",
+        "expected": "Ꮹ",
+        "result": "ꮹ"
+      },
+      {
+        "cp": 5098,
+        "hex": "13EA",
+        "input": "Ꮺ",
+        "expected": "Ꮺ",
+        "result": "ꮺ"
+      },
+      {
+        "cp": 5099,
+        "hex": "13EB",
+        "input": "Ꮻ",
+        "expected": "Ꮻ",
+        "result": "ꮻ"
+      },
+      {
+        "cp": 5100,
+        "hex": "13EC",
+        "input": "Ꮼ",
+        "expected": "Ꮼ",
+        "result": "ꮼ"
+      },
+      {
+        "cp": 5101,
+        "hex": "13ED",
+        "input": "Ꮽ",
+        "expected": "Ꮽ",
+        "result": "ꮽ"
+      },
+      {
+        "cp": 5102,
+        "hex": "13EE",
+        "input": "Ꮾ",
+        "expected": "Ꮾ",
+        "result": "ꮾ"
+      },
+      {
+        "cp": 5103,
+        "hex": "13EF",
+        "input": "Ꮿ",
+        "expected": "Ꮿ",
+        "result": "ꮿ"
+      },
+      {
+        "cp": 5104,
+        "hex": "13F0",
+        "input": "Ᏸ",
+        "expected": "Ᏸ",
+        "result": "ᏸ"
+      },
+      {
+        "cp": 5105,
+        "hex": "13F1",
+        "input": "Ᏹ",
+        "expected": "Ᏹ",
+        "result": "ᏹ"
+      },
+      {
+        "cp": 5106,
+        "hex": "13F2",
+        "input": "Ᏺ",
+        "expected": "Ᏺ",
+        "result": "ᏺ"
+      },
+      {
+        "cp": 5107,
+        "hex": "13F3",
+        "input": "Ᏻ",
+        "expected": "Ᏻ",
+        "result": "ᏻ"
+      },
+      {
+        "cp": 5108,
+        "hex": "13F4",
+        "input": "Ᏼ",
+        "expected": "Ᏼ",
+        "result": "ᏼ"
+      },
+      {
+        "cp": 5109,
+        "hex": "13F5",
+        "input": "Ᏽ",
+        "expected": "Ᏽ",
+        "result": "ᏽ"
+      },
+      {
+        "cp": 5112,
+        "hex": "13F8",
+        "input": "ᏸ",
+        "expected": "Ᏸ",
+        "result": "ᏸ"
+      },
+      {
+        "cp": 5113,
+        "hex": "13F9",
+        "input": "ᏹ",
+        "expected": "Ᏹ",
+        "result": "ᏹ"
+      },
+      {
+        "cp": 5114,
+        "hex": "13FA",
+        "input": "ᏺ",
+        "expected": "Ᏺ",
+        "result": "ᏺ"
+      },
+      {
+        "cp": 5115,
+        "hex": "13FB",
+        "input": "ᏻ",
+        "expected": "Ᏻ",
+        "result": "ᏻ"
+      },
+      {
+        "cp": 5116,
+        "hex": "13FC",
+        "input": "ᏼ",
+        "expected": "Ᏼ",
+        "result": "ᏼ"
+      },
+      {
+        "cp": 5117,
+        "hex": "13FD",
+        "input": "ᏽ",
+        "expected": "Ᏽ",
+        "result": "ᏽ"
+      },
+      {
+        "cp": 7296,
+        "hex": "1C80",
+        "input": "ᲀ",
+        "expected": "в",
+        "result": "ᲀ"
+      },
+      {
+        "cp": 7297,
+        "hex": "1C81",
+        "input": "ᲁ",
+        "expected": "д",
+        "result": "ᲁ"
+      },
+      {
+        "cp": 7298,
+        "hex": "1C82",
+        "input": "ᲂ",
+        "expected": "о",
+        "result": "ᲂ"
+      },
+      {
+        "cp": 7299,
+        "hex": "1C83",
+        "input": "ᲃ",
+        "expected": "с",
+        "result": "ᲃ"
+      },
+      {
+        "cp": 7300,
+        "hex": "1C84",
+        "input": "ᲄ",
+        "expected": "т",
+        "result": "ᲄ"
+      },
+      {
+        "cp": 7301,
+        "hex": "1C85",
+        "input": "ᲅ",
+        "expected": "т",
+        "result": "ᲅ"
+      },
+      {
+        "cp": 7302,
+        "hex": "1C86",
+        "input": "ᲆ",
+        "expected": "ъ",
+        "result": "ᲆ"
+      },
+      {
+        "cp": 7303,
+        "hex": "1C87",
+        "input": "ᲇ",
+        "expected": "ѣ",
+        "result": "ᲇ"
+      },
+      {
+        "cp": 7304,
+        "hex": "1C88",
+        "input": "ᲈ",
+        "expected": "ꙋ",
+        "result": "ᲈ"
+      },
+      {
+        "cp": 7305,
+        "hex": "1C89",
+        "input": "Ᲊ",
+        "expected": "Ᲊ",
+        "result": "ᲊ"
+      },
+      {
+        "cp": 7830,
+        "hex": "1E96",
+        "input": "ẖ",
+        "expected": "ẖ",
+        "result": "ẖ"
+      },
+      {
+        "cp": 7831,
+        "hex": "1E97",
+        "input": "ẗ",
+        "expected": "ẗ",
+        "result": "ẗ"
+      },
+      {
+        "cp": 7832,
+        "hex": "1E98",
+        "input": "ẘ",
+        "expected": "ẘ",
+        "result": "ẘ"
+      },
+      {
+        "cp": 7833,
+        "hex": "1E99",
+        "input": "ẙ",
+        "expected": "ẙ",
+        "result": "ẙ"
+      },
+      {
+        "cp": 7838,
+        "hex": "1E9E",
+        "input": "ẞ",
+        "expected": "ss",
+        "result": "ß"
+      },
+      {
+        "cp": 8016,
+        "hex": "1F50",
+        "input": "ὐ",
+        "expected": "ὐ",
+        "result": "ὐ"
+      },
+      {
+        "cp": 8018,
+        "hex": "1F52",
+        "input": "ὒ",
+        "expected": "ὒ",
+        "result": "ὒ"
+      },
+      {
+        "cp": 8020,
+        "hex": "1F54",
+        "input": "ὔ",
+        "expected": "ὔ",
+        "result": "ὔ"
+      },
+      {
+        "cp": 8022,
+        "hex": "1F56",
+        "input": "ὖ",
+        "expected": "ὖ",
+        "result": "ὖ"
+      },
+      {
+        "cp": 8064,
+        "hex": "1F80",
+        "input": "ᾀ",
+        "expected": "ἀι",
+        "result": "ᾀ"
+      },
+      {
+        "cp": 8065,
+        "hex": "1F81",
+        "input": "ᾁ",
+        "expected": "ἁι",
+        "result": "ᾁ"
+      },
+      {
+        "cp": 8066,
+        "hex": "1F82",
+        "input": "ᾂ",
+        "expected": "ἂι",
+        "result": "ᾂ"
+      },
+      {
+        "cp": 8067,
+        "hex": "1F83",
+        "input": "ᾃ",
+        "expected": "ἃι",
+        "result": "ᾃ"
+      },
+      {
+        "cp": 8068,
+        "hex": "1F84",
+        "input": "ᾄ",
+        "expected": "ἄι",
+        "result": "ᾄ"
+      },
+      {
+        "cp": 8069,
+        "hex": "1F85",
+        "input": "ᾅ",
+        "expected": "ἅι",
+        "result": "ᾅ"
+      },
+      {
+        "cp": 8070,
+        "hex": "1F86",
+        "input": "ᾆ",
+        "expected": "ἆι",
+        "result": "ᾆ"
+      },
+      {
+        "cp": 8071,
+        "hex": "1F87",
+        "input": "ᾇ",
+        "expected": "ἇι",
+        "result": "ᾇ"
+      },
+      {
+        "cp": 8072,
+        "hex": "1F88",
+        "input": "ᾈ",
+        "expected": "ἀι",
+        "result": "ᾀ"
+      },
+      {
+        "cp": 8073,
+        "hex": "1F89",
+        "input": "ᾉ",
+        "expected": "ἁι",
+        "result": "ᾁ"
+      },
+      {
+        "cp": 8074,
+        "hex": "1F8A",
+        "input": "ᾊ",
+        "expected": "ἂι",
+        "result": "ᾂ"
+      },
+      {
+        "cp": 8075,
+        "hex": "1F8B",
+        "input": "ᾋ",
+        "expected": "ἃι",
+        "result": "ᾃ"
+      },
+      {
+        "cp": 8076,
+        "hex": "1F8C",
+        "input": "ᾌ",
+        "expected": "ἄι",
+        "result": "ᾄ"
+      },
+      {
+        "cp": 8077,
+        "hex": "1F8D",
+        "input": "ᾍ",
+        "expected": "ἅι",
+        "result": "ᾅ"
+      },
+      {
+        "cp": 8078,
+        "hex": "1F8E",
+        "input": "ᾎ",
+        "expected": "ἆι",
+        "result": "ᾆ"
+      },
+      {
+        "cp": 8079,
+        "hex": "1F8F",
+        "input": "ᾏ",
+        "expected": "ἇι",
+        "result": "ᾇ"
+      },
+      {
+        "cp": 8080,
+        "hex": "1F90",
+        "input": "ᾐ",
+        "expected": "ἠι",
+        "result": "ᾐ"
+      },
+      {
+        "cp": 8081,
+        "hex": "1F91",
+        "input": "ᾑ",
+        "expected": "ἡι",
+        "result": "ᾑ"
+      },
+      {
+        "cp": 8082,
+        "hex": "1F92",
+        "input": "ᾒ",
+        "expected": "ἢι",
+        "result": "ᾒ"
+      },
+      {
+        "cp": 8083,
+        "hex": "1F93",
+        "input": "ᾓ",
+        "expected": "ἣι",
+        "result": "ᾓ"
+      },
+      {
+        "cp": 8084,
+        "hex": "1F94",
+        "input": "ᾔ",
+        "expected": "ἤι",
+        "result": "ᾔ"
+      },
+      {
+        "cp": 8085,
+        "hex": "1F95",
+        "input": "ᾕ",
+        "expected": "ἥι",
+        "result": "ᾕ"
+      },
+      {
+        "cp": 8086,
+        "hex": "1F96",
+        "input": "ᾖ",
+        "expected": "ἦι",
+        "result": "ᾖ"
+      },
+      {
+        "cp": 8087,
+        "hex": "1F97",
+        "input": "ᾗ",
+        "expected": "ἧι",
+        "result": "ᾗ"
+      },
+      {
+        "cp": 8088,
+        "hex": "1F98",
+        "input": "ᾘ",
+        "expected": "ἠι",
+        "result": "ᾐ"
+      },
+      {
+        "cp": 8089,
+        "hex": "1F99",
+        "input": "ᾙ",
+        "expected": "ἡι",
+        "result": "ᾑ"
+      },
+      {
+        "cp": 8090,
+        "hex": "1F9A",
+        "input": "ᾚ",
+        "expected": "ἢι",
+        "result": "ᾒ"
+      },
+      {
+        "cp": 8091,
+        "hex": "1F9B",
+        "input": "ᾛ",
+        "expected": "ἣι",
+        "result": "ᾓ"
+      },
+      {
+        "cp": 8092,
+        "hex": "1F9C",
+        "input": "ᾜ",
+        "expected": "ἤι",
+        "result": "ᾔ"
+      },
+      {
+        "cp": 8093,
+        "hex": "1F9D",
+        "input": "ᾝ",
+        "expected": "ἥι",
+        "result": "ᾕ"
+      },
+      {
+        "cp": 8094,
+        "hex": "1F9E",
+        "input": "ᾞ",
+        "expected": "ἦι",
+        "result": "ᾖ"
+      },
+      {
+        "cp": 8095,
+        "hex": "1F9F",
+        "input": "ᾟ",
+        "expected": "ἧι",
+        "result": "ᾗ"
+      },
+      {
+        "cp": 8096,
+        "hex": "1FA0",
+        "input": "ᾠ",
+        "expected": "ὠι",
+        "result": "ᾠ"
+      },
+      {
+        "cp": 8097,
+        "hex": "1FA1",
+        "input": "ᾡ",
+        "expected": "ὡι",
+        "result": "ᾡ"
+      },
+      {
+        "cp": 8098,
+        "hex": "1FA2",
+        "input": "ᾢ",
+        "expected": "ὢι",
+        "result": "ᾢ"
+      },
+      {
+        "cp": 8099,
+        "hex": "1FA3",
+        "input": "ᾣ",
+        "expected": "ὣι",
+        "result": "ᾣ"
+      },
+      {
+        "cp": 8100,
+        "hex": "1FA4",
+        "input": "ᾤ",
+        "expected": "ὤι",
+        "result": "ᾤ"
+      },
+      {
+        "cp": 8101,
+        "hex": "1FA5",
+        "input": "ᾥ",
+        "expected": "ὥι",
+        "result": "ᾥ"
+      },
+      {
+        "cp": 8102,
+        "hex": "1FA6",
+        "input": "ᾦ",
+        "expected": "ὦι",
+        "result": "ᾦ"
+      },
+      {
+        "cp": 8103,
+        "hex": "1FA7",
+        "input": "ᾧ",
+        "expected": "ὧι",
+        "result": "ᾧ"
+      },
+      {
+        "cp": 8104,
+        "hex": "1FA8",
+        "input": "ᾨ",
+        "expected": "ὠι",
+        "result": "ᾠ"
+      },
+      {
+        "cp": 8105,
+        "hex": "1FA9",
+        "input": "ᾩ",
+        "expected": "ὡι",
+        "result": "ᾡ"
+      },
+      {
+        "cp": 8106,
+        "hex": "1FAA",
+        "input": "ᾪ",
+        "expected": "ὢι",
+        "result": "ᾢ"
+      },
+      {
+        "cp": 8107,
+        "hex": "1FAB",
+        "input": "ᾫ",
+        "expected": "ὣι",
+        "result": "ᾣ"
+      },
+      {
+        "cp": 8108,
+        "hex": "1FAC",
+        "input": "ᾬ",
+        "expected": "ὤι",
+        "result": "ᾤ"
+      },
+      {
+        "cp": 8109,
+        "hex": "1FAD",
+        "input": "ᾭ",
+        "expected": "ὥι",
+        "result": "ᾥ"
+      },
+      {
+        "cp": 8110,
+        "hex": "1FAE",
+        "input": "ᾮ",
+        "expected": "ὦι",
+        "result": "ᾦ"
+      },
+      {
+        "cp": 8111,
+        "hex": "1FAF",
+        "input": "ᾯ",
+        "expected": "ὧι",
+        "result": "ᾧ"
+      },
+      {
+        "cp": 8114,
+        "hex": "1FB2",
+        "input": "ᾲ",
+        "expected": "ὰι",
+        "result": "ᾲ"
+      },
+      {
+        "cp": 8115,
+        "hex": "1FB3",
+        "input": "ᾳ",
+        "expected": "αι",
+        "result": "ᾳ"
+      },
+      {
+        "cp": 8116,
+        "hex": "1FB4",
+        "input": "ᾴ",
+        "expected": "άι",
+        "result": "ᾴ"
+      },
+      {
+        "cp": 8118,
+        "hex": "1FB6",
+        "input": "ᾶ",
+        "expected": "ᾶ",
+        "result": "ᾶ"
+      },
+      {
+        "cp": 8119,
+        "hex": "1FB7",
+        "input": "ᾷ",
+        "expected": "ᾶι",
+        "result": "ᾷ"
+      },
+      {
+        "cp": 8124,
+        "hex": "1FBC",
+        "input": "ᾼ",
+        "expected": "αι",
+        "result": "ᾳ"
+      },
+      {
+        "cp": 8130,
+        "hex": "1FC2",
+        "input": "ῂ",
+        "expected": "ὴι",
+        "result": "ῂ"
+      },
+      {
+        "cp": 8131,
+        "hex": "1FC3",
+        "input": "ῃ",
+        "expected": "ηι",
+        "result": "ῃ"
+      },
+      {
+        "cp": 8132,
+        "hex": "1FC4",
+        "input": "ῄ",
+        "expected": "ήι",
+        "result": "ῄ"
+      },
+      {
+        "cp": 8134,
+        "hex": "1FC6",
+        "input": "ῆ",
+        "expected": "ῆ",
+        "result": "ῆ"
+      },
+      {
+        "cp": 8135,
+        "hex": "1FC7",
+        "input": "ῇ",
+        "expected": "ῆι",
+        "result": "ῇ"
+      },
+      {
+        "cp": 8140,
+        "hex": "1FCC",
+        "input": "ῌ",
+        "expected": "ηι",
+        "result": "ῃ"
+      },
+      {
+        "cp": 8146,
+        "hex": "1FD2",
+        "input": "ῒ",
+        "expected": "ῒ",
+        "result": "ῒ"
+      },
+      {
+        "cp": 8147,
+        "hex": "1FD3",
+        "input": "ΐ",
+        "expected": "ΐ",
+        "result": "ΐ"
+      },
+      {
+        "cp": 8150,
+        "hex": "1FD6",
+        "input": "ῖ",
+        "expected": "ῖ",
+        "result": "ῖ"
+      },
+      {
+        "cp": 8151,
+        "hex": "1FD7",
+        "input": "ῗ",
+        "expected": "ῗ",
+        "result": "ῗ"
+      },
+      {
+        "cp": 8162,
+        "hex": "1FE2",
+        "input": "ῢ",
+        "expected": "ῢ",
+        "result": "ῢ"
+      },
+      {
+        "cp": 8163,
+        "hex": "1FE3",
+        "input": "ΰ",
+        "expected": "ΰ",
+        "result": "ΰ"
+      },
+      {
+        "cp": 8164,
+        "hex": "1FE4",
+        "input": "ῤ",
+        "expected": "ῤ",
+        "result": "ῤ"
+      },
+      {
+        "cp": 8166,
+        "hex": "1FE6",
+        "input": "ῦ",
+        "expected": "ῦ",
+        "result": "ῦ"
+      },
+      {
+        "cp": 8167,
+        "hex": "1FE7",
+        "input": "ῧ",
+        "expected": "ῧ",
+        "result": "ῧ"
+      },
+      {
+        "cp": 8178,
+        "hex": "1FF2",
+        "input": "ῲ",
+        "expected": "ὼι",
+        "result": "ῲ"
+      },
+      {
+        "cp": 8179,
+        "hex": "1FF3",
+        "input": "ῳ",
+        "expected": "ωι",
+        "result": "ῳ"
+      },
+      {
+        "cp": 8180,
+        "hex": "1FF4",
+        "input": "ῴ",
+        "expected": "ώι",
+        "result": "ῴ"
+      },
+      {
+        "cp": 8182,
+        "hex": "1FF6",
+        "input": "ῶ",
+        "expected": "ῶ",
+        "result": "ῶ"
+      },
+      {
+        "cp": 8183,
+        "hex": "1FF7",
+        "input": "ῷ",
+        "expected": "ῶι",
+        "result": "ῷ"
+      },
+      {
+        "cp": 8188,
+        "hex": "1FFC",
+        "input": "ῼ",
+        "expected": "ωι",
+        "result": "ῳ"
+      },
+      {
+        "cp": 42955,
+        "hex": "A7CB",
+        "input": "Ɤ",
+        "expected": "Ɤ",
+        "result": "ɤ"
+      },
+      {
+        "cp": 42956,
+        "hex": "A7CC",
+        "input": "Ꟍ",
+        "expected": "Ꟍ",
+        "result": "ꟍ"
+      },
+      {
+        "cp": 42958,
+        "hex": "A7CE",
+        "input": "꟎",
+        "expected": "꟎",
+        "result": "꟏"
+      },
+      {
+        "cp": 42962,
+        "hex": "A7D2",
+        "input": "꟒",
+        "expected": "꟒",
+        "result": "ꟓ"
+      },
+      {
+        "cp": 42964,
+        "hex": "A7D4",
+        "input": "꟔",
+        "expected": "꟔",
+        "result": "ꟕ"
+      },
+      {
+        "cp": 42970,
+        "hex": "A7DA",
+        "input": "Ꟛ",
+        "expected": "Ꟛ",
+        "result": "ꟛ"
+      },
+      {
+        "cp": 42972,
+        "hex": "A7DC",
+        "input": "Ƛ",
+        "expected": "Ƛ",
+        "result": "ƛ"
+      },
+      {
+        "cp": 42993,
+        "hex": "A7F1",
+        "input": "꟱",
+        "expected": "꟱",
+        "result": "s"
+      },
+      {
+        "cp": 43888,
+        "hex": "AB70",
+        "input": "ꭰ",
+        "expected": "Ꭰ",
+        "result": "ꭰ"
+      },
+      {
+        "cp": 43889,
+        "hex": "AB71",
+        "input": "ꭱ",
+        "expected": "Ꭱ",
+        "result": "ꭱ"
+      },
+      {
+        "cp": 43890,
+        "hex": "AB72",
+        "input": "ꭲ",
+        "expected": "Ꭲ",
+        "result": "ꭲ"
+      },
+      {
+        "cp": 43891,
+        "hex": "AB73",
+        "input": "ꭳ",
+        "expected": "Ꭳ",
+        "result": "ꭳ"
+      },
+      {
+        "cp": 43892,
+        "hex": "AB74",
+        "input": "ꭴ",
+        "expected": "Ꭴ",
+        "result": "ꭴ"
+      },
+      {
+        "cp": 43893,
+        "hex": "AB75",
+        "input": "ꭵ",
+        "expected": "Ꭵ",
+        "result": "ꭵ"
+      },
+      {
+        "cp": 43894,
+        "hex": "AB76",
+        "input": "ꭶ",
+        "expected": "Ꭶ",
+        "result": "ꭶ"
+      },
+      {
+        "cp": 43895,
+        "hex": "AB77",
+        "input": "ꭷ",
+        "expected": "Ꭷ",
+        "result": "ꭷ"
+      },
+      {
+        "cp": 43896,
+        "hex": "AB78",
+        "input": "ꭸ",
+        "expected": "Ꭸ",
+        "result": "ꭸ"
+      },
+      {
+        "cp": 43897,
+        "hex": "AB79",
+        "input": "ꭹ",
+        "expected": "Ꭹ",
+        "result": "ꭹ"
+      },
+      {
+        "cp": 43898,
+        "hex": "AB7A",
+        "input": "ꭺ",
+        "expected": "Ꭺ",
+        "result": "ꭺ"
+      },
+      {
+        "cp": 43899,
+        "hex": "AB7B",
+        "input": "ꭻ",
+        "expected": "Ꭻ",
+        "result": "ꭻ"
+      },
+      {
+        "cp": 43900,
+        "hex": "AB7C",
+        "input": "ꭼ",
+        "expected": "Ꭼ",
+        "result": "ꭼ"
+      },
+      {
+        "cp": 43901,
+        "hex": "AB7D",
+        "input": "ꭽ",
+        "expected": "Ꭽ",
+        "result": "ꭽ"
+      },
+      {
+        "cp": 43902,
+        "hex": "AB7E",
+        "input": "ꭾ",
+        "expected": "Ꭾ",
+        "result": "ꭾ"
+      },
+      {
+        "cp": 43903,
+        "hex": "AB7F",
+        "input": "ꭿ",
+        "expected": "Ꭿ",
+        "result": "ꭿ"
+      },
+      {
+        "cp": 43904,
+        "hex": "AB80",
+        "input": "ꮀ",
+        "expected": "Ꮀ",
+        "result": "ꮀ"
+      },
+      {
+        "cp": 43905,
+        "hex": "AB81",
+        "input": "ꮁ",
+        "expected": "Ꮁ",
+        "result": "ꮁ"
+      },
+      {
+        "cp": 43906,
+        "hex": "AB82",
+        "input": "ꮂ",
+        "expected": "Ꮂ",
+        "result": "ꮂ"
+      },
+      {
+        "cp": 43907,
+        "hex": "AB83",
+        "input": "ꮃ",
+        "expected": "Ꮃ",
+        "result": "ꮃ"
+      },
+      {
+        "cp": 43908,
+        "hex": "AB84",
+        "input": "ꮄ",
+        "expected": "Ꮄ",
+        "result": "ꮄ"
+      },
+      {
+        "cp": 43909,
+        "hex": "AB85",
+        "input": "ꮅ",
+        "expected": "Ꮅ",
+        "result": "ꮅ"
+      },
+      {
+        "cp": 43910,
+        "hex": "AB86",
+        "input": "ꮆ",
+        "expected": "Ꮆ",
+        "result": "ꮆ"
+      },
+      {
+        "cp": 43911,
+        "hex": "AB87",
+        "input": "ꮇ",
+        "expected": "Ꮇ",
+        "result": "ꮇ"
+      },
+      {
+        "cp": 43912,
+        "hex": "AB88",
+        "input": "ꮈ",
+        "expected": "Ꮈ",
+        "result": "ꮈ"
+      },
+      {
+        "cp": 43913,
+        "hex": "AB89",
+        "input": "ꮉ",
+        "expected": "Ꮉ",
+        "result": "ꮉ"
+      },
+      {
+        "cp": 43914,
+        "hex": "AB8A",
+        "input": "ꮊ",
+        "expected": "Ꮊ",
+        "result": "ꮊ"
+      },
+      {
+        "cp": 43915,
+        "hex": "AB8B",
+        "input": "ꮋ",
+        "expected": "Ꮋ",
+        "result": "ꮋ"
+      },
+      {
+        "cp": 43916,
+        "hex": "AB8C",
+        "input": "ꮌ",
+        "expected": "Ꮌ",
+        "result": "ꮌ"
+      },
+      {
+        "cp": 43917,
+        "hex": "AB8D",
+        "input": "ꮍ",
+        "expected": "Ꮍ",
+        "result": "ꮍ"
+      },
+      {
+        "cp": 43918,
+        "hex": "AB8E",
+        "input": "ꮎ",
+        "expected": "Ꮎ",
+        "result": "ꮎ"
+      },
+      {
+        "cp": 43919,
+        "hex": "AB8F",
+        "input": "ꮏ",
+        "expected": "Ꮏ",
+        "result": "ꮏ"
+      },
+      {
+        "cp": 43920,
+        "hex": "AB90",
+        "input": "ꮐ",
+        "expected": "Ꮐ",
+        "result": "ꮐ"
+      },
+      {
+        "cp": 43921,
+        "hex": "AB91",
+        "input": "ꮑ",
+        "expected": "Ꮑ",
+        "result": "ꮑ"
+      },
+      {
+        "cp": 43922,
+        "hex": "AB92",
+        "input": "ꮒ",
+        "expected": "Ꮒ",
+        "result": "ꮒ"
+      },
+      {
+        "cp": 43923,
+        "hex": "AB93",
+        "input": "ꮓ",
+        "expected": "Ꮓ",
+        "result": "ꮓ"
+      },
+      {
+        "cp": 43924,
+        "hex": "AB94",
+        "input": "ꮔ",
+        "expected": "Ꮔ",
+        "result": "ꮔ"
+      },
+      {
+        "cp": 43925,
+        "hex": "AB95",
+        "input": "ꮕ",
+        "expected": "Ꮕ",
+        "result": "ꮕ"
+      },
+      {
+        "cp": 43926,
+        "hex": "AB96",
+        "input": "ꮖ",
+        "expected": "Ꮖ",
+        "result": "ꮖ"
+      },
+      {
+        "cp": 43927,
+        "hex": "AB97",
+        "input": "ꮗ",
+        "expected": "Ꮗ",
+        "result": "ꮗ"
+      },
+      {
+        "cp": 43928,
+        "hex": "AB98",
+        "input": "ꮘ",
+        "expected": "Ꮘ",
+        "result": "ꮘ"
+      },
+      {
+        "cp": 43929,
+        "hex": "AB99",
+        "input": "ꮙ",
+        "expected": "Ꮙ",
+        "result": "ꮙ"
+      },
+      {
+        "cp": 43930,
+        "hex": "AB9A",
+        "input": "ꮚ",
+        "expected": "Ꮚ",
+        "result": "ꮚ"
+      },
+      {
+        "cp": 43931,
+        "hex": "AB9B",
+        "input": "ꮛ",
+        "expected": "Ꮛ",
+        "result": "ꮛ"
+      },
+      {
+        "cp": 43932,
+        "hex": "AB9C",
+        "input": "ꮜ",
+        "expected": "Ꮜ",
+        "result": "ꮜ"
+      },
+      {
+        "cp": 43933,
+        "hex": "AB9D",
+        "input": "ꮝ",
+        "expected": "Ꮝ",
+        "result": "ꮝ"
+      },
+      {
+        "cp": 43934,
+        "hex": "AB9E",
+        "input": "ꮞ",
+        "expected": "Ꮞ",
+        "result": "ꮞ"
+      },
+      {
+        "cp": 43935,
+        "hex": "AB9F",
+        "input": "ꮟ",
+        "expected": "Ꮟ",
+        "result": "ꮟ"
+      },
+      {
+        "cp": 43936,
+        "hex": "ABA0",
+        "input": "ꮠ",
+        "expected": "Ꮠ",
+        "result": "ꮠ"
+      },
+      {
+        "cp": 43937,
+        "hex": "ABA1",
+        "input": "ꮡ",
+        "expected": "Ꮡ",
+        "result": "ꮡ"
+      },
+      {
+        "cp": 43938,
+        "hex": "ABA2",
+        "input": "ꮢ",
+        "expected": "Ꮢ",
+        "result": "ꮢ"
+      },
+      {
+        "cp": 43939,
+        "hex": "ABA3",
+        "input": "ꮣ",
+        "expected": "Ꮣ",
+        "result": "ꮣ"
+      },
+      {
+        "cp": 43940,
+        "hex": "ABA4",
+        "input": "ꮤ",
+        "expected": "Ꮤ",
+        "result": "ꮤ"
+      },
+      {
+        "cp": 43941,
+        "hex": "ABA5",
+        "input": "ꮥ",
+        "expected": "Ꮥ",
+        "result": "ꮥ"
+      },
+      {
+        "cp": 43942,
+        "hex": "ABA6",
+        "input": "ꮦ",
+        "expected": "Ꮦ",
+        "result": "ꮦ"
+      },
+      {
+        "cp": 43943,
+        "hex": "ABA7",
+        "input": "ꮧ",
+        "expected": "Ꮧ",
+        "result": "ꮧ"
+      },
+      {
+        "cp": 43944,
+        "hex": "ABA8",
+        "input": "ꮨ",
+        "expected": "Ꮨ",
+        "result": "ꮨ"
+      },
+      {
+        "cp": 43945,
+        "hex": "ABA9",
+        "input": "ꮩ",
+        "expected": "Ꮩ",
+        "result": "ꮩ"
+      },
+      {
+        "cp": 43946,
+        "hex": "ABAA",
+        "input": "ꮪ",
+        "expected": "Ꮪ",
+        "result": "ꮪ"
+      },
+      {
+        "cp": 43947,
+        "hex": "ABAB",
+        "input": "ꮫ",
+        "expected": "Ꮫ",
+        "result": "ꮫ"
+      },
+      {
+        "cp": 43948,
+        "hex": "ABAC",
+        "input": "ꮬ",
+        "expected": "Ꮬ",
+        "result": "ꮬ"
+      },
+      {
+        "cp": 43949,
+        "hex": "ABAD",
+        "input": "ꮭ",
+        "expected": "Ꮭ",
+        "result": "ꮭ"
+      },
+      {
+        "cp": 43950,
+        "hex": "ABAE",
+        "input": "ꮮ",
+        "expected": "Ꮮ",
+        "result": "ꮮ"
+      },
+      {
+        "cp": 43951,
+        "hex": "ABAF",
+        "input": "ꮯ",
+        "expected": "Ꮯ",
+        "result": "ꮯ"
+      },
+      {
+        "cp": 43952,
+        "hex": "ABB0",
+        "input": "ꮰ",
+        "expected": "Ꮰ",
+        "result": "ꮰ"
+      },
+      {
+        "cp": 43953,
+        "hex": "ABB1",
+        "input": "ꮱ",
+        "expected": "Ꮱ",
+        "result": "ꮱ"
+      },
+      {
+        "cp": 43954,
+        "hex": "ABB2",
+        "input": "ꮲ",
+        "expected": "Ꮲ",
+        "result": "ꮲ"
+      },
+      {
+        "cp": 43955,
+        "hex": "ABB3",
+        "input": "ꮳ",
+        "expected": "Ꮳ",
+        "result": "ꮳ"
+      },
+      {
+        "cp": 43956,
+        "hex": "ABB4",
+        "input": "ꮴ",
+        "expected": "Ꮴ",
+        "result": "ꮴ"
+      },
+      {
+        "cp": 43957,
+        "hex": "ABB5",
+        "input": "ꮵ",
+        "expected": "Ꮵ",
+        "result": "ꮵ"
+      },
+      {
+        "cp": 43958,
+        "hex": "ABB6",
+        "input": "ꮶ",
+        "expected": "Ꮶ",
+        "result": "ꮶ"
+      },
+      {
+        "cp": 43959,
+        "hex": "ABB7",
+        "input": "ꮷ",
+        "expected": "Ꮷ",
+        "result": "ꮷ"
+      },
+      {
+        "cp": 43960,
+        "hex": "ABB8",
+        "input": "ꮸ",
+        "expected": "Ꮸ",
+        "result": "ꮸ"
+      },
+      {
+        "cp": 43961,
+        "hex": "ABB9",
+        "input": "ꮹ",
+        "expected": "Ꮹ",
+        "result": "ꮹ"
+      },
+      {
+        "cp": 43962,
+        "hex": "ABBA",
+        "input": "ꮺ",
+        "expected": "Ꮺ",
+        "result": "ꮺ"
+      },
+      {
+        "cp": 43963,
+        "hex": "ABBB",
+        "input": "ꮻ",
+        "expected": "Ꮻ",
+        "result": "ꮻ"
+      },
+      {
+        "cp": 43964,
+        "hex": "ABBC",
+        "input": "ꮼ",
+        "expected": "Ꮼ",
+        "result": "ꮼ"
+      },
+      {
+        "cp": 43965,
+        "hex": "ABBD",
+        "input": "ꮽ",
+        "expected": "Ꮽ",
+        "result": "ꮽ"
+      },
+      {
+        "cp": 43966,
+        "hex": "ABBE",
+        "input": "ꮾ",
+        "expected": "Ꮾ",
+        "result": "ꮾ"
+      },
+      {
+        "cp": 43967,
+        "hex": "ABBF",
+        "input": "ꮿ",
+        "expected": "Ꮿ",
+        "result": "ꮿ"
+      },
+      {
+        "cp": 68944,
+        "hex": "10D50",
+        "input": "𐵐",
+        "expected": "𐵐",
+        "result": "𐵰"
+      },
+      {
+        "cp": 68945,
+        "hex": "10D51",
+        "input": "𐵑",
+        "expected": "𐵑",
+        "result": "𐵱"
+      },
+      {
+        "cp": 68946,
+        "hex": "10D52",
+        "input": "𐵒",
+        "expected": "𐵒",
+        "result": "𐵲"
+      },
+      {
+        "cp": 68947,
+        "hex": "10D53",
+        "input": "𐵓",
+        "expected": "𐵓",
+        "result": "𐵳"
+      },
+      {
+        "cp": 68948,
+        "hex": "10D54",
+        "input": "𐵔",
+        "expected": "𐵔",
+        "result": "𐵴"
+      },
+      {
+        "cp": 68949,
+        "hex": "10D55",
+        "input": "𐵕",
+        "expected": "𐵕",
+        "result": "𐵵"
+      },
+      {
+        "cp": 68950,
+        "hex": "10D56",
+        "input": "𐵖",
+        "expected": "𐵖",
+        "result": "𐵶"
+      },
+      {
+        "cp": 68951,
+        "hex": "10D57",
+        "input": "𐵗",
+        "expected": "𐵗",
+        "result": "𐵷"
+      },
+      {
+        "cp": 68952,
+        "hex": "10D58",
+        "input": "𐵘",
+        "expected": "𐵘",
+        "result": "𐵸"
+      },
+      {
+        "cp": 68953,
+        "hex": "10D59",
+        "input": "𐵙",
+        "expected": "𐵙",
+        "result": "𐵹"
+      },
+      {
+        "cp": 68954,
+        "hex": "10D5A",
+        "input": "𐵚",
+        "expected": "𐵚",
+        "result": "𐵺"
+      },
+      {
+        "cp": 68955,
+        "hex": "10D5B",
+        "input": "𐵛",
+        "expected": "𐵛",
+        "result": "𐵻"
+      },
+      {
+        "cp": 68956,
+        "hex": "10D5C",
+        "input": "𐵜",
+        "expected": "𐵜",
+        "result": "𐵼"
+      },
+      {
+        "cp": 68957,
+        "hex": "10D5D",
+        "input": "𐵝",
+        "expected": "𐵝",
+        "result": "𐵽"
+      },
+      {
+        "cp": 68958,
+        "hex": "10D5E",
+        "input": "𐵞",
+        "expected": "𐵞",
+        "result": "𐵾"
+      },
+      {
+        "cp": 68959,
+        "hex": "10D5F",
+        "input": "𐵟",
+        "expected": "𐵟",
+        "result": "𐵿"
+      },
+      {
+        "cp": 68960,
+        "hex": "10D60",
+        "input": "𐵠",
+        "expected": "𐵠",
+        "result": "𐶀"
+      },
+      {
+        "cp": 68961,
+        "hex": "10D61",
+        "input": "𐵡",
+        "expected": "𐵡",
+        "result": "𐶁"
+      },
+      {
+        "cp": 68962,
+        "hex": "10D62",
+        "input": "𐵢",
+        "expected": "𐵢",
+        "result": "𐶂"
+      },
+      {
+        "cp": 68963,
+        "hex": "10D63",
+        "input": "𐵣",
+        "expected": "𐵣",
+        "result": "𐶃"
+      },
+      {
+        "cp": 68964,
+        "hex": "10D64",
+        "input": "𐵤",
+        "expected": "𐵤",
+        "result": "𐶄"
+      },
+      {
+        "cp": 68965,
+        "hex": "10D65",
+        "input": "𐵥",
+        "expected": "𐵥",
+        "result": "𐶅"
+      },
+      {
+        "cp": 93856,
+        "hex": "16EA0",
+        "input": "𖺠",
+        "expected": "𖺠",
+        "result": "𖺻"
+      },
+      {
+        "cp": 93857,
+        "hex": "16EA1",
+        "input": "𖺡",
+        "expected": "𖺡",
+        "result": "𖺼"
+      },
+      {
+        "cp": 93858,
+        "hex": "16EA2",
+        "input": "𖺢",
+        "expected": "𖺢",
+        "result": "𖺽"
+      },
+      {
+        "cp": 93859,
+        "hex": "16EA3",
+        "input": "𖺣",
+        "expected": "𖺣",
+        "result": "𖺾"
+      },
+      {
+        "cp": 93860,
+        "hex": "16EA4",
+        "input": "𖺤",
+        "expected": "𖺤",
+        "result": "𖺿"
+      },
+      {
+        "cp": 93861,
+        "hex": "16EA5",
+        "input": "𖺥",
+        "expected": "𖺥",
+        "result": "𖻀"
+      },
+      {
+        "cp": 93862,
+        "hex": "16EA6",
+        "input": "𖺦",
+        "expected": "𖺦",
+        "result": "𖻁"
+      },
+      {
+        "cp": 93863,
+        "hex": "16EA7",
+        "input": "𖺧",
+        "expected": "𖺧",
+        "result": "𖻂"
+      },
+      {
+        "cp": 93864,
+        "hex": "16EA8",
+        "input": "𖺨",
+        "expected": "𖺨",
+        "result": "𖻃"
+      },
+      {
+        "cp": 93865,
+        "hex": "16EA9",
+        "input": "𖺩",
+        "expected": "𖺩",
+        "result": "𖻄"
+      },
+      {
+        "cp": 93866,
+        "hex": "16EAA",
+        "input": "𖺪",
+        "expected": "𖺪",
+        "result": "𖻅"
+      },
+      {
+        "cp": 93867,
+        "hex": "16EAB",
+        "input": "𖺫",
+        "expected": "𖺫",
+        "result": "𖻆"
+      },
+      {
+        "cp": 93868,
+        "hex": "16EAC",
+        "input": "𖺬",
+        "expected": "𖺬",
+        "result": "𖻇"
+      },
+      {
+        "cp": 93869,
+        "hex": "16EAD",
+        "input": "𖺭",
+        "expected": "𖺭",
+        "result": "𖻈"
+      },
+      {
+        "cp": 93870,
+        "hex": "16EAE",
+        "input": "𖺮",
+        "expected": "𖺮",
+        "result": "𖻉"
+      },
+      {
+        "cp": 93871,
+        "hex": "16EAF",
+        "input": "𖺯",
+        "expected": "𖺯",
+        "result": "𖻊"
+      },
+      {
+        "cp": 93872,
+        "hex": "16EB0",
+        "input": "𖺰",
+        "expected": "𖺰",
+        "result": "𖻋"
+      },
+      {
+        "cp": 93873,
+        "hex": "16EB1",
+        "input": "𖺱",
+        "expected": "𖺱",
+        "result": "𖻌"
+      },
+      {
+        "cp": 93874,
+        "hex": "16EB2",
+        "input": "𖺲",
+        "expected": "𖺲",
+        "result": "𖻍"
+      },
+      {
+        "cp": 93875,
+        "hex": "16EB3",
+        "input": "𖺳",
+        "expected": "𖺳",
+        "result": "𖻎"
+      },
+      {
+        "cp": 93876,
+        "hex": "16EB4",
+        "input": "𖺴",
+        "expected": "𖺴",
+        "result": "𖻏"
+      },
+      {
+        "cp": 93877,
+        "hex": "16EB5",
+        "input": "𖺵",
+        "expected": "𖺵",
+        "result": "𖻐"
+      },
+      {
+        "cp": 93878,
+        "hex": "16EB6",
+        "input": "𖺶",
+        "expected": "𖺶",
+        "result": "𖻑"
+      },
+      {
+        "cp": 93879,
+        "hex": "16EB7",
+        "input": "𖺷",
+        "expected": "𖺷",
+        "result": "𖻒"
+      },
+      {
+        "cp": 93880,
+        "hex": "16EB8",
+        "input": "𖺸",
+        "expected": "𖺸",
+        "result": "𖻓"
+      },
+      {
+        "cp": 117974,
+        "hex": "1CCD6",
+        "input": "𜳖",
+        "expected": "𜳖",
+        "result": "a"
+      },
+      {
+        "cp": 117975,
+        "hex": "1CCD7",
+        "input": "𜳗",
+        "expected": "𜳗",
+        "result": "b"
+      },
+      {
+        "cp": 117976,
+        "hex": "1CCD8",
+        "input": "𜳘",
+        "expected": "𜳘",
+        "result": "c"
+      },
+      {
+        "cp": 117977,
+        "hex": "1CCD9",
+        "input": "𜳙",
+        "expected": "𜳙",
+        "result": "d"
+      },
+      {
+        "cp": 117978,
+        "hex": "1CCDA",
+        "input": "𜳚",
+        "expected": "𜳚",
+        "result": "e"
+      },
+      {
+        "cp": 117979,
+        "hex": "1CCDB",
+        "input": "𜳛",
+        "expected": "𜳛",
+        "result": "f"
+      },
+      {
+        "cp": 117980,
+        "hex": "1CCDC",
+        "input": "𜳜",
+        "expected": "𜳜",
+        "result": "g"
+      },
+      {
+        "cp": 117981,
+        "hex": "1CCDD",
+        "input": "𜳝",
+        "expected": "𜳝",
+        "result": "h"
+      },
+      {
+        "cp": 117982,
+        "hex": "1CCDE",
+        "input": "𜳞",
+        "expected": "𜳞",
+        "result": "i"
+      },
+      {
+        "cp": 117983,
+        "hex": "1CCDF",
+        "input": "𜳟",
+        "expected": "𜳟",
+        "result": "j"
+      },
+      {
+        "cp": 117984,
+        "hex": "1CCE0",
+        "input": "𜳠",
+        "expected": "𜳠",
+        "result": "k"
+      },
+      {
+        "cp": 117985,
+        "hex": "1CCE1",
+        "input": "𜳡",
+        "expected": "𜳡",
+        "result": "l"
+      },
+      {
+        "cp": 117986,
+        "hex": "1CCE2",
+        "input": "𜳢",
+        "expected": "𜳢",
+        "result": "m"
+      },
+      {
+        "cp": 117987,
+        "hex": "1CCE3",
+        "input": "𜳣",
+        "expected": "𜳣",
+        "result": "n"
+      },
+      {
+        "cp": 117988,
+        "hex": "1CCE4",
+        "input": "𜳤",
+        "expected": "𜳤",
+        "result": "o"
+      },
+      {
+        "cp": 117989,
+        "hex": "1CCE5",
+        "input": "𜳥",
+        "expected": "𜳥",
+        "result": "p"
+      },
+      {
+        "cp": 117990,
+        "hex": "1CCE6",
+        "input": "𜳦",
+        "expected": "𜳦",
+        "result": "q"
+      },
+      {
+        "cp": 117991,
+        "hex": "1CCE7",
+        "input": "𜳧",
+        "expected": "𜳧",
+        "result": "r"
+      },
+      {
+        "cp": 117992,
+        "hex": "1CCE8",
+        "input": "𜳨",
+        "expected": "𜳨",
+        "result": "s"
+      },
+      {
+        "cp": 117993,
+        "hex": "1CCE9",
+        "input": "𜳩",
+        "expected": "𜳩",
+        "result": "t"
+      },
+      {
+        "cp": 117994,
+        "hex": "1CCEA",
+        "input": "𜳪",
+        "expected": "𜳪",
+        "result": "u"
+      },
+      {
+        "cp": 117995,
+        "hex": "1CCEB",
+        "input": "𜳫",
+        "expected": "𜳫",
+        "result": "v"
+      },
+      {
+        "cp": 117996,
+        "hex": "1CCEC",
+        "input": "𜳬",
+        "expected": "𜳬",
+        "result": "w"
+      },
+      {
+        "cp": 117997,
+        "hex": "1CCED",
+        "input": "𜳭",
+        "expected": "𜳭",
+        "result": "x"
+      },
+      {
+        "cp": 117998,
+        "hex": "1CCEE",
+        "input": "𜳮",
+        "expected": "𜳮",
+        "result": "y"
+      },
+      {
+        "cp": 117999,
+        "hex": "1CCEF",
+        "input": "𜳯",
+        "expected": "𜳯",
+        "result": "z"
+      },
+      {
+        "cp": 118000,
+        "hex": "1CCF0",
+        "input": "𜳰",
+        "expected": "𜳰",
+        "result": "0"
+      },
+      {
+        "cp": 118001,
+        "hex": "1CCF1",
+        "input": "𜳱",
+        "expected": "𜳱",
+        "result": "1"
+      },
+      {
+        "cp": 118002,
+        "hex": "1CCF2",
+        "input": "𜳲",
+        "expected": "𜳲",
+        "result": "2"
+      },
+      {
+        "cp": 118003,
+        "hex": "1CCF3",
+        "input": "𜳳",
+        "expected": "𜳳",
+        "result": "3"
+      },
+      {
+        "cp": 118004,
+        "hex": "1CCF4",
+        "input": "𜳴",
+        "expected": "𜳴",
+        "result": "4"
+      },
+      {
+        "cp": 118005,
+        "hex": "1CCF5",
+        "input": "𜳵",
+        "expected": "𜳵",
+        "result": "5"
+      },
+      {
+        "cp": 118006,
+        "hex": "1CCF6",
+        "input": "𜳶",
+        "expected": "𜳶",
+        "result": "6"
+      },
+      {
+        "cp": 118007,
+        "hex": "1CCF7",
+        "input": "𜳷",
+        "expected": "𜳷",
+        "result": "7"
+      },
+      {
+        "cp": 118008,
+        "hex": "1CCF8",
+        "input": "𜳸",
+        "expected": "𜳸",
+        "result": "8"
+      },
+      {
+        "cp": 118009,
+        "hex": "1CCF9",
+        "input": "𜳹",
+        "expected": "𜳹",
+        "result": "9"
+      },
+      {
+        "cp": 120531,
+        "hex": "1D6D3",
+        "input": "𝛓",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 120589,
+        "hex": "1D70D",
+        "input": "𝜍",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 120647,
+        "hex": "1D747",
+        "input": "𝝇",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 120705,
+        "hex": "1D781",
+        "input": "𝞁",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 120763,
+        "hex": "1D7BB",
+        "input": "𝞻",
+        "expected": "σ",
+        "result": "ς"
+      }
+    ],
+    "upperLower": [
+      {
+        "cp": 305,
+        "hex": "131",
+        "input": "ı",
+        "expected": "ı",
+        "result": "i"
+      },
+      {
+        "cp": 5024,
+        "hex": "13A0",
+        "input": "Ꭰ",
+        "expected": "Ꭰ",
+        "result": "ꭰ"
+      },
+      {
+        "cp": 5025,
+        "hex": "13A1",
+        "input": "Ꭱ",
+        "expected": "Ꭱ",
+        "result": "ꭱ"
+      },
+      {
+        "cp": 5026,
+        "hex": "13A2",
+        "input": "Ꭲ",
+        "expected": "Ꭲ",
+        "result": "ꭲ"
+      },
+      {
+        "cp": 5027,
+        "hex": "13A3",
+        "input": "Ꭳ",
+        "expected": "Ꭳ",
+        "result": "ꭳ"
+      },
+      {
+        "cp": 5028,
+        "hex": "13A4",
+        "input": "Ꭴ",
+        "expected": "Ꭴ",
+        "result": "ꭴ"
+      },
+      {
+        "cp": 5029,
+        "hex": "13A5",
+        "input": "Ꭵ",
+        "expected": "Ꭵ",
+        "result": "ꭵ"
+      },
+      {
+        "cp": 5030,
+        "hex": "13A6",
+        "input": "Ꭶ",
+        "expected": "Ꭶ",
+        "result": "ꭶ"
+      },
+      {
+        "cp": 5031,
+        "hex": "13A7",
+        "input": "Ꭷ",
+        "expected": "Ꭷ",
+        "result": "ꭷ"
+      },
+      {
+        "cp": 5032,
+        "hex": "13A8",
+        "input": "Ꭸ",
+        "expected": "Ꭸ",
+        "result": "ꭸ"
+      },
+      {
+        "cp": 5033,
+        "hex": "13A9",
+        "input": "Ꭹ",
+        "expected": "Ꭹ",
+        "result": "ꭹ"
+      },
+      {
+        "cp": 5034,
+        "hex": "13AA",
+        "input": "Ꭺ",
+        "expected": "Ꭺ",
+        "result": "ꭺ"
+      },
+      {
+        "cp": 5035,
+        "hex": "13AB",
+        "input": "Ꭻ",
+        "expected": "Ꭻ",
+        "result": "ꭻ"
+      },
+      {
+        "cp": 5036,
+        "hex": "13AC",
+        "input": "Ꭼ",
+        "expected": "Ꭼ",
+        "result": "ꭼ"
+      },
+      {
+        "cp": 5037,
+        "hex": "13AD",
+        "input": "Ꭽ",
+        "expected": "Ꭽ",
+        "result": "ꭽ"
+      },
+      {
+        "cp": 5038,
+        "hex": "13AE",
+        "input": "Ꭾ",
+        "expected": "Ꭾ",
+        "result": "ꭾ"
+      },
+      {
+        "cp": 5039,
+        "hex": "13AF",
+        "input": "Ꭿ",
+        "expected": "Ꭿ",
+        "result": "ꭿ"
+      },
+      {
+        "cp": 5040,
+        "hex": "13B0",
+        "input": "Ꮀ",
+        "expected": "Ꮀ",
+        "result": "ꮀ"
+      },
+      {
+        "cp": 5041,
+        "hex": "13B1",
+        "input": "Ꮁ",
+        "expected": "Ꮁ",
+        "result": "ꮁ"
+      },
+      {
+        "cp": 5042,
+        "hex": "13B2",
+        "input": "Ꮂ",
+        "expected": "Ꮂ",
+        "result": "ꮂ"
+      },
+      {
+        "cp": 5043,
+        "hex": "13B3",
+        "input": "Ꮃ",
+        "expected": "Ꮃ",
+        "result": "ꮃ"
+      },
+      {
+        "cp": 5044,
+        "hex": "13B4",
+        "input": "Ꮄ",
+        "expected": "Ꮄ",
+        "result": "ꮄ"
+      },
+      {
+        "cp": 5045,
+        "hex": "13B5",
+        "input": "Ꮅ",
+        "expected": "Ꮅ",
+        "result": "ꮅ"
+      },
+      {
+        "cp": 5046,
+        "hex": "13B6",
+        "input": "Ꮆ",
+        "expected": "Ꮆ",
+        "result": "ꮆ"
+      },
+      {
+        "cp": 5047,
+        "hex": "13B7",
+        "input": "Ꮇ",
+        "expected": "Ꮇ",
+        "result": "ꮇ"
+      },
+      {
+        "cp": 5048,
+        "hex": "13B8",
+        "input": "Ꮈ",
+        "expected": "Ꮈ",
+        "result": "ꮈ"
+      },
+      {
+        "cp": 5049,
+        "hex": "13B9",
+        "input": "Ꮉ",
+        "expected": "Ꮉ",
+        "result": "ꮉ"
+      },
+      {
+        "cp": 5050,
+        "hex": "13BA",
+        "input": "Ꮊ",
+        "expected": "Ꮊ",
+        "result": "ꮊ"
+      },
+      {
+        "cp": 5051,
+        "hex": "13BB",
+        "input": "Ꮋ",
+        "expected": "Ꮋ",
+        "result": "ꮋ"
+      },
+      {
+        "cp": 5052,
+        "hex": "13BC",
+        "input": "Ꮌ",
+        "expected": "Ꮌ",
+        "result": "ꮌ"
+      },
+      {
+        "cp": 5053,
+        "hex": "13BD",
+        "input": "Ꮍ",
+        "expected": "Ꮍ",
+        "result": "ꮍ"
+      },
+      {
+        "cp": 5054,
+        "hex": "13BE",
+        "input": "Ꮎ",
+        "expected": "Ꮎ",
+        "result": "ꮎ"
+      },
+      {
+        "cp": 5055,
+        "hex": "13BF",
+        "input": "Ꮏ",
+        "expected": "Ꮏ",
+        "result": "ꮏ"
+      },
+      {
+        "cp": 5056,
+        "hex": "13C0",
+        "input": "Ꮐ",
+        "expected": "Ꮐ",
+        "result": "ꮐ"
+      },
+      {
+        "cp": 5057,
+        "hex": "13C1",
+        "input": "Ꮑ",
+        "expected": "Ꮑ",
+        "result": "ꮑ"
+      },
+      {
+        "cp": 5058,
+        "hex": "13C2",
+        "input": "Ꮒ",
+        "expected": "Ꮒ",
+        "result": "ꮒ"
+      },
+      {
+        "cp": 5059,
+        "hex": "13C3",
+        "input": "Ꮓ",
+        "expected": "Ꮓ",
+        "result": "ꮓ"
+      },
+      {
+        "cp": 5060,
+        "hex": "13C4",
+        "input": "Ꮔ",
+        "expected": "Ꮔ",
+        "result": "ꮔ"
+      },
+      {
+        "cp": 5061,
+        "hex": "13C5",
+        "input": "Ꮕ",
+        "expected": "Ꮕ",
+        "result": "ꮕ"
+      },
+      {
+        "cp": 5062,
+        "hex": "13C6",
+        "input": "Ꮖ",
+        "expected": "Ꮖ",
+        "result": "ꮖ"
+      },
+      {
+        "cp": 5063,
+        "hex": "13C7",
+        "input": "Ꮗ",
+        "expected": "Ꮗ",
+        "result": "ꮗ"
+      },
+      {
+        "cp": 5064,
+        "hex": "13C8",
+        "input": "Ꮘ",
+        "expected": "Ꮘ",
+        "result": "ꮘ"
+      },
+      {
+        "cp": 5065,
+        "hex": "13C9",
+        "input": "Ꮙ",
+        "expected": "Ꮙ",
+        "result": "ꮙ"
+      },
+      {
+        "cp": 5066,
+        "hex": "13CA",
+        "input": "Ꮚ",
+        "expected": "Ꮚ",
+        "result": "ꮚ"
+      },
+      {
+        "cp": 5067,
+        "hex": "13CB",
+        "input": "Ꮛ",
+        "expected": "Ꮛ",
+        "result": "ꮛ"
+      },
+      {
+        "cp": 5068,
+        "hex": "13CC",
+        "input": "Ꮜ",
+        "expected": "Ꮜ",
+        "result": "ꮜ"
+      },
+      {
+        "cp": 5069,
+        "hex": "13CD",
+        "input": "Ꮝ",
+        "expected": "Ꮝ",
+        "result": "ꮝ"
+      },
+      {
+        "cp": 5070,
+        "hex": "13CE",
+        "input": "Ꮞ",
+        "expected": "Ꮞ",
+        "result": "ꮞ"
+      },
+      {
+        "cp": 5071,
+        "hex": "13CF",
+        "input": "Ꮟ",
+        "expected": "Ꮟ",
+        "result": "ꮟ"
+      },
+      {
+        "cp": 5072,
+        "hex": "13D0",
+        "input": "Ꮠ",
+        "expected": "Ꮠ",
+        "result": "ꮠ"
+      },
+      {
+        "cp": 5073,
+        "hex": "13D1",
+        "input": "Ꮡ",
+        "expected": "Ꮡ",
+        "result": "ꮡ"
+      },
+      {
+        "cp": 5074,
+        "hex": "13D2",
+        "input": "Ꮢ",
+        "expected": "Ꮢ",
+        "result": "ꮢ"
+      },
+      {
+        "cp": 5075,
+        "hex": "13D3",
+        "input": "Ꮣ",
+        "expected": "Ꮣ",
+        "result": "ꮣ"
+      },
+      {
+        "cp": 5076,
+        "hex": "13D4",
+        "input": "Ꮤ",
+        "expected": "Ꮤ",
+        "result": "ꮤ"
+      },
+      {
+        "cp": 5077,
+        "hex": "13D5",
+        "input": "Ꮥ",
+        "expected": "Ꮥ",
+        "result": "ꮥ"
+      },
+      {
+        "cp": 5078,
+        "hex": "13D6",
+        "input": "Ꮦ",
+        "expected": "Ꮦ",
+        "result": "ꮦ"
+      },
+      {
+        "cp": 5079,
+        "hex": "13D7",
+        "input": "Ꮧ",
+        "expected": "Ꮧ",
+        "result": "ꮧ"
+      },
+      {
+        "cp": 5080,
+        "hex": "13D8",
+        "input": "Ꮨ",
+        "expected": "Ꮨ",
+        "result": "ꮨ"
+      },
+      {
+        "cp": 5081,
+        "hex": "13D9",
+        "input": "Ꮩ",
+        "expected": "Ꮩ",
+        "result": "ꮩ"
+      },
+      {
+        "cp": 5082,
+        "hex": "13DA",
+        "input": "Ꮪ",
+        "expected": "Ꮪ",
+        "result": "ꮪ"
+      },
+      {
+        "cp": 5083,
+        "hex": "13DB",
+        "input": "Ꮫ",
+        "expected": "Ꮫ",
+        "result": "ꮫ"
+      },
+      {
+        "cp": 5084,
+        "hex": "13DC",
+        "input": "Ꮬ",
+        "expected": "Ꮬ",
+        "result": "ꮬ"
+      },
+      {
+        "cp": 5085,
+        "hex": "13DD",
+        "input": "Ꮭ",
+        "expected": "Ꮭ",
+        "result": "ꮭ"
+      },
+      {
+        "cp": 5086,
+        "hex": "13DE",
+        "input": "Ꮮ",
+        "expected": "Ꮮ",
+        "result": "ꮮ"
+      },
+      {
+        "cp": 5087,
+        "hex": "13DF",
+        "input": "Ꮯ",
+        "expected": "Ꮯ",
+        "result": "ꮯ"
+      },
+      {
+        "cp": 5088,
+        "hex": "13E0",
+        "input": "Ꮰ",
+        "expected": "Ꮰ",
+        "result": "ꮰ"
+      },
+      {
+        "cp": 5089,
+        "hex": "13E1",
+        "input": "Ꮱ",
+        "expected": "Ꮱ",
+        "result": "ꮱ"
+      },
+      {
+        "cp": 5090,
+        "hex": "13E2",
+        "input": "Ꮲ",
+        "expected": "Ꮲ",
+        "result": "ꮲ"
+      },
+      {
+        "cp": 5091,
+        "hex": "13E3",
+        "input": "Ꮳ",
+        "expected": "Ꮳ",
+        "result": "ꮳ"
+      },
+      {
+        "cp": 5092,
+        "hex": "13E4",
+        "input": "Ꮴ",
+        "expected": "Ꮴ",
+        "result": "ꮴ"
+      },
+      {
+        "cp": 5093,
+        "hex": "13E5",
+        "input": "Ꮵ",
+        "expected": "Ꮵ",
+        "result": "ꮵ"
+      },
+      {
+        "cp": 5094,
+        "hex": "13E6",
+        "input": "Ꮶ",
+        "expected": "Ꮶ",
+        "result": "ꮶ"
+      },
+      {
+        "cp": 5095,
+        "hex": "13E7",
+        "input": "Ꮷ",
+        "expected": "Ꮷ",
+        "result": "ꮷ"
+      },
+      {
+        "cp": 5096,
+        "hex": "13E8",
+        "input": "Ꮸ",
+        "expected": "Ꮸ",
+        "result": "ꮸ"
+      },
+      {
+        "cp": 5097,
+        "hex": "13E9",
+        "input": "Ꮹ",
+        "expected": "Ꮹ",
+        "result": "ꮹ"
+      },
+      {
+        "cp": 5098,
+        "hex": "13EA",
+        "input": "Ꮺ",
+        "expected": "Ꮺ",
+        "result": "ꮺ"
+      },
+      {
+        "cp": 5099,
+        "hex": "13EB",
+        "input": "Ꮻ",
+        "expected": "Ꮻ",
+        "result": "ꮻ"
+      },
+      {
+        "cp": 5100,
+        "hex": "13EC",
+        "input": "Ꮼ",
+        "expected": "Ꮼ",
+        "result": "ꮼ"
+      },
+      {
+        "cp": 5101,
+        "hex": "13ED",
+        "input": "Ꮽ",
+        "expected": "Ꮽ",
+        "result": "ꮽ"
+      },
+      {
+        "cp": 5102,
+        "hex": "13EE",
+        "input": "Ꮾ",
+        "expected": "Ꮾ",
+        "result": "ꮾ"
+      },
+      {
+        "cp": 5103,
+        "hex": "13EF",
+        "input": "Ꮿ",
+        "expected": "Ꮿ",
+        "result": "ꮿ"
+      },
+      {
+        "cp": 5104,
+        "hex": "13F0",
+        "input": "Ᏸ",
+        "expected": "Ᏸ",
+        "result": "ᏸ"
+      },
+      {
+        "cp": 5105,
+        "hex": "13F1",
+        "input": "Ᏹ",
+        "expected": "Ᏹ",
+        "result": "ᏹ"
+      },
+      {
+        "cp": 5106,
+        "hex": "13F2",
+        "input": "Ᏺ",
+        "expected": "Ᏺ",
+        "result": "ᏺ"
+      },
+      {
+        "cp": 5107,
+        "hex": "13F3",
+        "input": "Ᏻ",
+        "expected": "Ᏻ",
+        "result": "ᏻ"
+      },
+      {
+        "cp": 5108,
+        "hex": "13F4",
+        "input": "Ᏼ",
+        "expected": "Ᏼ",
+        "result": "ᏼ"
+      },
+      {
+        "cp": 5109,
+        "hex": "13F5",
+        "input": "Ᏽ",
+        "expected": "Ᏽ",
+        "result": "ᏽ"
+      },
+      {
+        "cp": 5112,
+        "hex": "13F8",
+        "input": "ᏸ",
+        "expected": "Ᏸ",
+        "result": "ᏸ"
+      },
+      {
+        "cp": 5113,
+        "hex": "13F9",
+        "input": "ᏹ",
+        "expected": "Ᏹ",
+        "result": "ᏹ"
+      },
+      {
+        "cp": 5114,
+        "hex": "13FA",
+        "input": "ᏺ",
+        "expected": "Ᏺ",
+        "result": "ᏺ"
+      },
+      {
+        "cp": 5115,
+        "hex": "13FB",
+        "input": "ᏻ",
+        "expected": "Ᏻ",
+        "result": "ᏻ"
+      },
+      {
+        "cp": 5116,
+        "hex": "13FC",
+        "input": "ᏼ",
+        "expected": "Ᏼ",
+        "result": "ᏼ"
+      },
+      {
+        "cp": 5117,
+        "hex": "13FD",
+        "input": "ᏽ",
+        "expected": "Ᏽ",
+        "result": "ᏽ"
+      },
+      {
+        "cp": 7305,
+        "hex": "1C89",
+        "input": "Ᲊ",
+        "expected": "Ᲊ",
+        "result": "ᲊ"
+      },
+      {
+        "cp": 7838,
+        "hex": "1E9E",
+        "input": "ẞ",
+        "expected": "ss",
+        "result": "ß"
+      },
+      {
+        "cp": 42955,
+        "hex": "A7CB",
+        "input": "Ɤ",
+        "expected": "Ɤ",
+        "result": "ɤ"
+      },
+      {
+        "cp": 42956,
+        "hex": "A7CC",
+        "input": "Ꟍ",
+        "expected": "Ꟍ",
+        "result": "ꟍ"
+      },
+      {
+        "cp": 42958,
+        "hex": "A7CE",
+        "input": "꟎",
+        "expected": "꟎",
+        "result": "꟏"
+      },
+      {
+        "cp": 42962,
+        "hex": "A7D2",
+        "input": "꟒",
+        "expected": "꟒",
+        "result": "ꟓ"
+      },
+      {
+        "cp": 42964,
+        "hex": "A7D4",
+        "input": "꟔",
+        "expected": "꟔",
+        "result": "ꟕ"
+      },
+      {
+        "cp": 42970,
+        "hex": "A7DA",
+        "input": "Ꟛ",
+        "expected": "Ꟛ",
+        "result": "ꟛ"
+      },
+      {
+        "cp": 42972,
+        "hex": "A7DC",
+        "input": "Ƛ",
+        "expected": "Ƛ",
+        "result": "ƛ"
+      },
+      {
+        "cp": 42993,
+        "hex": "A7F1",
+        "input": "꟱",
+        "expected": "꟱",
+        "result": "s"
+      },
+      {
+        "cp": 43888,
+        "hex": "AB70",
+        "input": "ꭰ",
+        "expected": "Ꭰ",
+        "result": "ꭰ"
+      },
+      {
+        "cp": 43889,
+        "hex": "AB71",
+        "input": "ꭱ",
+        "expected": "Ꭱ",
+        "result": "ꭱ"
+      },
+      {
+        "cp": 43890,
+        "hex": "AB72",
+        "input": "ꭲ",
+        "expected": "Ꭲ",
+        "result": "ꭲ"
+      },
+      {
+        "cp": 43891,
+        "hex": "AB73",
+        "input": "ꭳ",
+        "expected": "Ꭳ",
+        "result": "ꭳ"
+      },
+      {
+        "cp": 43892,
+        "hex": "AB74",
+        "input": "ꭴ",
+        "expected": "Ꭴ",
+        "result": "ꭴ"
+      },
+      {
+        "cp": 43893,
+        "hex": "AB75",
+        "input": "ꭵ",
+        "expected": "Ꭵ",
+        "result": "ꭵ"
+      },
+      {
+        "cp": 43894,
+        "hex": "AB76",
+        "input": "ꭶ",
+        "expected": "Ꭶ",
+        "result": "ꭶ"
+      },
+      {
+        "cp": 43895,
+        "hex": "AB77",
+        "input": "ꭷ",
+        "expected": "Ꭷ",
+        "result": "ꭷ"
+      },
+      {
+        "cp": 43896,
+        "hex": "AB78",
+        "input": "ꭸ",
+        "expected": "Ꭸ",
+        "result": "ꭸ"
+      },
+      {
+        "cp": 43897,
+        "hex": "AB79",
+        "input": "ꭹ",
+        "expected": "Ꭹ",
+        "result": "ꭹ"
+      },
+      {
+        "cp": 43898,
+        "hex": "AB7A",
+        "input": "ꭺ",
+        "expected": "Ꭺ",
+        "result": "ꭺ"
+      },
+      {
+        "cp": 43899,
+        "hex": "AB7B",
+        "input": "ꭻ",
+        "expected": "Ꭻ",
+        "result": "ꭻ"
+      },
+      {
+        "cp": 43900,
+        "hex": "AB7C",
+        "input": "ꭼ",
+        "expected": "Ꭼ",
+        "result": "ꭼ"
+      },
+      {
+        "cp": 43901,
+        "hex": "AB7D",
+        "input": "ꭽ",
+        "expected": "Ꭽ",
+        "result": "ꭽ"
+      },
+      {
+        "cp": 43902,
+        "hex": "AB7E",
+        "input": "ꭾ",
+        "expected": "Ꭾ",
+        "result": "ꭾ"
+      },
+      {
+        "cp": 43903,
+        "hex": "AB7F",
+        "input": "ꭿ",
+        "expected": "Ꭿ",
+        "result": "ꭿ"
+      },
+      {
+        "cp": 43904,
+        "hex": "AB80",
+        "input": "ꮀ",
+        "expected": "Ꮀ",
+        "result": "ꮀ"
+      },
+      {
+        "cp": 43905,
+        "hex": "AB81",
+        "input": "ꮁ",
+        "expected": "Ꮁ",
+        "result": "ꮁ"
+      },
+      {
+        "cp": 43906,
+        "hex": "AB82",
+        "input": "ꮂ",
+        "expected": "Ꮂ",
+        "result": "ꮂ"
+      },
+      {
+        "cp": 43907,
+        "hex": "AB83",
+        "input": "ꮃ",
+        "expected": "Ꮃ",
+        "result": "ꮃ"
+      },
+      {
+        "cp": 43908,
+        "hex": "AB84",
+        "input": "ꮄ",
+        "expected": "Ꮄ",
+        "result": "ꮄ"
+      },
+      {
+        "cp": 43909,
+        "hex": "AB85",
+        "input": "ꮅ",
+        "expected": "Ꮅ",
+        "result": "ꮅ"
+      },
+      {
+        "cp": 43910,
+        "hex": "AB86",
+        "input": "ꮆ",
+        "expected": "Ꮆ",
+        "result": "ꮆ"
+      },
+      {
+        "cp": 43911,
+        "hex": "AB87",
+        "input": "ꮇ",
+        "expected": "Ꮇ",
+        "result": "ꮇ"
+      },
+      {
+        "cp": 43912,
+        "hex": "AB88",
+        "input": "ꮈ",
+        "expected": "Ꮈ",
+        "result": "ꮈ"
+      },
+      {
+        "cp": 43913,
+        "hex": "AB89",
+        "input": "ꮉ",
+        "expected": "Ꮉ",
+        "result": "ꮉ"
+      },
+      {
+        "cp": 43914,
+        "hex": "AB8A",
+        "input": "ꮊ",
+        "expected": "Ꮊ",
+        "result": "ꮊ"
+      },
+      {
+        "cp": 43915,
+        "hex": "AB8B",
+        "input": "ꮋ",
+        "expected": "Ꮋ",
+        "result": "ꮋ"
+      },
+      {
+        "cp": 43916,
+        "hex": "AB8C",
+        "input": "ꮌ",
+        "expected": "Ꮌ",
+        "result": "ꮌ"
+      },
+      {
+        "cp": 43917,
+        "hex": "AB8D",
+        "input": "ꮍ",
+        "expected": "Ꮍ",
+        "result": "ꮍ"
+      },
+      {
+        "cp": 43918,
+        "hex": "AB8E",
+        "input": "ꮎ",
+        "expected": "Ꮎ",
+        "result": "ꮎ"
+      },
+      {
+        "cp": 43919,
+        "hex": "AB8F",
+        "input": "ꮏ",
+        "expected": "Ꮏ",
+        "result": "ꮏ"
+      },
+      {
+        "cp": 43920,
+        "hex": "AB90",
+        "input": "ꮐ",
+        "expected": "Ꮐ",
+        "result": "ꮐ"
+      },
+      {
+        "cp": 43921,
+        "hex": "AB91",
+        "input": "ꮑ",
+        "expected": "Ꮑ",
+        "result": "ꮑ"
+      },
+      {
+        "cp": 43922,
+        "hex": "AB92",
+        "input": "ꮒ",
+        "expected": "Ꮒ",
+        "result": "ꮒ"
+      },
+      {
+        "cp": 43923,
+        "hex": "AB93",
+        "input": "ꮓ",
+        "expected": "Ꮓ",
+        "result": "ꮓ"
+      },
+      {
+        "cp": 43924,
+        "hex": "AB94",
+        "input": "ꮔ",
+        "expected": "Ꮔ",
+        "result": "ꮔ"
+      },
+      {
+        "cp": 43925,
+        "hex": "AB95",
+        "input": "ꮕ",
+        "expected": "Ꮕ",
+        "result": "ꮕ"
+      },
+      {
+        "cp": 43926,
+        "hex": "AB96",
+        "input": "ꮖ",
+        "expected": "Ꮖ",
+        "result": "ꮖ"
+      },
+      {
+        "cp": 43927,
+        "hex": "AB97",
+        "input": "ꮗ",
+        "expected": "Ꮗ",
+        "result": "ꮗ"
+      },
+      {
+        "cp": 43928,
+        "hex": "AB98",
+        "input": "ꮘ",
+        "expected": "Ꮘ",
+        "result": "ꮘ"
+      },
+      {
+        "cp": 43929,
+        "hex": "AB99",
+        "input": "ꮙ",
+        "expected": "Ꮙ",
+        "result": "ꮙ"
+      },
+      {
+        "cp": 43930,
+        "hex": "AB9A",
+        "input": "ꮚ",
+        "expected": "Ꮚ",
+        "result": "ꮚ"
+      },
+      {
+        "cp": 43931,
+        "hex": "AB9B",
+        "input": "ꮛ",
+        "expected": "Ꮛ",
+        "result": "ꮛ"
+      },
+      {
+        "cp": 43932,
+        "hex": "AB9C",
+        "input": "ꮜ",
+        "expected": "Ꮜ",
+        "result": "ꮜ"
+      },
+      {
+        "cp": 43933,
+        "hex": "AB9D",
+        "input": "ꮝ",
+        "expected": "Ꮝ",
+        "result": "ꮝ"
+      },
+      {
+        "cp": 43934,
+        "hex": "AB9E",
+        "input": "ꮞ",
+        "expected": "Ꮞ",
+        "result": "ꮞ"
+      },
+      {
+        "cp": 43935,
+        "hex": "AB9F",
+        "input": "ꮟ",
+        "expected": "Ꮟ",
+        "result": "ꮟ"
+      },
+      {
+        "cp": 43936,
+        "hex": "ABA0",
+        "input": "ꮠ",
+        "expected": "Ꮠ",
+        "result": "ꮠ"
+      },
+      {
+        "cp": 43937,
+        "hex": "ABA1",
+        "input": "ꮡ",
+        "expected": "Ꮡ",
+        "result": "ꮡ"
+      },
+      {
+        "cp": 43938,
+        "hex": "ABA2",
+        "input": "ꮢ",
+        "expected": "Ꮢ",
+        "result": "ꮢ"
+      },
+      {
+        "cp": 43939,
+        "hex": "ABA3",
+        "input": "ꮣ",
+        "expected": "Ꮣ",
+        "result": "ꮣ"
+      },
+      {
+        "cp": 43940,
+        "hex": "ABA4",
+        "input": "ꮤ",
+        "expected": "Ꮤ",
+        "result": "ꮤ"
+      },
+      {
+        "cp": 43941,
+        "hex": "ABA5",
+        "input": "ꮥ",
+        "expected": "Ꮥ",
+        "result": "ꮥ"
+      },
+      {
+        "cp": 43942,
+        "hex": "ABA6",
+        "input": "ꮦ",
+        "expected": "Ꮦ",
+        "result": "ꮦ"
+      },
+      {
+        "cp": 43943,
+        "hex": "ABA7",
+        "input": "ꮧ",
+        "expected": "Ꮧ",
+        "result": "ꮧ"
+      },
+      {
+        "cp": 43944,
+        "hex": "ABA8",
+        "input": "ꮨ",
+        "expected": "Ꮨ",
+        "result": "ꮨ"
+      },
+      {
+        "cp": 43945,
+        "hex": "ABA9",
+        "input": "ꮩ",
+        "expected": "Ꮩ",
+        "result": "ꮩ"
+      },
+      {
+        "cp": 43946,
+        "hex": "ABAA",
+        "input": "ꮪ",
+        "expected": "Ꮪ",
+        "result": "ꮪ"
+      },
+      {
+        "cp": 43947,
+        "hex": "ABAB",
+        "input": "ꮫ",
+        "expected": "Ꮫ",
+        "result": "ꮫ"
+      },
+      {
+        "cp": 43948,
+        "hex": "ABAC",
+        "input": "ꮬ",
+        "expected": "Ꮬ",
+        "result": "ꮬ"
+      },
+      {
+        "cp": 43949,
+        "hex": "ABAD",
+        "input": "ꮭ",
+        "expected": "Ꮭ",
+        "result": "ꮭ"
+      },
+      {
+        "cp": 43950,
+        "hex": "ABAE",
+        "input": "ꮮ",
+        "expected": "Ꮮ",
+        "result": "ꮮ"
+      },
+      {
+        "cp": 43951,
+        "hex": "ABAF",
+        "input": "ꮯ",
+        "expected": "Ꮯ",
+        "result": "ꮯ"
+      },
+      {
+        "cp": 43952,
+        "hex": "ABB0",
+        "input": "ꮰ",
+        "expected": "Ꮰ",
+        "result": "ꮰ"
+      },
+      {
+        "cp": 43953,
+        "hex": "ABB1",
+        "input": "ꮱ",
+        "expected": "Ꮱ",
+        "result": "ꮱ"
+      },
+      {
+        "cp": 43954,
+        "hex": "ABB2",
+        "input": "ꮲ",
+        "expected": "Ꮲ",
+        "result": "ꮲ"
+      },
+      {
+        "cp": 43955,
+        "hex": "ABB3",
+        "input": "ꮳ",
+        "expected": "Ꮳ",
+        "result": "ꮳ"
+      },
+      {
+        "cp": 43956,
+        "hex": "ABB4",
+        "input": "ꮴ",
+        "expected": "Ꮴ",
+        "result": "ꮴ"
+      },
+      {
+        "cp": 43957,
+        "hex": "ABB5",
+        "input": "ꮵ",
+        "expected": "Ꮵ",
+        "result": "ꮵ"
+      },
+      {
+        "cp": 43958,
+        "hex": "ABB6",
+        "input": "ꮶ",
+        "expected": "Ꮶ",
+        "result": "ꮶ"
+      },
+      {
+        "cp": 43959,
+        "hex": "ABB7",
+        "input": "ꮷ",
+        "expected": "Ꮷ",
+        "result": "ꮷ"
+      },
+      {
+        "cp": 43960,
+        "hex": "ABB8",
+        "input": "ꮸ",
+        "expected": "Ꮸ",
+        "result": "ꮸ"
+      },
+      {
+        "cp": 43961,
+        "hex": "ABB9",
+        "input": "ꮹ",
+        "expected": "Ꮹ",
+        "result": "ꮹ"
+      },
+      {
+        "cp": 43962,
+        "hex": "ABBA",
+        "input": "ꮺ",
+        "expected": "Ꮺ",
+        "result": "ꮺ"
+      },
+      {
+        "cp": 43963,
+        "hex": "ABBB",
+        "input": "ꮻ",
+        "expected": "Ꮻ",
+        "result": "ꮻ"
+      },
+      {
+        "cp": 43964,
+        "hex": "ABBC",
+        "input": "ꮼ",
+        "expected": "Ꮼ",
+        "result": "ꮼ"
+      },
+      {
+        "cp": 43965,
+        "hex": "ABBD",
+        "input": "ꮽ",
+        "expected": "Ꮽ",
+        "result": "ꮽ"
+      },
+      {
+        "cp": 43966,
+        "hex": "ABBE",
+        "input": "ꮾ",
+        "expected": "Ꮾ",
+        "result": "ꮾ"
+      },
+      {
+        "cp": 43967,
+        "hex": "ABBF",
+        "input": "ꮿ",
+        "expected": "Ꮿ",
+        "result": "ꮿ"
+      },
+      {
+        "cp": 68944,
+        "hex": "10D50",
+        "input": "𐵐",
+        "expected": "𐵐",
+        "result": "𐵰"
+      },
+      {
+        "cp": 68945,
+        "hex": "10D51",
+        "input": "𐵑",
+        "expected": "𐵑",
+        "result": "𐵱"
+      },
+      {
+        "cp": 68946,
+        "hex": "10D52",
+        "input": "𐵒",
+        "expected": "𐵒",
+        "result": "𐵲"
+      },
+      {
+        "cp": 68947,
+        "hex": "10D53",
+        "input": "𐵓",
+        "expected": "𐵓",
+        "result": "𐵳"
+      },
+      {
+        "cp": 68948,
+        "hex": "10D54",
+        "input": "𐵔",
+        "expected": "𐵔",
+        "result": "𐵴"
+      },
+      {
+        "cp": 68949,
+        "hex": "10D55",
+        "input": "𐵕",
+        "expected": "𐵕",
+        "result": "𐵵"
+      },
+      {
+        "cp": 68950,
+        "hex": "10D56",
+        "input": "𐵖",
+        "expected": "𐵖",
+        "result": "𐵶"
+      },
+      {
+        "cp": 68951,
+        "hex": "10D57",
+        "input": "𐵗",
+        "expected": "𐵗",
+        "result": "𐵷"
+      },
+      {
+        "cp": 68952,
+        "hex": "10D58",
+        "input": "𐵘",
+        "expected": "𐵘",
+        "result": "𐵸"
+      },
+      {
+        "cp": 68953,
+        "hex": "10D59",
+        "input": "𐵙",
+        "expected": "𐵙",
+        "result": "𐵹"
+      },
+      {
+        "cp": 68954,
+        "hex": "10D5A",
+        "input": "𐵚",
+        "expected": "𐵚",
+        "result": "𐵺"
+      },
+      {
+        "cp": 68955,
+        "hex": "10D5B",
+        "input": "𐵛",
+        "expected": "𐵛",
+        "result": "𐵻"
+      },
+      {
+        "cp": 68956,
+        "hex": "10D5C",
+        "input": "𐵜",
+        "expected": "𐵜",
+        "result": "𐵼"
+      },
+      {
+        "cp": 68957,
+        "hex": "10D5D",
+        "input": "𐵝",
+        "expected": "𐵝",
+        "result": "𐵽"
+      },
+      {
+        "cp": 68958,
+        "hex": "10D5E",
+        "input": "𐵞",
+        "expected": "𐵞",
+        "result": "𐵾"
+      },
+      {
+        "cp": 68959,
+        "hex": "10D5F",
+        "input": "𐵟",
+        "expected": "𐵟",
+        "result": "𐵿"
+      },
+      {
+        "cp": 68960,
+        "hex": "10D60",
+        "input": "𐵠",
+        "expected": "𐵠",
+        "result": "𐶀"
+      },
+      {
+        "cp": 68961,
+        "hex": "10D61",
+        "input": "𐵡",
+        "expected": "𐵡",
+        "result": "𐶁"
+      },
+      {
+        "cp": 68962,
+        "hex": "10D62",
+        "input": "𐵢",
+        "expected": "𐵢",
+        "result": "𐶂"
+      },
+      {
+        "cp": 68963,
+        "hex": "10D63",
+        "input": "𐵣",
+        "expected": "𐵣",
+        "result": "𐶃"
+      },
+      {
+        "cp": 68964,
+        "hex": "10D64",
+        "input": "𐵤",
+        "expected": "𐵤",
+        "result": "𐶄"
+      },
+      {
+        "cp": 68965,
+        "hex": "10D65",
+        "input": "𐵥",
+        "expected": "𐵥",
+        "result": "𐶅"
+      },
+      {
+        "cp": 93856,
+        "hex": "16EA0",
+        "input": "𖺠",
+        "expected": "𖺠",
+        "result": "𖺻"
+      },
+      {
+        "cp": 93857,
+        "hex": "16EA1",
+        "input": "𖺡",
+        "expected": "𖺡",
+        "result": "𖺼"
+      },
+      {
+        "cp": 93858,
+        "hex": "16EA2",
+        "input": "𖺢",
+        "expected": "𖺢",
+        "result": "𖺽"
+      },
+      {
+        "cp": 93859,
+        "hex": "16EA3",
+        "input": "𖺣",
+        "expected": "𖺣",
+        "result": "𖺾"
+      },
+      {
+        "cp": 93860,
+        "hex": "16EA4",
+        "input": "𖺤",
+        "expected": "𖺤",
+        "result": "𖺿"
+      },
+      {
+        "cp": 93861,
+        "hex": "16EA5",
+        "input": "𖺥",
+        "expected": "𖺥",
+        "result": "𖻀"
+      },
+      {
+        "cp": 93862,
+        "hex": "16EA6",
+        "input": "𖺦",
+        "expected": "𖺦",
+        "result": "𖻁"
+      },
+      {
+        "cp": 93863,
+        "hex": "16EA7",
+        "input": "𖺧",
+        "expected": "𖺧",
+        "result": "𖻂"
+      },
+      {
+        "cp": 93864,
+        "hex": "16EA8",
+        "input": "𖺨",
+        "expected": "𖺨",
+        "result": "𖻃"
+      },
+      {
+        "cp": 93865,
+        "hex": "16EA9",
+        "input": "𖺩",
+        "expected": "𖺩",
+        "result": "𖻄"
+      },
+      {
+        "cp": 93866,
+        "hex": "16EAA",
+        "input": "𖺪",
+        "expected": "𖺪",
+        "result": "𖻅"
+      },
+      {
+        "cp": 93867,
+        "hex": "16EAB",
+        "input": "𖺫",
+        "expected": "𖺫",
+        "result": "𖻆"
+      },
+      {
+        "cp": 93868,
+        "hex": "16EAC",
+        "input": "𖺬",
+        "expected": "𖺬",
+        "result": "𖻇"
+      },
+      {
+        "cp": 93869,
+        "hex": "16EAD",
+        "input": "𖺭",
+        "expected": "𖺭",
+        "result": "𖻈"
+      },
+      {
+        "cp": 93870,
+        "hex": "16EAE",
+        "input": "𖺮",
+        "expected": "𖺮",
+        "result": "𖻉"
+      },
+      {
+        "cp": 93871,
+        "hex": "16EAF",
+        "input": "𖺯",
+        "expected": "𖺯",
+        "result": "𖻊"
+      },
+      {
+        "cp": 93872,
+        "hex": "16EB0",
+        "input": "𖺰",
+        "expected": "𖺰",
+        "result": "𖻋"
+      },
+      {
+        "cp": 93873,
+        "hex": "16EB1",
+        "input": "𖺱",
+        "expected": "𖺱",
+        "result": "𖻌"
+      },
+      {
+        "cp": 93874,
+        "hex": "16EB2",
+        "input": "𖺲",
+        "expected": "𖺲",
+        "result": "𖻍"
+      },
+      {
+        "cp": 93875,
+        "hex": "16EB3",
+        "input": "𖺳",
+        "expected": "𖺳",
+        "result": "𖻎"
+      },
+      {
+        "cp": 93876,
+        "hex": "16EB4",
+        "input": "𖺴",
+        "expected": "𖺴",
+        "result": "𖻏"
+      },
+      {
+        "cp": 93877,
+        "hex": "16EB5",
+        "input": "𖺵",
+        "expected": "𖺵",
+        "result": "𖻐"
+      },
+      {
+        "cp": 93878,
+        "hex": "16EB6",
+        "input": "𖺶",
+        "expected": "𖺶",
+        "result": "𖻑"
+      },
+      {
+        "cp": 93879,
+        "hex": "16EB7",
+        "input": "𖺷",
+        "expected": "𖺷",
+        "result": "𖻒"
+      },
+      {
+        "cp": 93880,
+        "hex": "16EB8",
+        "input": "𖺸",
+        "expected": "𖺸",
+        "result": "𖻓"
+      },
+      {
+        "cp": 117974,
+        "hex": "1CCD6",
+        "input": "𜳖",
+        "expected": "𜳖",
+        "result": "a"
+      },
+      {
+        "cp": 117975,
+        "hex": "1CCD7",
+        "input": "𜳗",
+        "expected": "𜳗",
+        "result": "b"
+      },
+      {
+        "cp": 117976,
+        "hex": "1CCD8",
+        "input": "𜳘",
+        "expected": "𜳘",
+        "result": "c"
+      },
+      {
+        "cp": 117977,
+        "hex": "1CCD9",
+        "input": "𜳙",
+        "expected": "𜳙",
+        "result": "d"
+      },
+      {
+        "cp": 117978,
+        "hex": "1CCDA",
+        "input": "𜳚",
+        "expected": "𜳚",
+        "result": "e"
+      },
+      {
+        "cp": 117979,
+        "hex": "1CCDB",
+        "input": "𜳛",
+        "expected": "𜳛",
+        "result": "f"
+      },
+      {
+        "cp": 117980,
+        "hex": "1CCDC",
+        "input": "𜳜",
+        "expected": "𜳜",
+        "result": "g"
+      },
+      {
+        "cp": 117981,
+        "hex": "1CCDD",
+        "input": "𜳝",
+        "expected": "𜳝",
+        "result": "h"
+      },
+      {
+        "cp": 117982,
+        "hex": "1CCDE",
+        "input": "𜳞",
+        "expected": "𜳞",
+        "result": "i"
+      },
+      {
+        "cp": 117983,
+        "hex": "1CCDF",
+        "input": "𜳟",
+        "expected": "𜳟",
+        "result": "j"
+      },
+      {
+        "cp": 117984,
+        "hex": "1CCE0",
+        "input": "𜳠",
+        "expected": "𜳠",
+        "result": "k"
+      },
+      {
+        "cp": 117985,
+        "hex": "1CCE1",
+        "input": "𜳡",
+        "expected": "𜳡",
+        "result": "l"
+      },
+      {
+        "cp": 117986,
+        "hex": "1CCE2",
+        "input": "𜳢",
+        "expected": "𜳢",
+        "result": "m"
+      },
+      {
+        "cp": 117987,
+        "hex": "1CCE3",
+        "input": "𜳣",
+        "expected": "𜳣",
+        "result": "n"
+      },
+      {
+        "cp": 117988,
+        "hex": "1CCE4",
+        "input": "𜳤",
+        "expected": "𜳤",
+        "result": "o"
+      },
+      {
+        "cp": 117989,
+        "hex": "1CCE5",
+        "input": "𜳥",
+        "expected": "𜳥",
+        "result": "p"
+      },
+      {
+        "cp": 117990,
+        "hex": "1CCE6",
+        "input": "𜳦",
+        "expected": "𜳦",
+        "result": "q"
+      },
+      {
+        "cp": 117991,
+        "hex": "1CCE7",
+        "input": "𜳧",
+        "expected": "𜳧",
+        "result": "r"
+      },
+      {
+        "cp": 117992,
+        "hex": "1CCE8",
+        "input": "𜳨",
+        "expected": "𜳨",
+        "result": "s"
+      },
+      {
+        "cp": 117993,
+        "hex": "1CCE9",
+        "input": "𜳩",
+        "expected": "𜳩",
+        "result": "t"
+      },
+      {
+        "cp": 117994,
+        "hex": "1CCEA",
+        "input": "𜳪",
+        "expected": "𜳪",
+        "result": "u"
+      },
+      {
+        "cp": 117995,
+        "hex": "1CCEB",
+        "input": "𜳫",
+        "expected": "𜳫",
+        "result": "v"
+      },
+      {
+        "cp": 117996,
+        "hex": "1CCEC",
+        "input": "𜳬",
+        "expected": "𜳬",
+        "result": "w"
+      },
+      {
+        "cp": 117997,
+        "hex": "1CCED",
+        "input": "𜳭",
+        "expected": "𜳭",
+        "result": "x"
+      },
+      {
+        "cp": 117998,
+        "hex": "1CCEE",
+        "input": "𜳮",
+        "expected": "𜳮",
+        "result": "y"
+      },
+      {
+        "cp": 117999,
+        "hex": "1CCEF",
+        "input": "𜳯",
+        "expected": "𜳯",
+        "result": "z"
+      },
+      {
+        "cp": 118000,
+        "hex": "1CCF0",
+        "input": "𜳰",
+        "expected": "𜳰",
+        "result": "0"
+      },
+      {
+        "cp": 118001,
+        "hex": "1CCF1",
+        "input": "𜳱",
+        "expected": "𜳱",
+        "result": "1"
+      },
+      {
+        "cp": 118002,
+        "hex": "1CCF2",
+        "input": "𜳲",
+        "expected": "𜳲",
+        "result": "2"
+      },
+      {
+        "cp": 118003,
+        "hex": "1CCF3",
+        "input": "𜳳",
+        "expected": "𜳳",
+        "result": "3"
+      },
+      {
+        "cp": 118004,
+        "hex": "1CCF4",
+        "input": "𜳴",
+        "expected": "𜳴",
+        "result": "4"
+      },
+      {
+        "cp": 118005,
+        "hex": "1CCF5",
+        "input": "𜳵",
+        "expected": "𜳵",
+        "result": "5"
+      },
+      {
+        "cp": 118006,
+        "hex": "1CCF6",
+        "input": "𜳶",
+        "expected": "𜳶",
+        "result": "6"
+      },
+      {
+        "cp": 118007,
+        "hex": "1CCF7",
+        "input": "𜳷",
+        "expected": "𜳷",
+        "result": "7"
+      },
+      {
+        "cp": 118008,
+        "hex": "1CCF8",
+        "input": "𜳸",
+        "expected": "𜳸",
+        "result": "8"
+      },
+      {
+        "cp": 118009,
+        "hex": "1CCF9",
+        "input": "𜳹",
+        "expected": "𜳹",
+        "result": "9"
+      },
+      {
+        "cp": 120484,
+        "hex": "1D6A4",
+        "input": "𝚤",
+        "expected": "ı",
+        "result": "i"
+      }
+    ],
+    "nfkcWithFullFold": [
+      {
+        "cp": 42993,
+        "hex": "A7F1",
+        "input": "꟱",
+        "expected": "꟱",
+        "result": "s"
+      },
+      {
+        "cp": 117974,
+        "hex": "1CCD6",
+        "input": "𜳖",
+        "expected": "𜳖",
+        "result": "a"
+      },
+      {
+        "cp": 117975,
+        "hex": "1CCD7",
+        "input": "𜳗",
+        "expected": "𜳗",
+        "result": "b"
+      },
+      {
+        "cp": 117976,
+        "hex": "1CCD8",
+        "input": "𜳘",
+        "expected": "𜳘",
+        "result": "c"
+      },
+      {
+        "cp": 117977,
+        "hex": "1CCD9",
+        "input": "𜳙",
+        "expected": "𜳙",
+        "result": "d"
+      },
+      {
+        "cp": 117978,
+        "hex": "1CCDA",
+        "input": "𜳚",
+        "expected": "𜳚",
+        "result": "e"
+      },
+      {
+        "cp": 117979,
+        "hex": "1CCDB",
+        "input": "𜳛",
+        "expected": "𜳛",
+        "result": "f"
+      },
+      {
+        "cp": 117980,
+        "hex": "1CCDC",
+        "input": "𜳜",
+        "expected": "𜳜",
+        "result": "g"
+      },
+      {
+        "cp": 117981,
+        "hex": "1CCDD",
+        "input": "𜳝",
+        "expected": "𜳝",
+        "result": "h"
+      },
+      {
+        "cp": 117982,
+        "hex": "1CCDE",
+        "input": "𜳞",
+        "expected": "𜳞",
+        "result": "i"
+      },
+      {
+        "cp": 117983,
+        "hex": "1CCDF",
+        "input": "𜳟",
+        "expected": "𜳟",
+        "result": "j"
+      },
+      {
+        "cp": 117984,
+        "hex": "1CCE0",
+        "input": "𜳠",
+        "expected": "𜳠",
+        "result": "k"
+      },
+      {
+        "cp": 117985,
+        "hex": "1CCE1",
+        "input": "𜳡",
+        "expected": "𜳡",
+        "result": "l"
+      },
+      {
+        "cp": 117986,
+        "hex": "1CCE2",
+        "input": "𜳢",
+        "expected": "𜳢",
+        "result": "m"
+      },
+      {
+        "cp": 117987,
+        "hex": "1CCE3",
+        "input": "𜳣",
+        "expected": "𜳣",
+        "result": "n"
+      },
+      {
+        "cp": 117988,
+        "hex": "1CCE4",
+        "input": "𜳤",
+        "expected": "𜳤",
+        "result": "o"
+      },
+      {
+        "cp": 117989,
+        "hex": "1CCE5",
+        "input": "𜳥",
+        "expected": "𜳥",
+        "result": "p"
+      },
+      {
+        "cp": 117990,
+        "hex": "1CCE6",
+        "input": "𜳦",
+        "expected": "𜳦",
+        "result": "q"
+      },
+      {
+        "cp": 117991,
+        "hex": "1CCE7",
+        "input": "𜳧",
+        "expected": "𜳧",
+        "result": "r"
+      },
+      {
+        "cp": 117992,
+        "hex": "1CCE8",
+        "input": "𜳨",
+        "expected": "𜳨",
+        "result": "s"
+      },
+      {
+        "cp": 117993,
+        "hex": "1CCE9",
+        "input": "𜳩",
+        "expected": "𜳩",
+        "result": "t"
+      },
+      {
+        "cp": 117994,
+        "hex": "1CCEA",
+        "input": "𜳪",
+        "expected": "𜳪",
+        "result": "u"
+      },
+      {
+        "cp": 117995,
+        "hex": "1CCEB",
+        "input": "𜳫",
+        "expected": "𜳫",
+        "result": "v"
+      },
+      {
+        "cp": 117996,
+        "hex": "1CCEC",
+        "input": "𜳬",
+        "expected": "𜳬",
+        "result": "w"
+      },
+      {
+        "cp": 117997,
+        "hex": "1CCED",
+        "input": "𜳭",
+        "expected": "𜳭",
+        "result": "x"
+      },
+      {
+        "cp": 117998,
+        "hex": "1CCEE",
+        "input": "𜳮",
+        "expected": "𜳮",
+        "result": "y"
+      },
+      {
+        "cp": 117999,
+        "hex": "1CCEF",
+        "input": "𜳯",
+        "expected": "𜳯",
+        "result": "z"
+      },
+      {
+        "cp": 118000,
+        "hex": "1CCF0",
+        "input": "𜳰",
+        "expected": "𜳰",
+        "result": "0"
+      },
+      {
+        "cp": 118001,
+        "hex": "1CCF1",
+        "input": "𜳱",
+        "expected": "𜳱",
+        "result": "1"
+      },
+      {
+        "cp": 118002,
+        "hex": "1CCF2",
+        "input": "𜳲",
+        "expected": "𜳲",
+        "result": "2"
+      },
+      {
+        "cp": 118003,
+        "hex": "1CCF3",
+        "input": "𜳳",
+        "expected": "𜳳",
+        "result": "3"
+      },
+      {
+        "cp": 118004,
+        "hex": "1CCF4",
+        "input": "𜳴",
+        "expected": "𜳴",
+        "result": "4"
+      },
+      {
+        "cp": 118005,
+        "hex": "1CCF5",
+        "input": "𜳵",
+        "expected": "𜳵",
+        "result": "5"
+      },
+      {
+        "cp": 118006,
+        "hex": "1CCF6",
+        "input": "𜳶",
+        "expected": "𜳶",
+        "result": "6"
+      },
+      {
+        "cp": 118007,
+        "hex": "1CCF7",
+        "input": "𜳷",
+        "expected": "𜳷",
+        "result": "7"
+      },
+      {
+        "cp": 118008,
+        "hex": "1CCF8",
+        "input": "𜳸",
+        "expected": "𜳸",
+        "result": "8"
+      },
+      {
+        "cp": 118009,
+        "hex": "1CCF9",
+        "input": "𜳹",
+        "expected": "𜳹",
+        "result": "9"
+      }
+    ],
+    "nativeNfkc": [
+      {
+        "cp": 42993,
+        "hex": "A7F1",
+        "input": "꟱",
+        "expected": "꟱",
+        "result": "S"
+      },
+      {
+        "cp": 117974,
+        "hex": "1CCD6",
+        "input": "𜳖",
+        "expected": "𜳖",
+        "result": "A"
+      },
+      {
+        "cp": 117975,
+        "hex": "1CCD7",
+        "input": "𜳗",
+        "expected": "𜳗",
+        "result": "B"
+      },
+      {
+        "cp": 117976,
+        "hex": "1CCD8",
+        "input": "𜳘",
+        "expected": "𜳘",
+        "result": "C"
+      },
+      {
+        "cp": 117977,
+        "hex": "1CCD9",
+        "input": "𜳙",
+        "expected": "𜳙",
+        "result": "D"
+      },
+      {
+        "cp": 117978,
+        "hex": "1CCDA",
+        "input": "𜳚",
+        "expected": "𜳚",
+        "result": "E"
+      },
+      {
+        "cp": 117979,
+        "hex": "1CCDB",
+        "input": "𜳛",
+        "expected": "𜳛",
+        "result": "F"
+      },
+      {
+        "cp": 117980,
+        "hex": "1CCDC",
+        "input": "𜳜",
+        "expected": "𜳜",
+        "result": "G"
+      },
+      {
+        "cp": 117981,
+        "hex": "1CCDD",
+        "input": "𜳝",
+        "expected": "𜳝",
+        "result": "H"
+      },
+      {
+        "cp": 117982,
+        "hex": "1CCDE",
+        "input": "𜳞",
+        "expected": "𜳞",
+        "result": "I"
+      },
+      {
+        "cp": 117983,
+        "hex": "1CCDF",
+        "input": "𜳟",
+        "expected": "𜳟",
+        "result": "J"
+      },
+      {
+        "cp": 117984,
+        "hex": "1CCE0",
+        "input": "𜳠",
+        "expected": "𜳠",
+        "result": "K"
+      },
+      {
+        "cp": 117985,
+        "hex": "1CCE1",
+        "input": "𜳡",
+        "expected": "𜳡",
+        "result": "L"
+      },
+      {
+        "cp": 117986,
+        "hex": "1CCE2",
+        "input": "𜳢",
+        "expected": "𜳢",
+        "result": "M"
+      },
+      {
+        "cp": 117987,
+        "hex": "1CCE3",
+        "input": "𜳣",
+        "expected": "𜳣",
+        "result": "N"
+      },
+      {
+        "cp": 117988,
+        "hex": "1CCE4",
+        "input": "𜳤",
+        "expected": "𜳤",
+        "result": "O"
+      },
+      {
+        "cp": 117989,
+        "hex": "1CCE5",
+        "input": "𜳥",
+        "expected": "𜳥",
+        "result": "P"
+      },
+      {
+        "cp": 117990,
+        "hex": "1CCE6",
+        "input": "𜳦",
+        "expected": "𜳦",
+        "result": "Q"
+      },
+      {
+        "cp": 117991,
+        "hex": "1CCE7",
+        "input": "𜳧",
+        "expected": "𜳧",
+        "result": "R"
+      },
+      {
+        "cp": 117992,
+        "hex": "1CCE8",
+        "input": "𜳨",
+        "expected": "𜳨",
+        "result": "S"
+      },
+      {
+        "cp": 117993,
+        "hex": "1CCE9",
+        "input": "𜳩",
+        "expected": "𜳩",
+        "result": "T"
+      },
+      {
+        "cp": 117994,
+        "hex": "1CCEA",
+        "input": "𜳪",
+        "expected": "𜳪",
+        "result": "U"
+      },
+      {
+        "cp": 117995,
+        "hex": "1CCEB",
+        "input": "𜳫",
+        "expected": "𜳫",
+        "result": "V"
+      },
+      {
+        "cp": 117996,
+        "hex": "1CCEC",
+        "input": "𜳬",
+        "expected": "𜳬",
+        "result": "W"
+      },
+      {
+        "cp": 117997,
+        "hex": "1CCED",
+        "input": "𜳭",
+        "expected": "𜳭",
+        "result": "X"
+      },
+      {
+        "cp": 117998,
+        "hex": "1CCEE",
+        "input": "𜳮",
+        "expected": "𜳮",
+        "result": "Y"
+      },
+      {
+        "cp": 117999,
+        "hex": "1CCEF",
+        "input": "𜳯",
+        "expected": "𜳯",
+        "result": "Z"
+      },
+      {
+        "cp": 118000,
+        "hex": "1CCF0",
+        "input": "𜳰",
+        "expected": "𜳰",
+        "result": "0"
+      },
+      {
+        "cp": 118001,
+        "hex": "1CCF1",
+        "input": "𜳱",
+        "expected": "𜳱",
+        "result": "1"
+      },
+      {
+        "cp": 118002,
+        "hex": "1CCF2",
+        "input": "𜳲",
+        "expected": "𜳲",
+        "result": "2"
+      },
+      {
+        "cp": 118003,
+        "hex": "1CCF3",
+        "input": "𜳳",
+        "expected": "𜳳",
+        "result": "3"
+      },
+      {
+        "cp": 118004,
+        "hex": "1CCF4",
+        "input": "𜳴",
+        "expected": "𜳴",
+        "result": "4"
+      },
+      {
+        "cp": 118005,
+        "hex": "1CCF5",
+        "input": "𜳵",
+        "expected": "𜳵",
+        "result": "5"
+      },
+      {
+        "cp": 118006,
+        "hex": "1CCF6",
+        "input": "𜳶",
+        "expected": "𜳶",
+        "result": "6"
+      },
+      {
+        "cp": 118007,
+        "hex": "1CCF7",
+        "input": "𜳷",
+        "expected": "𜳷",
+        "result": "7"
+      },
+      {
+        "cp": 118008,
+        "hex": "1CCF8",
+        "input": "𜳸",
+        "expected": "𜳸",
+        "result": "8"
+      },
+      {
+        "cp": 118009,
+        "hex": "1CCF9",
+        "input": "𜳹",
+        "expected": "𜳹",
+        "result": "9"
+      }
+    ],
+    "nativeScalarLower": [
+      {
+        "cp": 181,
+        "hex": "B5",
+        "input": "µ",
+        "expected": "μ",
+        "result": "µ"
+      },
+      {
+        "cp": 223,
+        "hex": "DF",
+        "input": "ß",
+        "expected": "ss",
+        "result": "ß"
+      },
+      {
+        "cp": 329,
+        "hex": "149",
+        "input": "ŉ",
+        "expected": "ʼn",
+        "result": "ŉ"
+      },
+      {
+        "cp": 383,
+        "hex": "17F",
+        "input": "ſ",
+        "expected": "s",
+        "result": "ſ"
+      },
+      {
+        "cp": 496,
+        "hex": "1F0",
+        "input": "ǰ",
+        "expected": "ǰ",
+        "result": "ǰ"
+      },
+      {
+        "cp": 837,
+        "hex": "345",
+        "input": "ͅ",
+        "expected": "ι",
+        "result": "ͅ"
+      },
+      {
+        "cp": 912,
+        "hex": "390",
+        "input": "ΐ",
+        "expected": "ΐ",
+        "result": "ΐ"
+      },
+      {
+        "cp": 944,
+        "hex": "3B0",
+        "input": "ΰ",
+        "expected": "ΰ",
+        "result": "ΰ"
+      },
+      {
+        "cp": 962,
+        "hex": "3C2",
+        "input": "ς",
+        "expected": "σ",
+        "result": "ς"
+      },
+      {
+        "cp": 976,
+        "hex": "3D0",
+        "input": "ϐ",
+        "expected": "β",
+        "result": "ϐ"
+      },
+      {
+        "cp": 977,
+        "hex": "3D1",
+        "input": "ϑ",
+        "expected": "θ",
+        "result": "ϑ"
+      },
+      {
+        "cp": 981,
+        "hex": "3D5",
+        "input": "ϕ",
+        "expected": "φ",
+        "result": "ϕ"
+      },
+      {
+        "cp": 982,
+        "hex": "3D6",
+        "input": "ϖ",
+        "expected": "π",
+        "result": "ϖ"
+      },
+      {
+        "cp": 1008,
+        "hex": "3F0",
+        "input": "ϰ",
+        "expected": "κ",
+        "result": "ϰ"
+      },
+      {
+        "cp": 1009,
+        "hex": "3F1",
+        "input": "ϱ",
+        "expected": "ρ",
+        "result": "ϱ"
+      },
+      {
+        "cp": 1013,
+        "hex": "3F5",
+        "input": "ϵ",
+        "expected": "ε",
+        "result": "ϵ"
+      },
+      {
+        "cp": 1415,
+        "hex": "587",
+        "input": "և",
+        "expected": "եւ",
+        "result": "և"
+      },
+      {
+        "cp": 5024,
+        "hex": "13A0",
+        "input": "Ꭰ",
+        "expected": "Ꭰ",
+        "result": "ꭰ"
+      },
+      {
+        "cp": 5025,
+        "hex": "13A1",
+        "input": "Ꭱ",
+        "expected": "Ꭱ",
+        "result": "ꭱ"
+      },
+      {
+        "cp": 5026,
+        "hex": "13A2",
+        "input": "Ꭲ",
+        "expected": "Ꭲ",
+        "result": "ꭲ"
+      },
+      {
+        "cp": 5027,
+        "hex": "13A3",
+        "input": "Ꭳ",
+        "expected": "Ꭳ",
+        "result": "ꭳ"
+      },
+      {
+        "cp": 5028,
+        "hex": "13A4",
+        "input": "Ꭴ",
+        "expected": "Ꭴ",
+        "result": "ꭴ"
+      },
+      {
+        "cp": 5029,
+        "hex": "13A5",
+        "input": "Ꭵ",
+        "expected": "Ꭵ",
+        "result": "ꭵ"
+      },
+      {
+        "cp": 5030,
+        "hex": "13A6",
+        "input": "Ꭶ",
+        "expected": "Ꭶ",
+        "result": "ꭶ"
+      },
+      {
+        "cp": 5031,
+        "hex": "13A7",
+        "input": "Ꭷ",
+        "expected": "Ꭷ",
+        "result": "ꭷ"
+      },
+      {
+        "cp": 5032,
+        "hex": "13A8",
+        "input": "Ꭸ",
+        "expected": "Ꭸ",
+        "result": "ꭸ"
+      },
+      {
+        "cp": 5033,
+        "hex": "13A9",
+        "input": "Ꭹ",
+        "expected": "Ꭹ",
+        "result": "ꭹ"
+      },
+      {
+        "cp": 5034,
+        "hex": "13AA",
+        "input": "Ꭺ",
+        "expected": "Ꭺ",
+        "result": "ꭺ"
+      },
+      {
+        "cp": 5035,
+        "hex": "13AB",
+        "input": "Ꭻ",
+        "expected": "Ꭻ",
+        "result": "ꭻ"
+      },
+      {
+        "cp": 5036,
+        "hex": "13AC",
+        "input": "Ꭼ",
+        "expected": "Ꭼ",
+        "result": "ꭼ"
+      },
+      {
+        "cp": 5037,
+        "hex": "13AD",
+        "input": "Ꭽ",
+        "expected": "Ꭽ",
+        "result": "ꭽ"
+      },
+      {
+        "cp": 5038,
+        "hex": "13AE",
+        "input": "Ꭾ",
+        "expected": "Ꭾ",
+        "result": "ꭾ"
+      },
+      {
+        "cp": 5039,
+        "hex": "13AF",
+        "input": "Ꭿ",
+        "expected": "Ꭿ",
+        "result": "ꭿ"
+      },
+      {
+        "cp": 5040,
+        "hex": "13B0",
+        "input": "Ꮀ",
+        "expected": "Ꮀ",
+        "result": "ꮀ"
+      },
+      {
+        "cp": 5041,
+        "hex": "13B1",
+        "input": "Ꮁ",
+        "expected": "Ꮁ",
+        "result": "ꮁ"
+      },
+      {
+        "cp": 5042,
+        "hex": "13B2",
+        "input": "Ꮂ",
+        "expected": "Ꮂ",
+        "result": "ꮂ"
+      },
+      {
+        "cp": 5043,
+        "hex": "13B3",
+        "input": "Ꮃ",
+        "expected": "Ꮃ",
+        "result": "ꮃ"
+      },
+      {
+        "cp": 5044,
+        "hex": "13B4",
+        "input": "Ꮄ",
+        "expected": "Ꮄ",
+        "result": "ꮄ"
+      },
+      {
+        "cp": 5045,
+        "hex": "13B5",
+        "input": "Ꮅ",
+        "expected": "Ꮅ",
+        "result": "ꮅ"
+      },
+      {
+        "cp": 5046,
+        "hex": "13B6",
+        "input": "Ꮆ",
+        "expected": "Ꮆ",
+        "result": "ꮆ"
+      },
+      {
+        "cp": 5047,
+        "hex": "13B7",
+        "input": "Ꮇ",
+        "expected": "Ꮇ",
+        "result": "ꮇ"
+      },
+      {
+        "cp": 5048,
+        "hex": "13B8",
+        "input": "Ꮈ",
+        "expected": "Ꮈ",
+        "result": "ꮈ"
+      },
+      {
+        "cp": 5049,
+        "hex": "13B9",
+        "input": "Ꮉ",
+        "expected": "Ꮉ",
+        "result": "ꮉ"
+      },
+      {
+        "cp": 5050,
+        "hex": "13BA",
+        "input": "Ꮊ",
+        "expected": "Ꮊ",
+        "result": "ꮊ"
+      },
+      {
+        "cp": 5051,
+        "hex": "13BB",
+        "input": "Ꮋ",
+        "expected": "Ꮋ",
+        "result": "ꮋ"
+      },
+      {
+        "cp": 5052,
+        "hex": "13BC",
+        "input": "Ꮌ",
+        "expected": "Ꮌ",
+        "result": "ꮌ"
+      },
+      {
+        "cp": 5053,
+        "hex": "13BD",
+        "input": "Ꮍ",
+        "expected": "Ꮍ",
+        "result": "ꮍ"
+      },
+      {
+        "cp": 5054,
+        "hex": "13BE",
+        "input": "Ꮎ",
+        "expected": "Ꮎ",
+        "result": "ꮎ"
+      },
+      {
+        "cp": 5055,
+        "hex": "13BF",
+        "input": "Ꮏ",
+        "expected": "Ꮏ",
+        "result": "ꮏ"
+      },
+      {
+        "cp": 5056,
+        "hex": "13C0",
+        "input": "Ꮐ",
+        "expected": "Ꮐ",
+        "result": "ꮐ"
+      },
+      {
+        "cp": 5057,
+        "hex": "13C1",
+        "input": "Ꮑ",
+        "expected": "Ꮑ",
+        "result": "ꮑ"
+      },
+      {
+        "cp": 5058,
+        "hex": "13C2",
+        "input": "Ꮒ",
+        "expected": "Ꮒ",
+        "result": "ꮒ"
+      },
+      {
+        "cp": 5059,
+        "hex": "13C3",
+        "input": "Ꮓ",
+        "expected": "Ꮓ",
+        "result": "ꮓ"
+      },
+      {
+        "cp": 5060,
+        "hex": "13C4",
+        "input": "Ꮔ",
+        "expected": "Ꮔ",
+        "result": "ꮔ"
+      },
+      {
+        "cp": 5061,
+        "hex": "13C5",
+        "input": "Ꮕ",
+        "expected": "Ꮕ",
+        "result": "ꮕ"
+      },
+      {
+        "cp": 5062,
+        "hex": "13C6",
+        "input": "Ꮖ",
+        "expected": "Ꮖ",
+        "result": "ꮖ"
+      },
+      {
+        "cp": 5063,
+        "hex": "13C7",
+        "input": "Ꮗ",
+        "expected": "Ꮗ",
+        "result": "ꮗ"
+      },
+      {
+        "cp": 5064,
+        "hex": "13C8",
+        "input": "Ꮘ",
+        "expected": "Ꮘ",
+        "result": "ꮘ"
+      },
+      {
+        "cp": 5065,
+        "hex": "13C9",
+        "input": "Ꮙ",
+        "expected": "Ꮙ",
+        "result": "ꮙ"
+      },
+      {
+        "cp": 5066,
+        "hex": "13CA",
+        "input": "Ꮚ",
+        "expected": "Ꮚ",
+        "result": "ꮚ"
+      },
+      {
+        "cp": 5067,
+        "hex": "13CB",
+        "input": "Ꮛ",
+        "expected": "Ꮛ",
+        "result": "ꮛ"
+      },
+      {
+        "cp": 5068,
+        "hex": "13CC",
+        "input": "Ꮜ",
+        "expected": "Ꮜ",
+        "result": "ꮜ"
+      },
+      {
+        "cp": 5069,
+        "hex": "13CD",
+        "input": "Ꮝ",
+        "expected": "Ꮝ",
+        "result": "ꮝ"
+      },
+      {
+        "cp": 5070,
+        "hex": "13CE",
+        "input": "Ꮞ",
+        "expected": "Ꮞ",
+        "result": "ꮞ"
+      },
+      {
+        "cp": 5071,
+        "hex": "13CF",
+        "input": "Ꮟ",
+        "expected": "Ꮟ",
+        "result": "ꮟ"
+      },
+      {
+        "cp": 5072,
+        "hex": "13D0",
+        "input": "Ꮠ",
+        "expected": "Ꮠ",
+        "result": "ꮠ"
+      },
+      {
+        "cp": 5073,
+        "hex": "13D1",
+        "input": "Ꮡ",
+        "expected": "Ꮡ",
+        "result": "ꮡ"
+      },
+      {
+        "cp": 5074,
+        "hex": "13D2",
+        "input": "Ꮢ",
+        "expected": "Ꮢ",
+        "result": "ꮢ"
+      },
+      {
+        "cp": 5075,
+        "hex": "13D3",
+        "input": "Ꮣ",
+        "expected": "Ꮣ",
+        "result": "ꮣ"
+      },
+      {
+        "cp": 5076,
+        "hex": "13D4",
+        "input": "Ꮤ",
+        "expected": "Ꮤ",
+        "result": "ꮤ"
+      },
+      {
+        "cp": 5077,
+        "hex": "13D5",
+        "input": "Ꮥ",
+        "expected": "Ꮥ",
+        "result": "ꮥ"
+      },
+      {
+        "cp": 5078,
+        "hex": "13D6",
+        "input": "Ꮦ",
+        "expected": "Ꮦ",
+        "result": "ꮦ"
+      },
+      {
+        "cp": 5079,
+        "hex": "13D7",
+        "input": "Ꮧ",
+        "expected": "Ꮧ",
+        "result": "ꮧ"
+      },
+      {
+        "cp": 5080,
+        "hex": "13D8",
+        "input": "Ꮨ",
+        "expected": "Ꮨ",
+        "result": "ꮨ"
+      },
+      {
+        "cp": 5081,
+        "hex": "13D9",
+        "input": "Ꮩ",
+        "expected": "Ꮩ",
+        "result": "ꮩ"
+      },
+      {
+        "cp": 5082,
+        "hex": "13DA",
+        "input": "Ꮪ",
+        "expected": "Ꮪ",
+        "result": "ꮪ"
+      },
+      {
+        "cp": 5083,
+        "hex": "13DB",
+        "input": "Ꮫ",
+        "expected": "Ꮫ",
+        "result": "ꮫ"
+      },
+      {
+        "cp": 5084,
+        "hex": "13DC",
+        "input": "Ꮬ",
+        "expected": "Ꮬ",
+        "result": "ꮬ"
+      },
+      {
+        "cp": 5085,
+        "hex": "13DD",
+        "input": "Ꮭ",
+        "expected": "Ꮭ",
+        "result": "ꮭ"
+      },
+      {
+        "cp": 5086,
+        "hex": "13DE",
+        "input": "Ꮮ",
+        "expected": "Ꮮ",
+        "result": "ꮮ"
+      },
+      {
+        "cp": 5087,
+        "hex": "13DF",
+        "input": "Ꮯ",
+        "expected": "Ꮯ",
+        "result": "ꮯ"
+      },
+      {
+        "cp": 5088,
+        "hex": "13E0",
+        "input": "Ꮰ",
+        "expected": "Ꮰ",
+        "result": "ꮰ"
+      },
+      {
+        "cp": 5089,
+        "hex": "13E1",
+        "input": "Ꮱ",
+        "expected": "Ꮱ",
+        "result": "ꮱ"
+      },
+      {
+        "cp": 5090,
+        "hex": "13E2",
+        "input": "Ꮲ",
+        "expected": "Ꮲ",
+        "result": "ꮲ"
+      },
+      {
+        "cp": 5091,
+        "hex": "13E3",
+        "input": "Ꮳ",
+        "expected": "Ꮳ",
+        "result": "ꮳ"
+      },
+      {
+        "cp": 5092,
+        "hex": "13E4",
+        "input": "Ꮴ",
+        "expected": "Ꮴ",
+        "result": "ꮴ"
+      },
+      {
+        "cp": 5093,
+        "hex": "13E5",
+        "input": "Ꮵ",
+        "expected": "Ꮵ",
+        "result": "ꮵ"
+      },
+      {
+        "cp": 5094,
+        "hex": "13E6",
+        "input": "Ꮶ",
+        "expected": "Ꮶ",
+        "result": "ꮶ"
+      },
+      {
+        "cp": 5095,
+        "hex": "13E7",
+        "input": "Ꮷ",
+        "expected": "Ꮷ",
+        "result": "ꮷ"
+      },
+      {
+        "cp": 5096,
+        "hex": "13E8",
+        "input": "Ꮸ",
+        "expected": "Ꮸ",
+        "result": "ꮸ"
+      },
+      {
+        "cp": 5097,
+        "hex": "13E9",
+        "input": "Ꮹ",
+        "expected": "Ꮹ",
+        "result": "ꮹ"
+      },
+      {
+        "cp": 5098,
+        "hex": "13EA",
+        "input": "Ꮺ",
+        "expected": "Ꮺ",
+        "result": "ꮺ"
+      },
+      {
+        "cp": 5099,
+        "hex": "13EB",
+        "input": "Ꮻ",
+        "expected": "Ꮻ",
+        "result": "ꮻ"
+      },
+      {
+        "cp": 5100,
+        "hex": "13EC",
+        "input": "Ꮼ",
+        "expected": "Ꮼ",
+        "result": "ꮼ"
+      },
+      {
+        "cp": 5101,
+        "hex": "13ED",
+        "input": "Ꮽ",
+        "expected": "Ꮽ",
+        "result": "ꮽ"
+      },
+      {
+        "cp": 5102,
+        "hex": "13EE",
+        "input": "Ꮾ",
+        "expected": "Ꮾ",
+        "result": "ꮾ"
+      },
+      {
+        "cp": 5103,
+        "hex": "13EF",
+        "input": "Ꮿ",
+        "expected": "Ꮿ",
+        "result": "ꮿ"
+      },
+      {
+        "cp": 5104,
+        "hex": "13F0",
+        "input": "Ᏸ",
+        "expected": "Ᏸ",
+        "result": "ᏸ"
+      },
+      {
+        "cp": 5105,
+        "hex": "13F1",
+        "input": "Ᏹ",
+        "expected": "Ᏹ",
+        "result": "ᏹ"
+      },
+      {
+        "cp": 5106,
+        "hex": "13F2",
+        "input": "Ᏺ",
+        "expected": "Ᏺ",
+        "result": "ᏺ"
+      },
+      {
+        "cp": 5107,
+        "hex": "13F3",
+        "input": "Ᏻ",
+        "expected": "Ᏻ",
+        "result": "ᏻ"
+      },
+      {
+        "cp": 5108,
+        "hex": "13F4",
+        "input": "Ᏼ",
+        "expected": "Ᏼ",
+        "result": "ᏼ"
+      },
+      {
+        "cp": 5109,
+        "hex": "13F5",
+        "input": "Ᏽ",
+        "expected": "Ᏽ",
+        "result": "ᏽ"
+      },
+      {
+        "cp": 5112,
+        "hex": "13F8",
+        "input": "ᏸ",
+        "expected": "Ᏸ",
+        "result": "ᏸ"
+      },
+      {
+        "cp": 5113,
+        "hex": "13F9",
+        "input": "ᏹ",
+        "expected": "Ᏹ",
+        "result": "ᏹ"
+      },
+      {
+        "cp": 5114,
+        "hex": "13FA",
+        "input": "ᏺ",
+        "expected": "Ᏺ",
+        "result": "ᏺ"
+      },
+      {
+        "cp": 5115,
+        "hex": "13FB",
+        "input": "ᏻ",
+        "expected": "Ᏻ",
+        "result": "ᏻ"
+      },
+      {
+        "cp": 5116,
+        "hex": "13FC",
+        "input": "ᏼ",
+        "expected": "Ᏼ",
+        "result": "ᏼ"
+      },
+      {
+        "cp": 5117,
+        "hex": "13FD",
+        "input": "ᏽ",
+        "expected": "Ᏽ",
+        "result": "ᏽ"
+      },
+      {
+        "cp": 7296,
+        "hex": "1C80",
+        "input": "ᲀ",
+        "expected": "в",
+        "result": "ᲀ"
+      },
+      {
+        "cp": 7297,
+        "hex": "1C81",
+        "input": "ᲁ",
+        "expected": "д",
+        "result": "ᲁ"
+      },
+      {
+        "cp": 7298,
+        "hex": "1C82",
+        "input": "ᲂ",
+        "expected": "о",
+        "result": "ᲂ"
+      },
+      {
+        "cp": 7299,
+        "hex": "1C83",
+        "input": "ᲃ",
+        "expected": "с",
+        "result": "ᲃ"
+      },
+      {
+        "cp": 7300,
+        "hex": "1C84",
+        "input": "ᲄ",
+        "expected": "т",
+        "result": "ᲄ"
+      },
+      {
+        "cp": 7301,
+        "hex": "1C85",
+        "input": "ᲅ",
+        "expected": "т",
+        "result": "ᲅ"
+      },
+      {
+        "cp": 7302,
+        "hex": "1C86",
+        "input": "ᲆ",
+        "expected": "ъ",
+        "result": "ᲆ"
+      },
+      {
+        "cp": 7303,
+        "hex": "1C87",
+        "input": "ᲇ",
+        "expected": "ѣ",
+        "result": "ᲇ"
+      },
+      {
+        "cp": 7304,
+        "hex": "1C88",
+        "input": "ᲈ",
+        "expected": "ꙋ",
+        "result": "ᲈ"
+      },
+      {
+        "cp": 7305,
+        "hex": "1C89",
+        "input": "Ᲊ",
+        "expected": "Ᲊ",
+        "result": "ᲊ"
+      },
+      {
+        "cp": 7830,
+        "hex": "1E96",
+        "input": "ẖ",
+        "expected": "ẖ",
+        "result": "ẖ"
+      },
+      {
+        "cp": 7831,
+        "hex": "1E97",
+        "input": "ẗ",
+        "expected": "ẗ",
+        "result": "ẗ"
+      },
+      {
+        "cp": 7832,
+        "hex": "1E98",
+        "input": "ẘ",
+        "expected": "ẘ",
+        "result": "ẘ"
+      },
+      {
+        "cp": 7833,
+        "hex": "1E99",
+        "input": "ẙ",
+        "expected": "ẙ",
+        "result": "ẙ"
+      },
+      {
+        "cp": 7834,
+        "hex": "1E9A",
+        "input": "ẚ",
+        "expected": "aʾ",
+        "result": "ẚ"
+      },
+      {
+        "cp": 7835,
+        "hex": "1E9B",
+        "input": "ẛ",
+        "expected": "ṡ",
+        "result": "ẛ"
+      },
+      {
+        "cp": 7838,
+        "hex": "1E9E",
+        "input": "ẞ",
+        "expected": "ss",
+        "result": "ß"
+      },
+      {
+        "cp": 8016,
+        "hex": "1F50",
+        "input": "ὐ",
+        "expected": "ὐ",
+        "result": "ὐ"
+      },
+      {
+        "cp": 8018,
+        "hex": "1F52",
+        "input": "ὒ",
+        "expected": "ὒ",
+        "result": "ὒ"
+      },
+      {
+        "cp": 8020,
+        "hex": "1F54",
+        "input": "ὔ",
+        "expected": "ὔ",
+        "result": "ὔ"
+      },
+      {
+        "cp": 8022,
+        "hex": "1F56",
+        "input": "ὖ",
+        "expected": "ὖ",
+        "result": "ὖ"
+      },
+      {
+        "cp": 8064,
+        "hex": "1F80",
+        "input": "ᾀ",
+        "expected": "ἀι",
+        "result": "ᾀ"
+      },
+      {
+        "cp": 8065,
+        "hex": "1F81",
+        "input": "ᾁ",
+        "expected": "ἁι",
+        "result": "ᾁ"
+      },
+      {
+        "cp": 8066,
+        "hex": "1F82",
+        "input": "ᾂ",
+        "expected": "ἂι",
+        "result": "ᾂ"
+      },
+      {
+        "cp": 8067,
+        "hex": "1F83",
+        "input": "ᾃ",
+        "expected": "ἃι",
+        "result": "ᾃ"
+      },
+      {
+        "cp": 8068,
+        "hex": "1F84",
+        "input": "ᾄ",
+        "expected": "ἄι",
+        "result": "ᾄ"
+      },
+      {
+        "cp": 8069,
+        "hex": "1F85",
+        "input": "ᾅ",
+        "expected": "ἅι",
+        "result": "ᾅ"
+      },
+      {
+        "cp": 8070,
+        "hex": "1F86",
+        "input": "ᾆ",
+        "expected": "ἆι",
+        "result": "ᾆ"
+      },
+      {
+        "cp": 8071,
+        "hex": "1F87",
+        "input": "ᾇ",
+        "expected": "ἇι",
+        "result": "ᾇ"
+      },
+      {
+        "cp": 8072,
+        "hex": "1F88",
+        "input": "ᾈ",
+        "expected": "ἀι",
+        "result": "ᾀ"
+      },
+      {
+        "cp": 8073,
+        "hex": "1F89",
+        "input": "ᾉ",
+        "expected": "ἁι",
+        "result": "ᾁ"
+      },
+      {
+        "cp": 8074,
+        "hex": "1F8A",
+        "input": "ᾊ",
+        "expected": "ἂι",
+        "result": "ᾂ"
+      },
+      {
+        "cp": 8075,
+        "hex": "1F8B",
+        "input": "ᾋ",
+        "expected": "ἃι",
+        "result": "ᾃ"
+      },
+      {
+        "cp": 8076,
+        "hex": "1F8C",
+        "input": "ᾌ",
+        "expected": "ἄι",
+        "result": "ᾄ"
+      },
+      {
+        "cp": 8077,
+        "hex": "1F8D",
+        "input": "ᾍ",
+        "expected": "ἅι",
+        "result": "ᾅ"
+      },
+      {
+        "cp": 8078,
+        "hex": "1F8E",
+        "input": "ᾎ",
+        "expected": "ἆι",
+        "result": "ᾆ"
+      },
+      {
+        "cp": 8079,
+        "hex": "1F8F",
+        "input": "ᾏ",
+        "expected": "ἇι",
+        "result": "ᾇ"
+      },
+      {
+        "cp": 8080,
+        "hex": "1F90",
+        "input": "ᾐ",
+        "expected": "ἠι",
+        "result": "ᾐ"
+      },
+      {
+        "cp": 8081,
+        "hex": "1F91",
+        "input": "ᾑ",
+        "expected": "ἡι",
+        "result": "ᾑ"
+      },
+      {
+        "cp": 8082,
+        "hex": "1F92",
+        "input": "ᾒ",
+        "expected": "ἢι",
+        "result": "ᾒ"
+      },
+      {
+        "cp": 8083,
+        "hex": "1F93",
+        "input": "ᾓ",
+        "expected": "ἣι",
+        "result": "ᾓ"
+      },
+      {
+        "cp": 8084,
+        "hex": "1F94",
+        "input": "ᾔ",
+        "expected": "ἤι",
+        "result": "ᾔ"
+      },
+      {
+        "cp": 8085,
+        "hex": "1F95",
+        "input": "ᾕ",
+        "expected": "ἥι",
+        "result": "ᾕ"
+      },
+      {
+        "cp": 8086,
+        "hex": "1F96",
+        "input": "ᾖ",
+        "expected": "ἦι",
+        "result": "ᾖ"
+      },
+      {
+        "cp": 8087,
+        "hex": "1F97",
+        "input": "ᾗ",
+        "expected": "ἧι",
+        "result": "ᾗ"
+      },
+      {
+        "cp": 8088,
+        "hex": "1F98",
+        "input": "ᾘ",
+        "expected": "ἠι",
+        "result": "ᾐ"
+      },
+      {
+        "cp": 8089,
+        "hex": "1F99",
+        "input": "ᾙ",
+        "expected": "ἡι",
+        "result": "ᾑ"
+      },
+      {
+        "cp": 8090,
+        "hex": "1F9A",
+        "input": "ᾚ",
+        "expected": "ἢι",
+        "result": "ᾒ"
+      },
+      {
+        "cp": 8091,
+        "hex": "1F9B",
+        "input": "ᾛ",
+        "expected": "ἣι",
+        "result": "ᾓ"
+      },
+      {
+        "cp": 8092,
+        "hex": "1F9C",
+        "input": "ᾜ",
+        "expected": "ἤι",
+        "result": "ᾔ"
+      },
+      {
+        "cp": 8093,
+        "hex": "1F9D",
+        "input": "ᾝ",
+        "expected": "ἥι",
+        "result": "ᾕ"
+      },
+      {
+        "cp": 8094,
+        "hex": "1F9E",
+        "input": "ᾞ",
+        "expected": "ἦι",
+        "result": "ᾖ"
+      },
+      {
+        "cp": 8095,
+        "hex": "1F9F",
+        "input": "ᾟ",
+        "expected": "ἧι",
+        "result": "ᾗ"
+      },
+      {
+        "cp": 8096,
+        "hex": "1FA0",
+        "input": "ᾠ",
+        "expected": "ὠι",
+        "result": "ᾠ"
+      },
+      {
+        "cp": 8097,
+        "hex": "1FA1",
+        "input": "ᾡ",
+        "expected": "ὡι",
+        "result": "ᾡ"
+      },
+      {
+        "cp": 8098,
+        "hex": "1FA2",
+        "input": "ᾢ",
+        "expected": "ὢι",
+        "result": "ᾢ"
+      },
+      {
+        "cp": 8099,
+        "hex": "1FA3",
+        "input": "ᾣ",
+        "expected": "ὣι",
+        "result": "ᾣ"
+      },
+      {
+        "cp": 8100,
+        "hex": "1FA4",
+        "input": "ᾤ",
+        "expected": "ὤι",
+        "result": "ᾤ"
+      },
+      {
+        "cp": 8101,
+        "hex": "1FA5",
+        "input": "ᾥ",
+        "expected": "ὥι",
+        "result": "ᾥ"
+      },
+      {
+        "cp": 8102,
+        "hex": "1FA6",
+        "input": "ᾦ",
+        "expected": "ὦι",
+        "result": "ᾦ"
+      },
+      {
+        "cp": 8103,
+        "hex": "1FA7",
+        "input": "ᾧ",
+        "expected": "ὧι",
+        "result": "ᾧ"
+      },
+      {
+        "cp": 8104,
+        "hex": "1FA8",
+        "input": "ᾨ",
+        "expected": "ὠι",
+        "result": "ᾠ"
+      },
+      {
+        "cp": 8105,
+        "hex": "1FA9",
+        "input": "ᾩ",
+        "expected": "ὡι",
+        "result": "ᾡ"
+      },
+      {
+        "cp": 8106,
+        "hex": "1FAA",
+        "input": "ᾪ",
+        "expected": "ὢι",
+        "result": "ᾢ"
+      },
+      {
+        "cp": 8107,
+        "hex": "1FAB",
+        "input": "ᾫ",
+        "expected": "ὣι",
+        "result": "ᾣ"
+      },
+      {
+        "cp": 8108,
+        "hex": "1FAC",
+        "input": "ᾬ",
+        "expected": "ὤι",
+        "result": "ᾤ"
+      },
+      {
+        "cp": 8109,
+        "hex": "1FAD",
+        "input": "ᾭ",
+        "expected": "ὥι",
+        "result": "ᾥ"
+      },
+      {
+        "cp": 8110,
+        "hex": "1FAE",
+        "input": "ᾮ",
+        "expected": "ὦι",
+        "result": "ᾦ"
+      },
+      {
+        "cp": 8111,
+        "hex": "1FAF",
+        "input": "ᾯ",
+        "expected": "ὧι",
+        "result": "ᾧ"
+      },
+      {
+        "cp": 8114,
+        "hex": "1FB2",
+        "input": "ᾲ",
+        "expected": "ὰι",
+        "result": "ᾲ"
+      },
+      {
+        "cp": 8115,
+        "hex": "1FB3",
+        "input": "ᾳ",
+        "expected": "αι",
+        "result": "ᾳ"
+      },
+      {
+        "cp": 8116,
+        "hex": "1FB4",
+        "input": "ᾴ",
+        "expected": "άι",
+        "result": "ᾴ"
+      },
+      {
+        "cp": 8118,
+        "hex": "1FB6",
+        "input": "ᾶ",
+        "expected": "ᾶ",
+        "result": "ᾶ"
+      },
+      {
+        "cp": 8119,
+        "hex": "1FB7",
+        "input": "ᾷ",
+        "expected": "ᾶι",
+        "result": "ᾷ"
+      },
+      {
+        "cp": 8124,
+        "hex": "1FBC",
+        "input": "ᾼ",
+        "expected": "αι",
+        "result": "ᾳ"
+      },
+      {
+        "cp": 8126,
+        "hex": "1FBE",
+        "input": "ι",
+        "expected": "ι",
+        "result": "ι"
+      },
+      {
+        "cp": 8130,
+        "hex": "1FC2",
+        "input": "ῂ",
+        "expected": "ὴι",
+        "result": "ῂ"
+      },
+      {
+        "cp": 8131,
+        "hex": "1FC3",
+        "input": "ῃ",
+        "expected": "ηι",
+        "result": "ῃ"
+      },
+      {
+        "cp": 8132,
+        "hex": "1FC4",
+        "input": "ῄ",
+        "expected": "ήι",
+        "result": "ῄ"
+      },
+      {
+        "cp": 8134,
+        "hex": "1FC6",
+        "input": "ῆ",
+        "expected": "ῆ",
+        "result": "ῆ"
+      },
+      {
+        "cp": 8135,
+        "hex": "1FC7",
+        "input": "ῇ",
+        "expected": "ῆι",
+        "result": "ῇ"
+      },
+      {
+        "cp": 8140,
+        "hex": "1FCC",
+        "input": "ῌ",
+        "expected": "ηι",
+        "result": "ῃ"
+      },
+      {
+        "cp": 8146,
+        "hex": "1FD2",
+        "input": "ῒ",
+        "expected": "ῒ",
+        "result": "ῒ"
+      },
+      {
+        "cp": 8147,
+        "hex": "1FD3",
+        "input": "ΐ",
+        "expected": "ΐ",
+        "result": "ΐ"
+      },
+      {
+        "cp": 8150,
+        "hex": "1FD6",
+        "input": "ῖ",
+        "expected": "ῖ",
+        "result": "ῖ"
+      },
+      {
+        "cp": 8151,
+        "hex": "1FD7",
+        "input": "ῗ",
+        "expected": "ῗ",
+        "result": "ῗ"
+      },
+      {
+        "cp": 8162,
+        "hex": "1FE2",
+        "input": "ῢ",
+        "expected": "ῢ",
+        "result": "ῢ"
+      },
+      {
+        "cp": 8163,
+        "hex": "1FE3",
+        "input": "ΰ",
+        "expected": "ΰ",
+        "result": "ΰ"
+      },
+      {
+        "cp": 8164,
+        "hex": "1FE4",
+        "input": "ῤ",
+        "expected": "ῤ",
+        "result": "ῤ"
+      },
+      {
+        "cp": 8166,
+        "hex": "1FE6",
+        "input": "ῦ",
+        "expected": "ῦ",
+        "result": "ῦ"
+      },
+      {
+        "cp": 8167,
+        "hex": "1FE7",
+        "input": "ῧ",
+        "expected": "ῧ",
+        "result": "ῧ"
+      },
+      {
+        "cp": 8178,
+        "hex": "1FF2",
+        "input": "ῲ",
+        "expected": "ὼι",
+        "result": "ῲ"
+      },
+      {
+        "cp": 8179,
+        "hex": "1FF3",
+        "input": "ῳ",
+        "expected": "ωι",
+        "result": "ῳ"
+      },
+      {
+        "cp": 8180,
+        "hex": "1FF4",
+        "input": "ῴ",
+        "expected": "ώι",
+        "result": "ῴ"
+      },
+      {
+        "cp": 8182,
+        "hex": "1FF6",
+        "input": "ῶ",
+        "expected": "ῶ",
+        "result": "ῶ"
+      },
+      {
+        "cp": 8183,
+        "hex": "1FF7",
+        "input": "ῷ",
+        "expected": "ῶι",
+        "result": "ῷ"
+      },
+      {
+        "cp": 8188,
+        "hex": "1FFC",
+        "input": "ῼ",
+        "expected": "ωι",
+        "result": "ῳ"
+      },
+      {
+        "cp": 42955,
+        "hex": "A7CB",
+        "input": "Ɤ",
+        "expected": "Ɤ",
+        "result": "ɤ"
+      },
+      {
+        "cp": 42956,
+        "hex": "A7CC",
+        "input": "Ꟍ",
+        "expected": "Ꟍ",
+        "result": "ꟍ"
+      },
+      {
+        "cp": 42958,
+        "hex": "A7CE",
+        "input": "꟎",
+        "expected": "꟎",
+        "result": "꟏"
+      },
+      {
+        "cp": 42962,
+        "hex": "A7D2",
+        "input": "꟒",
+        "expected": "꟒",
+        "result": "ꟓ"
+      },
+      {
+        "cp": 42964,
+        "hex": "A7D4",
+        "input": "꟔",
+        "expected": "꟔",
+        "result": "ꟕ"
+      },
+      {
+        "cp": 42970,
+        "hex": "A7DA",
+        "input": "Ꟛ",
+        "expected": "Ꟛ",
+        "result": "ꟛ"
+      },
+      {
+        "cp": 42972,
+        "hex": "A7DC",
+        "input": "Ƛ",
+        "expected": "Ƛ",
+        "result": "ƛ"
+      },
+      {
+        "cp": 43888,
+        "hex": "AB70",
+        "input": "ꭰ",
+        "expected": "Ꭰ",
+        "result": "ꭰ"
+      },
+      {
+        "cp": 43889,
+        "hex": "AB71",
+        "input": "ꭱ",
+        "expected": "Ꭱ",
+        "result": "ꭱ"
+      },
+      {
+        "cp": 43890,
+        "hex": "AB72",
+        "input": "ꭲ",
+        "expected": "Ꭲ",
+        "result": "ꭲ"
+      },
+      {
+        "cp": 43891,
+        "hex": "AB73",
+        "input": "ꭳ",
+        "expected": "Ꭳ",
+        "result": "ꭳ"
+      },
+      {
+        "cp": 43892,
+        "hex": "AB74",
+        "input": "ꭴ",
+        "expected": "Ꭴ",
+        "result": "ꭴ"
+      },
+      {
+        "cp": 43893,
+        "hex": "AB75",
+        "input": "ꭵ",
+        "expected": "Ꭵ",
+        "result": "ꭵ"
+      },
+      {
+        "cp": 43894,
+        "hex": "AB76",
+        "input": "ꭶ",
+        "expected": "Ꭶ",
+        "result": "ꭶ"
+      },
+      {
+        "cp": 43895,
+        "hex": "AB77",
+        "input": "ꭷ",
+        "expected": "Ꭷ",
+        "result": "ꭷ"
+      },
+      {
+        "cp": 43896,
+        "hex": "AB78",
+        "input": "ꭸ",
+        "expected": "Ꭸ",
+        "result": "ꭸ"
+      },
+      {
+        "cp": 43897,
+        "hex": "AB79",
+        "input": "ꭹ",
+        "expected": "Ꭹ",
+        "result": "ꭹ"
+      },
+      {
+        "cp": 43898,
+        "hex": "AB7A",
+        "input": "ꭺ",
+        "expected": "Ꭺ",
+        "result": "ꭺ"
+      },
+      {
+        "cp": 43899,
+        "hex": "AB7B",
+        "input": "ꭻ",
+        "expected": "Ꭻ",
+        "result": "ꭻ"
+      },
+      {
+        "cp": 43900,
+        "hex": "AB7C",
+        "input": "ꭼ",
+        "expected": "Ꭼ",
+        "result": "ꭼ"
+      },
+      {
+        "cp": 43901,
+        "hex": "AB7D",
+        "input": "ꭽ",
+        "expected": "Ꭽ",
+        "result": "ꭽ"
+      },
+      {
+        "cp": 43902,
+        "hex": "AB7E",
+        "input": "ꭾ",
+        "expected": "Ꭾ",
+        "result": "ꭾ"
+      },
+      {
+        "cp": 43903,
+        "hex": "AB7F",
+        "input": "ꭿ",
+        "expected": "Ꭿ",
+        "result": "ꭿ"
+      },
+      {
+        "cp": 43904,
+        "hex": "AB80",
+        "input": "ꮀ",
+        "expected": "Ꮀ",
+        "result": "ꮀ"
+      },
+      {
+        "cp": 43905,
+        "hex": "AB81",
+        "input": "ꮁ",
+        "expected": "Ꮁ",
+        "result": "ꮁ"
+      },
+      {
+        "cp": 43906,
+        "hex": "AB82",
+        "input": "ꮂ",
+        "expected": "Ꮂ",
+        "result": "ꮂ"
+      },
+      {
+        "cp": 43907,
+        "hex": "AB83",
+        "input": "ꮃ",
+        "expected": "Ꮃ",
+        "result": "ꮃ"
+      },
+      {
+        "cp": 43908,
+        "hex": "AB84",
+        "input": "ꮄ",
+        "expected": "Ꮄ",
+        "result": "ꮄ"
+      },
+      {
+        "cp": 43909,
+        "hex": "AB85",
+        "input": "ꮅ",
+        "expected": "Ꮅ",
+        "result": "ꮅ"
+      },
+      {
+        "cp": 43910,
+        "hex": "AB86",
+        "input": "ꮆ",
+        "expected": "Ꮆ",
+        "result": "ꮆ"
+      },
+      {
+        "cp": 43911,
+        "hex": "AB87",
+        "input": "ꮇ",
+        "expected": "Ꮇ",
+        "result": "ꮇ"
+      },
+      {
+        "cp": 43912,
+        "hex": "AB88",
+        "input": "ꮈ",
+        "expected": "Ꮈ",
+        "result": "ꮈ"
+      },
+      {
+        "cp": 43913,
+        "hex": "AB89",
+        "input": "ꮉ",
+        "expected": "Ꮉ",
+        "result": "ꮉ"
+      },
+      {
+        "cp": 43914,
+        "hex": "AB8A",
+        "input": "ꮊ",
+        "expected": "Ꮊ",
+        "result": "ꮊ"
+      },
+      {
+        "cp": 43915,
+        "hex": "AB8B",
+        "input": "ꮋ",
+        "expected": "Ꮋ",
+        "result": "ꮋ"
+      },
+      {
+        "cp": 43916,
+        "hex": "AB8C",
+        "input": "ꮌ",
+        "expected": "Ꮌ",
+        "result": "ꮌ"
+      },
+      {
+        "cp": 43917,
+        "hex": "AB8D",
+        "input": "ꮍ",
+        "expected": "Ꮍ",
+        "result": "ꮍ"
+      },
+      {
+        "cp": 43918,
+        "hex": "AB8E",
+        "input": "ꮎ",
+        "expected": "Ꮎ",
+        "result": "ꮎ"
+      },
+      {
+        "cp": 43919,
+        "hex": "AB8F",
+        "input": "ꮏ",
+        "expected": "Ꮏ",
+        "result": "ꮏ"
+      },
+      {
+        "cp": 43920,
+        "hex": "AB90",
+        "input": "ꮐ",
+        "expected": "Ꮐ",
+        "result": "ꮐ"
+      },
+      {
+        "cp": 43921,
+        "hex": "AB91",
+        "input": "ꮑ",
+        "expected": "Ꮑ",
+        "result": "ꮑ"
+      },
+      {
+        "cp": 43922,
+        "hex": "AB92",
+        "input": "ꮒ",
+        "expected": "Ꮒ",
+        "result": "ꮒ"
+      },
+      {
+        "cp": 43923,
+        "hex": "AB93",
+        "input": "ꮓ",
+        "expected": "Ꮓ",
+        "result": "ꮓ"
+      },
+      {
+        "cp": 43924,
+        "hex": "AB94",
+        "input": "ꮔ",
+        "expected": "Ꮔ",
+        "result": "ꮔ"
+      },
+      {
+        "cp": 43925,
+        "hex": "AB95",
+        "input": "ꮕ",
+        "expected": "Ꮕ",
+        "result": "ꮕ"
+      },
+      {
+        "cp": 43926,
+        "hex": "AB96",
+        "input": "ꮖ",
+        "expected": "Ꮖ",
+        "result": "ꮖ"
+      },
+      {
+        "cp": 43927,
+        "hex": "AB97",
+        "input": "ꮗ",
+        "expected": "Ꮗ",
+        "result": "ꮗ"
+      },
+      {
+        "cp": 43928,
+        "hex": "AB98",
+        "input": "ꮘ",
+        "expected": "Ꮘ",
+        "result": "ꮘ"
+      },
+      {
+        "cp": 43929,
+        "hex": "AB99",
+        "input": "ꮙ",
+        "expected": "Ꮙ",
+        "result": "ꮙ"
+      },
+      {
+        "cp": 43930,
+        "hex": "AB9A",
+        "input": "ꮚ",
+        "expected": "Ꮚ",
+        "result": "ꮚ"
+      },
+      {
+        "cp": 43931,
+        "hex": "AB9B",
+        "input": "ꮛ",
+        "expected": "Ꮛ",
+        "result": "ꮛ"
+      },
+      {
+        "cp": 43932,
+        "hex": "AB9C",
+        "input": "ꮜ",
+        "expected": "Ꮜ",
+        "result": "ꮜ"
+      },
+      {
+        "cp": 43933,
+        "hex": "AB9D",
+        "input": "ꮝ",
+        "expected": "Ꮝ",
+        "result": "ꮝ"
+      },
+      {
+        "cp": 43934,
+        "hex": "AB9E",
+        "input": "ꮞ",
+        "expected": "Ꮞ",
+        "result": "ꮞ"
+      },
+      {
+        "cp": 43935,
+        "hex": "AB9F",
+        "input": "ꮟ",
+        "expected": "Ꮟ",
+        "result": "ꮟ"
+      },
+      {
+        "cp": 43936,
+        "hex": "ABA0",
+        "input": "ꮠ",
+        "expected": "Ꮠ",
+        "result": "ꮠ"
+      },
+      {
+        "cp": 43937,
+        "hex": "ABA1",
+        "input": "ꮡ",
+        "expected": "Ꮡ",
+        "result": "ꮡ"
+      },
+      {
+        "cp": 43938,
+        "hex": "ABA2",
+        "input": "ꮢ",
+        "expected": "Ꮢ",
+        "result": "ꮢ"
+      },
+      {
+        "cp": 43939,
+        "hex": "ABA3",
+        "input": "ꮣ",
+        "expected": "Ꮣ",
+        "result": "ꮣ"
+      },
+      {
+        "cp": 43940,
+        "hex": "ABA4",
+        "input": "ꮤ",
+        "expected": "Ꮤ",
+        "result": "ꮤ"
+      },
+      {
+        "cp": 43941,
+        "hex": "ABA5",
+        "input": "ꮥ",
+        "expected": "Ꮥ",
+        "result": "ꮥ"
+      },
+      {
+        "cp": 43942,
+        "hex": "ABA6",
+        "input": "ꮦ",
+        "expected": "Ꮦ",
+        "result": "ꮦ"
+      },
+      {
+        "cp": 43943,
+        "hex": "ABA7",
+        "input": "ꮧ",
+        "expected": "Ꮧ",
+        "result": "ꮧ"
+      },
+      {
+        "cp": 43944,
+        "hex": "ABA8",
+        "input": "ꮨ",
+        "expected": "Ꮨ",
+        "result": "ꮨ"
+      },
+      {
+        "cp": 43945,
+        "hex": "ABA9",
+        "input": "ꮩ",
+        "expected": "Ꮩ",
+        "result": "ꮩ"
+      },
+      {
+        "cp": 43946,
+        "hex": "ABAA",
+        "input": "ꮪ",
+        "expected": "Ꮪ",
+        "result": "ꮪ"
+      },
+      {
+        "cp": 43947,
+        "hex": "ABAB",
+        "input": "ꮫ",
+        "expected": "Ꮫ",
+        "result": "ꮫ"
+      },
+      {
+        "cp": 43948,
+        "hex": "ABAC",
+        "input": "ꮬ",
+        "expected": "Ꮬ",
+        "result": "ꮬ"
+      },
+      {
+        "cp": 43949,
+        "hex": "ABAD",
+        "input": "ꮭ",
+        "expected": "Ꮭ",
+        "result": "ꮭ"
+      },
+      {
+        "cp": 43950,
+        "hex": "ABAE",
+        "input": "ꮮ",
+        "expected": "Ꮮ",
+        "result": "ꮮ"
+      },
+      {
+        "cp": 43951,
+        "hex": "ABAF",
+        "input": "ꮯ",
+        "expected": "Ꮯ",
+        "result": "ꮯ"
+      },
+      {
+        "cp": 43952,
+        "hex": "ABB0",
+        "input": "ꮰ",
+        "expected": "Ꮰ",
+        "result": "ꮰ"
+      },
+      {
+        "cp": 43953,
+        "hex": "ABB1",
+        "input": "ꮱ",
+        "expected": "Ꮱ",
+        "result": "ꮱ"
+      },
+      {
+        "cp": 43954,
+        "hex": "ABB2",
+        "input": "ꮲ",
+        "expected": "Ꮲ",
+        "result": "ꮲ"
+      },
+      {
+        "cp": 43955,
+        "hex": "ABB3",
+        "input": "ꮳ",
+        "expected": "Ꮳ",
+        "result": "ꮳ"
+      },
+      {
+        "cp": 43956,
+        "hex": "ABB4",
+        "input": "ꮴ",
+        "expected": "Ꮴ",
+        "result": "ꮴ"
+      },
+      {
+        "cp": 43957,
+        "hex": "ABB5",
+        "input": "ꮵ",
+        "expected": "Ꮵ",
+        "result": "ꮵ"
+      },
+      {
+        "cp": 43958,
+        "hex": "ABB6",
+        "input": "ꮶ",
+        "expected": "Ꮶ",
+        "result": "ꮶ"
+      },
+      {
+        "cp": 43959,
+        "hex": "ABB7",
+        "input": "ꮷ",
+        "expected": "Ꮷ",
+        "result": "ꮷ"
+      },
+      {
+        "cp": 43960,
+        "hex": "ABB8",
+        "input": "ꮸ",
+        "expected": "Ꮸ",
+        "result": "ꮸ"
+      },
+      {
+        "cp": 43961,
+        "hex": "ABB9",
+        "input": "ꮹ",
+        "expected": "Ꮹ",
+        "result": "ꮹ"
+      },
+      {
+        "cp": 43962,
+        "hex": "ABBA",
+        "input": "ꮺ",
+        "expected": "Ꮺ",
+        "result": "ꮺ"
+      },
+      {
+        "cp": 43963,
+        "hex": "ABBB",
+        "input": "ꮻ",
+        "expected": "Ꮻ",
+        "result": "ꮻ"
+      },
+      {
+        "cp": 43964,
+        "hex": "ABBC",
+        "input": "ꮼ",
+        "expected": "Ꮼ",
+        "result": "ꮼ"
+      },
+      {
+        "cp": 43965,
+        "hex": "ABBD",
+        "input": "ꮽ",
+        "expected": "Ꮽ",
+        "result": "ꮽ"
+      },
+      {
+        "cp": 43966,
+        "hex": "ABBE",
+        "input": "ꮾ",
+        "expected": "Ꮾ",
+        "result": "ꮾ"
+      },
+      {
+        "cp": 43967,
+        "hex": "ABBF",
+        "input": "ꮿ",
+        "expected": "Ꮿ",
+        "result": "ꮿ"
+      },
+      {
+        "cp": 64256,
+        "hex": "FB00",
+        "input": "ﬀ",
+        "expected": "ff",
+        "result": "ﬀ"
+      },
+      {
+        "cp": 64257,
+        "hex": "FB01",
+        "input": "ﬁ",
+        "expected": "fi",
+        "result": "ﬁ"
+      },
+      {
+        "cp": 64258,
+        "hex": "FB02",
+        "input": "ﬂ",
+        "expected": "fl",
+        "result": "ﬂ"
+      },
+      {
+        "cp": 64259,
+        "hex": "FB03",
+        "input": "ﬃ",
+        "expected": "ffi",
+        "result": "ﬃ"
+      },
+      {
+        "cp": 64260,
+        "hex": "FB04",
+        "input": "ﬄ",
+        "expected": "ffl",
+        "result": "ﬄ"
+      },
+      {
+        "cp": 64261,
+        "hex": "FB05",
+        "input": "ﬅ",
+        "expected": "st",
+        "result": "ﬅ"
+      },
+      {
+        "cp": 64262,
+        "hex": "FB06",
+        "input": "ﬆ",
+        "expected": "st",
+        "result": "ﬆ"
+      },
+      {
+        "cp": 64275,
+        "hex": "FB13",
+        "input": "ﬓ",
+        "expected": "մն",
+        "result": "ﬓ"
+      },
+      {
+        "cp": 64276,
+        "hex": "FB14",
+        "input": "ﬔ",
+        "expected": "մե",
+        "result": "ﬔ"
+      },
+      {
+        "cp": 64277,
+        "hex": "FB15",
+        "input": "ﬕ",
+        "expected": "մի",
+        "result": "ﬕ"
+      },
+      {
+        "cp": 64278,
+        "hex": "FB16",
+        "input": "ﬖ",
+        "expected": "վն",
+        "result": "ﬖ"
+      },
+      {
+        "cp": 64279,
+        "hex": "FB17",
+        "input": "ﬗ",
+        "expected": "մխ",
+        "result": "ﬗ"
+      },
+      {
+        "cp": 68944,
+        "hex": "10D50",
+        "input": "𐵐",
+        "expected": "𐵐",
+        "result": "𐵰"
+      },
+      {
+        "cp": 68945,
+        "hex": "10D51",
+        "input": "𐵑",
+        "expected": "𐵑",
+        "result": "𐵱"
+      },
+      {
+        "cp": 68946,
+        "hex": "10D52",
+        "input": "𐵒",
+        "expected": "𐵒",
+        "result": "𐵲"
+      },
+      {
+        "cp": 68947,
+        "hex": "10D53",
+        "input": "𐵓",
+        "expected": "𐵓",
+        "result": "𐵳"
+      },
+      {
+        "cp": 68948,
+        "hex": "10D54",
+        "input": "𐵔",
+        "expected": "𐵔",
+        "result": "𐵴"
+      },
+      {
+        "cp": 68949,
+        "hex": "10D55",
+        "input": "𐵕",
+        "expected": "𐵕",
+        "result": "𐵵"
+      },
+      {
+        "cp": 68950,
+        "hex": "10D56",
+        "input": "𐵖",
+        "expected": "𐵖",
+        "result": "𐵶"
+      },
+      {
+        "cp": 68951,
+        "hex": "10D57",
+        "input": "𐵗",
+        "expected": "𐵗",
+        "result": "𐵷"
+      },
+      {
+        "cp": 68952,
+        "hex": "10D58",
+        "input": "𐵘",
+        "expected": "𐵘",
+        "result": "𐵸"
+      },
+      {
+        "cp": 68953,
+        "hex": "10D59",
+        "input": "𐵙",
+        "expected": "𐵙",
+        "result": "𐵹"
+      },
+      {
+        "cp": 68954,
+        "hex": "10D5A",
+        "input": "𐵚",
+        "expected": "𐵚",
+        "result": "𐵺"
+      },
+      {
+        "cp": 68955,
+        "hex": "10D5B",
+        "input": "𐵛",
+        "expected": "𐵛",
+        "result": "𐵻"
+      },
+      {
+        "cp": 68956,
+        "hex": "10D5C",
+        "input": "𐵜",
+        "expected": "𐵜",
+        "result": "𐵼"
+      },
+      {
+        "cp": 68957,
+        "hex": "10D5D",
+        "input": "𐵝",
+        "expected": "𐵝",
+        "result": "𐵽"
+      },
+      {
+        "cp": 68958,
+        "hex": "10D5E",
+        "input": "𐵞",
+        "expected": "𐵞",
+        "result": "𐵾"
+      },
+      {
+        "cp": 68959,
+        "hex": "10D5F",
+        "input": "𐵟",
+        "expected": "𐵟",
+        "result": "𐵿"
+      },
+      {
+        "cp": 68960,
+        "hex": "10D60",
+        "input": "𐵠",
+        "expected": "𐵠",
+        "result": "𐶀"
+      },
+      {
+        "cp": 68961,
+        "hex": "10D61",
+        "input": "𐵡",
+        "expected": "𐵡",
+        "result": "𐶁"
+      },
+      {
+        "cp": 68962,
+        "hex": "10D62",
+        "input": "𐵢",
+        "expected": "𐵢",
+        "result": "𐶂"
+      },
+      {
+        "cp": 68963,
+        "hex": "10D63",
+        "input": "𐵣",
+        "expected": "𐵣",
+        "result": "𐶃"
+      },
+      {
+        "cp": 68964,
+        "hex": "10D64",
+        "input": "𐵤",
+        "expected": "𐵤",
+        "result": "𐶄"
+      },
+      {
+        "cp": 68965,
+        "hex": "10D65",
+        "input": "𐵥",
+        "expected": "𐵥",
+        "result": "𐶅"
+      },
+      {
+        "cp": 93856,
+        "hex": "16EA0",
+        "input": "𖺠",
+        "expected": "𖺠",
+        "result": "𖺻"
+      },
+      {
+        "cp": 93857,
+        "hex": "16EA1",
+        "input": "𖺡",
+        "expected": "𖺡",
+        "result": "𖺼"
+      },
+      {
+        "cp": 93858,
+        "hex": "16EA2",
+        "input": "𖺢",
+        "expected": "𖺢",
+        "result": "𖺽"
+      },
+      {
+        "cp": 93859,
+        "hex": "16EA3",
+        "input": "𖺣",
+        "expected": "𖺣",
+        "result": "𖺾"
+      },
+      {
+        "cp": 93860,
+        "hex": "16EA4",
+        "input": "𖺤",
+        "expected": "𖺤",
+        "result": "𖺿"
+      },
+      {
+        "cp": 93861,
+        "hex": "16EA5",
+        "input": "𖺥",
+        "expected": "𖺥",
+        "result": "𖻀"
+      },
+      {
+        "cp": 93862,
+        "hex": "16EA6",
+        "input": "𖺦",
+        "expected": "𖺦",
+        "result": "𖻁"
+      },
+      {
+        "cp": 93863,
+        "hex": "16EA7",
+        "input": "𖺧",
+        "expected": "𖺧",
+        "result": "𖻂"
+      },
+      {
+        "cp": 93864,
+        "hex": "16EA8",
+        "input": "𖺨",
+        "expected": "𖺨",
+        "result": "𖻃"
+      },
+      {
+        "cp": 93865,
+        "hex": "16EA9",
+        "input": "𖺩",
+        "expected": "𖺩",
+        "result": "𖻄"
+      },
+      {
+        "cp": 93866,
+        "hex": "16EAA",
+        "input": "𖺪",
+        "expected": "𖺪",
+        "result": "𖻅"
+      },
+      {
+        "cp": 93867,
+        "hex": "16EAB",
+        "input": "𖺫",
+        "expected": "𖺫",
+        "result": "𖻆"
+      },
+      {
+        "cp": 93868,
+        "hex": "16EAC",
+        "input": "𖺬",
+        "expected": "𖺬",
+        "result": "𖻇"
+      },
+      {
+        "cp": 93869,
+        "hex": "16EAD",
+        "input": "𖺭",
+        "expected": "𖺭",
+        "result": "𖻈"
+      },
+      {
+        "cp": 93870,
+        "hex": "16EAE",
+        "input": "𖺮",
+        "expected": "𖺮",
+        "result": "𖻉"
+      },
+      {
+        "cp": 93871,
+        "hex": "16EAF",
+        "input": "𖺯",
+        "expected": "𖺯",
+        "result": "𖻊"
+      },
+      {
+        "cp": 93872,
+        "hex": "16EB0",
+        "input": "𖺰",
+        "expected": "𖺰",
+        "result": "𖻋"
+      },
+      {
+        "cp": 93873,
+        "hex": "16EB1",
+        "input": "𖺱",
+        "expected": "𖺱",
+        "result": "𖻌"
+      },
+      {
+        "cp": 93874,
+        "hex": "16EB2",
+        "input": "𖺲",
+        "expected": "𖺲",
+        "result": "𖻍"
+      },
+      {
+        "cp": 93875,
+        "hex": "16EB3",
+        "input": "𖺳",
+        "expected": "𖺳",
+        "result": "𖻎"
+      },
+      {
+        "cp": 93876,
+        "hex": "16EB4",
+        "input": "𖺴",
+        "expected": "𖺴",
+        "result": "𖻏"
+      },
+      {
+        "cp": 93877,
+        "hex": "16EB5",
+        "input": "𖺵",
+        "expected": "𖺵",
+        "result": "𖻐"
+      },
+      {
+        "cp": 93878,
+        "hex": "16EB6",
+        "input": "𖺶",
+        "expected": "𖺶",
+        "result": "𖻑"
+      },
+      {
+        "cp": 93879,
+        "hex": "16EB7",
+        "input": "𖺷",
+        "expected": "𖺷",
+        "result": "𖻒"
+      },
+      {
+        "cp": 93880,
+        "hex": "16EB8",
+        "input": "𖺸",
+        "expected": "𖺸",
+        "result": "𖻓"
+      }
+    ]
+  }
+}

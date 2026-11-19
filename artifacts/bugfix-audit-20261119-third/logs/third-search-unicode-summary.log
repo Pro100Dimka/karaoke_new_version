@@ -1,0 +1,111 @@
+{
+  "node": "v24.22.3",
+  "jsUnicode": "17.0",
+  "pythonUnicode": "15.0.0",
+  "scalarCount": 1112064,
+  "casefoldMappings": 1530,
+  "casefoldJsonBytes": 20115,
+  "counts": {
+    "localeLower": 370,
+    "upperLower": 267,
+    "nfkcWithFullFold": 37,
+    "nativeNfkc": 37,
+    "nativeScalarLower": 352
+  },
+  "samples": {
+    "Straße": {
+      "expected": "strasse",
+      "current": "straße",
+      "upperLower": "strasse",
+      "fullFold": "strasse"
+    },
+    "STRASSE": {
+      "expected": "strasse",
+      "current": "strasse",
+      "upperLower": "strasse",
+      "fullFold": "strasse"
+    },
+    "ΟΣ": {
+      "expected": "οσ",
+      "current": "ος",
+      "upperLower": "ος",
+      "fullFold": "οσ"
+    },
+    "οσ": {
+      "expected": "οσ",
+      "current": "οσ",
+      "upperLower": "ος",
+      "fullFold": "οσ"
+    },
+    "ος": {
+      "expected": "οσ",
+      "current": "ος",
+      "upperLower": "ος",
+      "fullFold": "οσ"
+    },
+    "İIıi": {
+      "expected": "i̇iıi",
+      "current": "i̇iıi",
+      "upperLower": "i̇iii",
+      "fullFold": "i̇iıi"
+    },
+    "Ꭰꭰ": {
+      "expected": "ᎠᎠ",
+      "current": "ꭰꭰ",
+      "upperLower": "ꭰꭰ",
+      "fullFold": "ᎠᎠ"
+    },
+    "AΣ": {
+      "expected": "aσ",
+      "current": "aς",
+      "upperLower": "aς",
+      "fullFold": "aσ"
+    },
+    "AΣA": {
+      "expected": "aσa",
+      "current": "aσa",
+      "upperLower": "aσa",
+      "fullFold": "aσa"
+    },
+    "AΣ́": {
+      "expected": "aσ́",
+      "current": "aς́",
+      "upperLower": "aς́",
+      "fullFold": "aσ́"
+    },
+    "AΣ́A": {
+      "expected": "aσ́a",
+      "current": "aσ́a",
+      "upperLower": "aσ́a",
+      "fullFold": "aσ́a"
+    },
+    "İ": {
+      "expected": "i̇",
+      "current": "i̇",
+      "upperLower": "i̇",
+      "fullFold": "i̇"
+    },
+    "ᾲ": {
+      "expected": "ὰι",
+      "current": "ᾲ",
+      "upperLower": "ὰι",
+      "fullFold": "ὰι"
+    }
+  }
+}
+
+Contextual substring case:
+{
+  "query": "ΟΣ",
+  "title": "ΟΣΑ",
+  "table": {
+    "query": "οσ",
+    "title": "οσα",
+    "matches": true
+  },
+  "upperLower": {
+    "query": "ος",
+    "title": "οσα",
+    "matches": false
+  }
+}

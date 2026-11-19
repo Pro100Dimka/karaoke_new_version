@@ -1,0 +1,278 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/app/BootstrapGate.test.tsx (3 tests | 2 failed) 97ms
+   × keeps window controls usable when Python is 'unavailable' 63ms
+   × keeps window controls usable when Python is 'incompatible' 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/BootstrapGate.test.tsx > keeps window controls usable when Python is 'unavailable'
+TestingLibraryElementError: Unable to find an accessible element with the role "toolbar" and name "Управление окном"
+
+Here are the accessible roles:
+
+  alert:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"bootstrapState"[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Python Backend недоступен":
+  [36m<h3 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Повторить":
+  [36m<button[39m
+    [33mclass[39m=[32m"ad ad-button"[39m
+    [33mdata-ad-component[39m=[32m"Button"[39m
+    [33mdata-ad-material[39m=[32m"ruby"[39m
+    [33mdata-ad-variant[39m=[32m"primary"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"bootstrapState"[39m
+      [33mrole[39m=[32m"alert"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ad ad-empty-state"[39m
+        [33mdata-ad-component[39m=[32m"EmptyState"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"ad ad-icon"[39m
+          [33mdata-ad-component[39m=[32m"Icon"[39m
+          [33mdata-ad-surface[39m=[32m"none"[39m
+          [33mstyle[39m=[32m"--ad-icon-size: 2.75rem;"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mdata-ad-component[39m=[32m"IconAsset"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 3.5a1.2 1.2 0 0 1 2 0L25.5 23a1.2 1.2 0 0 1-1 2H3.5a1.2 1.2 0 0 1-1-2Z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 10v6m0 4v.2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</span>[39m
+        [36m<h3>[39m
+          [0mPython Backend недоступен[0m
+        [36m</h3>[39m
+        [36m<p>[39m
+          [0mБиблиотека и функции данных требуют backend. Повторите попытку после его запуска.[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"ad ad-button"[39m
+          [33mdata-ad-component[39m=[32m"Button"[39m
+          [33mdata-ad-material[39m=[32m"ruby"[39m
+          [33mdata-ad-variant[39m=[32m"primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-fx"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ad-button-plasma"[39m
+            [36m/>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-orbit"[39m
+          [36m/>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad ad-icon"[39m
+            [33mdata-ad-component[39m=[32m"Icon"[39m
+            [33mdata-ad-surface[39m=[32m"none"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mdata-ad-component[39m=[32m"IconAsset"[39m
+              [33mviewBox[39m=[32m"0 0 28 28"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M24 11A10 10 0 0 0 6 6L3 10V4m0 6h6M4 17a10 10 0 0 0 18 5l3-4v6m0-6h-6"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [0m [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad-button-label"[39m
+          [36m>[39m
+            [0mПовторить[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/app/BootstrapGate.test.tsx:65:12
+     63|   expect(screen.queryByText('Library content')).not.toBeInTheDocument(…
+     64|   expect(
+     65|     screen.getByRole('toolbar', { name: tr('windowControls') }),
+       |            ^
+     66|   ).toBeVisible();
+     67|   await act(async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/app/BootstrapGate.test.tsx > keeps window controls usable when Python is 'incompatible'
+TestingLibraryElementError: Unable to find an accessible element with the role "toolbar" and name "Управление окном"
+
+Here are the accessible roles:
+
+  alert:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"bootstrapState"[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Протокол Python Backend несовместим":
+  [36m<h3 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Повторить":
+  [36m<button[39m
+    [33mclass[39m=[32m"ad ad-button"[39m
+    [33mdata-ad-component[39m=[32m"Button"[39m
+    [33mdata-ad-material[39m=[32m"ruby"[39m
+    [33mdata-ad-variant[39m=[32m"primary"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"bootstrapState"[39m
+      [33mrole[39m=[32m"alert"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ad ad-empty-state"[39m
+        [33mdata-ad-component[39m=[32m"EmptyState"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"ad ad-icon"[39m
+          [33mdata-ad-component[39m=[32m"Icon"[39m
+          [33mdata-ad-surface[39m=[32m"none"[39m
+          [33mstyle[39m=[32m"--ad-icon-size: 2.75rem;"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mdata-ad-component[39m=[32m"IconAsset"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 3.5a1.2 1.2 0 0 1 2 0L25.5 23a1.2 1.2 0 0 1-1 2H3.5a1.2 1.2 0 0 1-1-2Z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 10v6m0 4v.2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</span>[39m
+        [36m<h3>[39m
+          [0mПротокол Python Backend несовместим[0m
+        [36m</h3>[39m
+        [36m<p>[39m
+          [0mНайдено API 0, ожидается API 1. Переустановите согласованные компоненты приложения.[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"ad ad-button"[39m
+          [33mdata-ad-component[39m=[32m"Button"[39m
+          [33mdata-ad-material[39m=[32m"ruby"[39m
+          [33mdata-ad-variant[39m=[32m"primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-fx"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ad-button-plasma"[39m
+            [36m/>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-orbit"[39m
+          [36m/>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad ad-icon"[39m
+            [33mdata-ad-component[39m=[32m"Icon"[39m
+            [33mdata-ad-surface[39m=[32m"none"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mdata-ad-component[39m=[32m"IconAsset"[39m
+              [33mviewBox[39m=[32m"0 0 28 28"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M24 11A10 10 0 0 0 6 6L3 10V4m0 6h6M4 17a10 10 0 0 0 18 5l3-4v6m0-6h-6"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [0m [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad-button-label"[39m
+          [36m>[39m
+            [0mПовторить[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/app/BootstrapGate.test.tsx:65:12
+     63|   expect(screen.queryByText('Library content')).not.toBeInTheDocument(…
+     64|   expect(
+     65|     screen.getByRole('toolbar', { name: tr('windowControls') }),
+       |            ^
+     66|   ).toBeVisible();
+     67|   await act(async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  19:20:21
+   Duration  867ms (transform 280ms, setup 89ms, import 401ms, tests 97ms, environment 175ms)

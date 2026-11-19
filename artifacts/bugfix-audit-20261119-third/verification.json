@@ -1,0 +1,556 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-11-19T17:42:40.796677+00:00",
+  "branch": "fix/app-bugs-excluding-processing-20261119",
+  "startingCommit": "9d44f17dfa7fbc321c5dc8e8c8a722e9e511cfaf",
+  "originalMainCommit": "b7e3aec091faa8896450cbe575cda4ab92544b13",
+  "testedSourceCommit": "a0559a6faa3b44e6edc00b1d63ddb00ed8b36e67",
+  "testedLocalSourceCommit": "b0c1c6ff7fb9dd6598502fd7b4ea61eeaa64ab3f",
+  "testedSourceSubtrees": {
+    "frontend": "ac025d077b3ae33f982c16b671c7e0a68fafff2e",
+    "python": "3a202b3d79595e223986ff8a657902becd443cee",
+    "AudioService": "4586162af8c579a3edf5aa0f9d4ef3dc72a04a76"
+  },
+  "sourceFilesUnchangedDuringFinalRun": true,
+  "fullRunOrder": [
+    "frontend-typecheck",
+    "frontend-architecture",
+    "frontend-vitest",
+    "frontend-node",
+    "frontend-build"
+  ],
+  "fullSuiteResults": [
+    {
+      "name": "frontend-architecture",
+      "command": [
+        "node",
+        "scripts/check-architecture.mjs"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 0.8,
+      "log": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-architecture.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-architecture.log",
+      "savedLog": "logs/final-frontend-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 8.53,
+      "log": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-build.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-build.log",
+      "savedLog": "logs/final-frontend-build.log",
+      "sha256": "d3f4344236ecdbfa5ac59cf43ae3f6114db728051af3460444657c8efb55a3b2",
+      "savedLogSha256": "9fcd3637f5984f3094e75e46ca3ae30f13a5128d567f6358d4ddb0293598548b"
+    },
+    {
+      "name": "frontend-node",
+      "command": [
+        "node",
+        "--test",
+        "electron/multi-electron-room-plan.test.mjs",
+        "electron/network-impairment.test.mjs",
+        "electron/room-transfer.test.mjs",
+        "electron/start-script.test.mjs",
+        "electron/startup-media.test.mjs",
+        "scripts/audio-control.test.mjs",
+        "scripts/check-architecture.test.mjs",
+        "scripts/check-rules.test.mjs",
+        "scripts/native-test-isolation.test.mjs",
+        "scripts/release-script.test.mjs",
+        "scripts/smoke-catalog.test.mjs",
+        "scripts/startup-lock.test.mjs",
+        "scripts/ui-package-install.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 1.28,
+      "log": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-node.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-node.log",
+      "savedLog": "logs/final-frontend-node.log",
+      "sha256": "2e05436fd6d280452f894d983fba94c726f4a1b7f2b7c7643a7bb0361b55a796",
+      "savedLogSha256": "2e05436fd6d280452f894d983fba94c726f4a1b7f2b7c7643a7bb0361b55a796"
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 7.24,
+      "log": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-typecheck.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-typecheck.log",
+      "savedLog": "logs/final-frontend-typecheck.log",
+      "sha256": "3018cee1da8d074bafeb4b29ea92a288de11137b99baa8692f14bec5696209ae",
+      "savedLogSha256": "083c5dee15587a172540b4fff31aaf5868415a405adbe7a13b82449427ef4914"
+    },
+    {
+      "name": "frontend-vitest",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--maxWorkers=4"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 1,
+      "elapsed_seconds": 29.75,
+      "log": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-vitest.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-vitest.log",
+      "savedLog": "logs/final-frontend-vitest.log",
+      "sha256": "6712f339ee468ca10716db96b725fb973c3245fc20f92fa8d70189916a2cb840",
+      "savedLogSha256": "a81c4ccf02677f28a7d79282bda08c2f3d4567bab7abf903ae7ff1fd99a2ce8a"
+    }
+  ],
+  "intermediateFullRun": {
+    "supersededByFinalRun": true,
+    "results": [
+      {
+        "name": "frontend-architecture",
+        "command": [
+          "node",
+          "scripts/check-architecture.mjs"
+        ],
+        "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+        "exit_code": 0,
+        "elapsed_seconds": 0.45,
+        "log": "/workspace/scratch/726a7fe1e251/verification-third/frontend-architecture.log",
+        "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-architecture.log",
+        "savedLog": "logs/intermediate-frontend-architecture.log",
+        "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+        "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+      },
+      {
+        "name": "frontend-build",
+        "command": [
+          "npm",
+          "run",
+          "build"
+        ],
+        "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+        "exit_code": 0,
+        "elapsed_seconds": 8.49,
+        "log": "/workspace/scratch/726a7fe1e251/verification-third/frontend-build.log",
+        "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-build.log",
+        "savedLog": "logs/intermediate-frontend-build.log",
+        "sha256": "371a93b2f83fbcdf5fb95338951b07e2da86e866681192297174e325ec74a681",
+        "savedLogSha256": "405d2a086eda6948efb7834fcbdcb50fcdc55a54cec6ff97625779ffb57954e4"
+      },
+      {
+        "name": "frontend-node",
+        "command": [
+          "node",
+          "--test",
+          "electron/multi-electron-room-plan.test.mjs",
+          "electron/network-impairment.test.mjs",
+          "electron/room-transfer.test.mjs",
+          "electron/start-script.test.mjs",
+          "electron/startup-media.test.mjs",
+          "scripts/audio-control.test.mjs",
+          "scripts/check-architecture.test.mjs",
+          "scripts/check-rules.test.mjs",
+          "scripts/native-test-isolation.test.mjs",
+          "scripts/release-script.test.mjs",
+          "scripts/smoke-catalog.test.mjs",
+          "scripts/startup-lock.test.mjs",
+          "scripts/ui-package-install.test.mjs"
+        ],
+        "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+        "exit_code": 0,
+        "elapsed_seconds": 1.42,
+        "log": "/workspace/scratch/726a7fe1e251/verification-third/frontend-node.log",
+        "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-node.log",
+        "savedLog": "logs/intermediate-frontend-node.log",
+        "sha256": "079191d8960e2f64c6d955d80c81a27bf57ea29538cfdd333679985ee1511423",
+        "savedLogSha256": "079191d8960e2f64c6d955d80c81a27bf57ea29538cfdd333679985ee1511423"
+      },
+      {
+        "name": "frontend-typecheck",
+        "command": [
+          "npm",
+          "run",
+          "typecheck"
+        ],
+        "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+        "exit_code": 0,
+        "elapsed_seconds": 7.06,
+        "log": "/workspace/scratch/726a7fe1e251/verification-third/frontend-typecheck.log",
+        "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-typecheck.log",
+        "savedLog": "logs/intermediate-frontend-typecheck.log",
+        "sha256": "3018cee1da8d074bafeb4b29ea92a288de11137b99baa8692f14bec5696209ae",
+        "savedLogSha256": "083c5dee15587a172540b4fff31aaf5868415a405adbe7a13b82449427ef4914"
+      },
+      {
+        "name": "frontend-vitest",
+        "command": [
+          "node",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "--maxWorkers=4"
+        ],
+        "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+        "exit_code": 1,
+        "elapsed_seconds": 26.54,
+        "log": "/workspace/scratch/726a7fe1e251/verification-third/frontend-vitest.log",
+        "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-vitest.log",
+        "savedLog": "logs/intermediate-frontend-vitest.log",
+        "sha256": "08c00ed0da9c88c1c73e47d49b9ef0ad1159018553600c511d7528fb945c1a41",
+        "savedLogSha256": "51660db7e8419b76b4ea15a0b9fc7052cff6d3621d3439ab026d75c74cc5f21d"
+      }
+    ]
+  },
+  "results": {
+    "frontend": {
+      "passedTests": 1254,
+      "passedSuites": 180,
+      "failedCollectionSuites": 1
+    },
+    "node": {
+      "passed": 109,
+      "skipped": 5,
+      "failed": 0
+    }
+  },
+  "newRegressionCases": 51,
+  "changedSourceTestDataGeneratorFiles": 24,
+  "diagnosticLogs": [
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-bootstrap-green.log",
+      "savedLog": "logs/third-bootstrap-green.log",
+      "sha256": "280b0e2b2cbb1c158c24ae51b25ba58312127dda1f55b80069155c096a52de03",
+      "savedLogSha256": "e159ddc26ec89fdcb48ccf74eb0938688a40a6ce23d349ec0a6e8759226cc794"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-bootstrap-red.log",
+      "savedLog": "logs/third-bootstrap-red.log",
+      "sha256": "4f97c7ba8a6ebdeb0f21f04ead289b3f8d3545d438f2afc37bd5fd53ed1df438",
+      "savedLogSha256": "bd5bbbb16c36ae866b075d0834779cd587733e38bd2d8e9ac13ab78523151f7d"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-diff-final.log",
+      "savedLog": "logs/third-diff-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-editor-architecture.log",
+      "savedLog": "logs/third-editor-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-editor-format.log",
+      "savedLog": "logs/third-editor-format.log",
+      "sha256": "2ae79a7b5b2a093f4a6c9a6cc5a3f0289f04d3a8dcb4493050fe5e6495575fe5",
+      "savedLogSha256": "2ae79a7b5b2a093f4a6c9a6cc5a3f0289f04d3a8dcb4493050fe5e6495575fe5"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-editor-player-final.log",
+      "savedLog": "logs/third-editor-player-final.log",
+      "sha256": "601109d2a805bdd836d002b40912d2c7341e7e28619e366aaeb5eac315078e57",
+      "savedLogSha256": "57019a6352b65c41ba0f764b6b51ac1ffa52573932b0ab1592f5c689168427f1"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-editor-player-volume-green.log",
+      "savedLog": "logs/third-editor-player-volume-green.log",
+      "sha256": "0311c272c0b2080625510511c3ac75c587e866668acbd7c164c07b70c0570309",
+      "savedLogSha256": "7d686ebe0c6305d6eefd33fa14eb3352f8a7a98e7885d9968e26450ebd2bca0b"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-editor-player-volume-red.log",
+      "savedLog": "logs/third-editor-player-volume-red.log",
+      "sha256": "93cd87123ac7e872a826d50307a2a3fa8e09d62de479d590763aec6d60d703bb",
+      "savedLogSha256": "fcf833425f6fa6d9a703160209926f12cfe2d58274842133004ec2fe62a18aa7"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-editor-types.log",
+      "savedLog": "logs/third-editor-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-error-window-red.log",
+      "savedLog": "logs/third-error-window-red.log",
+      "sha256": "a2637c5c93f1b758878e6b03a11021ceba12f67d5ec6835fd074a1f1ee5af973",
+      "savedLogSha256": "4df18f8ee25731eb397fa0132cc6c48141e98853663b0927d56d68c8b2886b19"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-format-check.log",
+      "savedLog": "logs/third-format-check.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "savedLogSha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-format-final.log",
+      "savedLog": "logs/third-format-final.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "savedLogSha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-architecture-final.log",
+      "savedLog": "logs/third-library-architecture-final.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-architecture.log",
+      "savedLog": "logs/third-library-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-controls-green.log",
+      "savedLog": "logs/third-library-controls-green.log",
+      "sha256": "42954d6edd3651d13f96c9282aba1c261f9eabdd211011fef8cded3c245e1347",
+      "savedLogSha256": "be13489f6e03e44ea19f4d13383b2dc1a9a615f47a75ee70d1ea2399ee4e9c54"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-filter-green.log",
+      "savedLog": "logs/third-library-filter-green.log",
+      "sha256": "eb45c4604cd75b4e0645a552804572dc256c409014e621ca85677cd25a9bb0be",
+      "savedLogSha256": "8dd4f57a56b8a9ddc4dfa8cb0a609532438ef7b366b6963f5814443bd479c5a9"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-filter-red.log",
+      "savedLog": "logs/third-library-filter-red.log",
+      "sha256": "308d0c1b3d070ebe64c98d6552bb07e2aa5fb98024104b7747140d84b7a1f0b4",
+      "savedLogSha256": "280b562e2871d223750951b8d737b12957c9b71d27cf86100eba350421b6d75b"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-focused-final.log",
+      "savedLog": "logs/third-library-focused-final.log",
+      "sha256": "5666c370fa48cc7b027030196ad25a38f838bace9623cfdd4f200e14ecbf3ec0",
+      "savedLogSha256": "42e73ebd52fda0535dd5aedfda9a76c16603784f23ea935bd33c5ee7129dd398"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-focused-green.log",
+      "savedLog": "logs/third-library-focused-green.log",
+      "sha256": "8c0eb35ae144e49a54b63b58fd55d0f5b2b8507ec65a7b895be48dfb0aa04dc5",
+      "savedLogSha256": "1b531d08924af60ade49af221de0a42f11369fa3acf21aa29e181abf263501f2"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-format-final.log",
+      "savedLog": "logs/third-library-format-final.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "savedLogSha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-format.log",
+      "savedLog": "logs/third-library-format.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "savedLogSha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-search-contract-green.log",
+      "savedLog": "logs/third-library-search-contract-green.log",
+      "sha256": "bb387d6984bcf605ba1472c54e25d0b06d8263ffd4bc3c8f1fd5d2642fb4729b",
+      "savedLogSha256": "6e988d867553d86d984de6d9793766cb13bae4a10fd08fe27994f6b8af4f9f8b"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-search-contract-red.log",
+      "savedLog": "logs/third-library-search-contract-red.log",
+      "sha256": "bfe17ee3f4088213fbb6016143ffcf24dbe1ae1641efb8da271ea0fb00300bfe",
+      "savedLogSha256": "a802b2662aae972352b46d8c45db680da5b1278d02e2262cbed66f75c5de52d3"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-selection-green.log",
+      "savedLog": "logs/third-library-selection-green.log",
+      "sha256": "5a06190f7e656a3622b80619488604143bab30a11d2384caa09f02eca27febed",
+      "savedLogSha256": "3aab09ab3b49f2b1bbf0fd4d687da7eaf334fec30f6a8ad54fbdf029ae6ff343"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-selection-red.log",
+      "savedLog": "logs/third-library-selection-red.log",
+      "sha256": "a6a30b5cfb38af83de2dca741be2819a7c8760cd29d9c0f8b139e2c6ff6fc93f",
+      "savedLogSha256": "a859f244169b85f2b8474436f1f5b1d58cd29a8c7423f557b5d5db460c115fa5"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-typecheck-final.log",
+      "savedLog": "logs/third-library-typecheck-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-library-typecheck.log",
+      "savedLog": "logs/third-library-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-rooms-dock-green.log",
+      "savedLog": "logs/third-rooms-dock-green.log",
+      "sha256": "a063a60d1606c1626c6432123ebdade29247c1ccc4d57dfc56a8ba0200a4892b",
+      "savedLogSha256": "7c7f6ede45eef87b04c9cfe3d0b425615ac4cbe503eb6196ce0424bfc525d5f2"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-rooms-dock-red.log",
+      "savedLog": "logs/third-rooms-dock-red.log",
+      "sha256": "7b7dc1632c1109f9e258ac1fcaac450fc4aef7cf1424133873a573535fc9701a",
+      "savedLogSha256": "5de8d59c4848d9d410b31ca01b4f3a0d964bc49efce4b61257940f6997403003"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-rooms-focused-green.log",
+      "savedLog": "logs/third-rooms-focused-green.log",
+      "sha256": "fd38ee7e5f0d995f6a2cbb48bfde46b88117370b5cc9c0bdb6031021746c06fd",
+      "savedLogSha256": "79ec4cb1c5fe393a8a07fa9cac02a1d776b48be7784791df788c993b244c94e2"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-rooms-join-requests-red.log",
+      "savedLog": "logs/third-rooms-join-requests-red.log",
+      "sha256": "09b1bbfa024f6cda8c8373680f3c8fe07173bceb4bf54a3b37921d809df094f7",
+      "savedLogSha256": "89e0d24b9d0fa9663412a79c031e5264654283b3a69f85fe34cf5301c8b6208e"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-rooms-visible-green.log",
+      "savedLog": "logs/third-rooms-visible-green.log",
+      "sha256": "2c26832cc006fc00702f0acc25640152b7bebb7b3c35d8a750a0d036cb8a45f6",
+      "savedLogSha256": "a7d0d037f0d1887d5601e0a3838a4248e097c8a30ad0d995d389a2cdc8a9609a"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-focused-green.log",
+      "savedLog": "logs/third-search-folding-focused-green.log",
+      "sha256": "b749044ccccb5d8449726760a8aedf9f0ddc302630fdc0820fdf6875a2cbf302",
+      "savedLogSha256": "56a0e6a2941020c1e5d8b35b3b7a4c38f7cd9711f52012ee70705f5328f0bf59"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-format-check.log",
+      "savedLog": "logs/third-search-folding-format-check.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "savedLogSha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-format.log",
+      "savedLog": "logs/third-search-folding-format.log",
+      "sha256": "a7eac565852347e39e1c88b63536d7b87bd4e5163bb5f66a26f198aa3ca534ac",
+      "savedLogSha256": "a7eac565852347e39e1c88b63536d7b87bd4e5163bb5f66a26f198aa3ca534ac"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-generator-check.log",
+      "savedLog": "logs/third-search-folding-generator-check.log",
+      "sha256": "7b7d58193adbe03597aa16ac7c7cfa4890398ebdf63ada7b79a706bba18b20b1",
+      "savedLogSha256": "7b7d58193adbe03597aa16ac7c7cfa4890398ebdf63ada7b79a706bba18b20b1"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-green.log",
+      "savedLog": "logs/third-search-folding-green.log",
+      "sha256": "9707f9b7b6f5dab5ce28599496f40c02118e08749154bf1a0d6f236381d374e6",
+      "savedLogSha256": "a0c8ae496285ee8483dd1c566521ef5283bd0e5db89e7a83e0f1013ea1170ea4"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-red.log",
+      "savedLog": "logs/third-search-folding-red.log",
+      "sha256": "bf731973cd632c2154528d62163a3d7da6af83f97b7f35cfa84c3bfcec42fbe6",
+      "savedLogSha256": "0ee54ffb4a327dec7a1cfe8617a455af3500588b40fb7ec32a6d724ad8e1dde1"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-folding-typecheck.log",
+      "savedLog": "logs/third-search-folding-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-search-unicode-summary.log",
+      "savedLog": "logs/third-search-unicode-summary.log",
+      "sha256": "ea2c019b0cd6cdf6ec42ae8d39c82050465b9d348494e86fd89ec9026506a880",
+      "savedLogSha256": "ea2c019b0cd6cdf6ec42ae8d39c82050465b9d348494e86fd89ec9026506a880"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-window-format.log",
+      "savedLog": "logs/third-window-format.log",
+      "sha256": "e0c3e7ad47201d5fb000fcbf7068f8b60d9cd4a554524b12733a10adab9be534",
+      "savedLogSha256": "e0c3e7ad47201d5fb000fcbf7068f8b60d9cd4a554524b12733a10adab9be534"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/third-window-green.log",
+      "savedLog": "logs/third-window-green.log",
+      "sha256": "2398115d19aec415f3e600fa20100b014b4b850587dab5efb46f496aa4a4b4c5",
+      "savedLogSha256": "c95bf4860ceeae1c1514e5003caf615a5fbb9f68e945abef7463bd096acbcd2d"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-architecture.log",
+      "savedLog": "logs/intermediate-frontend-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-build.log",
+      "savedLog": "logs/intermediate-frontend-build.log",
+      "sha256": "371a93b2f83fbcdf5fb95338951b07e2da86e866681192297174e325ec74a681",
+      "savedLogSha256": "405d2a086eda6948efb7834fcbdcb50fcdc55a54cec6ff97625779ffb57954e4"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-node.log",
+      "savedLog": "logs/intermediate-frontend-node.log",
+      "sha256": "079191d8960e2f64c6d955d80c81a27bf57ea29538cfdd333679985ee1511423",
+      "savedLogSha256": "079191d8960e2f64c6d955d80c81a27bf57ea29538cfdd333679985ee1511423"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-typecheck.log",
+      "savedLog": "logs/intermediate-frontend-typecheck.log",
+      "sha256": "3018cee1da8d074bafeb4b29ea92a288de11137b99baa8692f14bec5696209ae",
+      "savedLogSha256": "083c5dee15587a172540b4fff31aaf5868415a405adbe7a13b82449427ef4914"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third/frontend-vitest.log",
+      "savedLog": "logs/intermediate-frontend-vitest.log",
+      "sha256": "08c00ed0da9c88c1c73e47d49b9ef0ad1159018553600c511d7528fb945c1a41",
+      "savedLogSha256": "51660db7e8419b76b4ea15a0b9fc7052cff6d3621d3439ab026d75c74cc5f21d"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-architecture.log",
+      "savedLog": "logs/final-frontend-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-build.log",
+      "savedLog": "logs/final-frontend-build.log",
+      "sha256": "d3f4344236ecdbfa5ac59cf43ae3f6114db728051af3460444657c8efb55a3b2",
+      "savedLogSha256": "9fcd3637f5984f3094e75e46ca3ae30f13a5128d567f6358d4ddb0293598548b"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-node.log",
+      "savedLog": "logs/final-frontend-node.log",
+      "sha256": "2e05436fd6d280452f894d983fba94c726f4a1b7f2b7c7643a7bb0361b55a796",
+      "savedLogSha256": "2e05436fd6d280452f894d983fba94c726f4a1b7f2b7c7643a7bb0361b55a796"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-typecheck.log",
+      "savedLog": "logs/final-frontend-typecheck.log",
+      "sha256": "3018cee1da8d074bafeb4b29ea92a288de11137b99baa8692f14bec5696209ae",
+      "savedLogSha256": "083c5dee15587a172540b4fff31aaf5868415a405adbe7a13b82449427ef4914"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-third-final/frontend-vitest.log",
+      "savedLog": "logs/final-frontend-vitest.log",
+      "sha256": "6712f339ee468ca10716db96b725fb973c3245fc20f92fa8d70189916a2cb840",
+      "savedLogSha256": "a81c4ccf02677f28a7d79282bda08c2f3d4567bab7abf903ae7ff1fd99a2ce8a"
+    }
+  ],
+  "sourceCommitPublication": {
+    "repository": "Pro100Dimka/karaoke_new_version",
+    "branch": "fix/app-bugs-excluding-processing-20261119",
+    "startingRemoteSha": "9d44f17dfa7fbc321c5dc8e8c8a722e9e511cfaf",
+    "commits": [
+      {
+        "localCommit": "b0c1c6ff7fb9dd6598502fd7b4ea61eeaa64ab3f",
+        "publishedCommit": "a0559a6faa3b44e6edc00b1d63ddb00ed8b36e67",
+        "tree": "5878d08eee7c32f1a87b095c9dfa9d70400d17a6",
+        "kind": "source"
+      }
+    ]
+  },
+  "readableLogNormalization": "Trailing whitespace and extra final blank lines removed; original and saved SHA-256 values retained.",
+  "liveAcceptanceComplete": false
+}

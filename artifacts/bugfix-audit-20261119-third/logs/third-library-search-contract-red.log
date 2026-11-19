@@ -1,0 +1,201 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/components/api-service.import.test.ts (1 test | 1 failed) 10ms
+   × adds a completed import only to the complete catalog before filtered searches refresh 9ms
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > preserves a backend search match for 'Straße' without repeating text matching
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > preserves a backend search match for 'Straße' without repeating text matching
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > preserves a backend search match for 'ΟΣ' without repeating text matching
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > preserves a backend search match for 'ΟΣ' without repeating text matching
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'long' (complete: false)
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'long' (complete: false)
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'long' (complete: true)
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'long' (complete: true)
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'medium' (complete: true)
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'medium' (complete: true)
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx (14 tests | 5 failed) 249ms
+   × preserves a backend search match for 'Straße' without repeating text matching 7ms
+   × preserves a backend search match for 'ΟΣ' without repeating text matching 3ms
+   × keeps the five-minute boundary consistent for 'long' (complete: false) 3ms
+   × keeps the five-minute boundary consistent for 'long' (complete: true) 3ms
+   × keeps the five-minute boundary consistent for 'medium' (complete: true) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/api-service.import.test.ts > adds a completed import only to the complete catalog before filtered searches refresh
+AssertionError: expected { pages: [ { …(2) } ], …(1) } to deeply equal { pages: [ { …(2) } ], …(1) }
+
+- Expected
++ Received
+
+@@ -5,10 +5,22 @@
+    "pages": [
+      {
+        "items": [
+          {
+            "activeRevision": 1,
++           "artist": "Queen",
++           "coverState": "Fallback",
++           "createdAt": "2026-01-01",
++           "durationSeconds": 300,
++           "id": "queen",
++           "language": "English",
++           "projectFormatVersion": 1,
++           "status": "not-processed",
++           "title": "Bohemian Rhapsody",
++         },
++         {
++           "activeRevision": 1,
+            "artist": "Adele",
+            "coverState": "Fallback",
+            "createdAt": "2026-01-01",
+            "durationSeconds": 300,
+            "id": "adele",
+
+ ❯ src/components/api-service.import.test.ts:61:44
+     59|     client.getQueryData<InfiniteData<SongPage>>(fullKey)?.pages[0]?.it…
+     60|   ).toEqual([imported, existing]);
+     61|   expect(client.getQueryData(filteredKey)).toEqual(page);
+       |                                            ^
+     62|   expect(client.getQueryState(filteredKey)?.isInvalidated).toBe(true);
+     63|   expect(client.getQueryData(['song-imports'])).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > preserves a backend search match for 'Straße' without repeating text matching
+AssertionError: expected [] to deeply equal [ { id: 'server-match', …(9) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "activeRevision": 1,
+-     "artist": "Singer",
+-     "coverState": "Fallback",
+-     "createdAt": "2026-01-01",
+-     "durationSeconds": 180,
+-     "id": "server-match",
+-     "language": "English",
+-     "projectFormatVersion": 1,
+-     "status": "ready",
+-     "title": "Straße",
+-   },
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:231:41
+    229|     await act(() => vi.advanceTimersByTimeAsync(1));
+    230|
+    231|     expect(result.current.visibleSongs).toEqual([song]);
+       |                                         ^
+    232|     expect(result.current.completeCatalog).toBe(false);
+    233|     expect(result.current.catalog.hasNextPage).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > preserves a backend search match for 'ΟΣ' without repeating text matching
+AssertionError: expected [] to deeply equal [ { id: 'server-match', …(9) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "activeRevision": 1,
+-     "artist": "Singer",
+-     "coverState": "Fallback",
+-     "createdAt": "2026-01-01",
+-     "durationSeconds": 180,
+-     "id": "server-match",
+-     "language": "English",
+-     "projectFormatVersion": 1,
+-     "status": "ready",
+-     "title": "ΟΣ",
+-   },
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:231:41
+    229|     await act(() => vi.advanceTimersByTimeAsync(1));
+    230|
+    231|     expect(result.current.visibleSongs).toEqual([song]);
+       |                                         ^
+    232|     expect(result.current.completeCatalog).toBe(false);
+    233|     expect(result.current.catalog.hasNextPage).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'long' (complete: false)
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'long' (complete: true)
+AssertionError: expected [] to deeply equal [ 'five-minutes' ]
+
+- Expected
++ Received
+
+- [
+-   "five-minutes",
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:275:64
+    273|     await act(() => vi.advanceTimersByTimeAsync(1));
+    274|
+    275|     expect(result.current.visibleSongs.map((item) => item.id)).toEqual(
+       |                                                                ^
+    276|       expected,
+    277|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps the five-minute boundary consistent for 'medium' (complete: true)
+AssertionError: expected [ 'five-minutes' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "five-minutes",
++ ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:275:64
+    273|     await act(() => vi.advanceTimersByTimeAsync(1));
+    274|
+    275|     expect(result.current.visibleSongs.map((item) => item.id)).toEqual(
+       |                                                                ^
+    276|       expected,
+    277|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  6 failed | 9 passed (15)
+   Start at  19:27:50
+   Duration  1.07s (transform 225ms, setup 211ms, import 403ms, tests 258ms, environment 632ms)

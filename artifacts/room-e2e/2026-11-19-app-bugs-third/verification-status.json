@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-19",
+  "branch": "fix/app-bugs-excluding-processing-20261119",
+  "startingCommit": "9d44f17dfa7fbc321c5dc8e8c8a722e9e511cfaf",
+  "testedSourceCommit": "a0559a6faa3b44e6edc00b1d63ddb00ed8b36e67",
+  "status": "not-complete-live-verification-unavailable",
+  "environment": "Linux container; no participating Windows desktop; local Chromium launch denied AF_UNIX singleton socket with EPERM",
+  "requiredBy": "AGENTS.md real Windows rendered UI and two-window room gate",
+  "affectedScenarios": [
+    "Room dock participant, host, friendship, song, transfer-progress and playlist updates",
+    "Room join-request retention, reconnect, approval failure/retry, dismissal and leaving",
+    "Ordinary library filter/search/selection/delete journeys",
+    "Saved recording muted before preview readiness",
+    "Python startup error and renderer error window controls"
+  ],
+  "liveChecks": {
+    "startMultyBatTwoRealElectronWindows": "not-run",
+    "renderedRoomDockAndJoinRequestScenarios": "not-run",
+    "ordinaryWindowsStartBatLibraryPreviewAndErrorScreens": "not-run",
+    "actualAudiblePreview": "not-run",
+    "windowsProcessCleanup": "not-run"
+  },
+  "screenshots": [],
+  "machineAudioDiagnostics": null,
+  "automatedEvidence": "../../bugfix-audit-20261119-third/report.md",
+  "completionClaim": false
+}

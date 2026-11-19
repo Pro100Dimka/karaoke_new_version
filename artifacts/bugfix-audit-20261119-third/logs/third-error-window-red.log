@@ -1,0 +1,543 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/providers/error-boundary.test.tsx (1 test | 1 failed) 266ms
+   × keeps the frameless window controls available after a rendering error 265ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/providers/error-boundary.test.tsx > keeps the frameless window controls available after a rendering error
+TestingLibraryElementError: Unable to find an accessible element with the role "toolbar" and name "Управление окном"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "Что-то пошло не так":
+  [36m<dialog[39m
+    [33maria-describedby[39m=[32m"_r_1_"[39m
+    [33maria-labelledby[39m=[32m"_r_0_"[39m
+    [33mclass[39m=[32m"ad ad-dialog"[39m
+    [33mdata-ad-component[39m=[32m"Dialog"[39m
+    [33mdata-ad-material[39m=[32m"dialog"[39m
+    [33mdata-ad-width[39m=[32m"wide"[39m
+    [33mopen[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"ad ad-header"[39m
+    [33mdata-ad-component[39m=[32m"Header"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"ad ad-header"[39m
+    [33mdata-ad-compact[39m=[32m"true"[39m
+    [33mdata-ad-component[39m=[32m"Header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Что-то пошло не так":
+  [36m<h2[39m
+    [33mclass[39m=[32m"ad ad-typography"[39m
+    [33mdata-ad-component[39m=[32m"Typography"[39m
+    [33mdata-ad-tone[39m=[32m"default"[39m
+    [33mdata-ad-variant[39m=[32m"h2"[39m
+    [33mdata-ad-weight[39m=[32m"bold"[39m
+  [36m/>[39m
+
+  Name "Ошибка":
+  [36m<h3[39m
+    [33mclass[39m=[32m"ad ad-typography"[39m
+    [33mdata-ad-component[39m=[32m"Typography"[39m
+    [33mdata-ad-tone[39m=[32m"default"[39m
+    [33mdata-ad-variant[39m=[32m"h3"[39m
+    [33mdata-ad-weight[39m=[32m"bold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Закрыть":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Закрыть"[39m
+    [33mclass[39m=[32m"ad ad-icon-button"[39m
+    [33mdata-ad-component[39m=[32m"IconButton"[39m
+    [33mdata-ad-material[39m=[32m"ghost"[39m
+    [33mdata-ad-variant[39m=[32m"ghost"[39m
+    [33mtitle[39m=[32m"Закрыть"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Скопировать отчёт":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Скопировать отчёт"[39m
+    [33mclass[39m=[32m"ad ad-icon-button"[39m
+    [33mdata-ad-component[39m=[32m"IconButton"[39m
+    [33mdata-ad-material[39m=[32m"glass"[39m
+    [33mdata-ad-variant[39m=[32m"secondary"[39m
+    [33mtitle[39m=[32m"Скопировать отчёт"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "На главную":
+  [36m<button[39m
+    [33mclass[39m=[32m"ad ad-button"[39m
+    [33mdata-ad-component[39m=[32m"Button"[39m
+    [33mdata-ad-material[39m=[32m"glass"[39m
+    [33mdata-ad-variant[39m=[32m"secondary"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Перезагрузить":
+  [36m<button[39m
+    [33mclass[39m=[32m"ad ad-button"[39m
+    [33mdata-ad-component[39m=[32m"Button"[39m
+    [33mdata-ad-material[39m=[32m"ruby"[39m
+    [33mdata-ad-variant[39m=[32m"primary"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mid[39m=[32m"_r_1_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"ad ad-collapsible-section"[39m
+    [33mdata-ad-component[39m=[32m"CollapsibleSection"[39m
+    [33mdata-ad-material[39m=[32m"card"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  contentinfo:
+
+  Name "":
+  [36m<footer[39m
+    [33mclass[39m=[32m"ad ad-dialog-actions"[39m
+    [33mdata-ad-component[39m=[32m"DialogActions"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<dialog[39m
+      [33maria-describedby[39m=[32m"_r_1_"[39m
+      [33maria-labelledby[39m=[32m"_r_0_"[39m
+      [33mclass[39m=[32m"ad ad-dialog"[39m
+      [33mdata-ad-component[39m=[32m"Dialog"[39m
+      [33mdata-ad-material[39m=[32m"dialog"[39m
+      [33mdata-ad-width[39m=[32m"wide"[39m
+      [33mopen[39m=[32m""[39m
+    [36m>[39m
+      [36m<span[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"ad-dialog-spotlight"[39m
+      [36m/>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"ad ad-header"[39m
+        [33mdata-ad-component[39m=[32m"Header"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"ad ad-icon"[39m
+          [33mdata-ad-component[39m=[32m"Icon"[39m
+          [33mdata-ad-surface[39m=[32m"tile"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mdata-ad-component[39m=[32m"IconAsset"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 3.5a1.2 1.2 0 0 1 2 0L25.5 23a1.2 1.2 0 0 1-1 2H3.5a1.2 1.2 0 0 1-1-2Z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 10v6m0 4v.2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</span>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ad-header-copy"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"ad ad-typography"[39m
+            [33mdata-ad-component[39m=[32m"Typography"[39m
+            [33mdata-ad-tone[39m=[32m"default"[39m
+            [33mdata-ad-variant[39m=[32m"h2"[39m
+            [33mdata-ad-weight[39m=[32m"bold"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mid[39m=[32m"_r_0_"[39m
+            [36m>[39m
+              [0mЧто-то пошло не так[0m
+            [36m</span>[39m
+          [36m</h2>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ad-header-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Закрыть"[39m
+            [33mclass[39m=[32m"ad ad-icon-button"[39m
+            [33mdata-ad-component[39m=[32m"IconButton"[39m
+            [33mdata-ad-material[39m=[32m"ghost"[39m
+            [33mdata-ad-variant[39m=[32m"ghost"[39m
+            [33mtitle[39m=[32m"Закрыть"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"ad-button-fx"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad-button-plasma"[39m
+              [36m/>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"ad-button-orbit"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ad ad-icon"[39m
+              [33mdata-ad-component[39m=[32m"Icon"[39m
+              [33mdata-ad-surface[39m=[32m"none"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mdata-ad-component[39m=[32m"IconAsset"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12M18 6 6 18"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [0m [0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ad ad-dialog-body"[39m
+        [33mdata-ad-component[39m=[32m"DialogBody"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mid[39m=[32m"_r_1_"[39m
+        [36m>[39m
+          [0mПроизошла непредвиденная ошибка.
+Эта часть приложения перестала работать.[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ad-stack"[39m
+          [33mstyle[39m=[32m"--ad-stack-direction: column; --ad-stack-direction-sm: column; --ad-stack-direction-md: column; --ad-stack-direction-lg: column; --ad-stack-direction-xlg: column; --ad-stack-gap: var(--ad-space-3, calc(var(--ad-space-unit, 0.25rem) * 3)); --ad-stack-gap-sm: var(--ad-space-3, calc(var(--ad-space-unit, 0.25rem) * 3)); --ad-stack-gap-md: var(--ad-space-3, calc(var(--ad-space-unit, 0.25rem) * 3)); --ad-stack-gap-lg: var(--ad-space-3, calc(var(--ad-space-unit, 0.25rem) * 3)); --ad-stack-gap-xlg: var(--ad-space-3, calc(var(--ad-space-unit, 0.25rem) * 3)); --ad-stack-align: stretch; --ad-stack-align-sm: stretch; --ad-stack-align-md: stretch; --ad-stack-align-lg: stretch; --ad-stack-align-xlg: stretch; --ad-stack-justify: flex-start; --ad-stack-justify-sm: flex-start; --ad-stack-justify-md: flex-start; --ad-stack-justify-lg: flex-start; --ad-stack-justify-xlg: flex-start; --ad-stack-wrap: nowrap; --ad-stack-wrap-sm: nowrap; --ad-stack-wrap-md: nowrap; --ad-stack-wrap-lg: nowrap; --ad-stack-wrap-xlg: nowrap;"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"ad ad-card ad-surface"[39m
+            [33mdata-ad-component[39m=[32m"Card"[39m
+            [33mdata-ad-material[39m=[32m"card"[39m
+            [33mdata-ad-padding[39m=[32m"md"[39m
+          [36m>[39m
+            [36m<header[39m
+              [33mclass[39m=[32m"ad ad-header"[39m
+              [33mdata-ad-compact[39m=[32m"true"[39m
+              [33mdata-ad-component[39m=[32m"Header"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ad-header-copy"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mclass[39m=[32m"ad ad-typography"[39m
+                  [33mdata-ad-component[39m=[32m"Typography"[39m
+                  [33mdata-ad-tone[39m=[32m"default"[39m
+                  [33mdata-ad-variant[39m=[32m"h3"[39m
+                  [33mdata-ad-weight[39m=[32m"bold"[39m
+                [36m>[39m
+                  [0mОшибка[0m
+                [36m</h3>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ad-header-actions"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Скопировать отчёт"[39m
+                  [33mclass[39m=[32m"ad ad-icon-button"[39m
+                  [33mdata-ad-component[39m=[32m"IconButton"[39m
+                  [33mdata-ad-material[39m=[32m"glass"[39m
+                  [33mdata-ad-variant[39m=[32m"secondary"[39m
+                  [33mtitle[39m=[32m"Скопировать отчёт"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"ad-button-fx"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"ad-button-plasma"[39m
+                    [36m/>[39m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"ad-button-orbit"[39m
+                  [36m/>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ad ad-icon"[39m
+                    [33mdata-ad-component[39m=[32m"Icon"[39m
+                    [33mdata-ad-surface[39m=[32m"none"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33mdata-ad-component[39m=[32m"IconAsset"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [36m>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"15"[39m
+                        [33mrx[39m=[32m"2"[39m
+                        [33mwidth[39m=[32m"12"[39m
+                        [33mx[39m=[32m"8"[39m
+                        [33my[39m=[32m"7"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M15 7V2H3v15h5"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                  [36m</span>[39m
+                  [0m [0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</header>[39m
+            [36m<pre[39m
+              [33mclass[39m=[32m"ad ad-typography"[39m
+              [33mdata-ad-component[39m=[32m"Typography"[39m
+              [33mdata-ad-tone[39m=[32m"default"[39m
+              [33mdata-ad-variant[39m=[32m"mono"[39m
+              [33mstyle[39m=[32m"white-space: pre-wrap; overflow-wrap: anywhere;"[39m
+            [36m>[39m
+              [0mError: The library could not render
+    at /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/src/providers/error-boundary.test.tsx:21:16
+    at file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+    at file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+    at new Promise (&lt;anonymous&gt;)
+    at runWithCancel (file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)
+    at file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+    at new Promise (&lt;anonymous&gt;)
+    at runWithTimeout (file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)
+    at file:///workspace/scratch/726a7fe1e251/karaoke_new_version/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2956:64[0m
+            [36m</pre>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"ad-card-light"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad-card-spotlight"[39m
+              [36m/>[39m
+            [36m</span>[39m
+          [36m</section>[39m
+          [36m<details[39m
+            [33mclass[39m=[32m"ad ad-collapsible-section"[39m
+            [33mdata-ad-component[39m=[32m"CollapsibleSection"[39m
+            [33mdata-ad-material[39m=[32m"card"[39m
+          [36m>[39m
+            [36m<summary>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad ad-icon"[39m
+                [33mdata-ad-component[39m=[32m"Icon"[39m
+                [33mdata-ad-surface[39m=[32m"none"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33mdata-ad-component[39m=[32m"IconAsset"[39m
+                  [33mviewBox[39m=[32m"0 0 32 32"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M11 4H9C5 4 7 11 6 13c-.5 1.5-1.8 2-3 3 1.2 1 2.5 1.5 3 3 1 2-1 9 3 9h2M21 4h2c4 0 2 7 3 9 .5 1.5 1.8 2 3 3-1.2 1-2.5 1.5-3 3-1 2 1 9-3 9h-2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad-collapse-heading"[39m
+              [36m>[39m
+                [36m<span>[39m
+                  [0mДополнительная информация[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad ad-icon"[39m
+                [33mdata-ad-component[39m=[32m"Icon"[39m
+                [33mdata-ad-surface[39m=[32m"none"[39m
+                [33mstyle[39m=[32m"--ad-icon-size: 1.125rem;"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33mdata-ad-component[39m=[32m"IconAsset"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m6 9 6 6 6-6"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</span>[39m
+            [36m</summary>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ad-collapse-content"[39m
+            [36m>[39m
+              [36m<dl[39m
+                [33mclass[39m=[32m"ad ad-key-value-list"[39m
+                [33mdata-ad-component[39m=[32m"KeyValueList"[39m
+              [36m>[39m
+                [36m<div>[39m
+                  [36m<dt>[39m
+                    [0mВремя[0m
+                  [36m</dt>[39m
+                  [36m<dd>[39m
+                    [0m19.11.2026, 19:22:03[0m
+                  [36m</dd>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<dt>[39m
+                    [0mСтраница[0m
+                  [36m</dt>[39m
+                  [36m<dd>[39m
+                    [0mhttp://localhost:3000/[0m
+                  [36m</dd>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<dt>[39m
+                    [0mВерсия приложения[0m
+                  [36m</dt>[39m
+                  [36m<dd>[39m
+                    [0m1.1.46[0m
+                  [36m</dd>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<dt>[39m
+                    [0mUser Agent[0m
+                  [36m</dt>[39m
+                  [36m<dd>[39m
+                    [0mMozilla/5.0 (linux) AppleWebKit/537.36 (KHTML, like Gecko) jsdom/26.1.0[0m
+                  [36m</dd>[39m
+                [36m</div>[39m
+              [36m</dl>[39m
+            [36m</div>[39m
+          [36m</details>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<footer[39m
+        [33mclass[39m=[32m"ad ad-dialog-actions"[39m
+        [33mdata-ad-component[39m=[32m"DialogActions"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"ad ad-button"[39m
+          [33mdata-ad-component[39m=[32m"Button"[39m
+          [33mdata-ad-material[39m=[32m"glass"[39m
+          [33mdata-ad-variant[39m=[32m"secondary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-fx"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ad-button-plasma"[39m
+            [36m/>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-orbit"[39m
+          [36m/>[39m
+          [0m [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad-button-label"[39m
+          [36m>[39m
+            [0mНа главную[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"ad ad-button"[39m
+          [33mdata-ad-component[39m=[32m"Button"[39m
+          [33mdata-ad-material[39m=[32m"ruby"[39m
+          [33mdata-ad-variant[39m=[32m"primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-fx"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ad-button-plasma"[39m
+            [36m/>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ad-button-orbit"[39m
+          [36m/>[39m
+          [0m [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad-button-label"[39m
+          [36m>[39m
+            [0mПерезагрузить[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</footer>[39m
+    [36m</dialog>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ src/providers/error-boundary.test.tsx:21:16
+     19|     <Localization>
+     20|       <ErrorFallback
+     21|         error={new Error('The library could not render')}
+       |                ^
+     22|         resetErrorBoundary={vi.fn()}
+     23|       />
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/providers/error-boundary.test.tsx:32:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  19:22:02
+   Duration  2.02s (transform 759ms, setup 154ms, import 1.11s, tests 266ms, environment 300ms)

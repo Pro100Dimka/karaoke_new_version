@@ -1,0 +1,172 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('Adele', { Object (status, language, ...) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('Adele', { Object (status, language, ...) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('Adele', { Object (status, language, ...) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'ready', …(3) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'ready', …(3) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'ready', …(3) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'all', …(3) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'all', …(3) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'all', …(3) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { Object (status, language, ...) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { Object (status, language, ...) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { Object (status, language, ...) })
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > shows matching pending imports in the importing filter
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > shows matching pending imports in the importing filter
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > shows matching pending imports in the importing filter
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx (7 tests | 5 failed) 173ms
+   × keeps an unrelated pending import out of the active filter ('Adele', { Object (status, language, ...) }) 25ms
+   × keeps an unrelated pending import out of the active filter ('', { status: 'ready', …(3) }) 6ms
+   × keeps an unrelated pending import out of the active filter ('', { status: 'all', …(3) }) 5ms
+   × keeps an unrelated pending import out of the active filter ('', { Object (status, language, ...) }) 5ms
+   × shows matching pending imports in the importing filter 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('Adele', { Object (status, language, ...) })
+AssertionError: expected [ …(2) ] to deeply equal [ 'matching' ]
+
+- Expected
++ Received
+
+  [
++   "import:cca64158-662a-4c8b-8791-053c08370dc6",
+    "matching",
+  ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:98:62
+     96|   expect(result.current.completeCatalog).toBe(false);
+     97|   expect(result.current.localSongs).toHaveLength(2);
+     98|   expect(result.current.visibleSongs.map((song) => song.id)).toEqual([
+       |                                                              ^
+     99|     'matching',
+    100|   ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'ready', …(3) })
+AssertionError: expected [ …(2) ] to deeply equal [ 'matching' ]
+
+- Expected
++ Received
+
+  [
++   "import:03456ff6-c2ce-46b4-9b70-ed8408aa5109",
+    "matching",
+  ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:98:62
+     96|   expect(result.current.completeCatalog).toBe(false);
+     97|   expect(result.current.localSongs).toHaveLength(2);
+     98|   expect(result.current.visibleSongs.map((song) => song.id)).toEqual([
+       |                                                              ^
+     99|     'matching',
+    100|   ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { status: 'all', …(3) })
+AssertionError: expected [ …(2) ] to deeply equal [ 'matching' ]
+
+- Expected
++ Received
+
+  [
++   "import:1bb26f78-454f-434f-8e5d-0cb82188e9bd",
+    "matching",
+  ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:98:62
+     96|   expect(result.current.completeCatalog).toBe(false);
+     97|   expect(result.current.localSongs).toHaveLength(2);
+     98|   expect(result.current.visibleSongs.map((song) => song.id)).toEqual([
+       |                                                              ^
+     99|     'matching',
+    100|   ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > keeps an unrelated pending import out of the active filter ('', { Object (status, language, ...) })
+AssertionError: expected [ …(2) ] to deeply equal [ 'matching' ]
+
+- Expected
++ Received
+
+  [
++   "import:531696ca-b72a-441b-8e87-5def2766bdd2",
+    "matching",
+  ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:98:62
+     96|   expect(result.current.completeCatalog).toBe(false);
+     97|   expect(result.current.localSongs).toHaveLength(2);
+     98|   expect(result.current.visibleSongs.map((song) => song.id)).toEqual([
+       |                                                              ^
+     99|     'matching',
+    100|   ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > shows matching pending imports in the importing filter
+AssertionError: expected [ 'Adele - Hello.mp3', …(1) ] to deeply equal [ 'Queen - Bohemian Rhapsody.mp3' ]
+
+- Expected
++ Received
+
+  [
++   "Adele - Hello.mp3",
+    "Queen - Bohemian Rhapsody.mp3",
+  ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:123:65
+    121|   await act(() => vi.advanceTimersByTimeAsync(1));
+    122|
+    123|   expect(result.current.visibleSongs.map((song) => song.title)).toEqua…
+       |                                                                 ^
+    124|     'Queen - Bohemian Rhapsody.mp3',
+    125|   ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  19:17:38
+   Duration  850ms (transform 131ms, setup 85ms, import 209ms, tests 173ms, environment 260ms)

@@ -1,0 +1,239 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/shared/utils/format.search-folding.test.ts (14 tests | 7 failed) 12ms
+   × folds Straße like the backend after compatibility normalization 5ms
+   × folds STRAẞE like the backend after compatibility normalization 1ms
+   × folds ΟΣ like the backend after compatibility normalization 1ms
+   × folds ος like the backend after compatibility normalization 1ms
+   × folds Ꭰꭰ like the backend after compatibility normalization 1ms
+   × folds ᾲ like the backend after compatibility normalization 1ms
+   × does not let Greek word-final casing change substring matches 1ms
+ ❯ src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx (6 tests | 6 failed) 768ms
+   × keeps the server match in 'title' for 'STRASSE' when 'selection' switches to the full catalog 130ms
+   × keeps the server match in 'artist' for 'STRASSE' when 'selection' switches to the full catalog 111ms
+   × keeps the server match in 'filename' for 'STRASSE' when 'selection' switches to the full catalog 194ms
+   × keeps the server match in 'title' for 'οσ' when 'selection' switches to the full catalog 113ms
+   × keeps the server match in 'title' for 'STRASSE' when 'playlist' switches to the full catalog 109ms
+   × keeps the server match in 'title' for 'οσ' when 'playlist' switches to the full catalog 109ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/shared/utils/format.search-folding.test.ts > folds Straße like the backend after compatibility normalization
+ FAIL  src/shared/utils/format.search-folding.test.ts > folds STRAẞE like the backend after compatibility normalization
+AssertionError: expected 'straße' to be 'strasse' // Object.is equality
+
+Expected: "strasse"
+Received: "straße"
+
+ ❯ src/shared/utils/format.search-folding.test.ts:19:34
+     17|   ['Cafe\u0301', 'café'],
+     18| ])('folds %s like the backend after compatibility normalization', (inp…
+     19|   expect(normalizeSearch(input)).toBe(expected);
+       |                                  ^
+     20| });
+     21|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  src/shared/utils/format.search-folding.test.ts > folds ΟΣ like the backend after compatibility normalization
+ FAIL  src/shared/utils/format.search-folding.test.ts > folds ος like the backend after compatibility normalization
+AssertionError: expected 'ος' to be 'οσ' // Object.is equality
+
+Expected: "οσ"
+Received: "ος"
+
+ ❯ src/shared/utils/format.search-folding.test.ts:19:34
+     17|   ['Cafe\u0301', 'café'],
+     18| ])('folds %s like the backend after compatibility normalization', (inp…
+     19|   expect(normalizeSearch(input)).toBe(expected);
+       |                                  ^
+     20| });
+     21|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  src/shared/utils/format.search-folding.test.ts > folds Ꭰꭰ like the backend after compatibility normalization
+AssertionError: expected 'ꭰꭰ' to be 'ᎠᎠ' // Object.is equality
+
+Expected: "ᎠᎠ"
+Received: "ꭰꭰ"
+
+ ❯ src/shared/utils/format.search-folding.test.ts:19:34
+     17|   ['Cafe\u0301', 'café'],
+     18| ])('folds %s like the backend after compatibility normalization', (inp…
+     19|   expect(normalizeSearch(input)).toBe(expected);
+       |                                  ^
+     20| });
+     21|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  src/shared/utils/format.search-folding.test.ts > folds ᾲ like the backend after compatibility normalization
+AssertionError: expected 'ᾲ' to be 'ὰι' // Object.is equality
+
+Expected: "ὰι"
+Received: "ᾲ"
+
+ ❯ src/shared/utils/format.search-folding.test.ts:19:34
+     17|   ['Cafe\u0301', 'café'],
+     18| ])('folds %s like the backend after compatibility normalization', (inp…
+     19|   expect(normalizeSearch(input)).toBe(expected);
+       |                                  ^
+     20| });
+     21|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  src/shared/utils/format.search-folding.test.ts > does not let Greek word-final casing change substring matches
+AssertionError: expected 'οσα' to contain 'ος'
+
+Expected: "ος"
+Received: "οσα"
+
+ ❯ src/shared/utils/format.search-folding.test.ts:27:34
+     25|
+     26| it('does not let Greek word-final casing change substring matches', ()…
+     27|   expect(normalizeSearch('ΟΣΑ')).toContain(normalizeSearch('ΟΣ'));
+       |                                  ^
+     28| });
+     29|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx > keeps the server match in 'title' for 'STRASSE' when 'selection' switches to the full catalog
+ FAIL  src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx > keeps the server match in 'title' for 'STRASSE' when 'playlist' switches to the full catalog
+AssertionError: expected [] to deeply equal [ { id: 'matching', …(9) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "activeRevision": 1,
+-     "artist": "Singer",
+-     "coverState": "Fallback",
+-     "createdAt": "2026-01-01",
+-     "durationSeconds": 180,
+-     "id": "matching",
+-     "language": "English",
+-     "projectFormatVersion": 1,
+-     "status": "ready",
+-     "title": "Straße",
+-   },
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx:101:41
+     99|
+    100|     expect(result.current.completeCatalog).toBe(true);
+    101|     expect(result.current.visibleSongs).toEqual([song]);
+       |                                         ^
+    102|   },
+    103| );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx > keeps the server match in 'artist' for 'STRASSE' when 'selection' switches to the full catalog
+AssertionError: expected [] to deeply equal [ { id: 'matching', …(9) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "activeRevision": 1,
+-     "artist": "Straße",
+-     "coverState": "Fallback",
+-     "createdAt": "2026-01-01",
+-     "durationSeconds": 180,
+-     "id": "matching",
+-     "language": "English",
+-     "projectFormatVersion": 1,
+-     "status": "ready",
+-     "title": "Song",
+-   },
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx:101:41
+     99|
+    100|     expect(result.current.completeCatalog).toBe(true);
+    101|     expect(result.current.visibleSongs).toEqual([song]);
+       |                                         ^
+    102|   },
+    103| );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx > keeps the server match in 'filename' for 'STRASSE' when 'selection' switches to the full catalog
+AssertionError: expected [] to deeply equal [ { id: 'matching', …(10) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "activeRevision": 1,
+-     "artist": "Singer",
+-     "coverState": "Fallback",
+-     "createdAt": "2026-01-01",
+-     "durationSeconds": 180,
+-     "filename": "Straße.mp3",
+-     "id": "matching",
+-     "language": "English",
+-     "projectFormatVersion": 1,
+-     "status": "ready",
+-     "title": "Song",
+-   },
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx:101:41
+     99|
+    100|     expect(result.current.completeCatalog).toBe(true);
+    101|     expect(result.current.visibleSongs).toEqual([song]);
+       |                                         ^
+    102|   },
+    103| );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx > keeps the server match in 'title' for 'οσ' when 'selection' switches to the full catalog
+ FAIL  src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx > keeps the server match in 'title' for 'οσ' when 'playlist' switches to the full catalog
+AssertionError: expected [] to deeply equal [ { id: 'matching', …(9) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "activeRevision": 1,
+-     "artist": "Singer",
+-     "coverState": "Fallback",
+-     "createdAt": "2026-01-01",
+-     "durationSeconds": 180,
+-     "id": "matching",
+-     "language": "English",
+-     "projectFormatVersion": 1,
+-     "status": "ready",
+-     "title": "ΟΣ",
+-   },
+- ]
++ []
+
+ ❯ src/pages/library/songs/useLibraryCatalog.search-folding.test.tsx:101:41
+     99|
+    100|     expect(result.current.completeCatalog).toBe(true);
+    101|     expect(result.current.visibleSongs).toEqual([song]);
+       |                                         ^
+    102|   },
+    103| );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  13 failed | 7 passed (20)
+   Start at  19:36:42
+   Duration  1.57s (transform 286ms, setup 320ms, import 274ms, tests 780ms, environment 506ms)
