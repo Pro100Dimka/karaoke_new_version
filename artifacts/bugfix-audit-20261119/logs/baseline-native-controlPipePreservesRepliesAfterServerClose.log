@@ -1,0 +1,4 @@
+[ RUN      ] controlPipePreservesRepliesAfterServerClose
+FAIL: controlPipePreservesRepliesAfterServerClose: Unix control client connects
+[  FAILED  ] controlPipePreservesRepliesAfterServerClose
+1 tests failed

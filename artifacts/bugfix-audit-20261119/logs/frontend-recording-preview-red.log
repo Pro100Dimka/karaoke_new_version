@@ -1,0 +1,49 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx (2 tests | 2 failed) 21ms
+   × reports an unavailable preview status without rejecting an unobserved waveform action 16ms
+   × stops the audible preview if applying the initial waveform position fails 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/modals/recordings/useRecordingPlayback.test.tsx > reports an unavailable preview status without rejecting an unobserved waveform action
+AssertionError: promise rejected "Error: Audio service disconnected" instead of resolving
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx:40:41
+     38|   vi.mocked(audioClient.recordingPreviewStatus).mockRejectedValueOnce(…
+     39|   await act(async () => {
+     40|     await expect(result.current.seek(20)).resolves.toBeUndefined();
+       |                                         ^
+     41|   });
+     42|   expect(reportOperationFailure).toHaveBeenCalledWith('errors.previewS…
+ ❯ node_modules/@testing-library/react/dist/act-compat.js:47:24
+ ❯ process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:890:22
+ ❯ Proxy.<anonymous> node_modules/@testing-library/react/dist/act-compat.js:46:25
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx:39:9
+
+Caused by: Error: Audio service disconnected
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx:35:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/library/modals/recordings/useRecordingPlayback.test.tsx > stops the audible preview if applying the initial waveform position fails
+AssertionError: expected "vi.fn()" to be called with arguments: [ Any<Symbol> ]
+
+Number of calls: 0
+
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx:53:44
+     51|
+     52|   expect(result.current.playing).toBe(false);
+     53|   expect(audioClient.stopRecordingPreview).toHaveBeenCalledWith(expect…
+       |                                            ^
+     54|   expect(reportOperationFailure).toHaveBeenCalledWith('errors.previewP…
+     55| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  17:41:30
+   Duration  560ms (transform 73ms, setup 108ms, import 53ms, tests 21ms, environment 250ms)

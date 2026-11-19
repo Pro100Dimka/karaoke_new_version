@@ -1,0 +1,6 @@
+[ RUN      ] repeatedSuspendPreservesTheResumeState
+FAIL: a repeated suspension does not invalidate an already suspended session
+FAIL: a repeated suspension does not invalidate an already suspended session
+FAIL: resuming restores the state before the first suspension
+[  FAILED  ] repeatedSuspendPreservesTheResumeState
+3 tests failed

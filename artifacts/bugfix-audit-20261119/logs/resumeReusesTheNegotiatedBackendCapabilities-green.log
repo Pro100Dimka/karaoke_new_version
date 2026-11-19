@@ -1,0 +1,3 @@
+[ RUN      ] resumeReusesTheNegotiatedBackendCapabilities
+[       OK ] resumeReusesTheNegotiatedBackendCapabilities
+All AudioService tests passed

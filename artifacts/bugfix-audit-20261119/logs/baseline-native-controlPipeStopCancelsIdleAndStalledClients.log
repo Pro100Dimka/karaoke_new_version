@@ -1,0 +1,4 @@
+[ RUN      ] controlPipeStopCancelsIdleAndStalledClients
+FAIL: controlPipeStopCancelsIdleAndStalledClients: control socket is listening
+[  FAILED  ] controlPipeStopCancelsIdleAndStalledClients
+1 tests failed

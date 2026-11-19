@@ -1,0 +1,770 @@
+{
+  "baseCommit": "b7e3aec091faa8896450cbe575cda4ab92544b13",
+  "checkedSourceCommit": "2bf1efcc8fde65a49de62a9d1c8c519e4ca09dda",
+  "protectedFileCount": 151,
+  "allUnchanged": true,
+  "files": [
+    {
+      "path": "AudioService/src/analysis/AnalysisEngine.cpp",
+      "sha256": "ab5ebc34cf72e4be1c2d9be5da5bf286a0643eb15c682a3295b06df41efb8199",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/analysis/AnalysisEngine.hpp",
+      "sha256": "35413f6ae234f12ed31bbfddb323ac068c7deb91651213649c7704352f139ff6",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/analysis/OutputSpectrum.cpp",
+      "sha256": "3d38e354f430c51d2069db36ade9a8d2f369f601a020edb1e79fb1c904953912",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/analysis/OutputSpectrum.hpp",
+      "sha256": "713289cbdcddc3d9249f361a391ba9b0f43d48779acbf9e5ecef3211bc73b44b",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/analysis/SignalMetrics.cpp",
+      "sha256": "0d5e01c3ba0680a24c8b0b7668595d598cac66b83b3fb910f664d08cd3f1d505",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/analysis/SignalMetrics.hpp",
+      "sha256": "06b6ceac248a71042fe4925b93bf15a571945dd552dc2662c4ae30bac352b0e5",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/clock/ClockBridge.cpp",
+      "sha256": "0f8a5fc61ba03db3ea3eda673278f6b00f76415bb686385f329214fb50a6a7f9",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/clock/ClockBridge.hpp",
+      "sha256": "cc1d005756517443aa6f2906e6371bede3bc5f9d6503a8a643652d745f419521",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/clock/ClockSynchronizer.cpp",
+      "sha256": "d0ce0a32462ff6744b788c0f61b239a7e698a34170cf53ff4d03b8b05588189e",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/clock/ClockSynchronizer.hpp",
+      "sha256": "47e86443bca8d65eae3ce6ff859a76395a2ccfbbbd13ea7b2b9f0c4f4080eea2",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/dsp/AudioProcessor.hpp",
+      "sha256": "8264fed2af0a6ee2466f022548ed3133a01339a3108b09f9b36cd80e5cd33284",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/dsp/BasicProcessors.cpp",
+      "sha256": "bc813dfe228b5cb2f9a55799fe6c20516c64c692640f6feb005b108f38dfcd14",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/dsp/BasicProcessors.hpp",
+      "sha256": "425996966e40557071dc3c61bee1606990b82d1907af274a76780125740dd696",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/dsp/DspChain.cpp",
+      "sha256": "ca864c9851cd464a67ba6c183de8846cb95aca663cce15368765dcaf880e679b",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/dsp/DspChain.hpp",
+      "sha256": "f63da5159cc4ec097073067b32282518646b98f3c23766c9b5e9becadee56bb0",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/dsp/KWeighting.hpp",
+      "sha256": "16f0e77eef27a18dd87802e763a095f63b5ea50d95079138b66bc8bbc7e6a206",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/media/RateTransposeProcessor.cpp",
+      "sha256": "8071a7a4195ff695fc34edf383b0b8b3d9fc3f805701dfce820870cef39a035b",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/media/RateTransposeProcessor.hpp",
+      "sha256": "c85e5da08bc4e8874beb5c1159cddf76ff9aa64f2405c9fa5021234e7cc25520",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/recording/PerformanceAligner.cpp",
+      "sha256": "33b3e11f7bac6f3d5506b0f62f074f40a36b3b1a53400bfc348a1ab50d3a2ca0",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/recording/PerformanceAligner.hpp",
+      "sha256": "749425eb4087a6c3d9ca78eaf06419b7006beb68565355c225e6a1b72c6920fe",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/recording/RecordingEngine.cpp",
+      "sha256": "dfe94673ecbf666f64b9ead20e4657666cb0df1b8cea634e5f34e367511978c1",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/recording/RecordingEngine.hpp",
+      "sha256": "bc700f9b35ec5a9e3e13b6e7aa412f09e5c55b465a134863fbc151f3f9f3f0cb",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/recording/WavWriter.cpp",
+      "sha256": "a59d96b8479403e5bdead1a49f5c451b989b3c0c4e789e5387b1c62162423514",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/src/recording/WavWriter.hpp",
+      "sha256": "37d945b3bc3d6667b2d7101c75cb462b1195a9f9ad1c6b77ac653fa3d656f547",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/tests/analysis/SignalTests.cpp",
+      "sha256": "647abea2b8f001247deafdfc19303974a79ca06ca3b8e8b30f9618efd96f25fc",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/tests/dsp/DspTests.cpp",
+      "sha256": "f19cbff59a032b65fea357f5199aa6923bfffc9cfac388154e1e7b0a38e7f044",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/tests/dsp/LoudnessTests.cpp",
+      "sha256": "c78a0c89eb684e3d9374cd0ab850b31c13f9027ae1b51383e9491b1269af860c",
+      "unchanged": true
+    },
+    {
+      "path": "AudioService/tests/recording/RecordingTests.cpp",
+      "sha256": "126a8a0b6b978a78897b986571123cd248eab6c586290f292da769267aaabb45",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/electron/room-audio-alignment.mjs",
+      "sha256": "66cd83d31b88c53d27c3ca57d9df1cb28deab1433282dce4012777de7a4d9843",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/electron/room-audio-alignment.test.ts",
+      "sha256": "232b200d504fe32c1b89dcd36303a28b3a08a7a6507f9f7842f10c67cc4a58ec",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/analysis/analysis.css",
+      "sha256": "7d728afaa8b58bf88a9b14922fd96c43b2cc5cec04fca9af6c9586264e1778e9",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/analysis/analysisPresentation.ts",
+      "sha256": "c143e5583c2dfd0f2b2b6f658b1b129b3598ae0eb98894bc5cfcdb336ffec6f6",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/analysis/index.tsx",
+      "sha256": "32f77cdd170c3bb5ebe8eddc68996c9c3899317a0628f187f9d9899e72aff201",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/analysis/performance-art.svg",
+      "sha256": "93a8393ac458176f4091e3d28ed428432c97ebe2df857600b021d30db391ad6b",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/analysis/preparation.test.tsx",
+      "sha256": "6125eee54ee2f159fd085b84fecb8b4152502e43b1753b11418967aaab191f3b",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/ProcessingError.test.tsx",
+      "sha256": "dca9c97fdba32a906394043ce8410d17796eefcd1d972c66d2707f0d32d66e21",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/ProcessingError.tsx",
+      "sha256": "dd3168e3c56f38ad3e51fe0af7daed84782df7c266300cb696f208d0eceb5dd3",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/ProcessingJobCard.tsx",
+      "sha256": "190eec69d29941bc331ff4dbe1673d3e174a960ebaf2ca92ab6b1ccebaeb94b8",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/index.tsx",
+      "sha256": "e3a64e8cc794b2fabc6026ee2d26b931f91ba1ffdda10e0b4e7f9ebb9cd845a6",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/processing.css",
+      "sha256": "bcff0c0970dce322ced4f5ce77d71352a41cd7cae2add329bae711e8c33aca54",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/processingModel.order.test.ts",
+      "sha256": "c2dc5e34059af5451aad467b8810f8c141f17e54e6a64d923b2ce54f0f2aba66",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/processingModel.ts",
+      "sha256": "4f066eca5e4d5272206db9baa1d47ccc90a4a16e6b72d3c11d8a30ecb5f49f8b",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/useProcessingQueue.test.tsx",
+      "sha256": "1b6d02a57b3e7de41bfc99c492ec29b85a9955750283119792ecf587ec61c390",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/modals/processing/useProcessingQueue.ts",
+      "sha256": "c9fe2c02a62b6fb40bf6d5d950cbeaa723e8e9eee52566476023ffbbe5e24101",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/src/pages/library/songs/song-grid/song-card/processing-signal.tsx",
+      "sha256": "5c32dbb7ff4b4d720c5517ef613a5f32eea143934708be204af4e424202acf57",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/__init__.py",
+      "sha256": "a3746778160abd3abbea043b2b6dee94698501d40a8f6839c42ae842392ed775",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/__main__.py",
+      "sha256": "a3fc348ff42711620ec94c19853f1a59f8dd14f791fbe86c4164d7498a0a9642",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/audio_io.py",
+      "sha256": "5bb302c328ba70bd0a5ea2b0650e85ce1c721c64e4a4acd0bdb6e2c0602973a6",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc.py",
+      "sha256": "d10e9f14304b293c8b759c84886c66623e49d94e799b3b6b4234aae987e53d4e",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc_bounds.py",
+      "sha256": "30daaba93defc356e50f4cb1025038c48c2551dcf609d3cbf2bd64df67540b3f",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc_domain.py",
+      "sha256": "8474a32d44696f2c351fc9c9554fb9846c4f893debec7f9f90d7a294276f1070",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc_emission.py",
+      "sha256": "2ad2f98f80fa94a6b07c918ec621c35f6336d7307f63d280a459aa4717dacf26",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc_letters.py",
+      "sha256": "2c862bb1923f53290ba9d6c1cb2eda0d956f7213d6fab2704549e1ffd3b96585",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc_singing.py",
+      "sha256": "d94b325d860db3c2771705ccd25227ab9e075e5c59b1418994f04008828bee40",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc_tokens.py",
+      "sha256": "b7699c2207f5d307d8f4f71cc1d1e39081cac099ab277a209b8494042c292d5e",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/guidance_candidates.py",
+      "sha256": "bebe8ab7d5e0081ddaecbf89c964d4fc03c2f4611b5210061d99556981e980b2",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/guidance_phrases.py",
+      "sha256": "59e3941542714f92b3eeeb00573cbd4cfd7909386129bbb87c0ca39fb0d371b8",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/guidance_review.py",
+      "sha256": "788e8fe7541b4e1bf68e57f4a56381b0b17b10acb428a0e4466e2a4f3db4378d",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/guidance_windows.py",
+      "sha256": "8ab69e8bb1096030398bf01b23b82920bc380146b7874f286788bad33ee6c253",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/lead_vocals.py",
+      "sha256": "ccf7283c8501d91c8f4708f296b1dc334cb8490eb1266f5320400bbb74b17b13",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/paths.py",
+      "sha256": "dfabd4a802a41bda755323b084c7afd646e5397588b88ab6ee01f7761d6f78d6",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/pitch.py",
+      "sha256": "820f2302522573fa957f149fa8a0add8e67cb86c8dad803426e8e0ade3d4b35c",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/recognition.py",
+      "sha256": "ac6c763a33ccdee8a3fef8ffea98ea24f655d6e7f30bb3f157b98b715ba728d6",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/runtime.py",
+      "sha256": "489e47b50540ec29c680eb0c19dcd7d91e3b8b9bc7f016671edd2bff1a585ba8",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/separation.py",
+      "sha256": "90d425627e496821ebcc27db8fe28a5b7bd00866f8f61017d004b7bda66de587",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/speech.py",
+      "sha256": "22515faeac14869a94f521beb7fa236a0876f986c4b49c0e4c18c0973603d3ef",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/speech_alignment.py",
+      "sha256": "84b67937f5b7a9ac693150725a753fa95984f2d1de91d1d7bdecf89c8fbe1104",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/speech_session.py",
+      "sha256": "1643277f587474dbac9024583cb6a373fd4a39d9f188aaa3e13a710ce6eaaf15",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/speech_windows.py",
+      "sha256": "b9754cf47193c3531918f9e7feaff6aaf8e754159060c714e03101693b718c2e",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/tensorrt_pitch.py",
+      "sha256": "83b26561c0e98a8a26c7bab7818761822e2ec9f7ee525cd893e06954519ca4af",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/timing.py",
+      "sha256": "e8bffe5ff18ce1cab11c697491e57e5d29dac33d09a99a609209b324b28dc0d9",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/vocal_recovery.py",
+      "sha256": "9473acf54fbe99d5db90302c7e7f0e01fe75dc178529d302da33428f3c2ae534",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/ai_worker/word_guidance.py",
+      "sha256": "19eac0f4cd54939f330307b923ea650a37cc14f31643365bbebe3321428585b1",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/analysis/domain.py",
+      "sha256": "5b2f40ebb3b6e5c19121212eee79faf4e2d1a79272325542f6bd6f1a3c899673",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/analysis/ports.py",
+      "sha256": "c5e2a69c635f1d2ce02b8826fd470ea31000089e054a9195b4eccdb9731f6c7b",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/analysis/queries.py",
+      "sha256": "56f4e210f49e39eb660133f7bf2238201bfe52e6274eae0581f50129af245616",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/analysis/scoring.py",
+      "sha256": "fb2a5a5ddb6bbf04f06068e3050f4b2853f2961e02f5a3293d704ef3f9a31bf9",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/analysis/start_analysis.py",
+      "sha256": "4ee086c379f22ebf1abedb578dbf276db1f36c41b2464c97bdbff82873bd6124",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/api/song_processing_routes.py",
+      "sha256": "be95826fa38121a0debfed02457e6329969e773f882ddcfda95bd45e543a068f",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/infrastructure/processing_cache.py",
+      "sha256": "11547bedf2590ed76e9918ffb7d71aa1fde2ad65a8bd14b8ff25d55276ecd8ce",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/infrastructure/processing_transport.py",
+      "sha256": "fdfe30076b572520a4dcb88f9fe5984f6f6cfa5995012db550e7f362a853d8c8",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/infrastructure/wave_pitch.py",
+      "sha256": "11ab8c35dfc27768cef74cd4b9b362e99401991c9861f12d3884e1892a27a48f",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/infrastructure/youtube_clip.py",
+      "sha256": "e27af53a84191ab4010e44eb3734cca8b9da4bd34dc5d82e020d39b2f2ce91b9",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/algorithms.py",
+      "sha256": "413cafea8ad8ee91321ff28240d93064fa6b4fa19f9a005e71528704cf5512f4",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/audio_pipeline.py",
+      "sha256": "9dbd663a22eb13eeeae558c86e2d5fa2d6b9ce5f14ed7f37ab8f960d0eb4b27b",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/cache_key.py",
+      "sha256": "11439fc85f16063bb09ef5a1b0ac37ee2ba2a15b3770d869210f2e7006f4abc6",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/cancel_processing.py",
+      "sha256": "684928cf74c78171711779130951ec1adee7fe114d956e983e9848e010d250db",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/compute_policy.py",
+      "sha256": "c6f01e178e4ddd2ffedfd675f009f85dff0439b5e8bcbac1f82917cdbdceddf5",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/document_pipeline.py",
+      "sha256": "c5a6defc073b37ee479ab4a8f8d73cade27a1f639dc39826e7a2e58fc9dceb6f",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/domain.py",
+      "sha256": "50b6f7b18fbdb6e48b55865bbe2a5417a359d6f8b2ec29a7cbd659e976cb3791",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/job_manager.py",
+      "sha256": "be86421e85dee9bdac29495cd775ae0bb08323eaeca13f15008c7dabe855522a",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/melody_pipeline.py",
+      "sha256": "986750f93019ceac59649f3b3dcf94c31737bbafeaf13f24aecb2297e59efe68",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/melody_reference.py",
+      "sha256": "2b7eb07cf508519131ca8a271497246466f2216e427dd10b2c9d9723ab2fd121",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/normalize_stage.py",
+      "sha256": "a2ee1be8ebf505d6c1fdce1fbdb13f956e150d1c8a5872c330111efb17957b72",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/orchestrator.py",
+      "sha256": "0dddc765ea16d4d7e20a9bce2c437d48ab874f97ddfcb9d9fd2309d78b7521ce",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/persistence.py",
+      "sha256": "6d596d61832892d5b3200c5682ac2aa429b9c6ac309a11aed3e886cfda96fb66",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/phrasing.py",
+      "sha256": "410b7b1a63090b7178ddd69f347d7b26c4d544ac48b22db1f3ea8bbc8ecc4d24",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/policies.py",
+      "sha256": "def5c6f3324e41bc8931875df5f47d865e3d093df87c24860df09af29107d8db",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/ports.py",
+      "sha256": "f5240b75718c60fce054d013a2f6e397ee593f7aef307a7e7cc707c493688328",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/preflight.py",
+      "sha256": "20ae56fb92947c18a81124b61046735bcdeed439c89e80005be2ea50c3f49ca0",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/reporting.py",
+      "sha256": "353e428dc04d49e06a5506b0b89d6ed769f17ba3d5567c9841a62e29ca057e20",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/reprocess_melody.py",
+      "sha256": "c7e0bfddeea245cdfb249d4e3f4367de1cb863f91bf1d99a8845ecced5a353aa",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/resource_scheduler.py",
+      "sha256": "f52b41422b5c1df826e8b8131a2720022456c538924d5a8f25bfdce2dbba969e",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/stage_runner.py",
+      "sha256": "7c51b6b945c7196347a26891fdc228be76069fccd747cfab716711d0e34fd16c",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/start_processing.py",
+      "sha256": "9b127361dc351d5ce18f20b6711e0c1be2bbf9f1f342ebffbb013b627bdea7c6",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/processing/worker_song.py",
+      "sha256": "1d23555f7de74d7ec733167d65b4f7dd3d6ab2be4b8b070efe0d925d3e89933c",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/start_studio_master.py",
+      "sha256": "3a451dfc05192f398eb414a479c234930bac171f4085e675386b9f1fe90b5b4d",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_audio.py",
+      "sha256": "22437365f7319ededf978b7ce9a1d4595618508c8622ba2cdc2395f7e91ea659",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_calibration.py",
+      "sha256": "bd44b5d54a9efccaba4f5ca0fd77d15fa5485e45f537b916b29080cffb6e702a",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_compression.py",
+      "sha256": "3ab5d8ba802864cfa8937c41d165d7bd20a545c5ab4aed0cc8fa06b21cd825eb",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_delivery.py",
+      "sha256": "ebad37238a9b3f9f1c0d8bb565f8516648d6f151b2752e43017de260ab1008c2",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_dynamics.py",
+      "sha256": "72f3c4535f4300df27b1b34ec3cd1455c7423d0793f2ea11688842a83e7f125e",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_field.py",
+      "sha256": "a78ade8d13a1cb19cb571303f080a14ab88a7621cdc3c6179bd7d0f634ca1c48",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_master.py",
+      "sha256": "91fe4efb16b501a0edd3c3fa48af5c89031e635d867e195e2148b333355922d7",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_mix_audit.py",
+      "sha256": "1875c9aa3744449383e08e96b8e1a29e7f3ab7fcb39fb12b37f13be5995eaa35",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_pitch.py",
+      "sha256": "6604bc05d105f0defce7c571d5a33e8fe5b221bad9f075dba871ee69954dcedb",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_quality.py",
+      "sha256": "ea38e41a0e2f9b7c733aa877a63c28e4ab809a78959146892c9db8b185790651",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_reference.py",
+      "sha256": "af0ad786b63db4ab0eb10a89b50aa92dc5b65942c5572b292b87a91f4c9b8567",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_render.py",
+      "sha256": "71c80c9ddc84cf70f78d00038b5c374c40d324516c9bd888cc1d1f303724769d",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_space.py",
+      "sha256": "37343bed076682b7e180a55ae5a2f881180bc0ae9baa521e05bd02cacc9b7bf5",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_space_analysis.py",
+      "sha256": "9ac97a5a7aba640a4a43d668db7ed9f2c2cb093d6ce16bf59c44398c005a180c",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_spectrum.py",
+      "sha256": "9498444fca59fd1741c0efa266e80c1176a164dc27a86028a7cb619f21c947bb",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/recordings/studio_voice.py",
+      "sha256": "785d226a0cc19cb616b5e410e854efbe67319977fe5a7f124c573fda97969a25",
+      "unchanged": true
+    },
+    {
+      "path": "python/backend/songs/prepare_clip.py",
+      "sha256": "0683caa37b3fb39f33fe3a3cb070cb74125176c14159de46f90e9f0a1dbcb4dd",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_admaster_diffuse_space.py",
+      "sha256": "8dfc46f4aaaf7a7ff06deaa4e1fee5c707222313355ca2a00e4274780b25b2b9",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_admaster_echo_regions.py",
+      "sha256": "fca9869bb24a4123c70c77e59db5280fa7ec88cc44410750e9e3630ada522a52",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_ai_worker_pitch.py",
+      "sha256": "0ee6abf3d1d8362c5187b0b1cbce77a65a73f4dbcced94d2c849e9d0f8234467",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_ai_worker_separation.py",
+      "sha256": "fa2722a9f7545e2d9d19fb77ce9ed964ec93995a60d7733ddd3f7ed65b1f7966",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_letter_alignment.py",
+      "sha256": "c0178859932e6f15e3d8c1eca2268a856cc6b90149cec150de4f2b335f779ab2",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_melody_reference.py",
+      "sha256": "45b107421d438f83c6a815f3309557f5e52e5572b407c11540db47aeea0c05dd",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_oracle_processing.py",
+      "sha256": "2f24a321da374bbd46c4be338e54c9cbc52af9dd5592fa6bf69dbd6761199448",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_performance_transforms.py",
+      "sha256": "09036c3215abc2807bc7fedfacb8ccf9f26dcde4c4c57a548eed13a447616fd3",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_pitch_decoder_performance.py",
+      "sha256": "e61f16436d88e3f9cd3295ec12f1a335fc01142514636350b203239f66c3a03d",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_processing_e2e.py",
+      "sha256": "58c6568180c00197757a136b3d2e1446ea3ef9ae663857b74fa64ce0c3ec72c2",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_processing_execution.py",
+      "sha256": "dcecd5d07e614856a8d7f40c37c58de10939de52742d04f4d90266cc4e7c7763",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_processing_ownership.py",
+      "sha256": "40c3bb90438d3c1ebbf7bd76917532945b752968a67c3b6f17dea8fbdc7a294b",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_recordings_analysis.py",
+      "sha256": "3d8658c3087f70adb50623a0001dd822c26ed187f74be7126f873cca47d9053f",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_delivery_consistency.py",
+      "sha256": "524df5fa098c1339c701c8c88f49cce54c4c252ca920c8d898169afd8f5de550",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_fx_impulse_guard.py",
+      "sha256": "aabe519f893b397cb9f10c6350cebef9e3c8f447f83d965f790273164c6b7b8d",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_master_regressions.py",
+      "sha256": "7869bdb4ca6f3478477327190424af7bf590943417fec328f78d53f446061299",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_master_scenarios.py",
+      "sha256": "8a152d3059080867cd2b1ad0c30c4aa0ca8d5a146bd005cc44dc1b953f73111a",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_mix_audit_output.py",
+      "sha256": "7b829c93c21ef844707abdbf8898fdaeb9cd72c6659cca911218aa57ca7b0a57",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_mix_audit_spectral.py",
+      "sha256": "e8fa0129462bb15730204d4895ec55210cc808ff8d4be532ad9a747e5e8b4f4d",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_presence_v2.py",
+      "sha256": "365ede8c74800d9a111f7ace82ccecc26950e734ce9c84b9aa36437fa7f564a7",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_profile_performance.py",
+      "sha256": "e12ab5a0061eb5cad904a51335b9ba91b7c3a0188579c886fd18a80bb9abdcfc",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_quality.py",
+      "sha256": "0e32289d0fa00338bdfc7a1280e4895c263eca99bd4017b76cc1444f93f83106",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_reference_masking.py",
+      "sha256": "0ecbd8e810e679610cef691dd743e1b3e4978ddbaf5d16e3334f4c40cc0a97e8",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_space.py",
+      "sha256": "ce5356312f7f542335a867ab62d89693565c4db8339cd4a4933712a32fd16b88",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_space_buses_standalone.py",
+      "sha256": "75d309161f459b37a37c70692053600a43040bc26dfe2f2eb0f5f5eb6934fece",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_spectrum_performance.py",
+      "sha256": "5f01fbede08293928ac3778e7c77f31e397b7773fa43b1a6f66e7fddc44ab3a4",
+      "unchanged": true
+    },
+    {
+      "path": "python/tests/test_studio_unmask_both_sources.py",
+      "sha256": "13496d60ece64ca1ac811e7fa215f7740eccbe35cdbf385b022ee0205c0f50fb",
+      "unchanged": true
+    }
+  ],
+  "mixedFileReview": [
+    "useSongActions processing hook and curtain constant unchanged; edits only useSongPlayback",
+    "LocalSongStorage.copy_source and unrelated original methods unchanged; only manual cover/clip operations affected",
+    "LocalRecordingStorage only quarantine/restore/finalize changed; audio publication/recovery unchanged",
+    "SongStorage pre-existing method contracts unchanged; manual media_update protocol added",
+    "No DSP/alignment/mixing/timing formula or processing/mastering threshold/configuration changes"
+  ]
+}

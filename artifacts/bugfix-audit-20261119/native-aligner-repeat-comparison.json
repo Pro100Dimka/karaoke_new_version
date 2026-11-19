@@ -1,0 +1,242 @@
+[
+  {
+    "revision": "base",
+    "attempt": 1,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 1,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 2,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 2,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 3,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 3,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 4,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 4,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 5,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 5,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 6,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 6,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 7,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 7,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 8,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 8,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 9,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 9,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 10,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 10,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 11,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 11,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 12,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 12,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 13,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 13,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 14,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 14,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 15,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 15,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 16,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 16,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 17,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 17,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 18,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 18,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 19,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 19,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 20,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 20,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  }
+]

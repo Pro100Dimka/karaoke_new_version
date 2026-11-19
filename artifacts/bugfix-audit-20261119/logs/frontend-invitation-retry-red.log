@@ -1,0 +1,144 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/application/social/RoomInvitationCoordinator.test.ts (6 tests | 3 failed) 117ms
+   × retries a failed leave without accepting the invitation twice 6ms
+   × retries a failed join without accepting the invitation twice 1ms
+   × deduplicates an in-flight join after the server removes its accepted invitation 54ms
+ ❯ src/features/social/SocialAlerts.test.tsx (6 tests | 3 failed) 3226ms
+   × keeps an accepted invitation retryable after its inbox entry disappears (requested: false) 1065ms
+   × keeps an accepted invitation retryable after its inbox entry disappears (requested: true) 1060ms
+   × dismisses a failed accepted invitation locally even while the server inbox is stale 1019ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/social/RoomInvitationCoordinator.test.ts > retries a failed leave without accepting the invitation twice
+ FAIL  src/application/social/RoomInvitationCoordinator.test.ts > retries a failed join without accepting the invitation twice
+Error: InviteAnswered
+ ❯ src/application/social/RoomInvitationCoordinator.test.ts:37:26
+     35|       .fn()
+     36|       .mockResolvedValueOnce({ roomId: 'B' })
+     37|       .mockRejectedValue(new Error('InviteAnswered')),
+       |                          ^
+     38|     clearRequestedRoom: vi.fn(),
+     39|   };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/application/social/RoomInvitationCoordinator.test.ts > deduplicates an in-flight join after the server removes its accepted invitation
+AssertionError: expected Promise{…} to be Promise{…} // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: Promise{…}
+Received: serializes to the same string
+
+
+Compared values have no visual difference.
+
+ ❯ src/application/social/RoomInvitationCoordinator.test.ts:82:18
+     80|   invitations.prune([]);
+     81|   const second = invitations.accept('invite', 'Singer');
+     82|   expect(second).toBe(first);
+       |                  ^
+     83|   finish({ code: 'B' });
+     84|   await first;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > keeps an accepted invitation retryable after its inbox entry disappears (requested: false)
+ FAIL  src/features/social/SocialAlerts.test.tsx > keeps an accepted invitation retryable after its inbox entry disappears (requested: true)
+TestingLibraryElementError: Unable to find role="button" and name `/^(retry|social\.acceptAction)$/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-live[39m=[32m"polite"[39m
+      [33mclass[39m=[32m"socialAlerts"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-live[39m=[32m"polite"[39m
+      [33mclass[39m=[32m"socialAlerts"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/social/SocialAlerts.test.tsx:142:32
+    140|     view.rerender(<SocialAlerts inbox={inbox} />);
+    141|     await act(async () => { failJoin(new Error('AudioService unavailab…
+    142|     const retry = await screen.findByRole('button', { name: /^(retry|s…
+       |                                ^
+    143|     await waitFor(() => expect(retry).not.toBeDisabled());
+    144|     expect(room.join).toHaveBeenCalledOnce();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > dismisses a failed accepted invitation locally even while the server inbox is stale
+AssertionError: expected <button></button> to be null
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"socialAlerts"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [36m<div>[39m
+              [0msocial.roomInviteAlert[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"socialAlertActions"[39m
+          [36m>[39m
+            [36m<button>[39m
+              [0msocial.acceptAction[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0msocial.declineAction[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+- Expected:
+null
+
++ Received:
+<button>
+  social.acceptAction
+</button>
+
+ ❯ src/features/social/SocialAlerts.test.tsx:176:104
+    174|   await waitFor(() => expect(social.notify).toHaveBeenCalledOnce());
+    175|   fireEvent.click(screen.getByRole('button', { name: /^(close|social\.…
+    176|   await waitFor(() => expect(screen.queryByRole('button', { name: /^(r…
+       |                                                                                                        ^
+    177|   expect(port.declineInvite).not.toHaveBeenCalled();
+    178|   view.rerender(<SocialAlerts inbox={inbox} />);
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  6 failed | 6 passed (12)
+   Start at  18:03:00
+   Duration  4.03s (transform 175ms, setup 276ms, import 158ms, tests 3.34s, environment 756ms)

@@ -1,0 +1,77 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/features/social/SocialAlerts.test.tsx (2 tests | 2 failed) 2134ms
+   × accepts an approved join after the current friends action finishes 1122ms
+   × offers a manual retry when accepting an approved join fails 1010ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > accepts an approved join after the current friends action finishes
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"socialAlerts"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/features/social/SocialAlerts.test.tsx:60:57
+     58|   expect(social.invitations.accept).not.toHaveBeenCalled();
+     59|   await act(async () => { finish(); });
+     60|   await waitFor(() => expect(social.invitations.accept).toHaveBeenCall…
+       |                                                         ^
+     61|   expect(social.invitations.accept).toHaveBeenCalledWith('approval', '…
+     62| });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/social/SocialAlerts.test.tsx > offers a manual retry when accepting an approved join fails
+TestingLibraryElementError: Unable to find role="button" and name "social.acceptAction"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-live[39m=[32m"polite"[39m
+      [33mclass[39m=[32m"socialAlerts"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-live[39m=[32m"polite"[39m
+      [33mclass[39m=[32m"socialAlerts"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/social/SocialAlerts.test.tsx:67:30
+     65|   social.invitations.accept.mockRejectedValueOnce(new Error('Offline')…
+     66|   render(<SocialAlerts inbox={{ ...inbox, invites: [approved] } as Onl…
+     67|   const retry = await screen.findByRole('button', { name: 'social.acce…
+       |                              ^
+     68|   expect(social.invitations.accept).toHaveBeenCalledTimes(1);
+     69|   fireEvent.click(retry);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  17:44:22
+   Duration  3.09s (transform 147ms, setup 129ms, import 187ms, tests 2.13s, environment 483ms)

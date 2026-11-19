@@ -1,0 +1,114 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/AppLogUploader.test.ts (19 tests | 6 failed) 35ms
+   × redacts authentication credentials in structured diagnostics: {"X-AD-Voice-Room-Key":"private-room-key"} 3ms
+   × redacts authentication credentials in structured diagnostics: {'X-AD-Voice-Room-Key': 'private-room-key'} 1ms
+   × redacts authentication credentials in structured diagnostics: {"X-AD-Voice-Device":"private-device-secret"} 0ms
+   × redacts authentication credentials in structured diagnostics: X-AD-Voice-Device: private-device-secret 1ms
+   × redacts authentication credentials in structured diagnostics: {'apiKey': 'private-api-key', 'voiceToken': 'private-voice-token'} 0ms
+   × redacts authentication credentials in structured diagnostics: {"Authorization":"Basic private-basic-credential"} 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/AppLogUploader.test.ts > redacts authentication credentials in structured diagnostics: {"X-AD-Voice-Room-Key":"private-room-key"}
+AssertionError: expected '[[[{"timestamp":"2026-11-19T15:44:26.…' not to contain 'private-'
+
+Expected: "private-"
+Received: "[[[{"timestamp":"2026-11-19T15:44:26.859Z","source":"electron","level":"error","message":"{\"X-AD-Voice-Room-Key\":\"private-room-key\"}"}]]]"
+
+ ❯ electron/AppLogUploader.test.ts:233:47
+    231|   logs.add('electron', 'error', details);
+    232|   await logs.flush();
+    233|   expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+       |                                               ^
+    234|   expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    235| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  electron/AppLogUploader.test.ts > redacts authentication credentials in structured diagnostics: {'X-AD-Voice-Room-Key': 'private-room-key'}
+AssertionError: expected '[[[{"timestamp":"2026-11-19T15:44:26.…' not to contain 'private-'
+
+Expected: "private-"
+Received: "[[[{"timestamp":"2026-11-19T15:44:26.862Z","source":"electron","level":"error","message":"{'X-AD-Voice-Room-Key': 'private-room-key'}"}]]]"
+
+ ❯ electron/AppLogUploader.test.ts:233:47
+    231|   logs.add('electron', 'error', details);
+    232|   await logs.flush();
+    233|   expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+       |                                               ^
+    234|   expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    235| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  electron/AppLogUploader.test.ts > redacts authentication credentials in structured diagnostics: {"X-AD-Voice-Device":"private-device-secret"}
+AssertionError: expected '[[[{"timestamp":"2026-11-19T15:44:26.…' not to contain 'private-'
+
+Expected: "private-"
+Received: "[[[{"timestamp":"2026-11-19T15:44:26.863Z","source":"electron","level":"error","message":"{\"X-AD-Voice-Device\":\"private-device-secret\"}"}]]]"
+
+ ❯ electron/AppLogUploader.test.ts:233:47
+    231|   logs.add('electron', 'error', details);
+    232|   await logs.flush();
+    233|   expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+       |                                               ^
+    234|   expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    235| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  electron/AppLogUploader.test.ts > redacts authentication credentials in structured diagnostics: X-AD-Voice-Device: private-device-secret
+AssertionError: expected '[[[{"timestamp":"2026-11-19T15:44:26.…' not to contain 'private-'
+
+Expected: "private-"
+Received: "[[[{"timestamp":"2026-11-19T15:44:26.864Z","source":"electron","level":"error","message":"X-AD-Voice-Device: private-device-secret"}]]]"
+
+ ❯ electron/AppLogUploader.test.ts:233:47
+    231|   logs.add('electron', 'error', details);
+    232|   await logs.flush();
+    233|   expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+       |                                               ^
+    234|   expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    235| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  electron/AppLogUploader.test.ts > redacts authentication credentials in structured diagnostics: {'apiKey': 'private-api-key', 'voiceToken': 'private-voice-token'}
+AssertionError: expected '[[[{"timestamp":"2026-11-19T15:44:26.…' not to contain 'private-'
+
+Expected: "private-"
+Received: "[[[{"timestamp":"2026-11-19T15:44:26.864Z","source":"electron","level":"error","message":"{'apiKey': 'private-api-key', 'voiceToken': 'private-voice-token'}"}]]]"
+
+ ❯ electron/AppLogUploader.test.ts:233:47
+    231|   logs.add('electron', 'error', details);
+    232|   await logs.flush();
+    233|   expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+       |                                               ^
+    234|   expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    235| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  electron/AppLogUploader.test.ts > redacts authentication credentials in structured diagnostics: {"Authorization":"Basic private-basic-credential"}
+AssertionError: expected '[[[{"timestamp":"2026-11-19T15:44:26.…' not to contain 'private-'
+
+Expected: "private-"
+Received: "[[[{"timestamp":"2026-11-19T15:44:26.865Z","source":"electron","level":"error","message":"{\"Authorization\":\"<redacted> private-basic-credential\"}"}]]]"
+
+ ❯ electron/AppLogUploader.test.ts:233:47
+    231|   logs.add('electron', 'error', details);
+    232|   await logs.flush();
+    233|   expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+       |                                               ^
+    234|   expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    235| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 13 passed (19)
+   Start at  17:44:26
+   Duration  704ms (transform 96ms, setup 119ms, import 66ms, tests 35ms, environment 300ms)

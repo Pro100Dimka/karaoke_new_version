@@ -1,0 +1,42 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > updates last-played sorting while the library stays open on the laptop
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+stderr | src/pages/library/songs/useLibraryCatalog.test.tsx > updates last-played sorting while the library stays open on the laptop
+[["song-imports"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx (2 tests | 1 failed) 159ms
+   × updates last-played sorting while the library stays open on the laptop 44ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/songs/useLibraryCatalog.test.tsx > updates last-played sorting while the library stays open on the laptop
+AssertionError: expected [ 'second', 'first' ] to deeply equal [ 'first', 'second' ]
+
+- Expected
++ Received
+
+  [
+-   "first",
+    "second",
++   "first",
+  ]
+
+ ❯ src/pages/library/songs/useLibraryCatalog.test.tsx:82:62
+     80|   act(() => markPlayed('first', 300));
+     81|   await act(() => vi.advanceTimersByTimeAsync(1));
+     82|   expect(result.current.visibleSongs.map((song) => song.id)).toEqual([…
+       |                                                              ^
+     83| });
+     84|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  17:45:41
+   Duration  812ms (transform 125ms, setup 107ms, import 166ms, tests 159ms, environment 233ms)

@@ -1,0 +1,54 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/KeyboardLighting.test.ts (3 tests | 2 failed) 30ms
+   × keeps a delayed color update from turning the keyboard back on after Off 16ms
+   × applies the latest pending color instead of accumulating obsolete animation frames 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/KeyboardLighting.test.ts > keeps a delayed color update from turning the keyboard back on after Off
+AssertionError: expected 'FF0000' to be '000000' // Object.is equality
+
+Expected: "000000"
+Received: "FF0000"
+
+ ❯ electron/KeyboardLighting.test.ts:26:26
+     24|   await Promise.all([first, off]);
+     25|
+     26|   expect(applied.at(-1)).toBe('000000');
+       |                          ^
+     27| });
+     28|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  electron/KeyboardLighting.test.ts > applies the latest pending color instead of accumulating obsolete animation frames
+AssertionError: expected [ '00FF00', '0000FF', 'FFFFFF', …(1) ] to deeply equal [ 'FF0000', 'FFFFFF' ]
+
+- Expected
++ Received
+
+  [
+-   "FF0000",
++   "00FF00",
++   "0000FF",
+    "FFFFFF",
++   "FF0000",
+  ]
+
+ ❯ electron/KeyboardLighting.test.ts:50:19
+     48|   await Promise.all([first, ...pending]);
+     49|
+     50|   expect(applied).toEqual(['FF0000', 'FFFFFF']);
+       |                   ^
+     51| });
+     52|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  17:43:20
+   Duration  283ms (transform 66ms, setup 91ms, import 50ms, tests 30ms, environment 0ms)

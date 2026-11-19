@@ -1,0 +1,40 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/Asio4AllInstaller.test.ts (5 tests | 3 failed) 130ms
+   × stops a headerless oversized download before buffering the whole response 108ms
+   × releases an unread response rejected for http-error 2ms
+   × releases an unread response rejected for oversized-header 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/Asio4AllInstaller.test.ts > stops a headerless oversized download before buffering the whole response
+AssertionError: expected 17 to be less than 16
+ ❯ electron/Asio4AllInstaller.test.ts:86:18
+     84|     ),
+     85|   ).rejects.toThrow(/size|large/i);
+     86|   expect(chunks).toBeLessThan(16);
+       |                  ^
+     87|   expect(cancel).toHaveBeenCalledOnce();
+     88|   expect(openPath).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  electron/Asio4AllInstaller.test.ts > releases an unread response rejected for http-error
+ FAIL  electron/Asio4AllInstaller.test.ts > releases an unread response rejected for oversized-header
+AssertionError: expected "vi.fn()" to be called once, but got 0 times
+ ❯ electron/Asio4AllInstaller.test.ts:104:20
+    102|       launchAsio4AllInstaller(root, openPath, release, vi.fn(async () …
+    103|     ).rejects.toThrow();
+    104|     expect(cancel).toHaveBeenCalledOnce();
+       |                    ^
+    105|     expect(openPath).not.toHaveBeenCalled();
+    106|   },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+   Start at  17:46:09
+   Duration  721ms (transform 61ms, setup 114ms, import 37ms, tests 130ms, environment 295ms)

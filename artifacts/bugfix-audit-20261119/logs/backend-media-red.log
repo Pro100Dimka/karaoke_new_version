@@ -1,0 +1,137 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+__ test_failed_metadata_commit_preserves_the_committed_media[coverPath-cover] __
+
+client = <starlette.testclient.TestClient object at 0x7fab3dc8c110>
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-media-red/test_failed_metadata_commit_pr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fab3d9b04a0>
+field = 'coverPath', media = 'cover'
+
+    @pytest.mark.parametrize("field,media", [("coverPath", "cover"), ("videoPath", "clip")])
+    def test_failed_metadata_commit_preserves_the_committed_media(
+        client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str, media: str
+    ) -> None:
+        endpoint, cover, clip = _song_with_custom_media(client, tmp_path)
+        before = client.get(endpoint).json()
+        original = client.get(f"{endpoint}/{media}").content
+        cover.write_bytes(b"\x89PNG\r\n\x1a\nreplacement-cover")
+        clip.write_bytes(b"\x00\x00\x00\x18ftypreplacement-video")
+
+        def fail_commit(_session: Session) -> None:
+            raise SQLAlchemyError("Database commit interrupted")
+
+        with monkeypatch.context() as fault:
+            fault.setattr(Session, "commit", fail_commit)
+            response = client.patch(
+                endpoint,
+                json={field: str(cover if media == "cover" else clip), "title": "Unsaved title"},
+            )
+
+        assert response.status_code == 503, response.text
+        assert response.json()["code"] == "DatabaseWriteFailed"
+        assert client.get(endpoint).json() == before
+>       assert client.get(f"{endpoint}/{media}").content == original
+E       AssertionError: assert b'\x89PNG\r\n...acement-cover' == b'\x89PNG\r\n...riginal-cover'
+E
+E         At index 8 diff: b'r' != b'o'
+E         Use -v to get more diff
+
+tests/test_song_media_transactions.py:50: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    backend.infrastructure.database:database.py:158 Database transaction failed
+Traceback (most recent call last):
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/infrastructure/database.py", line 152, in commit
+    self._session.commit()
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/tests/test_song_media_transactions.py", line 38, in fail_commit
+    raise SQLAlchemyError("Database commit interrupted")
+sqlalchemy.exc.SQLAlchemyError: Database commit interrupted
+__ test_failed_metadata_commit_preserves_the_committed_media[videoPath-clip] ___
+
+client = <starlette.testclient.TestClient object at 0x7fab3da02300>
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-media-red/test_failed_metadata_commit_pr1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fab3d9ffcb0>
+field = 'videoPath', media = 'clip'
+
+    @pytest.mark.parametrize("field,media", [("coverPath", "cover"), ("videoPath", "clip")])
+    def test_failed_metadata_commit_preserves_the_committed_media(
+        client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str, media: str
+    ) -> None:
+        endpoint, cover, clip = _song_with_custom_media(client, tmp_path)
+        before = client.get(endpoint).json()
+        original = client.get(f"{endpoint}/{media}").content
+        cover.write_bytes(b"\x89PNG\r\n\x1a\nreplacement-cover")
+        clip.write_bytes(b"\x00\x00\x00\x18ftypreplacement-video")
+
+        def fail_commit(_session: Session) -> None:
+            raise SQLAlchemyError("Database commit interrupted")
+
+        with monkeypatch.context() as fault:
+            fault.setattr(Session, "commit", fail_commit)
+            response = client.patch(
+                endpoint,
+                json={field: str(cover if media == "cover" else clip), "title": "Unsaved title"},
+            )
+
+        assert response.status_code == 503, response.text
+        assert response.json()["code"] == "DatabaseWriteFailed"
+        assert client.get(endpoint).json() == before
+>       assert client.get(f"{endpoint}/{media}").content == original
+E       AssertionError: assert b'\x00\x00\x0...acement-video' == b'\x00\x00\x0...riginal-video'
+E
+E         At index 8 diff: b'r' != b'o'
+E         Use -v to get more diff
+
+tests/test_song_media_transactions.py:50: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    backend.infrastructure.database:database.py:158 Database transaction failed
+Traceback (most recent call last):
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/infrastructure/database.py", line 152, in commit
+    self._session.commit()
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/tests/test_song_media_transactions.py", line 38, in fail_commit
+    raise SQLAlchemyError("Database commit interrupted")
+sqlalchemy.exc.SQLAlchemyError: Database commit interrupted
+___________ test_invalid_cover_keeps_the_committed_clip_and_metadata ___________
+
+client = <starlette.testclient.TestClient object at 0x7fab2c60da60>
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-media-red/test_invalid_cover_keeps_the_c0')
+
+    def test_invalid_cover_keeps_the_committed_clip_and_metadata(client, tmp_path: Path) -> None:
+        endpoint, _cover, clip = _song_with_custom_media(client, tmp_path)
+        before = client.get(endpoint).json()
+        original = client.get(f"{endpoint}/clip").content
+        clip.write_bytes(b"\x00\x00\x00\x18ftypreplacement-video")
+
+        response = client.patch(
+            endpoint,
+            json={
+                "videoPath": str(clip),
+                "coverPath": str(tmp_path / "missing-cover.png"),
+                "title": "Unsaved title",
+            },
+        )
+
+        assert response.status_code == 404, response.text
+        assert response.json()["code"] == "CoverNotFound"
+        assert client.get(endpoint).json() == before
+>       assert client.get(f"{endpoint}/clip").content == original
+E       AssertionError: assert b'\x00\x00\x0...acement-video' == b'\x00\x00\x0...riginal-video'
+E
+E         At index 8 diff: b'r' != b'o'
+E         Use -v to get more diff
+
+tests/test_song_media_transactions.py:71: AssertionError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_song_media_transactions.py::test_failed_metadata_commit_preserves_the_committed_media[coverPath-cover]
+FAILED tests/test_song_media_transactions.py::test_failed_metadata_commit_preserves_the_committed_media[videoPath-clip]
+FAILED tests/test_song_media_transactions.py::test_invalid_cover_keeps_the_committed_clip_and_metadata
+3 failed, 2 warnings in 1.14s

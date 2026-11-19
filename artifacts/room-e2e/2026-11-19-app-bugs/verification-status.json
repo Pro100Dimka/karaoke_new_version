@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-19",
+  "branch": "fix/app-bugs-excluding-processing-20261119",
+  "baseCommit": "b7e3aec091faa8896450cbe575cda4ab92544b13",
+  "status": "not-complete-live-verification-unavailable",
+  "environment": "Linux build and test container; no participating Windows workstation or physical audio devices",
+  "requiredBy": "AGENTS.md: mandatory room and multi-instance verification",
+  "affectedScenarios": [
+    "Invitation acceptance, concurrent answers, failed room transition and retry",
+    "Project package identity conflict handling",
+    "Karaoke and TV playlist lifecycle",
+    "Audio session suspend and resume lifecycle"
+  ],
+  "liveChecks": {
+    "startMultyBatTwoRealElectronWindows": "not-run",
+    "renderedUiHostAndGuestScenarios": "not-run",
+    "actualMicrophoneAndRemotePlayback": "not-run",
+    "audioDiagnosticsFromBothProcesses": "not-collected",
+    "audibleSynchronizationAndThirtyMillisecondTarget": "not-measured",
+    "projectDownloadReadinessLoader": "not-run",
+    "savedRecordingAudibleMix": "not-run",
+    "sharedExclusiveAsioSwitching": "not-run",
+    "windowsProcessCleanup": "not-run"
+  },
+  "screenshots": [],
+  "machineAudioDiagnostics": null,
+  "automatedEvidence": "../../bugfix-audit-20261119/report.md",
+  "completionClaim": false
+}

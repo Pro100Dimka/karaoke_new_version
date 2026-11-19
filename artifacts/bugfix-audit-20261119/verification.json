@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-11-19T16:17:21.083427+00:00",
+  "branch": "fix/app-bugs-excluding-processing-20261119",
+  "baseCommit": "b7e3aec091faa8896450cbe575cda4ab92544b13",
+  "testedSourceCommit": "2bf1efcc8fde65a49de62a9d1c8c519e4ca09dda",
+  "testedSourceSubtrees": {
+    "frontend": "27155bcb7ba77e525a7988bbe10edff40d8c3164",
+    "python": "4fb5785cf97e24f7e305f6ac4c9aeda3a99c64e2",
+    "AudioService": "56594908599002c93dd3b6f415667e58bfecd307"
+  },
+  "environment": {
+    "platform": "Linux",
+    "node": "24.22.3",
+    "python": "3.12",
+    "nativeCompiler": "GCC14",
+    "nativeConfiguration": "Release, warnings as errors"
+  },
+  "fullSuiteResults": [
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 6.41,
+      "log": "/workspace/scratch/726a7fe1e251/verification/frontend-typecheck.log",
+      "savedLog": "logs/frontend-typecheck.log",
+      "sha256": "3018cee1da8d074bafeb4b29ea92a288de11137b99baa8692f14bec5696209ae",
+      "savedLogSha256": "083c5dee15587a172540b4fff31aaf5868415a405adbe7a13b82449427ef4914"
+    },
+    {
+      "name": "frontend-architecture",
+      "command": [
+        "node",
+        "scripts/check-architecture.mjs"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 0.43,
+      "log": "/workspace/scratch/726a7fe1e251/verification/frontend-architecture.log",
+      "savedLog": "logs/frontend-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "name": "frontend-vitest",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--maxWorkers=4"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 1,
+      "elapsed_seconds": 26.73,
+      "log": "/workspace/scratch/726a7fe1e251/verification/frontend-vitest.log",
+      "savedLog": "logs/frontend-vitest.log",
+      "sha256": "fa5fe7dbbd0f9f6c8af4b2a88530ab7a49d8cf408cf1ef3c8111a5bc137b5be3",
+      "savedLogSha256": "0acb6b3e06fa90f7577bc329564b24f0aaea5d61711059eef63c4d28a501f748"
+    },
+    {
+      "name": "frontend-node",
+      "command": [
+        "node",
+        "--test",
+        "electron/multi-electron-room-plan.test.mjs",
+        "electron/network-impairment.test.mjs",
+        "electron/room-transfer.test.mjs",
+        "electron/start-script.test.mjs",
+        "electron/startup-media.test.mjs",
+        "scripts/audio-control.test.mjs",
+        "scripts/check-architecture.test.mjs",
+        "scripts/check-rules.test.mjs",
+        "scripts/native-test-isolation.test.mjs",
+        "scripts/release-script.test.mjs",
+        "scripts/smoke-catalog.test.mjs",
+        "scripts/startup-lock.test.mjs",
+        "scripts/ui-package-install.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 1.39,
+      "log": "/workspace/scratch/726a7fe1e251/verification/frontend-node.log",
+      "savedLog": "logs/frontend-node.log",
+      "sha256": "d16f6d0acd033c9d666507808595fefda494f6fc83054d1b18b88461390d17d8",
+      "savedLogSha256": "d16f6d0acd033c9d666507808595fefda494f6fc83054d1b18b88461390d17d8"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 8.84,
+      "log": "/workspace/scratch/726a7fe1e251/verification/frontend-build.log",
+      "savedLog": "logs/frontend-build.log",
+      "sha256": "e4cd6abb29c3f1c301fa63c7c04cb7c89025e98f60c06f0d03e3157aecee0e6c",
+      "savedLogSha256": "0efba84fe81c55fed3c4d9d85b39c971e8013186bf346745137ca67de8bab7b2"
+    },
+    {
+      "name": "backend-required-static",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "scripts/run_checks.py",
+        "--require-dev-tools",
+        "--skip-tests"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 1,
+      "elapsed_seconds": 3.13,
+      "log": "/workspace/scratch/726a7fe1e251/verification/backend-required-static.log",
+      "savedLog": "logs/backend-required-static.log",
+      "sha256": "e96130e6230eb78ff6c5b0ed8527ecb82da4ce2198df12a58ccf136fe01330b9",
+      "savedLogSha256": "e96130e6230eb78ff6c5b0ed8527ecb82da4ce2198df12a58ccf136fe01330b9"
+    },
+    {
+      "name": "backend-ruff",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "backend",
+        "tests",
+        "scripts"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 0,
+      "elapsed_seconds": 0.06,
+      "log": "/workspace/scratch/726a7fe1e251/verification/backend-ruff.log",
+      "savedLog": "logs/backend-ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "savedLogSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "backend-mypy",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "-m",
+        "mypy",
+        "--platform",
+        "win32",
+        "backend",
+        "scripts"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 0,
+      "elapsed_seconds": 3.02,
+      "log": "/workspace/scratch/726a7fe1e251/verification/backend-mypy.log",
+      "savedLog": "logs/backend-mypy.log",
+      "sha256": "b8b75a520684c782a2c2c3f5084972402b9f00ea1fbfe3f249a93cda4576e18f",
+      "savedLogSha256": "b8b75a520684c782a2c2c3f5084972402b9f00ea1fbfe3f249a93cda4576e18f"
+    },
+    {
+      "name": "backend-pytest",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--durations=15",
+        "--basetemp",
+        "/workspace/scratch/726a7fe1e251/karaoke_new_version/.dev-data/temp/checks/final/pytest"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 1,
+      "elapsed_seconds": 334.55,
+      "log": "/workspace/scratch/726a7fe1e251/verification/backend-pytest.log",
+      "savedLog": "logs/backend-pytest.log",
+      "sha256": "66fced7b027c272331d6c79735ecb4cefeefa9affbd9387f47cbdbb88f0a8ca9",
+      "savedLogSha256": "d9dd5dc902e0ccfaefac77676c64f5a99ffd69479362884f08f156ecb06d94f2"
+    },
+    {
+      "name": "native-build",
+      "command": [
+        "cmake",
+        "--build",
+        "/workspace/scratch/726a7fe1e251/audio-build",
+        "-j",
+        "4"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version",
+      "exit_code": 0,
+      "elapsed_seconds": 0.1,
+      "log": "/workspace/scratch/726a7fe1e251/verification/native-build.log",
+      "savedLog": "logs/native-build.log",
+      "sha256": "8c35b1682f73592d30612d7b0fabdb384fcfff35cb5a076cb48b85b1368aa794",
+      "savedLogSha256": "8c35b1682f73592d30612d7b0fabdb384fcfff35cb5a076cb48b85b1368aa794"
+    },
+    {
+      "name": "native-ctest",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "/workspace/scratch/726a7fe1e251/audio-build",
+        "--output-on-failure"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version",
+      "exit_code": 8,
+      "elapsed_seconds": 172.68,
+      "log": "/workspace/scratch/726a7fe1e251/verification/native-ctest.log",
+      "savedLog": "logs/native-ctest.log",
+      "sha256": "69029ef18d957c1014278126c966eb6711f76c2628f21dc4dac63c4fb66827f7",
+      "savedLogSha256": "69029ef18d957c1014278126c966eb6711f76c2628f21dc4dac63c4fb66827f7"
+    }
+  ],
+  "summary": {
+    "frontend": {
+      "passed": 1183,
+      "passedSuites": 169,
+      "failedSuites": 1
+    },
+    "node": {
+      "passed": 109,
+      "skipped": 5,
+      "failed": 0
+    },
+    "backend": {
+      "passed": 2138,
+      "failed": 3,
+      "skipped": 10
+    },
+    "native": {
+      "ctestPassed": 2,
+      "ctestFailed": 1,
+      "internalCasesPassed": 507,
+      "internalCasesFailed": 4
+    }
+  },
+  "baselineEvidence": [
+    "logs/baseline-frontend-preparation.log",
+    "logs/baseline-backend-master-failures.log",
+    "logs/baseline-backend-required-static.log",
+    "logs/baseline-native-ctest.log",
+    "native-aligner-affinity-comparison.json"
+  ],
+  "unixSocketProbe": {
+    "operation": "socket(AF_UNIX, SOCK_STREAM)",
+    "success": false,
+    "exception": "PermissionError",
+    "errno": 1,
+    "message": "[Errno 1] Operation not permitted"
+  },
+  "liveWindowsVerification": "not-run; required gate incomplete",
+  "scopeComparison": "protected-scope.json",
+  "savedLogNormalization": "Trailing line whitespace and extra terminal blank lines removed from readable copies only; original complete logs remain at each recorded log path. sha256 is the original output hash; savedLogSha256 identifies the readable copy."
+}

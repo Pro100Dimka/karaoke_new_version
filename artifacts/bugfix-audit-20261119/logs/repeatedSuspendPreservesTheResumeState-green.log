@@ -1,0 +1,3 @@
+[ RUN      ] repeatedSuspendPreservesTheResumeState
+[       OK ] repeatedSuspendPreservesTheResumeState
+All AudioService tests passed

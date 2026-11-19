@@ -1,0 +1,62 @@
+[
+  {
+    "revision": "base",
+    "attempt": 1,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 1,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 2,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 2,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 3,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 3,
+    "exit_code": 1,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[  FAILED  ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nFAIL: capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: 44100 0.000000..0.125000\nFAIL: capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: 44100.dry.wav 0.000000..0.125000\nFAIL: capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: 44100.vocal.wav 0.000000..0.125000\n3 tests failed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 4,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 4,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "base",
+    "attempt": 5,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  },
+  {
+    "revision": "branch",
+    "attempt": 5,
+    "exit_code": 0,
+    "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+  }
+]

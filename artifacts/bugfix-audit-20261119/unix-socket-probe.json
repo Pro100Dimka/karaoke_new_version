@@ -1,0 +1,7 @@
+{
+  "operation": "socket(AF_UNIX, SOCK_STREAM)",
+  "success": false,
+  "exception": "PermissionError",
+  "errno": 1,
+  "message": "[Errno 1] Operation not permitted"
+}

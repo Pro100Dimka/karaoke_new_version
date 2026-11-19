@@ -1,0 +1,9 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+
+ Test Files  17 passed (17)
+      Tests  78 passed (78)
+   Start at  17:50:03
+   Duration  6.34s (transform 6.76s, setup 3.96s, import 10.44s, tests 5.15s, environment 17.60s)

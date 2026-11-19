@@ -1,0 +1,74 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_reselecting_managed_media_does_not_copy_a_backup _____________
+
+_args = (<_io.BufferedReader name='/workspace/scratch/726a7fe1e251/backend-media-same-path-red/test_reselecting_managed_media0/library/songs/song/media/clip.mp4'>, <tempfile._TemporaryFileWrapper object at 0x7f2c54166990>)
+
+    def forbid_copy(*_args: object) -> None:
+>       raise OSError("No space for an unnecessary media copy")
+E       OSError: No space for an unnecessary media copy
+
+tests/test_song_media_update_storage.py:100: OSError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-media-same-path-red/test_reselecting_managed_media0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2c541666c0>
+
+    def test_reselecting_managed_media_does_not_copy_a_backup(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        storage, _source, target = _storage_with_clip(tmp_path)
+
+        def forbid_copy(*_args: object) -> None:
+            raise OSError("No space for an unnecessary media copy")
+
+        monkeypatch.setattr(shutil, "copyfileobj", forbid_copy)
+        with storage.media_update("song") as update:
+>           assert update.copy_clip(target) == target
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_song_media_update_storage.py:104:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/song_media_updates.py:81: in copy_clip
+    return self._copy(source, self._root / "media" / "clip.mp4", self._copy_clip)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/infrastructure/song_media_updates.py:87: in _copy
+    self._backup(target)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <backend.infrastructure.song_media_updates._MediaUpdate object at 0x7f2c54166480>
+target = PosixPath('/workspace/scratch/726a7fe1e251/backend-media-same-path-red/test_reselecting_managed_media0/library/songs/song/media/clip.mp4')
+
+    def _backup(self, target: Path) -> None:
+        if target in self._backups:
+            return
+        self._backups[target] = None
+        try:
+            if target.exists():
+                with NamedTemporaryFile(
+                    dir=target.parent, prefix=f".{target.name}.", suffix=".backup", delete=False
+                ) as output:
+                    self._backups[target] = Path(output.name)
+                    with target.open("rb") as source:
+                        shutil.copyfileobj(source, output)
+                    output.flush()
+                    os.fsync(output.fileno())
+        except OSError as exc:
+>           raise DependencyError("StorageUnavailable", "Could not preserve song media") from exc
+E           backend.domain_errors.DependencyError: Could not preserve song media
+
+backend/infrastructure/song_media_updates.py:114: DependencyError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_song_media_update_storage.py::test_reselecting_managed_media_does_not_copy_a_backup
+1 failed, 2 warnings in 0.41s

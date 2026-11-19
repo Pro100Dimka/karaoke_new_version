@@ -1,0 +1,114 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_________ test_concurrent_cover_requests_both_receive_the_cached_image _________
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-artwork-temp/test_concurrent_cover_requests0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6ca18a4980>
+
+    def test_concurrent_cover_requests_both_receive_the_cached_image(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        requested, written = Barrier(2), Barrier(2)
+        cover = b"\x89PNG\r\n\x1a\ncover"
+
+        def download(_request: httpx.Request) -> httpx.Response:
+            requested.wait(timeout=5)
+            return httpx.Response(200, headers={"content-type": "image/png"}, content=cover)
+
+        write_bytes = Path.write_bytes
+
+        def overlap_writes(path: Path, data: bytes) -> int:
+            size = write_bytes(path, data)
+            if path.suffix == ".tmp":
+                written.wait(timeout=5)
+            return size
+
+        monkeypatch.setattr(Path, "write_bytes", overlap_writes)
+        cache = ArtworkCache(tmp_path / "covers", httpx.MockTransport(download))
+
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            paths = list(workers.map(cache.path_for, ["https://images.example/cover.png"] * 2))
+
+>       assert all(path is not None for path in paths)
+E       assert False
+E        +  where False = all(<generator object test_concurrent_cover_requests_both_receive_the_cached_image.<locals>.<genexpr> at 0x7f6ca1945560>)
+
+tests/test_artwork_cache_failures.py:37: AssertionError
+_______ test_cover_download_stops_before_buffering_an_unbounded_response _______
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-artwork-temp/test_cover_download_stops_befo0')
+
+    def test_cover_download_stops_before_buffering_an_unbounded_response(tmp_path: Path) -> None:
+        class OversizedImage(httpx.SyncByteStream):
+            consumed = 0
+
+            def __iter__(self):
+                for _ in range(20):
+                    chunk = b"x" * (1024 * 1024)
+                    self.consumed += len(chunk)
+                    yield chunk
+
+        stream = OversizedImage()
+        transport = httpx.MockTransport(
+            lambda _: httpx.Response(200, headers={"content-type": "image/png"}, stream=stream)
+        )
+        cache = ArtworkCache(tmp_path / "covers", transport)
+
+        assert cache.path_for("https://images.example/oversized.png") is None
+>       assert stream.consumed <= 9 * 1024 * 1024
+E       assert 20971520 <= ((9 * 1024) * 1024)
+E        +  where 20971520 = <test_artwork_cache_failures.test_cover_download_stops_before_buffering_an_unbounded_response.<locals>.OversizedImage object at 0x7f6ca1909490>.consumed
+
+tests/test_artwork_cache_failures.py:60: AssertionError
+__________ test_unavailable_cache_does_not_raise_from_a_cover_request __________
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-artwork-temp/test_unavailable_cache_does_no0')
+
+    def test_unavailable_cache_does_not_raise_from_a_cover_request(tmp_path: Path) -> None:
+        blocked = tmp_path / "covers"
+        blocked.write_text("not a directory")
+        transport = httpx.MockTransport(
+            lambda _: httpx.Response(
+                200, headers={"content-type": "image/png"}, content=b"\x89PNG\r\n\x1a\ncover"
+            )
+        )
+
+>       assert ArtworkCache(blocked, transport).path_for("https://images.example/cover.png") is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_artwork_cache_failures.py:73:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/artwork_cache.py:39: in path_for
+    return _cached_artwork(self._cache_dir, url, self._transport)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/infrastructure/artwork_cache.py:62: in _cached_artwork
+    cache_dir.mkdir(parents=True, exist_ok=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = PosixPath('/workspace/scratch/726a7fe1e251/backend-artwork-temp/test_unavailable_cache_does_no0/covers')
+mode = 511, parents = True, exist_ok = True
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileExistsError: [Errno 17] File exists: '/workspace/scratch/726a7fe1e251/backend-artwork-temp/test_unavailable_cache_does_no0/covers'
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:1311: FileExistsError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_artwork_cache_failures.py::test_concurrent_cover_requests_both_receive_the_cached_image
+FAILED tests/test_artwork_cache_failures.py::test_cover_download_stops_before_buffering_an_unbounded_response
+FAILED tests/test_artwork_cache_failures.py::test_unavailable_cache_does_not_raise_from_a_cover_request
+3 failed, 2 warnings in 0.08s

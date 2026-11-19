@@ -1,0 +1,141 @@
+FFF.                                                                     [100%]
+=================================== FAILURES ===================================
+___________ test_selecting_the_current_managed_cover_keeps_it_usable ___________
+
+self = <backend.infrastructure.local_songs.LocalSongStorage object at 0x7fd54eefaa50>
+song_id = 'song'
+source = PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0/library/songs/song/cover/cover.png')
+
+    def copy_cover(self, song_id: str, source: Path) -> Path:
+        target_dir = self._roots.songs / song_id / "cover"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / source.name
+        try:
+>           shutil.copyfile(source, target)
+
+backend/infrastructure/local_songs.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+src = PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0/library/songs/song/cover/cover.png')
+dst = PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0/library/songs/song/cover/cover.png')
+
+    def copyfile(src, dst, *, follow_symlinks=True):
+        """Copy data from src to dst in the most efficient way possible.
+
+        If follow_symlinks is not set and src is a symbolic link, a new
+        symlink will be created instead of copying the file it points to.
+
+        """
+        sys.audit("shutil.copyfile", src, dst)
+
+        if _samefile(src, dst):
+>           raise SameFileError("{!r} and {!r} are the same file".format(src, dst))
+E           shutil.SameFileError: PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0/library/songs/song/cover/cover.png') and PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0/library/songs/song/cover/cover.png') are the same file
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/shutil.py:240: SameFileError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0')
+
+    def test_selecting_the_current_managed_cover_keeps_it_usable(tmp_path: Path) -> None:
+        storage = LocalSongStorage(StorageRoots.under(tmp_path / "library"))
+        original = tmp_path / "cover.png"
+        original.write_bytes(b"\x89PNG\r\n\x1a\noriginal-cover")
+        managed = storage.copy_cover("song", original)
+
+>       selected = storage.copy_cover("song", managed)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_library_file_operations.py:21:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <backend.infrastructure.local_songs.LocalSongStorage object at 0x7fd54eefaa50>
+song_id = 'song'
+source = PosixPath('/tmp/pytest-of-agent/pytest-32/test_selecting_the_current_man0/library/songs/song/cover/cover.png')
+
+    def copy_cover(self, song_id: str, source: Path) -> Path:
+        target_dir = self._roots.songs / song_id / "cover"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / source.name
+        try:
+            shutil.copyfile(source, target)
+        except OSError as exc:
+>           raise DependencyError("StorageUnavailable", "Could not copy custom cover") from exc
+E           backend.domain_errors.DependencyError: Could not copy custom cover
+
+backend/infrastructure/local_songs.py:41: DependencyError
+________ test_failed_cover_copy_preserves_the_previously_selected_cover ________
+
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-32/test_failed_cover_copy_preserv0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd54ea301d0>
+
+    def test_failed_cover_copy_preserves_the_previously_selected_cover(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        storage = LocalSongStorage(StorageRoots.under(tmp_path / "library"))
+        replacement = tmp_path / "cover.png"
+        replacement.write_bytes(b"\x89PNG\r\n\x1a\noriginal-cover")
+        managed = storage.copy_cover("song", replacement)
+        original = managed.read_bytes()
+        replacement.write_bytes(b"\x89PNG\r\n\x1a\nreplacement-cover")
+
+        def fail_during_copy(source: Path, destination: Path) -> None:
+            Path(destination).write_bytes(Path(source).read_bytes()[:5])
+            raise OSError("Disk write interrupted")
+
+        monkeypatch.setattr(shutil, "copyfile", fail_during_copy)
+
+        with pytest.raises(DependencyError, match="custom cover"):
+            storage.copy_cover("song", replacement)
+
+>       assert managed.read_bytes() == original
+E       AssertionError: assert b'\x89PNG\r' == b'\x89PNG\r\n...riginal-cover'
+E
+E         Use -v to get more diff
+
+tests/test_library_file_operations.py:46: AssertionError
+___ test_recording_with_missing_media_can_be_deleted_from_the_library[False] ___
+
+client = <starlette.testclient.TestClient object at 0x7fd54ea1d190>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-32/test_recording_with_missing_me0')
+remaining_sidecar = False
+
+    @pytest.mark.parametrize("remaining_sidecar", [False, True])
+    def test_recording_with_missing_media_can_be_deleted_from_the_library(
+        client, tmp_path: Path, remaining_sidecar: bool
+    ) -> None:
+        target = client.post("/recordings/target").json()
+        path = Path(target["filePath"])
+        recording = Recording(target["recordingId"], path, 1, 16000, 1, datetime.now(UTC))
+        with client.app.state.container.database.create() as transaction:
+            transaction.recordings.add(recording)
+            transaction.commit()
+        if remaining_sidecar:
+            (path.parent / "recording.wav.dry.wav").write_bytes(b"remaining source")
+        else:
+            shutil.rmtree(path.parent)
+
+        deleted = client.delete(f"/recordings/{recording.recording_id}")
+
+>       assert deleted.status_code == 204, deleted.text
+E       AssertionError: {"code":"StorageUnavailable","message":"Recording quarantine failed","details":{},"requestId":"aa855423-f630-448b-9616-304d797a586f"}
+E       assert 503 == 204
+E        +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests/test_library_file_operations.py:67: AssertionError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_library_file_operations.py::test_selecting_the_current_managed_cover_keeps_it_usable
+FAILED tests/test_library_file_operations.py::test_failed_cover_copy_preserves_the_previously_selected_cover
+FAILED tests/test_library_file_operations.py::test_recording_with_missing_media_can_be_deleted_from_the_library[False]
+3 failed, 1 passed, 2 warnings in 0.38s

@@ -1,0 +1,207 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[balance] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/baseline-master-tests/test_studio_master_keeps_the_r0')
+property_name = 'balance'
+
+    @pytest.mark.parametrize("property_name", ["balance", "effects", "duration"])
+    def test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration(
+        tmp_path: Path,
+        property_name: str,
+    ) -> None:
+        import numpy as np
+        import soundfile as sf
+        from backend.ai.domain import SeparatedAudio
+
+        rate = 16_000
+        time = np.arange(rate) / rate
+        dry = 0.04 * np.sin(2 * np.pi * 440 * time) * (time < 0.3)
+        echo = 0.024 * np.sin(2 * np.pi * 440 * time) * ((time >= 0.65) & (time < 0.95))
+        backing = 0.02 * np.sin(2 * np.pi * 220 * time)
+
+        class SeparationThatDropsEcho(FakeAiProvider):
+            def separate(self, audio, workdir, cancel, *, execution):
+                workdir.mkdir(parents=True, exist_ok=True)
+                vocal_path, backing_path = workdir / "voice.wav", workdir / "backing.wav"
+                if audio.name == "recording.wav":
+                    voice, music = dry, backing
+                else:
+                    source_time = np.arange(rate * 2) / rate
+                    voice = 0.1 * np.sin(2 * np.pi * 440 * source_time)
+                    music = 0.3 * np.sin(2 * np.pi * 220 * source_time)
+                sf.write(vocal_path, voice, rate)
+                sf.write(backing_path, music, rate)
+                return SeparatedAudio(backing_path, vocal_path)
+
+        source = tmp_path / "song.wav"
+        write_wav(source, seconds=2.0, frequency=220.0)
+        with app_client(tmp_path / "runtime", ai_providers=(SeparationThatDropsEcho(),)) as client:
+            song = ready_song(client, source)
+            recording = register_recording(client, song)
+            sf.write(recording["filePath"], dry + echo + backing, rate)
+            started = client.post(f"/recordings/{recording['recordingId']}/studio-master")
+            job = wait_for_job(client, started.json()["jobId"], timeout=30)
+            assert job["state"] == "Succeeded", job
+            master = client.get(f"/recordings/{job['report']['recordingId']}").json()
+            samples, output_rate = sf.read(master["filePath"], always_2d=True)
+            samples = samples.mean(axis=1)
+
+        def amplitude(frequency, start, end):
+            clip = samples[round(start * output_rate) : round(end * output_rate)]
+            axis = np.arange(len(clip)) / output_rate
+            return 2 * abs(np.mean(clip * np.exp(-2j * np.pi * frequency * axis)))
+
+        voice = amplitude(440, 0.05, 0.25)
+        actual, expected, tolerance = {
+            "balance": (
+                20 * np.log10(voice / amplitude(220, 0.05, 0.25)),
+                20 * np.log10(2) + job["report"]["balance"]["vocalGainDb"],
+                0.8,
+            ),
+            "effects": (amplitude(440, 0.7, 0.9) / voice, 0.6, 0.05),
+            "duration": (len(samples) / output_rate, 1.0, 1 / output_rate),
+        }[property_name]
+>       assert actual == pytest.approx(expected, abs=tolerance)
+E       assert np.float64(-132.3365298508239) == 6.020599913279624 ± 0.8
+E
+E         comparison failed
+E         Obtained: -132.3365298508239
+E         Expected: 6.020599913279624 ± 0.8
+
+tests/test_recordings_analysis.py:723: AssertionError
+_ test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/baseline-master-tests/test_studio_master_keeps_the_r1')
+property_name = 'effects'
+
+    @pytest.mark.parametrize("property_name", ["balance", "effects", "duration"])
+    def test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration(
+        tmp_path: Path,
+        property_name: str,
+    ) -> None:
+        import numpy as np
+        import soundfile as sf
+        from backend.ai.domain import SeparatedAudio
+
+        rate = 16_000
+        time = np.arange(rate) / rate
+        dry = 0.04 * np.sin(2 * np.pi * 440 * time) * (time < 0.3)
+        echo = 0.024 * np.sin(2 * np.pi * 440 * time) * ((time >= 0.65) & (time < 0.95))
+        backing = 0.02 * np.sin(2 * np.pi * 220 * time)
+
+        class SeparationThatDropsEcho(FakeAiProvider):
+            def separate(self, audio, workdir, cancel, *, execution):
+                workdir.mkdir(parents=True, exist_ok=True)
+                vocal_path, backing_path = workdir / "voice.wav", workdir / "backing.wav"
+                if audio.name == "recording.wav":
+                    voice, music = dry, backing
+                else:
+                    source_time = np.arange(rate * 2) / rate
+                    voice = 0.1 * np.sin(2 * np.pi * 440 * source_time)
+                    music = 0.3 * np.sin(2 * np.pi * 220 * source_time)
+                sf.write(vocal_path, voice, rate)
+                sf.write(backing_path, music, rate)
+                return SeparatedAudio(backing_path, vocal_path)
+
+        source = tmp_path / "song.wav"
+        write_wav(source, seconds=2.0, frequency=220.0)
+        with app_client(tmp_path / "runtime", ai_providers=(SeparationThatDropsEcho(),)) as client:
+            song = ready_song(client, source)
+            recording = register_recording(client, song)
+            sf.write(recording["filePath"], dry + echo + backing, rate)
+            started = client.post(f"/recordings/{recording['recordingId']}/studio-master")
+            job = wait_for_job(client, started.json()["jobId"], timeout=30)
+            assert job["state"] == "Succeeded", job
+            master = client.get(f"/recordings/{job['report']['recordingId']}").json()
+            samples, output_rate = sf.read(master["filePath"], always_2d=True)
+            samples = samples.mean(axis=1)
+
+        def amplitude(frequency, start, end):
+            clip = samples[round(start * output_rate) : round(end * output_rate)]
+            axis = np.arange(len(clip)) / output_rate
+            return 2 * abs(np.mean(clip * np.exp(-2j * np.pi * frequency * axis)))
+
+        voice = amplitude(440, 0.05, 0.25)
+        actual, expected, tolerance = {
+            "balance": (
+                20 * np.log10(voice / amplitude(220, 0.05, 0.25)),
+                20 * np.log10(2) + job["report"]["balance"]["vocalGainDb"],
+                0.8,
+            ),
+            "effects": (amplitude(440, 0.7, 0.9) / voice, 0.6, 0.05),
+            "duration": (len(samples) / output_rate, 1.0, 1 / output_rate),
+        }[property_name]
+>       assert actual == pytest.approx(expected, abs=tolerance)
+E       assert np.float64(1.0) == 0.6 ± 0.05
+E
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.6 ± 0.05
+
+tests/test_recordings_analysis.py:723: AssertionError
+_________ test_seek_reference_contains_only_performed_sections[1.25-2] _________
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/baseline-master-tests/test_seek_reference_contains_o0')
+speed = 1.25, key = 2
+
+    @pytest.mark.parametrize("speed,key", [(1, 0), (1.25, 2), (0.75, -3)])
+    def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key):
+        from backend.recordings.studio_reference import scope_reference
+
+        path = tmp_path / "reference.wav"
+        samples = np.arange(16000, dtype=np.float32) / 16000
+        sf.write(path, samples, 8000, subtype="FLOAT")
+        adjustments = [
+            {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
+            {"elapsedSeconds": 0.25, "sourceSeconds": 1, "playbackRate": 1, "keyShift": 0},
+        ]
+        vocal, _, _, report = scope_reference(path, path, adjustments, 0.5, tmp_path, threading.Event())
+        actual, _ = sf.read(vocal)
+        np.testing.assert_array_equal(actual, np.r_[samples[:2000], samples[8000:10000]])
+        assert report["referenceTimelineRebuilt"]
+
+        render = MasterRender.__new__(MasterRender)
+        render.renderer = FfmpegStudioMasterRenderer(ProcessRunner())
+        render.work, render.cancel = tmp_path, threading.Event()
+        render.info, render.output_channels, render.processing = sf.info(vocal), 1, {}
+        render.pitch_adjustments = adjustments
+        render._prepare_master_backing(path)
+        np.testing.assert_array_equal(sf.read(render.backing)[0], actual)
+
+        time = np.arange(8000) / 8000
+        tones = np.sin(2 * np.pi * np.where(time < 0.5, 400, 800) * time) * 0.1
+        sf.write(path, tones, 8000, subtype="FLOAT")
+        render.pitch_adjustments = [
+            {"elapsedSeconds": 0, "sourceSeconds": 0.2, "playbackRate": speed, "keyShift": key}
+        ]
+        render._prepare_master_backing(path)
+        changed, rate = sf.read(render.backing)
+        assert rate == 8000 and changed.shape == actual.shape
+        for start, end, frequency in [(0.03, 0.13, 400), (0.43, 0.49, 800)]:
+            block = changed[round(start * rate) : round(end * rate)]
+            spectrum = abs(np.fft.rfft(block * np.hanning(len(block)), n=16384))
+            peak = np.fft.rfftfreq(16384, 1 / rate)[np.argmax(spectrum)]
+>           assert peak == pytest.approx(frequency * 2 ** (key / 12), abs=3)
+E           assert np.float64(458.0078125) == 448.9848193237492 ± 3
+E
+E             comparison failed
+E             Obtained: 458.0078125
+E             Expected: 448.9848193237492 ± 3
+
+tests/test_studio_master_regressions.py:363: AssertionError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[balance]
+FAILED tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]
+FAILED tests/test_studio_master_regressions.py::test_seek_reference_contains_only_performed_sections[1.25-2]
+3 failed, 2 warnings in 3.49s

@@ -1,0 +1,3 @@
+[ RUN      ] flacDecoderRejectsTruncatedAudio
+[       OK ] flacDecoderRejectsTruncatedAudio
+All AudioService tests passed

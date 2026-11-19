@@ -1,0 +1,36 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/DesktopIpc.displayAwake.test.ts (5 tests | 3 failed) 151ms
+   × releases the screen when its owning renderer ends through render-process-gone 5ms
+   × releases the screen when its owning renderer ends through destroyed 1ms
+   × releases the screen when its owning renderer ends through reload 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/DesktopIpc.displayAwake.test.ts > releases the screen when its owning renderer ends through render-process-gone
+ FAIL  electron/DesktopIpc.displayAwake.test.ts > releases the screen when its owning renderer ends through destroyed
+ FAIL  electron/DesktopIpc.displayAwake.test.ts > releases the screen when its owning renderer ends through reload
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ electron/DesktopIpc.displayAwake.test.ts:160:35
+    158|         sender.emit('did-start-navigation', { isMainFrame: true, isSam…
+    159|       else sender.emit(event);
+    160|       expect(blocker.active.size).toBe(0);
+       |                                   ^
+    161|       expect(sender.eventNames()).toEqual([]);
+    162|       // The replacement renderer may request a fresh blocker, with no…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+   Start at  17:41:02
+   Duration  695ms (transform 224ms, setup 112ms, import 94ms, tests 151ms, environment 208ms)

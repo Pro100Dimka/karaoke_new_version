@@ -1,0 +1,4 @@
+[ RUN      ] performanceRecordingDrainsBeforeDeviceGenerationChanges
+FAIL: the transition invalidates the old device generation
+[  FAILED  ] performanceRecordingDrainsBeforeDeviceGenerationChanges
+1 tests failed

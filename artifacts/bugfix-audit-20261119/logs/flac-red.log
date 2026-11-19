@@ -1,0 +1,5 @@
+[ RUN      ] flacDecoderRejectsTruncatedAudio
+FAIL: truncated FLAC audio is reported instead of silently ending the recording early
+FAIL: truncated FLAC audio is reported instead of silently ending the recording early
+[  FAILED  ] flacDecoderRejectsTruncatedAudio
+2 tests failed

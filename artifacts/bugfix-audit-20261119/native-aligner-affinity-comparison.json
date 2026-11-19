@@ -1,0 +1,54 @@
+{
+  "baseline_revision": "b7e3aec091faa8896450cbe575cda4ab92544b13",
+  "baseline_worktree_status": "",
+  "baseline_binary_sha256": "5f5fcb30dd8f73e1ec7255ce969a5cf438aa1e9b90612bdcf6723a18179a0e70",
+  "default_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "runs": [
+    {
+      "label": "baseline-default-affinity",
+      "command": [
+        "/workspace/scratch/726a7fe1e251/audio-baseline-build/audioservice_tests",
+        "performanceAlignerPlacesVoiceOnTheMusicItWasSungTo"
+      ],
+      "returncode": 0,
+      "seconds": 0.0479,
+      "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+    },
+    {
+      "label": "baseline-single-cpu",
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "/workspace/scratch/726a7fe1e251/audio-baseline-build/audioservice_tests",
+        "performanceAlignerPlacesVoiceOnTheMusicItWasSungTo"
+      ],
+      "returncode": 1,
+      "seconds": 0.0357,
+      "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nFAIL: capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: 44100 0.000000..0.125000\nFAIL: capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: 44100.dry.wav 0.000000..0.125000\nFAIL: capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: 44100.vocal.wav 0.000000..0.125000\n[  FAILED  ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n3 tests failed\n"
+    },
+    {
+      "label": "branch-single-cpu",
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "/workspace/scratch/726a7fe1e251/audio-build/audioservice_tests",
+        "performanceAlignerPlacesVoiceOnTheMusicItWasSungTo"
+      ],
+      "returncode": 0,
+      "seconds": 0.0377,
+      "output": "[ RUN      ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\n[       OK ] performanceAlignerPlacesVoiceOnTheMusicItWasSungTo\nAll AudioService tests passed\n"
+    }
+  ]
+}

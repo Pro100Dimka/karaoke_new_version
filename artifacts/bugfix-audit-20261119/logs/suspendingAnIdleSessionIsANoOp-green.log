@@ -1,0 +1,3 @@
+[ RUN      ] suspendingAnIdleSessionIsANoOp
+[       OK ] suspendingAnIdleSessionIsANoOp
+All AudioService tests passed

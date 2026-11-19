@@ -1,0 +1,91 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/editor/useEditorPreview.test.tsx (9 tests | 4 failed) 52ms
+     × resets the previous song position and ignores a pending play after audio is replaced 27ms
+     × does not seek before audio is prepared 4ms
+     × does not apply the previous song seek after audio is replaced 4ms
+     × submits only one play operation while the previous toggle is pending 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/editor/useEditorPreview.test.tsx > editor preview lifecycle > resets the previous song position and ignores a pending play after audio is replaced
+AssertionError: expected 23 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 23
+
+ ❯ src/pages/editor/useEditorPreview.test.tsx:47:37
+     45|     act(() => { playing = result.current.togglePlay(); });
+     46|     rerender({ audioReady: false });
+     47|     expect(result.current.position).toBe(0);
+       |                                     ^
+     48|     rerender({ audioReady: true });
+     49|     await act(async () => { finishPlay(); await playing; });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/pages/editor/useEditorPreview.test.tsx > editor preview lifecycle > does not seek before audio is prepared
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      23,
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/pages/editor/useEditorPreview.test.tsx:57:34
+     55|     const { result } = renderHook(() => useEditorPreview(false, vi.fn(…
+     56|     await act(() => result.current.seek(23));
+     57|     expect(audioClient.seek).not.toHaveBeenCalled();
+       |                                  ^
+     58|     expect(result.current.position).toBe(0);
+     59|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/pages/editor/useEditorPreview.test.tsx > editor preview lifecycle > does not apply the previous song seek after audio is replaced
+AssertionError: expected 23 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 23
+
+ ❯ src/pages/editor/useEditorPreview.test.tsx:77:37
+     75|     rerender({ audioReady: true });
+     76|     await act(async () => { finishSeek(); await seeking; });
+     77|     expect(result.current.position).toBe(0);
+       |                                     ^
+     78|   });
+     79|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/pages/editor/useEditorPreview.test.tsx > editor preview lifecycle > submits only one play operation while the previous toggle is pending
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ src/pages/editor/useEditorPreview.test.tsx:92:32
+     90|     act(() => { duplicate = result.current.togglePlay(); });
+     91|     try {
+     92|       expect(audioClient.play).toHaveBeenCalledTimes(1);
+       |                                ^
+     93|     } finally {
+     94|       await act(async () => { finishPlay(); await Promise.all([playing…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 5 passed (9)
+   Start at  17:39:21
+   Duration  741ms (transform 92ms, setup 135ms, import 147ms, tests 52ms, environment 259ms)

@@ -1,0 +1,96 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/services/socialClient.test.ts (3 tests | 1 failed) 1007ms
+   × publishes the offline state when reading the initial social snapshot fails 1004ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/services/socialClient.test.ts > publishes the offline state when reading the initial social snapshot fails
+AssertionError: expected "vi.fn()" to be called with arguments: [ { type: 'offline' } ]
+
+Number of calls: 0
+
+ ❯ src/services/socialClient.test.ts:22:44
+     20|   const stop = socialClient.subscribe(receive);
+     21|   try {
+     22|     await vi.waitFor(() => expect(receive).toHaveBeenCalledWith({ type…
+       |                                            ^
+     23|   } finally { stop(); }
+     24| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 3 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: IPC unavailable
+ ❯ src/services/socialClient.test.ts:18:63
+     16|
+     17| it('publishes the offline state when reading the initial social snapsh…
+     18|   vi.mocked(desktopClient.socialLatest).mockRejectedValueOnce(new Erro…
+       |                                                               ^
+     19|   const receive = vi.fn();
+     20|   const stop = socialClient.subscribe(receive);
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2956:64
+
+This error originated in "src/services/socialClient.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "publishes the offline state when reading the initial social snapshot fails". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: Old IPC request
+ ❯ src/services/socialClient.test.ts:35:10
+     33|   else stop();
+     34|   receive.mockClear();
+     35|   reject(new Error('Old IPC request'));
+       |          ^
+     36|   await initial.catch(() => undefined);
+     37|   await Promise.resolve();
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2027:60
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+
+This error originated in "src/services/socialClient.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: Old IPC request
+ ❯ src/services/socialClient.test.ts:35:10
+     33|   else stop();
+     34|   receive.mockClear();
+     35|   reject(new Error('Old IPC request'));
+       |          ^
+     36|   await initial.catch(() => undefined);
+     37|   await Promise.resolve();
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2027:60
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+
+This error originated in "src/services/socialClient.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+     Errors  3 errors
+   Start at  17:46:45
+   Duration  1.62s (transform 135ms, setup 124ms, import 143ms, tests 1.01s, environment 231ms)

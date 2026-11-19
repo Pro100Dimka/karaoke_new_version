@@ -1,0 +1,60 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/features/karaoke/KaraokeHost.playlist.test.tsx (2 tests | 2 failed) 40ms
+   × continues the local playlist on the TV and finishes it after the last song 31ms
+   × honours an explicit TV queue and clears the displaced automatic playlist 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/karaoke/KaraokeHost.playlist.test.tsx > continues the local playlist on the TV and finishes it after the last song
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/features/karaoke/KaraokeHost.playlist.test.tsx:63:21
+     61|
+     62|   act(() => finish('first', 'first-take'));
+     63|   expect(tv.active).toBe(true);
+       |                     ^
+     64|   expect(screen.getByTestId('playing-song')).toHaveTextContent('second…
+     65|   expect(store.playback.playlist?.index).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/karaoke/KaraokeHost.playlist.test.tsx > honours an explicit TV queue and clears the displaced automatic playlist
+AssertionError: expected { name: 'Set', …(2), …(1) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "index": 0,
+  "name": "Set",
+  "songIds": [
+    "first",
+    "second",
+  ],
+}
+
+ ❯ src/features/karaoke/KaraokeHost.playlist.test.tsx:81:35
+     79|   expect(tv.active).toBe(true);
+     80|   expect(screen.getByTestId('playing-song')).toHaveTextContent('manual…
+     81|   expect(store.playback.playlist).toBeNull();
+       |                                   ^
+     82|   act(() => finish('manual'));
+     83|   expect(tv.active).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  17:49:09
+   Duration  968ms (transform 369ms, setup 283ms, import 248ms, tests 40ms, environment 271ms)

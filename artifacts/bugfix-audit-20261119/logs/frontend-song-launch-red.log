@@ -1,0 +1,51 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/songs/useSongPlayback.test.tsx (3 tests | 2 failed) 23ms
+   × cancels a delayed launch when the library is left 16ms
+   × starts a single transition when play is clicked repeatedly 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/songs/useSongPlayback.test.tsx > cancels a delayed launch when the library is left
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "/karaoke/song",
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/pages/library/songs/useSongPlayback.test.tsx:42:24
+     40|   unmount();
+     41|   await act(() => vi.advanceTimersByTimeAsync(curtainMilliseconds));
+     42|   expect(navigate).not.toHaveBeenCalled();
+       |                        ^
+     43|   expect(store.prepareKaraoke).not.toHaveBeenCalled();
+     44| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/library/songs/useSongPlayback.test.tsx > starts a single transition when play is clicked repeatedly
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ src/pages/library/songs/useSongPlayback.test.tsx:54:20
+     52|   });
+     53|   await act(() => vi.advanceTimersByTimeAsync(curtainMilliseconds));
+     54|   expect(navigate).toHaveBeenCalledTimes(1);
+       |                    ^
+     55|   expect(navigate).toHaveBeenCalledWith('/karaoke/song');
+     56|   expect(store.prepareKaraoke).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  17:40:02
+   Duration  504ms (transform 97ms, setup 84ms, import 91ms, tests 23ms, environment 195ms)

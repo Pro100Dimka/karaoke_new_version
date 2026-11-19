@@ -1,0 +1,47 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/TrayRadio.test.ts (3 tests | 3 failed) 7ms
+   × keeps the ordinary close flow when the tray icon is missing 5ms
+   × keeps the ordinary close flow when the tray icon is unreadable 1ms
+   × does not recreate the tray after the integration is destroyed 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/TrayRadio.test.ts > keeps the ordinary close flow when the tray icon is missing
+ FAIL  electron/TrayRadio.test.ts > keeps the ordinary close flow when the tray icon is unreadable
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ electron/TrayRadio.test.ts:49:32
+     47|     });
+     48|
+     49|     expect(tray.closeToTray()).toBe(false);
+       |                                ^
+     50|     expect(window.hide).not.toHaveBeenCalled();
+     51|     expect(notify).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  electron/TrayRadio.test.ts > does not recreate the tray after the integration is destroyed
+AssertionError: expected "vi.fn()" to be called once, but got 2 times
+ ❯ electron/TrayRadio.test.ts:76:31
+     74|     radio: { available: true, enabled: true, station: 'Second' },
+     75|   });
+     76|   expect(desktop.constructed).toHaveBeenCalledOnce();
+       |                               ^
+     77| });
+     78|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  17:39:33
+   Duration  475ms (transform 64ms, setup 92ms, import 47ms, tests 7ms, environment 215ms)
