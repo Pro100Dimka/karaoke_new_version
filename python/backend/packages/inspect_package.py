@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
-from backend.domain_errors import DomainError
+from backend.domain_errors import ConflictError, DomainError
 from backend.packages.codec import decode_manifest
 from backend.packages.domain import PackageCompatibility, PackageConflict, PackageManifest
 from backend.packages.ports import PackageArchive
@@ -67,6 +67,10 @@ class InspectPackage:
     def _existing(self, manifest: PackageManifest) -> tuple[Song | None, ProjectRevision | None]:
         with self._uow.create() as transaction:
             song = transaction.songs.get_by_source_identity(manifest.song.source_identity)
+            if song is None and transaction.songs.get(manifest.song.song_id) is not None:
+                raise ConflictError(
+                    "PackageConflict", "A different song already uses this project identity"
+                )
             revision = transaction.projects.get(
                 song.song_id if song else manifest.song.song_id,
                 manifest.revision,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.packages.domain import PackageArtifact, PackageManifest, PackageSongIdentity
 from backend.songs.domain import Language
@@ -95,8 +97,8 @@ def _text(value: JsonValue, name: str) -> str:
 
 
 def _integer(value: JsonValue, name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise ValueError(f"{name} must be a non-negative integer")
+    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 2**63 - 1:
+        raise ValueError(f"{name} must be a non-negative 64-bit integer")
     return value
 
 
@@ -113,4 +115,10 @@ def _optional_number(value: JsonValue) -> float | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError("duration must be numeric")
-    return float(value)
+    try:
+        duration = float(value)
+    except OverflowError as exc:
+        raise ValueError("duration must be finite") from exc
+    if not math.isfinite(duration) or duration < 0:
+        raise ValueError("duration must be finite and non-negative")
+    return duration

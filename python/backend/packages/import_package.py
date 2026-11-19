@@ -11,6 +11,7 @@ from backend.packages.domain import (
     PackageCompatibility,
     PackageConflict,
     PackageImportDecision,
+    PackageSongIdentity,
 )
 from backend.packages.inspect_package import InspectPackage, PackageInspection
 from backend.packages.project_publication import (
@@ -72,7 +73,9 @@ class ImportPackage:
                     ensure_not_cancelled()
                 if same_revision:
                     self._publication.supplement_same_revision(archive_path, inspection, song_id)
-                    result = PackageImportResult(self._activate_existing(song_id, inspection), False)
+                    result = PackageImportResult(
+                        self._activate_existing(song_id, inspection), False
+                    )
                 else:
                     assert published is not None
                     result = self._commit(inspection, song_id, published)
@@ -137,27 +140,12 @@ class ImportPackage:
         revision: int,
     ) -> Song:
         identity = inspection.manifest.song
-        song = existing or Song(
-            song_id=song_id,
-            title=identity.title,
-            artist=identity.artist,
-            source_identity=identity.source_identity,
-            source_state=SourceState.PACKAGE_ONLY,
-            source_path=None,
-            status=SongStatus.READY,
-            active_revision=revision,
-            project_format_version=project_format_version,
-            created_at=now,
-            updated_at=now,
-            duration=identity.duration,
-            language=identity.language,
-            album=identity.album,
-            genre=identity.genre,
-            artwork_url=identity.artwork_url,
-            video_url=identity.video_url,
-            recognition_provider=identity.recognition_provider,
-            recognition_external_id=identity.recognition_external_id,
-            cover_state=CoverState.FALLBACK,
+        if existing is not None and existing.source_identity != identity.source_identity:
+            raise ConflictError(
+                "PackageConflict", "A different song already uses this project identity"
+            )
+        song = existing or _new_package_song(
+            identity, song_id, now, project_format_version, revision
         )
         return replace(
             song,
@@ -216,3 +204,34 @@ class ImportPackage:
                 transaction.songs.update(activated)
             transaction.commit()
             return activated
+
+
+def _new_package_song(
+    identity: PackageSongIdentity,
+    song_id: str,
+    now: datetime,
+    project_format_version: int,
+    revision: int,
+) -> Song:
+    return Song(
+        song_id=song_id,
+        title=identity.title,
+        artist=identity.artist,
+        source_identity=identity.source_identity,
+        source_state=SourceState.PACKAGE_ONLY,
+        source_path=None,
+        status=SongStatus.READY,
+        active_revision=revision,
+        project_format_version=project_format_version,
+        created_at=now,
+        updated_at=now,
+        duration=identity.duration,
+        language=identity.language,
+        album=identity.album,
+        genre=identity.genre,
+        artwork_url=identity.artwork_url,
+        video_url=identity.video_url,
+        recognition_provider=identity.recognition_provider,
+        recognition_external_id=identity.recognition_external_id,
+        cover_state=CoverState.FALLBACK,
+    )

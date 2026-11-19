@@ -146,6 +146,9 @@ class LocalRecordingStorage:
         target.parent.parent.mkdir(parents=True, exist_ok=True)
         try:
             source.parent.replace(target.parent)
+        except FileNotFoundError as exc:
+            if source.parent.exists():
+                raise DependencyError("StorageUnavailable", "Recording quarantine failed") from exc
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Recording quarantine failed") from exc
         return target
@@ -156,13 +159,16 @@ class LocalRecordingStorage:
     def restore_quarantine(self, quarantine_path: Path, target: Path) -> None:
         ensure_within(quarantine_path, self._quarantine)
         ensure_within(target, self._root)
+        if not quarantine_path.parent.exists():
+            return
         target.parent.parent.mkdir(parents=True, exist_ok=True)
         quarantine_path.parent.replace(target.parent)
 
     def finalize_quarantine(self, quarantine_path: Path) -> None:
         directory = ensure_within(quarantine_path, self._quarantine).parent
         validate_recording_id(directory.name)
-        shutil.rmtree(directory)
+        if directory.exists():
+            shutil.rmtree(directory)
 
     def read_recovery_descriptor(self, path: Path) -> dict[str, object]:
         try:

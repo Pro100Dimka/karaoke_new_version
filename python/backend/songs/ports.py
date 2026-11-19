@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -94,7 +95,17 @@ class MediaInspector(Protocol):
     def waveform_peaks(self, source: Path, bins: int) -> list[float]: ...
 
 
+class SongMediaUpdate(Protocol):
+    def copy_cover(self, source: Path) -> Path: ...
+
+    def copy_clip(self, source: Path) -> Path: ...
+
+    def commit(self) -> None: ...
+
+
 class SongStorage(Protocol):
+    def media_update(self, song_id: str) -> AbstractContextManager[SongMediaUpdate]: ...
+
     def copy_source(self, song_id: str, source: Path, expected_hash: str) -> Path: ...
 
     def copy_cover(self, song_id: str, source: Path) -> Path: ...

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
 from typing import Annotated, Protocol
 
 from fastapi import APIRouter, Depends, Header
@@ -133,7 +132,7 @@ def history(app: ContainerDep, device: DeviceDep) -> list[StayDto]:
 def set_avatar(body: AvatarDto, app: ContainerDep, device: DeviceDep) -> MeDto:
     try:
         data = base64.b64decode(body.data, validate=True)
-    except binascii.Error as error:
+    except ValueError as error:
         raise DomainError("UnsupportedAvatar", "Photo data is not valid") from error
     social = app.social
     me = social.accounts.set_avatar(social.accounts.identify(device), body.mime, data)

@@ -10,7 +10,9 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from contextlib import suppress
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from types import MappingProxyType
 
 import httpx
@@ -45,26 +47,54 @@ def _cached_artwork(
     if not url.startswith(("https://", "http://")):
         return None
     key = hashlib.sha256(url.encode("utf-8")).hexdigest()
-    cached = next((path for path in cache_dir.glob(f"{key}.*") if path.suffix != ".tmp"), None)
-    if cached is not None:
-        return cached
+    temporary: Path | None = None
     try:
-        with httpx.Client(
-            transport=transport, timeout=_TIMEOUT_SECONDS, follow_redirects=True
-        ) as client:
-            response = client.get(card_sized(url))
-    except httpx.HTTPError:
-        return None
-    extension = _EXTENSIONS.get(response.headers.get("content-type", "").split(";")[0].strip())
-    if not response.is_success or extension is None or len(response.content) > _MAXIMUM_BYTES:
-        return None
-    target = cache_dir / f"{key}{extension}"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    temporary = cache_dir / f"{key}.{os.getpid()}.tmp"
-    try:
-        temporary.write_bytes(response.content)
+        cached = next(
+            (
+                path
+                for path in cache_dir.glob(f"{key}.*")
+                if path.suffix != ".tmp" and path.is_file()
+            ),
+            None,
+        )
+        if cached is not None:
+            return cached
+        downloaded = _download_artwork(url, transport)
+        if downloaded is None:
+            return None
+        content, extension = downloaded
+        target = cache_dir / f"{key}{extension}"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile(
+            dir=cache_dir, prefix=f"{key}.", suffix=".tmp", delete=False
+        ) as file:
+            temporary = Path(file.name)
+        temporary.write_bytes(content)
         os.replace(temporary, target)
-    except OSError:
-        temporary.unlink(missing_ok=True)
+        return target
+    except (httpx.HTTPError, httpx.InvalidURL, OSError):
         return None
-    return target
+    finally:
+        if temporary is not None:
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)
+
+
+def _download_artwork(
+    url: str, transport: httpx.BaseTransport | None
+) -> tuple[bytearray, str] | None:
+    with httpx.Client(
+        transport=transport, timeout=_TIMEOUT_SECONDS, follow_redirects=True
+    ) as client:
+        with client.stream("GET", card_sized(url)) as response:
+            extension = _EXTENSIONS.get(
+                response.headers.get("content-type", "").split(";")[0].strip()
+            )
+            if not response.is_success or extension is None:
+                return None
+            content = bytearray()
+            for chunk in response.iter_bytes(chunk_size=64 * 1024):
+                if len(content) + len(chunk) > _MAXIMUM_BYTES:
+                    return None
+                content.extend(chunk)
+            return content, extension

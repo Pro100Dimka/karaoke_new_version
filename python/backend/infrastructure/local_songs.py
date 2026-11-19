@@ -3,17 +3,27 @@ from __future__ import annotations
 import os
 import shutil
 import time
+import logging
+from contextlib import AbstractContextManager
 from tempfile import NamedTemporaryFile
 from pathlib import Path
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.hashing import sha256_file
+from backend.infrastructure.song_media_updates import SongMediaUpdates
+from backend.songs.ports import SongMediaUpdate
 from backend.storage.domain import StorageRoots
+
+logger = logging.getLogger(__name__)
 
 
 class LocalSongStorage:
     def __init__(self, roots: StorageRoots) -> None:
         self._roots = roots
+        self._media_updates = SongMediaUpdates(roots.songs)
+
+    def media_update(self, song_id: str) -> AbstractContextManager[SongMediaUpdate]:
+        return self._media_updates.open(song_id, self.copy_cover, self.copy_clip)
 
     def copy_source(self, song_id: str, source: Path, expected_hash: str) -> Path:
         target_dir = self._roots.songs / song_id / "source"
@@ -33,12 +43,25 @@ class LocalSongStorage:
 
     def copy_cover(self, song_id: str, source: Path) -> Path:
         target_dir = self._roots.songs / song_id / "cover"
-        target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / source.name
+        if source.resolve() == target.resolve() and source.is_file():
+            return target
+        temporary: Path | None = None
         try:
-            shutil.copyfile(source, target)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            with NamedTemporaryFile(dir=target_dir, suffix=".tmp", delete=False) as output:
+                temporary = Path(output.name)
+            shutil.copyfile(source, temporary)
+            _fsync_file(temporary)
+            self._media_updates.publish(temporary, target)
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Could not copy custom cover") from exc
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("Could not remove temporary cover: %s", temporary, exc_info=True)
         return target
 
     def copy_clip(self, song_id: str, source: Path) -> Path:
@@ -54,12 +77,15 @@ class LocalSongStorage:
                     shutil.copyfileobj(input_file, output)
                 output.flush()
                 os.fsync(output.fileno())
-            os.replace(temporary, target)
+            self._media_updates.publish(temporary, target)
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Could not copy song video") from exc
         finally:
             if temporary is not None:
-                temporary.unlink(missing_ok=True)
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("Could not remove temporary clip: %s", temporary, exc_info=True)
         return target
 
     def quarantine(self, song_id: str) -> Path | None:
