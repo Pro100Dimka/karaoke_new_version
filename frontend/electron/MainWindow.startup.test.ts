@@ -6,6 +6,7 @@ import type { TrustedIpc } from './TrustedIpc';
 vi.mock('electron', () => ({
   BrowserWindow: class extends EventEmitter {
     private visible: boolean;
+    private destroyed = false;
     private maximized = false;
     private fullscreen = false;
     webContents = Object.assign(new EventEmitter(), {
@@ -23,7 +24,7 @@ vi.mock('electron', () => ({
     }
 
     isDestroyed() {
-      return false;
+      return this.destroyed;
     }
     isVisible() {
       return this.visible;
@@ -41,6 +42,18 @@ vi.mock('electron', () => ({
       if (this.visible) return;
       this.visible = true;
       this.emit('show');
+    }
+    close() {
+      let prevented = false;
+      this.emit('close', {
+        preventDefault: () => {
+          prevented = true;
+        },
+      });
+      if (!prevented) {
+        this.destroyed = true;
+        this.emit('closed');
+      }
     }
     maximize() {
       this.maximized = true;
@@ -98,6 +111,36 @@ it('keeps a saved maximized main window hidden behind the loader until reveal', 
   expect(mainWindow.isVisible()).toBe(true);
   expect(mainWindow.isMaximized()).toBe(true);
 });
+
+it.each([true, false])(
+  'completes one close request only when the renderer approves: %s',
+  async (allowed) => {
+    const { createMainWindow } = await import('./MainWindow');
+    const { ipcChannels } = await import('./ipcChannels');
+    let confirmed = false;
+    const window = createMainWindow({
+      rendererUrl: 'file:///app/index.html',
+      trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+      roomParticipant: 'participant',
+      closeConfirmed: () => confirmed,
+      reveal: vi.fn(),
+    });
+    vi.mocked(window.webContents.send).mockImplementation((channel) => {
+      if (channel !== ipcChannels.closeRequested) return;
+      void Promise.resolve().then(() => {
+        confirmed = allowed;
+        if (allowed) window.close();
+      });
+    });
+    window.close();
+    expect(window.isDestroyed()).toBe(false);
+    await Promise.resolve();
+    expect(window.isDestroyed()).toBe(allowed);
+    expect(window.webContents.send).toHaveBeenCalledExactlyOnceWith(
+      ipcChannels.closeRequested,
+    );
+  },
+);
 
 it('reopens full screen behind the loader when the window was closed full screen', async () => {
   savedState.fullscreen = true;

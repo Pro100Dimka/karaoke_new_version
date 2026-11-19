@@ -88,6 +88,21 @@ let backendDataRoot = '';
 /** Set when the app starts to quit: closing the window then really closes it (no hiding to the tray). */
 let quitting = false;
 let relaunchRequested = false;
+let relaunchScheduled = false;
+let updateQuitRequested = false;
+
+const resetQuitRequest = (): void => {
+  quitting = false;
+  relaunchRequested = false;
+  updateQuitRequested = false;
+};
+
+/** Electron starts the replacement only after this process exits; schedule it once. */
+const scheduleRelaunch = (args?: string[]): void => {
+  if (relaunchScheduled) return;
+  app.relaunch(args ? { args } : undefined);
+  relaunchScheduled = true;
+};
 
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
@@ -196,7 +211,11 @@ const updater = startAutoUpdate({
   progress: (percent) => shell.send({ type: 'updateProgress', percent }),
   installFailed: () => shell.send({ type: 'updateFailed' }),
   log: (level, message) => appLogs.add('updater', level, message),
-  quit: () => { relaunchRequested = false; app.quit(); },
+  quit: () => {
+    relaunchRequested = false;
+    updateQuitRequested = true;
+    app.quit();
+  },
 });
 trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
 let desktopLaunch: ReturnType<typeof startDesktopLaunch> | null = null;
@@ -242,24 +261,28 @@ registerDesktopIpc({
   reveal: revealMainWindow,
   requestRelaunch: () => {
     updater.cancelInstall();
+    updateQuitRequested = false;
     relaunchRequested = true;
     app.quit();
   },
   confirmClose: async (allowed) => {
     if (!allowed) {
-      quitting = false;
-      relaunchRequested = false;
+      resetQuitRequest();
       updater.cancelInstall();
       return;
     }
-    if (!(await updater.prepareQuit())) {
-      quitting = false;
-      relaunchRequested = false;
-      return;
+    try {
+      if (!(await updater.prepareQuit())) {
+        resetQuitRequest();
+        return;
+      }
+    } catch (error) {
+      resetQuitRequest();
+      throw error;
     }
     if (relaunchRequested) {
       relaunchRequested = false;
-      app.relaunch();
+      scheduleRelaunch();
     }
     closeConfirmed = true;
     mainWindow?.close();
@@ -293,6 +316,12 @@ try {
   earlyStartupError = error;
 }
 app.on('second-instance', (_event, argv) => {
+  // The last window can be gone while its services are still stopping and the instance lock is held.
+  // Preserve this launch without starting another owner of those services before shutdown finishes.
+  if (quitting && (!mainWindow || mainWindow.isDestroyed())) {
+    if (!updateQuitRequested) scheduleRelaunch(argv.slice(1));
+    return;
+  }
   // A second launch hands over what it was started for: an invitation link, a task, opened files.
   desktopLaunch?.secondLaunch(argv);
   if (!mainWindow) return;
