@@ -83,10 +83,7 @@ class StartStudioMaster:
         workspace = self._workspaces.allocate(f"studio-{recording.recording_id}")
         try:
             context.ensure_not_cancelled()
-            stems = self._stems(recording)
-            exact_stems = stems is not None
-            if stems is None:
-                stems = self._separate(recording, workspace, context)
+            stems, exact_stems = self._performance_stems(recording, workspace, context)
             context.progress("AnalyzingBalance", 1.0, 0.58)
             song_id, revision = self._project_identity(recording)
             temporary = workspace / "studio-master.wav"
@@ -98,6 +95,7 @@ class StartStudioMaster:
                     temporary,
                     context.cancel,
                     performance_mix=recording.file_path,
+                    reference_mix=self._reference_mix(song_id),
                     exact_stems=exact_stems,
                     process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
                     match_recording_loudness=True,
@@ -114,6 +112,22 @@ class StartStudioMaster:
             return {"recordingId": master.recording_id, "balance": balance.payload()}
         finally:
             self._workspaces.cleanup(workspace)
+
+    def _performance_stems(
+        self, recording: Recording, workspace: Path, context: JobContext
+    ) -> tuple[tuple[Path, Path], bool]:
+        stems = self._stems(recording)
+        return (
+            (stems, True)
+            if stems is not None
+            else (self._separate(recording, workspace, context), False)
+        )
+
+    def _reference_mix(self, song_id: str) -> Path | None:
+        with self._uow.create() as transaction:
+            song = transaction.songs.get(song_id)
+        source = song.source_path if song is not None else None
+        return source if source is not None and source.is_file() else None
 
     @contextmanager
     def _pitch_session(

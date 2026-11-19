@@ -35,6 +35,7 @@ from backend.recordings.studio_calibration import (
 from backend.recordings.studio_voice import shape_voice, finish_voice, prepare_voice
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
+from backend.recordings.studio_reference_level import analyze_reference_level
 from backend.ai.domain import PitchPoint
 
 
@@ -54,6 +55,7 @@ class MasterRender:
     adjustments: Sequence[Mapping[str, object]]
     progress: Callable[[str, float, float], None] | None
     pitch: PitchAnalyzer | None = None
+    reference_mix: Path | None = None
     reference_pitch: Sequence[PitchPoint] = field(default=(), init=False)
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
@@ -83,6 +85,7 @@ class MasterRender:
     reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = field(
         default=None, init=False
     )
+    reference_level_correction_db: float | None = field(default=None, init=False)
 
     def run(self) -> StudioMasterBalance:
         self.info = sf.info(self.performance_mix)
@@ -104,6 +107,7 @@ class MasterRender:
             bypass = self._analyze()
             if bypass is not None:
                 return bypass
+            self._calibrate_reference(project_backing)
             self._balance_performance()
             self.processing["pitchCorrection"] = apply_reference_pitch(self)
             self._shape_voice()
@@ -120,6 +124,18 @@ class MasterRender:
                 expected_channels=self.output_channels,
             )
             return self._balance_report()
+
+    def _calibrate_reference(self, original: Path) -> None:
+        evidence = analyze_reference_level(
+            self.renderer,
+            self.reference_mix,
+            self.space_reference,
+            original,
+            self.work,
+            self.cancel,
+        )
+        self.reference_level_correction_db = evidence.correction_db
+        self.processing["referenceLevel"] = evidence.report
 
     def _prepare_stems(self) -> None:
         self.backing = self.performance_instrumental
@@ -304,6 +320,9 @@ class MasterRender:
             self.overlap,
             self.cancel,
             reference_balance=self.reference_balance,
+            reference_level_correction_db=(
+                self.reference_level_correction_db if self.reference_balance is not None else None
+            ),
         )
         evidence["clarityBands"] = plan_presence_eq(
             self.vocal, self.backing, self.plan, self.cancel
@@ -330,6 +349,11 @@ class MasterRender:
                 self.overlap,
                 self.cancel,
                 reference_balance=self.reference_balance,
+                reference_level_correction_db=(
+                    self.reference_level_correction_db
+                    if self.reference_balance is not None
+                    else None
+                ),
             )
         self.balanced = self.work / "planned-voice.wav"
         self.peak_bound = 0.0

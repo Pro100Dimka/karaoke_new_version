@@ -25,11 +25,20 @@ class GainPlan:
     presence: np.ndarray | None = None
 
     def report_dynamics(
-        self, soft_word_lift: np.ndarray, overlap: float, desired: np.ndarray
+        self,
+        soft_word_lift: np.ndarray,
+        overlap: float,
+        desired: np.ndarray,
+        reference_verified: bool = False,
     ) -> None:
         self.report.update(
             leveling="slow-placement-and-local-outliers",
-            vocalLiftDb=1.5,
+            vocalLiftDb=0.0 if reference_verified else 1.5,
+            balanceBasis=(
+                "verified-source-reference"
+                if reference_verified
+                else "uncalibrated-reference-fallback"
+            ),
             softWordLiftMaxDb=float(np.max(soft_word_lift[self.active])),
             presenceBandHz=[600, 3500],
             overlap=overlap,
@@ -128,7 +137,12 @@ def _presence_correction(
     active: np.ndarray,
     placement: float | np.ndarray,
     cancel: threading.Event,
+    reference_verified: bool = False,
 ) -> np.ndarray:
+    if reference_verified:
+        # The verified full-band reference already owns the placement target.
+        # A fixed presence floor would silently override a deliberately softer mix.
+        return np.zeros_like(times)
     vocal = _profile(voice, cancel, voice_band=True, band_hz=(600, 3500))
     full = _profile(voice, cancel)
     music = _profile(backing, cancel, voice_band=True, center=True, band_hz=(600, 3500))
@@ -217,29 +231,51 @@ def _protect_unvoiced(
     }
 
 
+def _voiced_activity(
+    voice: Path, times: np.ndarray, active: np.ndarray, cancel: threading.Event
+) -> np.ndarray:
+    profile = _voicing_profile(voice, cancel)
+    confidence = np.interp(times, (np.arange(len(profile)) + 0.5) * 0.04, profile)
+    body = active & (confidence >= 0.65)
+    return body if body.any() else active
+
+
 def _context_levels(
     times: np.ndarray,
     level: np.ndarray,
     active: np.ndarray,
     overlap: float,
     reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
-) -> tuple[np.ndarray, np.ndarray]:
+    reference_level_correction_db: float | None = None,
+) -> tuple[np.ndarray, np.ndarray, bool]:
     baseline = gaussian_filter1d(level * active, sigma=0.75 / _STEP, mode="nearest")
     coverage = gaussian_filter1d(active.astype(float), sigma=0.75 / _STEP, mode="nearest")
     baseline /= np.maximum(coverage, 1e-9)
     # Long unvoiced passages have no nearby body evidence, not a 0 dBFS baseline.
     missing = coverage <= 1e-9
     baseline[missing] = np.interp(times[missing], times[active], level[active])
-    placement = np.full_like(level, -3.0 + 3.0 * overlap)
+    placement, verified = _reference_placement(
+        times, overlap, reference_balance, reference_level_correction_db
+    )
+    return baseline, placement, verified
+
+
+def _reference_placement(
+    times: np.ndarray,
+    overlap: float,
+    reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
+    correction_db: float | None,
+) -> tuple[np.ndarray, bool]:
+    placement = np.full_like(times, -3.0 + 3.0 * overlap)
     if reference_balance is None:
-        return baseline, placement
+        return placement, False
     positions, vocal, music = reference_balance
     accompaniment = _accompaniment_levels(positions, music, positions)
     if accompaniment is None:
-        return baseline, placement
+        return placement, False
     valid = vocal_activity(vocal) & (vocal > -70) & (music > -70)
     if np.count_nonzero(valid) < 10:
-        return baseline, placement
+        return placement, False
     confidence = np.clip((vocal - np.percentile(vocal[valid], 80) + 12) / 6, 0, 1)
     strong = valid & (music >= np.percentile(music[valid], 70)) & (confidence >= 0.5)
     # Compare against the same smoothed/held accompaniment used by the target.
@@ -248,10 +284,27 @@ def _context_levels(
     ratio = vocal - accompaniment
     anchor = float(np.median(ratio[strong if strong.any() else valid]))
     relative = np.interp(positions, positions[valid], ratio[valid]) - anchor
-    phrase = np.clip(_slow_gain_envelope(relative, seconds=3.0), -_REFERENCE_MAX_ATTENUATION_LU, 24)
-    reliable = gaussian_filter1d(confidence * valid, sigma=5, mode="nearest")
+    phrase = _slow_gain_envelope(relative, seconds=3.0)
+    verified = False
+    if correction_db is not None and np.isfinite(correction_db):
+        placement[:] = anchor + correction_db
+        verified = True
+        reliability = valid.astype(float)
+    else:
+        phrase = np.clip(phrase, -_REFERENCE_MAX_ATTENUATION_LU, 24)
+        reliability = confidence * valid
+    reliable = gaussian_filter1d(reliability, sigma=5, mode="nearest")
     placement += np.interp(times, positions, phrase * reliable)
-    return baseline, placement
+    return placement, verified
+
+
+def _support_words(
+    target: np.ndarray, level: np.ndarray, baseline: np.ndarray, active: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    target = target + local_outlier_gain(level, baseline, active, _STEP)
+    # Support softer words before breath protection, without flattening the whole performance.
+    soft_word_lift = np.clip((baseline - level) * 0.15, 0.0, 2.0)
+    return target + soft_word_lift, soft_word_lift
 
 
 def build_gain_plan(
@@ -262,6 +315,7 @@ def build_gain_plan(
     cancel: threading.Event,
     *,
     reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+    reference_level_correction_db: float | None = None,
 ) -> GainPlan:
     times, level, music, meter_times, active, offset = _detector(renderer, voice, backing, cancel)
     report: dict[str, object] = {
@@ -270,28 +324,25 @@ def build_gain_plan(
     }
     if not active.any():
         return GainPlan(times, np.zeros_like(level), active, level, offset, report)
-    voicing = _voicing_profile(voice, cancel)
-    confidence = np.interp(times, (np.arange(len(voicing)) + 0.5) * 0.04, voicing)
-    body = active & (confidence >= 0.65)
-    baseline, placement = _context_levels(
-        times, level, body if body.any() else active, overlap, reference_balance
+    body = _voiced_activity(voice, times, active, cancel)
+    baseline, placement, reference_verified = _context_levels(
+        times, level, body, overlap, reference_balance, reference_level_correction_db
     )
     target = _target_levels(times, level, music, meter_times, baseline, placement)
     placement_gain = target - level
-    target += local_outlier_gain(level, baseline, active, _STEP)
-    # Support softer words before breath protection, without flattening the whole performance.
-    soft_word_lift = np.clip((baseline - level) * 0.15, 0.0, 2.0)
-    target += soft_word_lift
+    target, soft_word_lift = _support_words(target, level, baseline, active)
     desired, protection = _protect_unvoiced(voice, times, target - level, active, cancel)
     # Include breath protection's attenuation when measuring the final vocal presence.
     presence_target = np.maximum(placement, -3.0 + 3.0 * overlap)
-    presence = _presence_correction(voice, backing, times, desired, active, presence_target, cancel)
-    desired += presence + 1.5
+    presence = _presence_correction(
+        voice, backing, times, desired, active, presence_target, cancel, reference_verified
+    )
+    desired += presence + (0.0 if reference_verified else 1.5)
     report["unvoicedProtection"] = protection
     global_gain = float(np.median(desired[active]))
     gains = _smoothed_gains(times, desired, active, global_gain, placement_gain)
     plan = GainPlan(times, gains, active, level + desired, offset, report, presence)
-    plan.report_dynamics(soft_word_lift, overlap, desired)
+    plan.report_dynamics(soft_word_lift, overlap, desired, reference_verified)
     plan.report_automation(presence, placement, global_gain)
     return plan
 

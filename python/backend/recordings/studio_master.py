@@ -71,6 +71,7 @@ class FfmpegStudioMasterRenderer:
         cancel: threading.Event,
         *,
         performance_mix: Path,
+        reference_mix: Path | None = None,
         exact_stems: bool = False,
         process_voice: bool = False,
         match_recording_loudness: bool = False,
@@ -93,6 +94,7 @@ class FfmpegStudioMasterRenderer:
             adjustments,
             progress,
             pitch,
+            reference_mix,
         ).run()
 
     def _mix(
