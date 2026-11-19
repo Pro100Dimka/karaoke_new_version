@@ -84,10 +84,7 @@ def test_collapsed_diacritic_variant_preserves_literal_primary(primary_word, obs
     ending = phrase("Stars guide us", 18)
     primary = view(
         "vocal",
-        [
-            (word, 12 + i * 0.02, 12 + (i + 1) * 0.02)
-            for i, word in enumerate(baseline.split())
-        ]
+        [(word, 12 + i * 0.02, 12 + (i + 1) * 0.02) for i, word in enumerate(baseline.split())]
         + ending,
     )
     original = view(
@@ -108,15 +105,10 @@ def test_collapsed_diacritic_variants_cannot_hide_a_second_matching_block():
     ending = phrase("Stars guide us", 20)
     primary = view(
         "vocal",
-        [
-            (word, 11 + i * 0.02, 11 + (i + 1) * 0.02)
-            for i, word in enumerate("At the café".split())
-        ]
+        [(word, 11 + i * 0.02, 11 + (i + 1) * 0.02) for i, word in enumerate("At the café".split())]
         + ending,
     )
-    original = view(
-        "original", [*phrase("at the café at the cafe we sing softly", 4), *ending]
-    )
+    original = view("original", [*phrase("at the café at the cafe we sing softly", 4), *ending])
 
     assert insertion_candidates("At the café\nStars guide us", [primary, original], 30) == ()
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.ai.domain import WordTiming
+from backend.ai.domain import SeparatedAudio, WordTiming
 from backend.lyrics.ports import LyricLineTiming
 from backend.storage.path_policy import portable_relative_path
 from backend.songs.domain import Language
@@ -19,8 +19,21 @@ from tests.helpers import import_song, wait_for_job
 class TrackingLanguageProvider(FakeAiProvider):
     def __init__(self) -> None:
         super().__init__()
-        self.transcribe_languages: list[Language] = []
+        self.transcribe_calls: list[tuple[Path, Language]] = []
+        self.separated_sources: tuple[Path, Path] | None = None
         self.align_languages: list[Language] = []
+
+    def separate(
+        self,
+        audio: Path,
+        workdir: Path,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> SeparatedAudio:
+        result = super().separate(audio, workdir, cancel, execution=execution)
+        self.separated_sources = (audio, result.reference_vocal)
+        return result
 
     def transcribe(
         self,
@@ -30,7 +43,7 @@ class TrackingLanguageProvider(FakeAiProvider):
         *,
         execution: ExecutionContext,
     ) -> str:
-        self.transcribe_languages.append(language)
+        self.transcribe_calls.append((vocal, language))
         return super().transcribe(vocal, language, cancel, execution=execution)
 
     def align(
@@ -76,7 +89,12 @@ def test_processing_propagates_selected_language(
         job = wait_for_job(client, response.json()["jobId"])
 
     assert job["state"] == "Succeeded"
-    assert provider.transcribe_languages == [language]
+    assert provider.separated_sources is not None
+    assert len(set(provider.separated_sources)) == 2
+    assert len(provider.transcribe_calls) == 2
+    assert set(provider.transcribe_calls) == {
+        (path, language) for path in provider.separated_sources
+    }
     assert provider.align_languages == [language]
 
 

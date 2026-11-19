@@ -433,11 +433,11 @@ def align(
     evidence = partial(evidence, observations=observations) if asr_lyrics else evidence
     scores, step, heard = evidence() if reuse is None else evidence(reuse=reuse)
     if asr_lyrics:
-        original = lyrics
+        prior = lyrics
         lyrics, verified = _recover_transcript_lyrics(
             lyrics, observations, scores, step, asr_baseline
         )
-        heard = preserve_prefix(original, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
+        heard = preserve_prefix(prior, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
     recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
     payload = _AlignmentPass(
         audio, backing, scores, step, lyrics.split(), lyrics, heard, views

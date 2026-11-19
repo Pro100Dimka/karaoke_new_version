@@ -28,9 +28,7 @@ def _native_view(source, *, shift=0.0, crop_start=0.0):
 
 
 @pytest.mark.parametrize("accepted", [False, True], ids=["rejected", "accepted"])
-def test_alignment_retries_only_native_full_views_before_releasing_the_model(
-    monkeypatch, accepted
-):
+def test_alignment_retries_only_native_full_views_before_releasing_the_model(monkeypatch, accepted):
     samples = np.arange(160_000, dtype=np.float32)
     bounded = samples[32_000:64_000]
     scores = torch.zeros(500, 28)

@@ -184,12 +184,7 @@ def _native_view(source, words):
         "sourceId": source,
         "text": " ".join(word for word, _start in words),
         "segments": [
-            {
-                "words": [
-                    {"word": word, "start": start, "end": start + 0.4}
-                    for word, start in words
-                ]
-            }
+            {"words": [{"word": word, "start": start, "end": start + 0.4} for word, start in words]}
         ],
     }
 
