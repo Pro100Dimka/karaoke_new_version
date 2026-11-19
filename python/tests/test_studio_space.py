@@ -130,7 +130,8 @@ def test_full_reference_supplies_only_a_missing_tail(
     ]
     samples = np.random.default_rng(31).normal(0, 0.03, 8000 * 4)
     for path in [raw, local, full]:
-        sf.write(path, samples, 8000, subtype="FLOAT")
+        content = np.r_[samples, np.zeros(8000)] if path == full else samples
+        sf.write(path, content, 8000, subtype="FLOAT")
     profiles = {
         raw: SpaceProfile(decay_seconds=0.4, reverb_gain=raw_gain, decay_count=5),
         local: SpaceProfile(

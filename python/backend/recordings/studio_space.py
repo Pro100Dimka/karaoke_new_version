@@ -11,6 +11,7 @@ from scipy.signal import lfilter
 from scipy.fft import rfft, irfft, next_fast_len
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_ambience import WetReturnDucker
+from backend.recordings.studio_space_inputs import recorded_space_report, same_reference_pcm
 from backend.recordings.studio_audio import (
     MasterRenderer,
     _check_cancel,
@@ -70,9 +71,10 @@ def apply_reference_space(
     full_reference: Path | None = None,
     recorded_is_dry: bool = False,
 ) -> dict[str, object]:
-    expected, existing = analyze_space(reference, cancel), analyze_space(recorded, cancel)
+    expected = analyze_space(reference, cancel)
+    existing = SpaceProfile() if recorded_is_dry else analyze_space(recorded, cancel)
     expected, tail_source = _reference_tail(expected, full_reference, reference, cancel)
-    selected = _planned_space(expected, SpaceProfile() if recorded_is_dry else existing)
+    selected = _planned_space(expected, existing)
     response, field = _side_plan(reference, recorded, voice, cancel)
     bands = plan_reference_band_space(expected, full_reference or reference, voice, cancel)
     wet = _render_separate_buses(
@@ -89,8 +91,7 @@ def apply_reference_space(
         "method": "single-wet-return",
         "status": "matched" if wet.get("buses") else "no-supported-addition",
         "reference": asdict(expected),
-        "recorded": asdict(existing),
-        "existingEffectsPolicy": "dry-capture" if recorded_is_dry else "estimated-wet-stem",
+        **recorded_space_report(None if recorded_is_dry else existing),
         "reverbEvidenceSource": tail_source,
         "applied": asdict(selected),
         "wetBalance": wet,
@@ -104,7 +105,7 @@ def apply_reference_space(
 def _reference_tail(
     expected: SpaceProfile, full: Path | None, scoped: Path, cancel: threading.Event
 ) -> tuple[SpaceProfile, str]:
-    if expected.reverb_gain or full is None or full == scoped:
+    if expected.reverb_gain or full is None or same_reference_pcm(full, scoped, cancel):
         return expected, "performed-section"
     complete = analyze_space(full, cancel)
     if not complete.reverb_gain or complete.decay_count < 3:
