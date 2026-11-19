@@ -137,7 +137,7 @@ def list_recordings(
     app: ContainerDep,
     song_id: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
 ) -> RecordingPageDto:
     page = app.recordings.list.execute(song_id=song_id, limit=limit, offset=offset)
     return RecordingPageDto(

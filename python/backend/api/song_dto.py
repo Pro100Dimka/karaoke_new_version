@@ -103,12 +103,12 @@ class EditorDto(ApiModel):
 
 
 class SaveEditorDto(ApiModel):
-    expected_revision: int = Field(ge=1)
+    expected_revision: int = Field(ge=1, le=2**63 - 1)
     document: LyricsDocumentDto
 
 
 class ResetEditorDto(ApiModel):
-    expected_revision: int = Field(ge=1)
+    expected_revision: int = Field(ge=1, le=2**63 - 1)
 
 
 class RevisionDto(ApiModel):

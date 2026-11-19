@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from contextlib import nullcontext
 from pathlib import Path
 
 from backend.domain_errors import ConflictError, DomainError
@@ -10,6 +11,7 @@ from backend.packages.import_package import ImportPackage
 from backend.packages.preflight import PackageExportPreflight, PackageImportPreflight
 from backend.packages.domain import PackageImportDecision
 from backend.persistence import UnitOfWorkFactory
+from backend.projects.content_lock import KeyedLockManager
 from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.runtime import Clock
@@ -37,7 +39,9 @@ class StartPackageExport:
 
     def _run(self, song_id: str, revision: int | None, context: JobContext) -> dict[str, object]:
         context.progress("Snapshot", 0.0, 0.1)
-        path = self._export.execute(song_id, revision)
+        path = self._export.execute(
+            song_id, revision, ensure_not_cancelled=context.ensure_not_cancelled
+        )
         context.progress("Archive", 1.0, 1.0)
         return {"songId": song_id, "path": str(path)}
 
@@ -58,6 +62,7 @@ class StartPackageImport:
         self._hasher = hasher
         self._clock = clock
         self._preflight = preflight
+        self._idempotency_locks = KeyedLockManager()
 
     def execute(
         self,
@@ -66,16 +71,17 @@ class StartPackageImport:
         idempotency_key: str | None,
     ) -> Job:
         request_hash = _request_hash(self._hasher(path), decision)
-        repeated = self._repeat(idempotency_key, request_hash)
-        if repeated:
-            return repeated
-        self._preflight.execute(path)
-        job = self._jobs.start(
-            JobType.PACKAGE_IMPORT,
-            lambda context: self._run(path, decision, context),
-        )
-        self._save(idempotency_key, request_hash, job.job_id)
-        return job
+        with self._idempotency_locks.acquire(idempotency_key) if idempotency_key else nullcontext():
+            repeated = self._repeat(idempotency_key, request_hash)
+            if repeated:
+                return repeated
+            self._preflight.execute(path)
+            job = self._jobs.start(
+                JobType.PACKAGE_IMPORT,
+                lambda context: self._run(path, decision, context),
+            )
+            self._save(idempotency_key, request_hash, job.job_id)
+            return job
 
     def _run(
         self,

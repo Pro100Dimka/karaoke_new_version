@@ -137,12 +137,36 @@ class LocalProjectStorage:
                 "StorageUnavailable", "Project revision publication failed"
             ) from exc
 
-    def snapshot_revision(self, song_id: str, revision: int, destination: Path) -> Path:
+    def snapshot_revision(
+        self,
+        song_id: str,
+        revision: int,
+        destination: Path,
+        *,
+        supplemental_files: Mapping[Path, Path] | None = None,
+        portable_only: bool = False,
+    ) -> Path:
         source = self._revision_root(song_id, revision)
         if not source.is_dir():
             raise NotFoundError("ProjectInvalid", "Project revision does not exist")
         target = destination / f"revision-{revision}"
-        shutil.copytree(source, target)
+        files: dict[Path, Path] = {}
+        if portable_only:
+            manifest = self.load_manifest(song_id, revision)
+            files = {Path("manifest.json"): source / "manifest.json"}
+            files.update(
+                (artifact.relative_path, source / artifact.relative_path)
+                for artifact in manifest.artifacts
+                if artifact.category is ArtifactCategory.PORTABLE
+            )
+            target.mkdir(parents=True)
+        else:
+            shutil.copytree(source, target)
+        files.update(supplemental_files or {})
+        for relative, source_file in files.items():
+            snapshot_file = target / relative
+            snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_file, snapshot_file)
         return target
 
     def revision_exists(self, song_id: str, revision: int) -> bool:

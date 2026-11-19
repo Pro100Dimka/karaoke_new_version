@@ -21,15 +21,16 @@ class ZipPackageArchive:
 
     def inspect(self, archive: Path) -> Sequence[ArchiveEntry]:
         try:
-            with zipfile.ZipFile(archive, "r") as bundle:
+            with _read_archive(archive) as bundle:
                 return tuple(_entry(info) for info in bundle.infolist() if not info.is_dir())
         except (OSError, zipfile.BadZipFile) as exc:
             raise DomainError("PackageInvalid", "Package archive is corrupt", 400) from exc
 
     def read_text(self, archive: Path, path: PurePosixPath, *, max_bytes: int) -> str:
         try:
-            with zipfile.ZipFile(archive, "r") as bundle:
+            with _read_archive(archive) as bundle:
                 info = bundle.getinfo(path.as_posix())
+                _require_supported(info)
                 if info.file_size > max_bytes:
                     raise DomainError("PackageInvalid", "Package manifest exceeds size limit", 400)
                 raw = bundle.read(info)
@@ -46,7 +47,7 @@ class ZipPackageArchive:
     ) -> None:
         destination.mkdir(parents=True, exist_ok=True)
         try:
-            with zipfile.ZipFile(archive, "r") as bundle:
+            with _read_archive(archive) as bundle:
                 total = sum(info.file_size for info in bundle.infolist()) or 1
                 completed = 0
                 for info in bundle.infolist():
@@ -89,6 +90,8 @@ class ZipPackageArchive:
                 # weakening the archive-bomb limit or buffering whole media files.
                 _write_archive(temporary, files, texts, stored, progress)
             _validate_built_archive(temporary)
+            if progress is not None:
+                progress(1.0)
             os.replace(temporary, destination)
         except (OSError, zipfile.BadZipFile) as exc:
             temporary.unlink(missing_ok=True)
@@ -99,7 +102,15 @@ class ZipPackageArchive:
             temporary.unlink(missing_ok=True)
 
 
+def _read_archive(path: Path) -> zipfile.ZipFile:
+    try:
+        return zipfile.ZipFile(path, "r")
+    except (UnicodeDecodeError, NotImplementedError) as exc:
+        raise DomainError("PackageInvalid", "Package archive format is not supported", 400) from exc
+
+
 def _entry(info: zipfile.ZipInfo) -> ArchiveEntry:
+    _require_supported(info)
     mode = (info.external_attr >> 16) & 0xFFFF
     return ArchiveEntry(
         path=_normalized(info.filename),
@@ -114,6 +125,7 @@ def _normalized(name: str) -> PurePosixPath:
 
 
 def _require_safe(path: PurePosixPath, info: zipfile.ZipInfo) -> None:
+    _require_supported(info)
     try:
         portable_relative_path(path.as_posix())
     except ValueError as exc:
@@ -121,6 +133,18 @@ def _require_safe(path: PurePosixPath, info: zipfile.ZipInfo) -> None:
     mode = (info.external_attr >> 16) & 0xFFFF
     if stat.S_ISLNK(mode):
         raise DomainError("PackageInvalid", "Archive contains an unsafe path", 400)
+
+
+def _require_supported(info: zipfile.ZipInfo) -> None:
+    if info.flag_bits & (0x01 | 0x40):
+        raise DomainError("PackageInvalid", "Encrypted package entries are not supported", 400)
+    if info.flag_bits & 0x20 or info.compress_type not in (
+        zipfile.ZIP_STORED,
+        zipfile.ZIP_DEFLATED,
+        zipfile.ZIP_BZIP2,
+        zipfile.ZIP_LZMA,
+    ):
+        raise DomainError("PackageInvalid", "Package entry compression is not supported", 400)
 
 
 def _temporary_archive(destination: Path) -> Path:

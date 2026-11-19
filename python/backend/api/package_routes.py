@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import Field
 
 from backend.api.base_dto import ApiModel, JobRefDto
@@ -56,7 +56,11 @@ def inspect_package(body: PackagePathDto, app: ContainerDep) -> PackageInspectio
 
 
 @router.post("/export/{song_id}", response_model=JobRefDto, status_code=202)
-def export_package(song_id: str, app: ContainerDep, revision: int | None = None) -> JobRefDto:
+def export_package(
+    song_id: str,
+    app: ContainerDep,
+    revision: Annotated[int | None, Query(ge=1, le=2**63 - 1)] = None,
+) -> JobRefDto:
     job = app.packages.start_export.execute(song_id, revision)
     return JobRefDto(job_id=job.job_id, state=job.state.value)
 

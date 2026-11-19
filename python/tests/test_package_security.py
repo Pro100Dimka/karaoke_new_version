@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 import json
+import struct
 import zipfile
 
 import pytest
@@ -179,3 +180,53 @@ def test_package_manifest_rejects_unsafe_identity_and_artifacts(field: str, valu
         manifest[field] = value
     with pytest.raises(ValueError):
         decode_manifest(json.dumps(manifest))
+
+
+@pytest.mark.parametrize(
+    "encoding",
+    [
+        "encrypted",
+        "strong-encryption",
+        "patched-data",
+        "unsupported-compression",
+        "unsupported-version",
+        "invalid-utf8-name",
+    ],
+)
+@pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+def test_unsupported_archive_encodings_return_a_package_error(
+    tmp_path: Path, encoding: str, operation: str
+) -> None:
+    path = tmp_path / "unsupported.zip"
+    with zipfile.ZipFile(path, "w") as bundle:
+        bundle.writestr("package.json", '{"packageVersion":1}')
+    content = bytearray(path.read_bytes())
+    central = content.index(b"PK\x01\x02")
+    if encoding == "unsupported-compression":
+        struct.pack_into("<H", content, 8, 99)
+        struct.pack_into("<H", content, central + 10, 99)
+    elif encoding == "unsupported-version":
+        struct.pack_into("<H", content, 4, 255)
+        struct.pack_into("<H", content, central + 6, 255)
+    elif encoding == "invalid-utf8-name":
+        struct.pack_into("<H", content, 6, 0x800)
+        struct.pack_into("<H", content, central + 8, 0x800)
+        content[30] = 0xFF
+        content[central + 46] = 0xFF
+    else:
+        flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+        struct.pack_into("<H", content, 6, flag)
+        struct.pack_into("<H", content, central + 8, flag)
+    path.write_bytes(content)
+    archive = ZipPackageArchive()
+
+    with pytest.raises(DomainError) as error:
+        if operation == "inspect":
+            archive.inspect(path)
+        elif operation == "read":
+            archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+        else:
+            archive.extract(path, tmp_path / "extracted")
+
+    assert error.value.code == "PackageInvalid"
+    assert error.value.status_code == 400

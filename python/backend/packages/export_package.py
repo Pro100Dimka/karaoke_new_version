@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from typing import Callable
 
 from backend.domain_errors import NotFoundError
 from backend.history.domain import HistoryEvent
@@ -42,24 +43,49 @@ class ExportPackage:
         self._clock = clock
         self._ids = ids
 
-    def execute(self, song_id: str, revision: int | None = None) -> Path:
+    def execute(
+        self,
+        song_id: str,
+        revision: int | None = None,
+        *,
+        ensure_not_cancelled: Callable[[], None] = lambda: None,
+    ) -> Path:
+        ensure_not_cancelled()
         with self._operations.acquire(song_id, SongOperation.PACKAGE_EXPORT):
             song, revision_meta = self._load(song_id, revision)
             workspace = self._workspaces.allocate(f"export-{song_id}")
             try:
-                snapshot = self._projects.snapshot_revision(
-                    song_id, revision_meta.revision, workspace
-                )
+                snapshot = self._snapshot(song, revision_meta.revision, workspace)
+                ensure_not_cancelled()
                 project = self._projects.load_manifest(song_id, revision_meta.revision)
                 package, files = self._package(song, revision_meta, project, snapshot)
+                ensure_not_cancelled()
                 output = self._outputs.path_for_export(song_id, revision_meta.revision)
                 self._archive.build(
-                    output, files, {PurePosixPath("package.json"): encode_manifest(package)}
+                    output,
+                    files,
+                    {PurePosixPath("package.json"): encode_manifest(package)},
+                    progress=lambda _: ensure_not_cancelled(),
                 )
                 self._record(song_id)
                 return output
             finally:
                 self._workspaces.cleanup(workspace)
+
+    def _snapshot(self, song: Song, revision: int, workspace: Path) -> Path:
+        supplemental: dict[Path, Path] = {}
+        clip = self._projects.video_path(
+            song.song_id, revision, prefer_local="video" in song.user_overrides
+        )
+        if song.video_url == LOCAL_CLIP and clip.is_file():
+            supplemental[Path("media/clip.mp4")] = clip
+        return self._projects.snapshot_revision(
+            song.song_id,
+            revision,
+            workspace,
+            supplemental_files=supplemental,
+            portable_only=True,
+        )
 
     def _load(self, song_id: str, revision: int | None) -> tuple[Song, ProjectRevision]:
         with self._uow.create() as transaction:
@@ -91,10 +117,8 @@ class ExportPackage:
             source = snapshot / artifact.relative_path
             files[relative] = source
             artifacts.append(PackageArtifact(relative, self._hasher(source)))
-        local_clip = self._projects.video_path(
-            song.song_id, revision.revision, prefer_local="video" in song.user_overrides
-        )
-        if song.video_url == LOCAL_CLIP and local_clip is not None and local_clip.is_file():
+        local_clip = snapshot / "media/clip.mp4"
+        if song.video_url == LOCAL_CLIP and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip
             artifacts.append(PackageArtifact(relative, self._hasher(local_clip)))

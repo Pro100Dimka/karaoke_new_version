@@ -208,7 +208,9 @@ def test_importing_an_existing_revision_reactivates_that_valid_project(tmp_path:
 
 
 @pytest.mark.parametrize("cancel_at", [None, "before-commit", "after-commit"])
-def test_exported_package_imports_into_clean_library(tmp_path: Path, monkeypatch, cancel_at) -> None:
+def test_exported_package_imports_into_clean_library(
+    tmp_path: Path, monkeypatch, cancel_at
+) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as source_client:
@@ -303,6 +305,51 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
             target_client.get(f"/songs/{song['songId']}/clip").content == replacement.read_bytes()
         )
         assert changed.json()["projectHash"] != clip_hash
+
+
+def test_package_export_snapshots_a_clip_before_manual_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    original_clip = tmp_path / "original.mp4"
+    original_clip.write_bytes(b"\x00\x00\x00\x18ftyporiginal-video")
+    replacement = tmp_path / "replacement.mp4"
+    replacement.write_bytes(b"\x00\x00\x00\x18ftypreplacement-video")
+    with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song, _ = make_ready_and_export(client, source)
+        assert (
+            client.patch(
+                f"/songs/{song['songId']}", json={"videoPath": str(original_clip)}
+            ).status_code
+            == 200
+        )
+        archive = client.app.state.container.packages.start_export._export._archive
+        build = archive.build
+        entered, release = threading.Event(), threading.Event()
+
+        def blocked_build(*args, **kwargs):
+            entered.set()
+            assert release.wait(10), "Manual clip replacement did not finish"
+            return build(*args, **kwargs)
+
+        monkeypatch.setattr(archive, "build", blocked_build)
+        started = client.post(f"/packages/export/{song['songId']}")
+        try:
+            assert entered.wait(10), "Export did not reach archive construction"
+            changed = client.patch(f"/songs/{song['songId']}", json={"videoPath": str(replacement)})
+            assert changed.status_code == 200, changed.text
+        finally:
+            release.set()
+        exported = wait_for_job(client, started.json()["jobId"])
+        assert exported["state"] == "Succeeded", exported
+        package = Path(exported["report"]["path"])
+
+    with app_client(tmp_path / "target-runtime") as client:
+        started = client.post("/packages/import", json={"path": str(package)})
+        imported = wait_for_job(client, started.json()["jobId"])
+        assert imported["state"] == "Succeeded", imported
+        assert client.get(f"/songs/{song['songId']}/clip").content == original_clip.read_bytes()
 
 
 def test_reexported_imported_room_project_keeps_its_clip(tmp_path: Path) -> None:

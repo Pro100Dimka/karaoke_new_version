@@ -39,7 +39,15 @@ class ProjectStorage(Protocol):
 
     def publish_revision(self, song_id: str, revision: int, working: Path) -> None: ...
 
-    def snapshot_revision(self, song_id: str, revision: int, destination: Path) -> Path: ...
+    def snapshot_revision(
+        self,
+        song_id: str,
+        revision: int,
+        destination: Path,
+        *,
+        supplemental_files: Mapping[Path, Path] | None = None,
+        portable_only: bool = False,
+    ) -> Path: ...
 
     def revision_exists(self, song_id: str, revision: int) -> bool: ...
 

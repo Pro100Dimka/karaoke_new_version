@@ -124,7 +124,7 @@ def diagnostics(app: ContainerDep) -> Mapping[str, object]:
 def history(
     app: ContainerDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
     types: Annotated[list[str] | None, Query(max_length=20)] = None,
 ) -> HistoryPageDto:
     return _history_page(app.system.history.execute(limit=limit, offset=offset, event_types=types))
@@ -134,7 +134,7 @@ def history(
 def list_jobs(
     app: ContainerDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
     job_type: JobType | None = Query(default=None, alias="type"),
     entity_id: str | None = Query(default=None, alias="entityId", max_length=128),
 ) -> JobPageDto:
