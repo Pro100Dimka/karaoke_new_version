@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
+from backend.ai.domain import PitchPoint
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recordings.studio_layer_types import VocalLayerRegion
@@ -45,6 +46,78 @@ def _power_near(audio, rate, hz):
     spectrum = np.fft.rfft(audio * np.hanning(len(audio)))
     frequencies = np.fft.rfftfreq(len(audio), 1 / rate)
     return float(np.sum(abs(spectrum[abs(frequencies - hz) < 3]) ** 2))
+
+
+def _reference_with_lower_voice(path):
+    rate = 44100
+    time = np.arange(rate * 6) / rate
+    lead_phase = 2 * np.pi * 200 * time
+    lower_hz = 100 * (1.012 + 0.004 * np.sin(2 * np.pi * 1.3 * time + 0.4))
+    lower_phase = 2 * np.pi * np.cumsum(lower_hz) / rate
+    lead = sum(0.06 / h**1.5 * np.sin(h * lead_phase + 0.13 * h) for h in range(1, 20))
+    lower = sum(0.025 / h * np.sin(h * lower_phase + 0.31 * h) for h in range(1, 14))
+    lower *= np.clip((time - 2) / 0.04, 0, 1) * np.clip((4 - time) / 0.04, 0, 1)
+    sf.write(path, np.column_stack((lead + lower * 0.35, lead + lower)), rate, subtype="FLOAT")
+    return tuple(PitchPoint(float(t), 200, 0.99, True) for t in np.arange(0, 5.99, 0.01))
+
+
+def test_detected_reference_octave_reaches_the_own_voice_render_without_another_model_call(
+    tmp_path,
+):
+    context, direct = _render_context(tmp_path)
+    context.reference_pitch = _reference_with_lower_voice(context.space_reference)
+    original = sf.read(context.balanced, always_2d=True)[0]
+
+    def forbidden_pitch(_):
+        pytest.fail("Layer detection must reuse the existing reference melody")
+
+    context.pitch = forbidden_pitch
+    studio_layers.apply_reference_layers(context, direct)
+
+    samples, rate = sf.read(context.balanced, always_2d=True)
+    wet = (samples - original).mean(1)
+    middle = wet[round(2.4 * rate) : round(3.6 * rate)]
+    report = context.processing["vocalLayers"]
+    assert report["applied"] is True
+    assert report["analysis"]["octaves"]["regionCount"] > 0
+    assert all(region["kind"] == "octave" for region in report["referenceRegions"])
+    assert _power_near(middle, rate, 120) > _power_near(middle, rate, 100) * 100
+    assert np.sqrt(np.mean(middle**2)) > 0.003
+    assert np.max(abs(wet[: round(1.7 * rate)])) < 1e-7
+    assert np.max(abs(wet[round(4.3 * rate) :])) < 1e-7
+
+
+@pytest.mark.parametrize(
+    "octave_bounds, expected",
+    [([(2, 3), (3.5, 4)], [(1, 2), (3, 3.5), (4, 5)]), ([(1.1, 4.9)], [])],
+)
+def test_ambiguous_doubles_are_removed_only_where_an_octave_is_supported(
+    tmp_path, monkeypatch, octave_bounds, expected
+):
+    doubles = [
+        VocalLayerRegion(1, 5, "double", 0.12, delay_ms=delay, pan=pan)
+        for delay, pan in ((20, -0.75), (27, 0.75))
+    ]
+    octaves = [
+        VocalLayerRegion(start, end, "octave", 0.2, semitones=-12) for start, end in octave_bounds
+    ]
+    monkeypatch.setattr(studio_layers, "analyze_doubling", lambda *_: (doubles, {}))
+    monkeypatch.setattr(studio_layers, "analyze_octaves", lambda *_, **__: (octaves, {}))
+
+    regions, report = studio_layers.analyze_reference_layers(
+        tmp_path / "reference.wav", threading.Event()
+    )
+
+    retained = [region for region in regions if region.kind == "double"]
+    for original in doubles:
+        parts = [region for region in retained if region.pan == original.pan]
+        assert [(part.start, part.end) for part in parts] == expected
+        assert all(
+            part.gain == original.gain and part.delay_ms == original.delay_ms for part in parts
+        )
+    assert [region for region in regions if region.kind == "octave"] == octaves
+    assert report["overlapPolicy"] == "prefer-independent-octave-evidence"
+    assert [(region.start, region.end) for region in doubles] == [(1, 5), (1, 5)]
 
 
 def test_reference_plan_adds_octave_of_user_and_never_original_singer(tmp_path, monkeypatch):

@@ -777,6 +777,7 @@ def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path,
     monkeypatch.setattr(module, "integrate_voice", integration)
     render = SimpleNamespace(
         process_voice=dry,
+        pitch=None,
         work=tmp_path,
         renderer=object(),
         reference_vocal=balanced,

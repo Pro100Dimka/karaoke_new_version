@@ -1,6 +1,6 @@
 """Independent vocal returns, measured from the song and made only from the singer."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 import threading
@@ -15,6 +15,7 @@ from backend.recordings.studio_audio import MasterRenderer
 from backend.recordings.studio_pitch import PitchAnalyzer
 from backend.ai.domain import PitchPoint
 from backend.recordings.studio_double_analysis import analyze_doubling
+from backend.recordings.studio_octave_analysis import analyze_octaves
 
 
 class LayerRender(Protocol):
@@ -34,13 +35,42 @@ class LayerRender(Protocol):
     processing: dict[str, object]
 
 
+def _exclude_octave_overlap(
+    doubles: list[VocalLayerRegion], octaves: list[VocalLayerRegion]
+) -> list[VocalLayerRegion]:
+    # A lower voice's even harmonics can also look like a near-unison double.
+    # Prefer its independently supported octave instead of counting it twice.
+    remaining = doubles
+    for octave in octaves:
+        fragments = []
+        for region in remaining:
+            if region.end <= octave.start or region.start >= octave.end:
+                fragments.append(region)
+                continue
+            if region.start < octave.start:
+                fragments.append(replace(region, end=octave.start))
+            if region.end > octave.end:
+                fragments.append(replace(region, start=octave.end))
+        remaining = fragments
+    # Retain the detector's minimum supported duration after splitting, too.
+    return [region for region in remaining if region.end - region.start >= 0.24]
+
+
 def analyze_reference_layers(
     reference: Path,
     cancel: threading.Event,
     reference_pitch: Sequence[PitchPoint] = (),
 ) -> tuple[list[VocalLayerRegion], dict[str, object]]:
     doubles, double_report = analyze_doubling(reference, cancel)
-    return doubles, {"doubling": double_report}
+    octaves, octave_report = analyze_octaves(reference, cancel, reference_pitch=reference_pitch)
+    distinct_doubles = _exclude_octave_overlap(doubles, octaves)
+    regions = sorted([*distinct_doubles, *octaves], key=lambda region: region.start)
+    return regions, {
+        "doubling": double_report,
+        "octaves": octave_report,
+        "overlapPolicy": "prefer-independent-octave-evidence",
+        "retainedDoubleRegions": len(distinct_doubles),
+    }
 
 
 def _unavailable_reason(render: LayerRender) -> str | None:
