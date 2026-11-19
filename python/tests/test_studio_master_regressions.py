@@ -477,10 +477,15 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
         assert abs(relative_change) < 0.3
     if changing_density:
         signal = captured["voice"][5 * rate : 7 * rate]
-        # Clarity EQ remains off here; the new body correction may still remove coloration.
+        # Clarity EQ remains off here; reference tone removes coloration before placement.
         clarity = result.processing["spectralPlan"]["clarityAutomation"]["weight"]
         assert max(clarity[10:14]) < 0.01
-        assert np.mean(result.processing["mixIntegration"]["bodyCutDb"][50:70]) > 1
+        tone = result.processing["referenceTone"]
+        assert tone["applied"] and tone["stage"] == "before-gain-plan"
+        blend = tone["localBlend"]
+        weights = np.asarray(blend["weight"])
+        positions = blend["originSeconds"] + np.arange(len(weights)) * blend["stepSeconds"]
+        assert np.mean(weights[(positions >= 5) & (positions < 7)]) > 0.9
         assert (
             0.3
             < (

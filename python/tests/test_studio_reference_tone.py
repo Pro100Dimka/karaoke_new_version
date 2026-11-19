@@ -114,7 +114,7 @@ def test_broad_bell_correction_uses_measured_frequency_without_boosting(tmp_path
     assert len(report["bands"]) == 1
     band = report["bands"][0]
     assert abs(np.log2(band["frequencyHz"] / frequency)) < 0.7
-    assert -4.5 <= band["gainDb"] <= -1
+    assert -3 <= band["gainDb"] <= -1
     before, after = [sf.read(path)[0][rate:-rate] for path in (paths["voice"], output)]
     assert np.mean(after**2) < np.mean(before**2)
     assert (sf.info(output).frames, sf.info(output).samplerate, sf.info(output).channels) == (
@@ -272,3 +272,19 @@ def test_a_supported_phrase_is_not_vetoed_by_unmatched_notes_elsewhere(tmp_path)
     supported = (time >= 0.8) & (time < 1.8)
     assert 10 * np.log10(np.mean(actual[supported] ** 2) / np.mean(original[supported] ** 2)) < -1.5
     np.testing.assert_array_equal(actual[time >= 3], original[time >= 3])
+
+
+@pytest.mark.parametrize("rate", [8000, 48000])
+def test_matched_voicing_keeps_its_pitch_when_the_fundamental_is_quieter(tmp_path, rate):
+    paths, renderer = _fixture(tmp_path, rate=rate)
+    time = np.arange(rate * 8) / rate
+    upper = 0.035 * np.sin(2 * np.pi * 900 * time) + 0.02 * np.sin(2 * np.pi * 1800 * time)
+    for name, amplitude in [("voice", 0.12), ("reference", 0.015)]:
+        signal = upper + amplitude * np.sin(2 * np.pi * 150 * time)
+        sf.write(paths[name], signal, rate, subtype="FLOAT")
+
+    _, report = _correct(paths, renderer, tmp_path / "tone.wav")
+
+    # Both waveforms repeat at 150 Hz. The bright guide also has a strong 180 Hz
+    # autocorrelation crest, but that crest fails to repeat across later cycles.
+    assert report["pairedVoicedSeconds"] > 6

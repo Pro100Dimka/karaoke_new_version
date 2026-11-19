@@ -19,6 +19,7 @@ _RATE = 16000
 _SECONDS = 0.12
 _SIZE = round(_RATE * _SECONDS)
 _TRANSFORM = 2 ** int(np.ceil(np.log2(2 * _SIZE)))
+_MAX_CUT_DB = 3.0
 
 
 def _read_frame(audio: sf.SoundFile, position: float, cancel: threading.Event) -> np.ndarray | None:
@@ -47,11 +48,35 @@ def _fundamental(power: np.ndarray, window_correlation: np.ndarray) -> float:
     candidates = np.flatnonzero(peaks)
     if not candidates.size:
         return 0.0
-    strongest = float(np.max(scores[1:-1][candidates]))
-    eligible = candidates[scores[1:-1][candidates] >= max(0.65, strongest * 0.9)]
-    # The first independently periodic crest avoids assigning a subharmonic
-    # merely because a later multiple has a slightly larger correlation.
-    return float(_RATE / lags[1:-1][eligible[0]]) if eligible.size else 0.0
+    periods, repeated = _repeated_periods(correlation, window_correlation, lags, scores, candidates)
+    strongest = float(np.max(repeated))
+    eligible = np.flatnonzero(repeated >= max(0.65, strongest * 0.9))
+    # A weak fundamental still repeats over several cycles. Strong upper
+    # partials can create an earlier crest which does not keep recurring.
+    return float(_RATE / periods[eligible[0]]) if eligible.size else 0.0
+
+
+def _repeated_periods(
+    correlation: np.ndarray,
+    window_correlation: np.ndarray,
+    lags: np.ndarray,
+    scores: np.ndarray,
+    candidates: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    middle = candidates + 1
+    curvature = scores[middle - 1] - 2 * scores[middle] + scores[middle + 1]
+    shift = np.divide(
+        0.5 * (scores[middle - 1] - scores[middle + 1]),
+        curvature,
+        out=np.zeros(len(middle)),
+        where=abs(curvature) > 1e-12,
+    )
+    periods = lags[middle] + np.clip(shift, -0.5, 0.5)
+    normalized = correlation / max(float(correlation[0]), 1e-30)
+    normalized *= window_correlation[0] / np.maximum(window_correlation, 1e-20)
+    positions = periods[:, None] * np.arange(1, 4)
+    repeated = np.interp(positions, np.arange(len(normalized)), normalized)
+    return np.asarray(periods), np.asarray(np.mean(repeated, axis=1))
 
 
 def _frame_profile(
@@ -182,7 +207,7 @@ def _broad_band(
     return [
         {
             "frequencyHz": center,
-            "gainDb": -min(float(smooth[peak]), 4.5),
+            "gainDb": -min(float(smooth[peak]), _MAX_CUT_DB),
             "measuredExcessDb": float(smooth[peak]),
         }
     ]
@@ -295,7 +320,7 @@ def apply_reference_tone(
         "stage": "before-gain-plan",
         "applied": False,
         "bands": [],
-        "maximumCutDb": 4.5,
+        "maximumCutDb": _MAX_CUT_DB,
         "boostDb": 0.0,
     }
     if reference_timing is None:
