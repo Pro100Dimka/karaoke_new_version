@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 import soundfile as sf
 from scipy.ndimage import maximum_filter1d, uniform_filter1d
 from scipy.signal import fftconvolve, find_peaks, firwin
+from scipy.fft import irfft, rfft, rfftfreq
 
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import _check_cancel, _temporary_wave
@@ -57,8 +58,8 @@ def _envelope_features(
     frames: NDArray[np.float64], rate: int, high: NDArray[np.bool_], window: NDArray[np.float64]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     size = frames.shape[-1]
-    spectrum = np.fft.rfft(frames, n=size * 2, axis=-1)
-    band = np.fft.irfft(spectrum * high, n=size * 2, axis=-1)[..., :size]
+    spectrum = rfft(frames, n=size * 2, axis=-1)
+    band = irfft(spectrum * high, n=size * 2, axis=-1)[..., :size]
     local = slice(size // 2 - round(rate * 0.01), size // 2 + round(rate * 0.01))
     # Long windows classify the sound; local power keeps gain changes at the
     # consonant itself instead of anticipating a future bright harmonic attack.
@@ -67,8 +68,8 @@ def _envelope_features(
         np.mean(band**2, axis=1), size=round(rate * 0.001), axis=-1, mode="nearest"
     )
     envelope -= (np.sum(envelope * window, axis=-1) / np.sum(window))[:, None]
-    correlation = np.fft.irfft(abs(np.fft.rfft(envelope * window, size * 2)) ** 2)
-    window_correlation = np.fft.irfft(abs(np.fft.rfft(window, size * 2)) ** 2)
+    correlation = irfft(abs(rfft(envelope * window, size * 2)) ** 2)
+    window_correlation = irfft(abs(rfft(window, size * 2)) ** 2)
     last_lag = round(rate * 0.03)
     correlation = correlation[:, :last_lag] / np.maximum(correlation[:, :1], 1e-30)
     correlation *= window_correlation[0] / window_correlation[:last_lag]
@@ -80,18 +81,18 @@ def _envelope_features(
 def _frame_features(frames: NDArray[np.float64], rate: int) -> NDArray[np.float64]:
     size = frames.shape[-1]
     window = np.hanning(size)
-    spectrum = np.fft.rfft(frames * window, n=size * 2, axis=-1)
+    spectrum = rfft(frames * window, n=size * 2, axis=-1)
     # Powers, rather than a mono sum, also work with antiphase stereo recordings.
     power = np.mean(abs(spectrum) ** 2, axis=1)
-    frequency = np.fft.rfftfreq(size * 2, 1 / rate)
+    frequency = rfftfreq(size * 2, 1 / rate)
     body = (frequency >= 300) & (frequency < 3500)
     high = (frequency >= _LOW_HZ) & (frequency <= min(_HIGH_HZ, rate * 0.45))
     local_high, envelope_recurrence = _envelope_features(frames, rate, high, window)
     band = power[:, high]
     flatness = np.exp(np.mean(np.log(np.maximum(band, 1e-30)), axis=1))
     flatness /= np.maximum(np.mean(band, axis=1), 1e-30)
-    correlation = np.fft.irfft(power * high, n=size * 2, axis=-1)
-    window_correlation = np.fft.irfft(abs(np.fft.rfft(window, size * 2)) ** 2)
+    correlation = irfft(power * high, n=size * 2, axis=-1)
+    window_correlation = irfft(abs(rfft(window, size * 2)) ** 2)
     lag = slice(round(rate * 0.002), round(rate * 0.03))
     # Remove the window's lag-dependent loss before assessing harmonic recurrence.
     recurrence = correlation[:, lag] / np.maximum(correlation[:, :1], 1e-30)
