@@ -1386,6 +1386,25 @@ void suspendingAnIdleSessionIsANoOp() {
            "background ASIO release must not turn an unopened audio session into Suspended");
 }
 
+void repeatedSuspendPreservesTheResumeState() {
+    for (const auto initialState : {SessionState::Prepared, SessionState::Running}) {
+        AudioService service{std::make_unique<FakeAudioBackend>()};
+        service.start();
+        service.session().prepare({});
+        if (initialState == SessionState::Running)
+            service.session().start();
+        require(service.handleLine("1|SuspendSession").status == ControlStatus::Ok,
+                "the initial background suspension succeeds");
+        const auto generation = service.session().generationId();
+        expect(service.handleLine("1|SuspendSession").status == ControlStatus::Ok &&
+                   service.session().generationId() == generation,
+               "a repeated suspension does not invalidate an already suspended session");
+        expect(service.handleLine("1|ResumeSession").status == ControlStatus::Ok &&
+                   service.session().state() == initialState,
+               "resuming restores the state before the first suspension");
+    }
+}
+
 void nativePreconditionsStopBeforeDependentAccess() {
     bool continued = false, stopped = false;
     try {

@@ -277,7 +277,8 @@ bool SessionManager::suspend() noexcept {
                                                RecordingState::Paused, RecordingState::Finalizing};
     if (std::ranges::find(activeRecordingStates, engine_.recordingState()) != activeRecordingStates.end())
         return false;
-    if (state_ == SessionState::Idle)
+    constexpr std::array inactiveStates{SessionState::Idle, SessionState::Suspended};
+    if (std::ranges::find(inactiveStates, state_) != inactiveStates.end())
         return true;
     wasRunningBeforeSuspend_ = state_ == SessionState::Running;
     invalidateGeneration();

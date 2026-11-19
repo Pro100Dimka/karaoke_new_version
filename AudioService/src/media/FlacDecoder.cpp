@@ -39,7 +39,12 @@ class FlacDecoder final : public IAudioDecoder {
         if (decoder_ == nullptr || cancelled_.load(std::memory_order_acquire))
             return 0;
         const auto count = std::min<std::size_t>(maxFrames, output.size() / decoder_->channels);
-        return static_cast<std::uint32_t>(drflac_read_pcm_frames_f32(decoder_, count, output.data()));
+        const auto frames = drflac_read_pcm_frames_f32(decoder_, count, output.data());
+        if (frames < count && decoder_->totalPCMFrameCount != 0 &&
+            decoder_->currentPCMFrame < decoder_->totalPCMFrameCount &&
+            !cancelled_.load(std::memory_order_acquire))
+            throw std::runtime_error("FLAC read failed before the end of audio data");
+        return static_cast<std::uint32_t>(frames);
     }
 
     void seek(std::uint64_t frame) override {

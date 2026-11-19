@@ -1,5 +1,6 @@
 #include "TestHarness.hpp"
 #include "media/MediaController.hpp"
+#include "media/DecoderFactory.hpp"
 #include "media/MediaSource.hpp"
 #include "media/RateTransposeProcessor.hpp"
 #include "media/WavDecoder.hpp"
@@ -106,6 +107,46 @@ void wavDecoderReportsFormat() {
     WavDecoder decoder;
     const auto format = decoder.open(mediaPath().string());
     expect(format.sampleRateHz == 48000 && format.channels == 2, "WAV decoder reports format");
+}
+
+void flacDecoderRejectsTruncatedAudio() {
+    for (const auto rate : {44100, 48000}) {
+        const auto fixture = std::filesystem::path{__FILE__}.parent_path() / "fixtures" /
+                             ("seek-" + std::to_string(rate) + ".flac");
+        const auto path = tempRoot / fixture.filename();
+        std::filesystem::copy_file(fixture, path);
+        std::filesystem::resize_file(path, std::filesystem::file_size(path) / 2U);
+        auto decoder = createFlacDecoder();
+        const auto format = decoder->open(path.string());
+        std::vector<float> output(static_cast<std::size_t>(1024U) * format.channels);
+        bool rejected = false;
+        try {
+            while (decoder->read(output, 1024) != 0) {
+            }
+        } catch (const std::runtime_error&) {
+            rejected = true;
+        }
+        expect(rejected,
+               "truncated FLAC audio is reported instead of silently ending the recording early");
+    }
+}
+
+void flacDecoderReadsAndSeeksAtTheExactEnd() {
+    for (const auto rate : {44100, 48000}) {
+        const auto path = std::filesystem::path{__FILE__}.parent_path() / "fixtures" /
+                          ("seek-" + std::to_string(rate) + ".flac");
+        auto decoder = createFlacDecoder();
+        const auto format = decoder->open(path.string());
+        std::vector<float> output(static_cast<std::size_t>(1024U) * format.channels);
+        std::uint64_t frames = 0;
+        while (const auto read = decoder->read(output, 1024))
+            frames += read;
+        expect(frames == format.totalFrames, "valid FLAC returns every advertised frame");
+        decoder->seek(format.totalFrames);
+        expect(decoder->read(output, 1024) == 0, "seeking to the exact end is ordinary EOF");
+        decoder->seek(0);
+        expect(decoder->read(output, 1024) == 1024, "a finished FLAC can play again");
+    }
 }
 
 void wavDecoderSeekIsDeterministic() {
