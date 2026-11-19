@@ -53,6 +53,9 @@ class GainPlan:
                 if reference_verified
                 else "uncalibrated-reference-fallback"
             ),
+            baselineMethod=(
+                "voiced-power-with-local-peak-bound" if reference_verified else "voiced-log-mean"
+            ),
             softWordLiftMaxDb=float(np.max(soft_word_lift[self.active])),
             presenceBandHz=[600, 3500],
             overlap=overlap,
@@ -260,17 +263,42 @@ def _context_levels(
     overlap: float,
     reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
     reference_level_correction_db: float | None = None,
+    *,
+    voiced: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, bool]:
-    baseline = gaussian_filter1d(level * active, sigma=0.75 / _STEP, mode="nearest")
-    coverage = gaussian_filter1d(active.astype(float), sigma=0.75 / _STEP, mode="nearest")
+    body = voiced if voiced.any() else active
+    baseline = gaussian_filter1d(level * body, sigma=0.75 / _STEP, mode="nearest")
+    coverage = gaussian_filter1d(body.astype(float), sigma=0.75 / _STEP, mode="nearest")
     baseline /= np.maximum(coverage, 1e-9)
     # Long unvoiced passages have no nearby body evidence, not a 0 dBFS baseline.
     missing = coverage <= 1e-9
-    baseline[missing] = np.interp(times[missing], times[active], level[active])
+    baseline[missing] = np.interp(times[missing], times[body], level[body])
     placement, verified = _reference_placement(
         times, overlap, reference_balance, reference_level_correction_db
     )
+    if verified:
+        baseline = _placement_baseline(level, baseline, body, coverage, active)
     return baseline, placement, verified
+
+
+def _placement_baseline(
+    level: np.ndarray,
+    baseline: np.ndarray,
+    voiced: np.ndarray,
+    coverage: np.ndarray,
+    active: np.ndarray,
+) -> np.ndarray:
+    # Quiet pitched tails must contribute their energy, not equal-weight dB
+    # offsets. Existing local peak control bounds the evidence for an isolated
+    # accent so it cannot lower the surrounding voice through this slow mean.
+    # Use the controller's activity for that bound, preserving breath gaps;
+    # only the existing voiced mask contributes to the power mean itself.
+    evidence = level + np.minimum(local_outlier_gain(level, baseline, active, _STEP), 0)
+    power = gaussian_filter1d(10 ** (evidence / 10) * voiced, sigma=0.75 / _STEP, mode="nearest")
+    result = 10 * np.log10(np.maximum(power / np.maximum(coverage, 1e-9), 1e-12))
+    missing = coverage <= 1e-9
+    result[missing] = baseline[missing]
+    return np.asarray(result, dtype=float)
 
 
 def _reference_placement(
@@ -338,9 +366,8 @@ def _build_gain_plan(
     if not active.any():
         return GainPlan(times, np.zeros_like(level), active, level, offset, report), active
     body = _voiced_activity(voice, times, active, cancel)
-    context_body = body if body.any() else active
     baseline, placement, reference_verified = _context_levels(
-        times, level, context_body, overlap, reference_balance, reference_level_correction_db
+        times, level, active, overlap, reference_balance, reference_level_correction_db, voiced=body
     )
     target = _target_levels(times, level, music, meter_times, baseline, placement)
     placement_gain = target - level
