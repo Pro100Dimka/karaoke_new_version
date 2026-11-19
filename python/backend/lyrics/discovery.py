@@ -137,15 +137,7 @@ class LyricsDiscovery:
             or previous
         )
         if found:
-            language = lyrics_language(song, found.lyrics).value
-            found = replace(
-                found,
-                lyrics=clean_lyrics(found.lyrics, language),
-                timing_hints=tuple(
-                    replace(hint, text=clean_lyrics(hint.text, language))
-                    for hint in found.timing_hints
-                ),
-            )
+            found = _clean_match(song, found)
         return PreparedLyrics(found, tuple(warnings), online_candidates=tuple(cache.items()))
 
     def _performed(
@@ -198,13 +190,14 @@ class LyricsDiscovery:
         if source.found is not None and found is None:
             warnings.append("LyricsCatalogRejected")
         if found is None and online_enabled:
-            return self._from_online(
+            found = self._from_online(
                 song,
                 cancel,
                 warnings,
                 transcripts=transcripts,
                 cache=dict(source.online_candidates),
             )
+            return _clean_match(song, found) if found is not None else None
         return found
 
     def _transcripts(
@@ -293,15 +286,7 @@ class LyricsDiscovery:
             found.source,
             transcripts,
         )
-        language = lyrics_language(song, selected.lyrics).value
-        return replace(
-            selected,
-            lyrics=clean_lyrics(selected.lyrics, language),
-            timing_hints=tuple(
-                replace(hint, text=clean_lyrics(hint.text, language))
-                for hint in selected.timing_hints
-            ),
-        )
+        return _clean_match(song, selected)
 
     def _previous(self, song: Song, warnings: list[str]) -> LyricsDiscoveryResult | None:
         if self._projects is None:
@@ -428,6 +413,17 @@ class LyricsDiscovery:
             timed.timing_hints if timed else candidate.timing_hints,
             tuple(dict.fromkeys([matched, *eligible])),
         )
+
+
+def _clean_match(song: Song, found: LyricsDiscoveryResult) -> LyricsDiscoveryResult:
+    language = lyrics_language(song, found.lyrics).value
+    return replace(
+        found,
+        lyrics=clean_lyrics(found.lyrics, language),
+        timing_hints=tuple(
+            replace(hint, text=clean_lyrics(hint.text, language)) for hint in found.timing_hints
+        ),
+    )
 
 
 def _cached_catalog_text(lyrics: str, saved: object, hints: tuple[LyricLineTiming, ...]) -> str:

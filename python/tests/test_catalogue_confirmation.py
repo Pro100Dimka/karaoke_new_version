@@ -11,7 +11,7 @@ import pytest
 from backend.domain_errors import DependencyError
 from backend.infrastructure.sidecar_lyrics import LocalSidecarLyricsReader
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
-from backend.lyrics.ports import LyricsCandidate
+from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.songs.domain import Language, Song, SongStatus, SourceState
 from tests.fakes import FakeAiProvider
@@ -90,6 +90,33 @@ def test_alias_is_selected_only_after_raw_recognition_without_repeating_http() -
     )
 
     assert (result.lyrics, result.source) == (LYRICS, "catalogue")
+    assert provider.calls == 1
+
+
+def test_post_recognition_catalogue_and_cues_are_clean_before_alignment() -> None:
+    decorated = LYRICS.replace("silver", "silver,").replace("\n", "!\n") + "..."
+    hints = tuple(
+        LyricLineTiming(10.0 * (index + 1), line)
+        for index, line in enumerate(decorated.splitlines())
+    )
+    provider = _Provider([_candidate(lyrics=decorated, timing_hints=hints)])
+    discovery = _discovery(provider)
+    prepared = discovery.lookup(_song(), threading.Event(), True)
+    assert prepared.found is None
+
+    result = discovery.discover(
+        _song(),
+        Path("vocal.wav"),
+        FakeAiProvider(),
+        threading.Event(),
+        online_enabled=True,
+        execution=ExecutionContext(ComputeDevice.CPU, 1),
+        prepared=replace(prepared, transcripts=(LYRICS,)),
+    )
+
+    assert result.lyrics == LYRICS
+    assert tuple(hint.text for hint in result.timing_hints) == tuple(LYRICS.splitlines())
+    assert tuple(hint.start for hint in result.timing_hints) == tuple(hint.start for hint in hints)
     assert provider.calls == 1
 
 
