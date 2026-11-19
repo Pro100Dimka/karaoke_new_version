@@ -16,7 +16,7 @@ import torch
 import whisper
 
 from backend.ai.catalog import SPEECH_MODEL as SPEECH_MODEL
-from backend.ai_worker import acoustic_retry, asr_recovery
+from backend.ai_worker import acoustic_retry, asr_recovery, asr_substitution
 from backend.ai_worker.asr_views import token_key
 from backend.ai_worker.speech_alignment import _AlignmentPass as _AlignmentPass
 from backend.ai_worker.speech_observations import RecognitionObservations, recognition_views
@@ -439,9 +439,9 @@ def align(
     payload = _AlignmentPass(
         audio, backing, scores, step, lyrics.split(), lyrics, heard, views
     ).run(timing_hints, recognize)
-    return (
-        dict(payload, lyrics=lyrics, insertionsVerified=verified) if asr_lyrics else dict(payload)
-    )
+    if not asr_lyrics:
+        return dict(payload)
+    return _asr_payload(lyrics, payload, observations, scores, step, verified)
 
 
 def _recover_transcript_lyrics(
@@ -464,3 +464,19 @@ def _recover_transcript_lyrics(
         any(word == expected for word in remaining) for expected in map(token_key, lyrics.split())
     )
     return (recovered, True) if preserved else (lyrics, False)
+
+
+def _asr_payload(
+    lyrics: str,
+    payload: Mapping[str, object],
+    observations: RecognitionObservations,
+    scores: torch.Tensor,
+    step: float,
+    verified: bool,
+) -> dict[str, object]:
+    if verified:
+        views = [*recognition_views(observations.recognition), *observations.views]
+        lyrics, payload = asr_substitution.substitute_alignment(
+            lyrics, payload, views, scores, step, len(observations.samples) / _SAMPLE_RATE
+        )
+    return dict(payload, lyrics=lyrics, insertionsVerified=verified)
