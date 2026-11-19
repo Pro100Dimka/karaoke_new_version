@@ -16,8 +16,11 @@ import torch
 import whisper
 
 from backend.ai.catalog import SPEECH_MODEL as SPEECH_MODEL
-from backend.ai_worker import acoustic_retry, asr_recovery, asr_substitution
+import backend.ai_worker.acoustic_retry as acoustic_retry
+import backend.ai_worker.asr_recovery as asr_recovery
+import backend.ai_worker.asr_substitution as asr_substitution
 from backend.ai_worker.asr_views import token_key
+from backend.ai_worker.guidance_prefix import preserve_prefix
 from backend.ai_worker.speech_alignment import _AlignmentPass as _AlignmentPass
 from backend.ai_worker.speech_observations import RecognitionObservations, recognition_views
 from backend.ai_worker.ctc_bounds import _preserved_onset_letters as _preserved_onset_letters
@@ -429,12 +432,12 @@ def align(
     )
     evidence = partial(evidence, observations=observations) if asr_lyrics else evidence
     scores, step, heard = evidence() if reuse is None else evidence(reuse=reuse)
-    verified = False
     if asr_lyrics:
+        original = lyrics
         lyrics, verified = _recover_transcript_lyrics(
             lyrics, observations, scores, step, asr_baseline
         )
-        heard = _best_alignment_view(lyrics, views) or heard
+        heard = preserve_prefix(original, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
     recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
     payload = _AlignmentPass(
         audio, backing, scores, step, lyrics.split(), lyrics, heard, views
