@@ -11,7 +11,30 @@ from backend.recordings.studio_audio import (
     _write_gain_envelope,
 )
 from backend.recordings.studio_calibration import GainPlan
+from backend.recordings.studio_sibilance import apply_sibilance_control
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum
+
+
+def prepare_voice(
+    renderer: MasterRenderer,
+    source: Path,
+    backing: Path,
+    target: Path,
+    cancel: threading.Event,
+    *,
+    frames: int,
+    rate: int,
+    channels: int,
+) -> tuple[Path, dict[str, object]]:
+    """Prepare the dry path before measuring pitch, tone and vocal placement."""
+    renderer._mix(
+        source,
+        backing,
+        f"[0:a]highpass=f=60,apad,atrim=end_sample={frames}[out]",
+        ["-ar", str(rate), "-ac", str(channels), "-c:a", "pcm_f32le", str(target)],
+        cancel,
+    )
+    return apply_sibilance_control(target, target.with_stem(target.stem + "-deessed"), cancel)
 
 
 def integrate_voice(

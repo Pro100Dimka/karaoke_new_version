@@ -10,6 +10,7 @@ import soundfile as sf
 from scipy.signal import lfilter
 from scipy.fft import rfft, irfft, next_fast_len
 from backend.domain_errors import DependencyError
+from backend.recordings.studio_ambience import WetReturnDucker
 from backend.recordings.studio_audio import (
     MasterRenderer,
     _check_cancel,
@@ -241,7 +242,7 @@ def _activity_mask(
     """Block-independent vocal activity mask used for calibration and QC.
 
     An instantaneous sample threshold incorrectly treats zero crossings in a
-    sung vowel as silence. The smoothed envelope matches the render ducking.
+    sung vowel as silence. The smoothed envelope measures contiguous activity.
     """
     if not len(block):
         return np.zeros(0, dtype=bool), state
@@ -315,6 +316,10 @@ class _SpatialBuses:
         self.gains: dict[str, float] = {}
         self.limits: dict[str, float] = {}
         self.activity = _voice_activity_level(voice, cancel)
+        self.ducker = WetReturnDucker(self.info.samplerate, self.activity)
+        self.ducked = {
+            name for name, spec in specs.items() if spec.reverb_gain or name == "diffuse-field"
+        }
         self.responses = {
             "stereo-reflections": side_response if side_response is not None else np.empty(0)
         }
@@ -336,6 +341,7 @@ class _SpatialBuses:
                     self.limits["diffuse-field"],
                     self.cancel,
                 )
+                self.field_calibration["calibrationStage"] = "before-vocal-ducking"
             return self._mix()
         finally:
             for path in (*self.paths.values(), *self.impulses.values()):
@@ -410,6 +416,11 @@ class _SpatialBuses:
             mask = np.maximum(mask, envelope)
         return mask
 
+    def _read_bus(self, name: str, reader: sf.SoundFile, ducking: np.ndarray) -> np.ndarray:
+        bus = reader.read(len(ducking), dtype="float32", always_2d=True)
+        gain = self.gains[name] * (ducking[:, None] if name in self.ducked else 1)
+        return np.asarray(bus * gain, dtype="float32")
+
     def _mix(self) -> dict[str, object]:
         energy = {name: 0.0 for name in self.paths}
         dry_energy = wet_energy = peak = active_dry = active_wet = state = 0.0
@@ -428,10 +439,9 @@ class _SpatialBuses:
             for block in dry.blocks(blocksize=32768, dtype="float32", always_2d=True):
                 _check_cancel(self.cancel)
                 wet = np.zeros_like(block)
+                ducking = self.ducker.gains(block) if self.ducked else np.ones(len(block))
                 for name, reader in readers.items():
-                    bus = (
-                        reader.read(len(block), dtype="float32", always_2d=True) * self.gains[name]
-                    )
+                    bus = self._read_bus(name, reader, ducking)
                     energy[name] += float(np.sum(bus.astype(np.float64) ** 2))
                     wet += bus
                 if not np.isfinite(wet).all():
@@ -461,6 +471,9 @@ class _SpatialBuses:
             "status": "rendered",
             "dryPreserved": True,
             "diffuseField": self.field_calibration,
+            "vocalDucking": self.ducker.report(
+                name for name in self.ducked if self.gains[name] > 0
+            ),
             "referenceMethod": (
                 "estimated-reference-phrase-and-stereo"
                 if any(name.startswith("estimated-") for name in self.specs)

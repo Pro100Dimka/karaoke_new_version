@@ -33,7 +33,7 @@ from backend.recordings.studio_calibration import (
     validate_gain_plan,
     vocal_activity,
 )
-from backend.recordings.studio_voice import shape_voice, integrate_voice
+from backend.recordings.studio_voice import shape_voice, integrate_voice, prepare_voice
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
 
@@ -473,20 +473,15 @@ class MasterRender:
         return None
 
     def _clean_voice(self) -> None:
-        self.renderer._mix(
+        self.vocal, self.processing["sibilanceControl"] = prepare_voice(
+            self.renderer,
             self.user_vocal,
             self.backing,
-            f"[0:a]highpass=f=60,apad,atrim=end_sample={self.info.frames}[out]",
-            [
-                "-ar",
-                str(self.info.samplerate),
-                "-ac",
-                str(self.output_channels),
-                "-c:a",
-                "pcm_f32le",
-                str(self.vocal),
-            ],
+            self.vocal,
             self.cancel,
+            frames=self.info.frames,
+            rate=self.info.samplerate,
+            channels=self.output_channels,
         )
 
     def _map_reference_time(self) -> None:

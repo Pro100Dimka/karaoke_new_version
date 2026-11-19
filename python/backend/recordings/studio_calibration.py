@@ -8,6 +8,7 @@ from scipy.ndimage import gaussian_filter1d, uniform_filter1d, maximum_filter1d,
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _profile
 from backend.recordings.studio_delivery import measure_mix_loudness
 from backend.recordings.studio_dynamics import _slow_gain_envelope
+from backend.recordings.studio_leveling import correction_response, local_outlier_gain
 
 _STEP = 0.02
 _REFERENCE_MAX_ATTENUATION_LU = 3.0
@@ -22,6 +23,18 @@ class GainPlan:
     offset: NDArray[np.float64]
     report: dict[str, object]
     presence: np.ndarray | None = None
+
+    def report_dynamics(
+        self, soft_word_lift: np.ndarray, overlap: float, desired: np.ndarray
+    ) -> None:
+        self.report.update(
+            leveling="slow-placement-and-local-outliers",
+            vocalLiftDb=1.5,
+            softWordLiftMaxDb=float(np.max(soft_word_lift[self.active])),
+            presenceBandHz=[600, 3500],
+            overlap=overlap,
+            dynamicRangeDb=float(np.ptp(np.percentile(desired[self.active], [10, 90]))),
+        )
 
     def report_automation(
         self, presence: np.ndarray, placement: np.ndarray, global_gain: float
@@ -102,8 +115,9 @@ def _target_levels(
 ) -> np.ndarray:
     accompaniment = _accompaniment_levels(times, music, meter_times)
     target = baseline.copy() if accompaniment is None else accompaniment + placement
-    # Retain phrase emphasis while keeping unusually loud syllables inside the backing.
-    return np.asarray(target + 0.4 * np.minimum(level - baseline, 5.0), dtype=float)
+    # Placement follows the phrase baseline. Local dynamics are handled separately,
+    # so ordinary emphasis is not forced toward the backing every 20 milliseconds.
+    return np.asarray(target + level - baseline, dtype=float)
 
 
 def _presence_correction(
@@ -191,9 +205,11 @@ def _context_levels(
     reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
 ) -> tuple[np.ndarray, np.ndarray]:
     baseline = gaussian_filter1d(level * active, sigma=0.75 / _STEP, mode="nearest")
-    baseline /= np.maximum(
-        gaussian_filter1d(active.astype(float), sigma=0.75 / _STEP, mode="nearest"), 1e-9
-    )
+    coverage = gaussian_filter1d(active.astype(float), sigma=0.75 / _STEP, mode="nearest")
+    baseline /= np.maximum(coverage, 1e-9)
+    # Long unvoiced passages have no nearby body evidence, not a 0 dBFS baseline.
+    missing = coverage <= 1e-9
+    baseline[missing] = np.interp(times[missing], times[active], level[active])
     placement = np.full_like(level, -3.0 + 3.0 * overlap)
     if reference_balance is None:
         return baseline, placement
@@ -234,8 +250,15 @@ def build_gain_plan(
     }
     if not active.any():
         return GainPlan(times, np.zeros_like(level), active, level, offset, report)
-    baseline, placement = _context_levels(times, level, active, overlap, reference_balance)
+    voicing = _voicing_profile(voice, cancel)
+    confidence = np.interp(times, (np.arange(len(voicing)) + 0.5) * 0.04, voicing)
+    body = active & (confidence >= 0.65)
+    baseline, placement = _context_levels(
+        times, level, body if body.any() else active, overlap, reference_balance
+    )
     target = _target_levels(times, level, music, meter_times, baseline, placement)
+    placement_gain = target - level
+    target += local_outlier_gain(level, baseline, active, _STEP)
     # Support softer words before breath protection, without flattening the whole performance.
     soft_word_lift = np.clip((baseline - level) * 0.15, 0.0, 2.0)
     target += soft_word_lift
@@ -246,25 +269,22 @@ def build_gain_plan(
     desired += presence + 1.5
     report["unvoicedProtection"] = protection
     global_gain = float(np.median(desired[active]))
-    gains = _smoothed_gains(times, desired, active, global_gain)
-    report.update(
-        vocalLiftDb=1.5,
-        softWordLiftMaxDb=float(np.max(soft_word_lift[active])),
-        presenceBandHz=[600, 3500],
-        overlap=overlap,
-        dynamicRangeDb=float(np.ptp(np.percentile(desired[active], [10, 90]))),
-    )
+    gains = _smoothed_gains(times, desired, active, global_gain, placement_gain)
     plan = GainPlan(times, gains, active, level + desired, offset, report, presence)
+    plan.report_dynamics(soft_word_lift, overlap, desired)
     plan.report_automation(presence, placement, global_gain)
     return plan
 
 
 def _smoothed_gains(
-    times: np.ndarray, desired: np.ndarray, active: np.ndarray, global_gain: float
+    times: np.ndarray,
+    desired: np.ndarray,
+    active: np.ndarray,
+    global_gain: float,
+    placement: np.ndarray,
 ) -> np.ndarray:
-    # Look ahead one frame so smoothing cannot let a short loud syllable escape its own gain.
-    envelope = minimum_filter1d(np.interp(times, times[active], desired[active]), size=3)
-    gains = gaussian_filter1d(envelope, sigma=0.02 / _STEP, mode="nearest")
+    correction = np.interp(times, times[active], (desired - placement)[active])
+    gains = placement + correction_response(correction, _STEP)
     gate = gaussian_filter1d(
         maximum_filter1d(active.astype(float), size=9), sigma=1, mode="nearest"
     )
