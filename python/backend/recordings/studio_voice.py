@@ -17,14 +17,27 @@ from backend.recordings.studio_sibilance import apply_sibilance_control
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum
 from backend.recordings.studio_space import apply_reference_space
 from backend.recordings.studio_layers import LayerRender, apply_reference_layers
+from backend.recordings.studio_reference_tone import apply_reference_tone
 
 
 class VoiceFinishing(LayerRender, Protocol):
+    vocal: Path
     user_vocal: Path
     reference_vocal: Path
     backing: Path
     times: NDArray[np.floating]
     source_times: NDArray[np.floating]
+
+
+def match_tone(render: VoiceFinishing) -> None:
+    render.vocal, render.processing["referenceTone"] = apply_reference_tone(
+        render.renderer,
+        render.vocal,
+        render.reference_vocal,
+        render.work / "reference-toned.wav",
+        render.cancel,
+        reference_timing=(render.times, render.source_times) if render.timing_known else None,
+    )
 
 
 def finish_voice(render: VoiceFinishing) -> None:
@@ -54,6 +67,7 @@ def finish_voice(render: VoiceFinishing) -> None:
         render.cancel,
         reference_timing=(render.times, render.source_times) if render.timing_known else None,
         placement_calibrated=True,
+        tone_calibrated="referenceTone" in render.processing,
     )
     render.processing["voiceOutputGainDb"] = 0.0
     apply_reference_layers(render, direct)
@@ -91,9 +105,10 @@ def integrate_voice(
     *,
     reference_timing: tuple[np.ndarray, np.ndarray] | None,
     placement_calibrated: bool = False,
+    tone_calibrated: bool = False,
 ) -> tuple[Path, dict[str, object]]:
     """Place the processed voice locally without changing the backing or adding effects."""
-    times, cuts = _body_correction(voice, reference, reference_timing, cancel)
+    times, cuts = _integration_tone(voice, reference, reference_timing, cancel, tone_calibrated)
     toned = _render_body_correction(renderer, voice, backing, target, times, cuts, cancel)
     reduction = (
         np.zeros_like(cuts)
@@ -106,12 +121,28 @@ def integrate_voice(
         "bodyCutDb": cuts.round(4).tolist(),
         "placementTrimDb": reduction.round(4).tolist(),
         "placementCalibrated": placement_calibrated,
+        "toneCalibrated": tone_calibrated,
     }
     if np.max(reduction) > 0:
         _write_gain_envelope(toned, target, times, -reduction, cancel)
         toned = target
     _check_cancel(cancel)
     return toned, report
+
+
+def _integration_tone(
+    voice: Path,
+    reference: Path,
+    timing: tuple[np.ndarray, np.ndarray] | None,
+    cancel: threading.Event,
+    calibrated: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    if not calibrated:
+        return _body_correction(voice, reference, timing, cancel)
+    info = sf.info(voice)
+    step = max(1, round(info.samplerate * 0.1))
+    times = (np.arange((info.frames + step - 1) // step) + 0.5) * 0.1
+    return times, np.zeros_like(times)
 
 
 def _render_body_correction(

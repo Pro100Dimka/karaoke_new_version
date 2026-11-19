@@ -32,7 +32,7 @@ from backend.recordings.studio_calibration import (
     validate_gain_plan,
     vocal_activity,
 )
-from backend.recordings.studio_voice import shape_voice, finish_voice, prepare_voice
+from backend.recordings.studio_voice import shape_voice, finish_voice, prepare_voice, match_tone
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
 from backend.recordings.studio_reference_level import analyze_reference_level
@@ -311,6 +311,7 @@ class MasterRender:
         self.reliable = vocal_activity(self.voice_db)
 
     def _shape_voice(self) -> None:
+        match_tone(self)
         evidence = measure_mix_spectrum(self.vocal, self.backing, self.cancel)
         self.overlap = evidence["overlap"]
         self.plan = build_gain_plan(

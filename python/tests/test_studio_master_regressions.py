@@ -814,5 +814,6 @@ def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path,
         render.cancel,
         reference_timing=None,
         placement_calibrated=True,
+        tone_calibrated=False,
     )
     assert not target.exists()
