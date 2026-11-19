@@ -151,7 +151,7 @@ def test_full_reference_supplies_only_a_missing_tail(
         recorded_is_dry=recorded_is_dry,
     )
     expected = profiles[local] if local_gain else profiles[full]
-    added = expected.reverb_gain * 0.5 if recorded_is_dry or not raw_gain else 0
+    added = expected.reverb_gain * 0.5 if not raw_gain else 0
     assert report["applied"]["decay_seconds"] == (expected.decay_seconds if added else 0)
     assert report["applied"]["reverb_gain"] == added
     wet_energy = np.mean((sf.read(output)[0] - samples) ** 2)

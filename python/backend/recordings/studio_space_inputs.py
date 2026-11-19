@@ -11,11 +11,16 @@ from backend.recordings.studio_audio import _check_cancel
 from backend.recordings.studio_space_analysis import SpaceProfile
 
 
-def recorded_space_report(profile: SpaceProfile | None) -> dict[str, object]:
+def recorded_space_report(
+    profile: SpaceProfile, *, recorded_is_dry: bool = False
+) -> dict[str, object]:
+    """Report measured acoustics separately from capture provenance."""
     return {
-        "recorded": asdict(profile) if profile is not None else None,
-        "recordedAnalysis": "measured" if profile is not None else "dry-capture-not-measured",
-        "existingEffectsPolicy": "estimated-wet-stem" if profile is not None else "dry-capture",
+        "recorded": asdict(profile),
+        "recordedAnalysis": "measured",
+        "existingEffectsPolicy": "dry-capture-acoustics"
+        if recorded_is_dry
+        else "estimated-wet-stem",
     }
 
 

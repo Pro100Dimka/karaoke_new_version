@@ -146,9 +146,7 @@ def test_supported_scoped_tail_does_not_need_full_file_io(tmp_path, monkeypatch)
     assert not calls
 
 
-def test_dry_capture_omits_report_only_analysis_and_keeps_the_same_rendered_pcm(
-    tmp_path, monkeypatch
-):
+def test_pre_dsp_capture_analysis_is_rendering_evidence_not_report_only(tmp_path, monkeypatch):
     reference, recorded, baseline, actual = [
         tmp_path / f"{name}.wav" for name in ("reference", "recorded", "baseline", "actual")
     ]
@@ -159,31 +157,28 @@ def test_dry_capture_omits_report_only_analysis_and_keeps_the_same_rendered_pcm(
     expected = SpaceProfile(duration=4, echo_taps=((0.18, 0.2),))
     measured = []
 
-    def empty_recorded_effects(path, cancel):
+    def measured_acoustics(path, cancel):
         measured.append(path)
-        return expected if path == reference else SpaceProfile()
+        return expected
 
-    monkeypatch.setattr(studio_space, "analyze_space", empty_recorded_effects)
+    monkeypatch.setattr(studio_space, "analyze_space", measured_acoustics)
     wet_report = studio_space.apply_reference_space(
         object(), reference, recorded, recorded, baseline, threading.Event()
     )
     assert measured == [reference, recorded]
-    assert wet_report["recorded"]["reverb_gain"] == 0
-
-    def forbid_report_only_analysis(path, cancel):
-        assert path == reference, "Dry capture must not run unused effects analysis"
-        return expected
-
-    monkeypatch.setattr(studio_space, "analyze_space", forbid_report_only_analysis)
     dry_report = studio_space.apply_reference_space(
         object(), reference, recorded, recorded, actual, threading.Event(), recorded_is_dry=True
     )
-    assert dry_report["recorded"] is None
-    assert dry_report["recordedAnalysis"] == "dry-capture-not-measured"
+    # These measurements prevent another return being added to the capture;
+    # they cannot be omitted as a report-only optimization.
+    assert measured == [reference, recorded, reference, recorded]
+    assert dry_report["recorded"]["echo_taps"] == expected.echo_taps
+    assert dry_report["recordedAnalysis"] == "measured"
     assert wet_report["recordedAnalysis"] == "measured"
     assert dry_report["applied"] == wet_report["applied"]
+    assert not dry_report["applied"]["echo_taps"]
     np.testing.assert_array_equal(sf.read(actual)[0], sf.read(baseline)[0])
-    assert np.mean((sf.read(actual)[0] - samples) ** 2) > 1e-6
+    np.testing.assert_array_equal(sf.read(actual)[0], sf.read(recorded)[0])
     assert recorded.read_bytes() == before
 
 

@@ -72,7 +72,7 @@ def apply_reference_space(
     recorded_is_dry: bool = False,
 ) -> dict[str, object]:
     expected = analyze_space(reference, cancel)
-    existing = SpaceProfile() if recorded_is_dry else analyze_space(recorded, cancel)
+    existing = analyze_space(recorded, cancel)
     expected, tail_source = _reference_tail(expected, full_reference, reference, cancel)
     selected = _planned_space(expected, existing)
     response, field = _side_plan(reference, recorded, voice, cancel)
@@ -91,7 +91,7 @@ def apply_reference_space(
         "method": "single-wet-return",
         "status": "matched" if wet.get("buses") else "no-supported-addition",
         "reference": asdict(expected),
-        **recorded_space_report(None if recorded_is_dry else existing),
+        **recorded_space_report(existing, recorded_is_dry=recorded_is_dry),
         "reverbEvidenceSource": tail_source,
         "applied": asdict(selected),
         "wetBalance": wet,
