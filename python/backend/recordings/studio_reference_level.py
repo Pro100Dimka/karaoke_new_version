@@ -42,6 +42,11 @@ def _unavailable(reason: str, *, rejected: bool = False) -> ReferenceLevelEviden
 
 
 def _moments(voice: np.ndarray, backing: np.ndarray, source: np.ndarray) -> _Moments:
+    # Separator DC offsets carry no audible balance evidence. Center each
+    # channel independently so a quiet held-out tail still tests its AC content.
+    voice, backing, source = (
+        samples - np.mean(samples, axis=0, keepdims=True) for samples in (voice, backing, source)
+    )
     design = np.stack((voice, backing), axis=-1)
     count = len(source)
     return _Moments(
@@ -177,6 +182,7 @@ def _recover(windows: list[_Window], cancel: threading.Event) -> ReferenceLevelE
         {
             "method": "held-out-source-mixture-fit",
             "status": "verified",
+            "signalComponent": "per-channel-ac",
             "correctionDb": correction,
             "eligibleWindows": len(eligible),
             "ratioMaxDeviationDb": spread,
