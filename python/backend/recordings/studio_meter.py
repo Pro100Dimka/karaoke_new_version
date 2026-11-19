@@ -24,8 +24,19 @@ _METER = (
 def measure_master_levels(
     renderer: MasterRenderer, path: Path, cancel: threading.Event
 ) -> dict[str, float] | None:
+    return measure_master_input_levels(renderer, path, path, "[0:a]", cancel)
+
+
+def measure_master_input_levels(
+    renderer: MasterRenderer,
+    first: Path,
+    second: Path,
+    chain: str,
+    cancel: threading.Event,
+) -> dict[str, float] | None:
+    """Measure a file or the actual mixing chain with a discarded unity output."""
     result = renderer._mix(
-        path, path, "[0:a]" + _METER + "[out]", ["-f", "null", "-"], cancel, quiet=False
+        first, second, chain + _METER + "[out]", ["-f", "null", "-"], cancel, quiet=False
     )
     levels = parse_loudness(result.stderr)
     peaks = re.findall(rb"\[Parsed_astats[^\]]*\]\s+Peak level dB:\s+(\S+)", result.stderr)

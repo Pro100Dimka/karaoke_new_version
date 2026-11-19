@@ -13,7 +13,7 @@ from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
 from dataclasses import dataclass, field
 from concurrent.futures import Future
 from backend.recordings.studio_audio import MasterRenderer
-from backend.recordings.studio_meter import measure_master_levels
+from backend.recordings.studio_meter import measure_master_input_levels, measure_master_levels
 
 
 def measure_stem_loudness(
@@ -105,15 +105,13 @@ class MasterDelivery:
         voice = "[voice]" if self.voice_gain_db else "[1:a]"
         self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];" if self.voice_gain_db else ""
         self.graph += f"[0:a]{voice}amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-        measured = self.renderer._mix(
+        source_levels = measure_master_input_levels(
+            self.renderer,
             self.backing,
             self.balanced,
-            self.graph + loudnorm_filter(lra=11) + "[out]",
-            ["-f", "null", "-"],
+            self.graph,
             self.cancel,
-            quiet=False,
         )
-        source_levels = parse_loudness(measured.stderr)
         if source_levels is None:
             raise DependencyError(
                 "StudioMasterInvalidAudio", "Master loudness could not be measured"
