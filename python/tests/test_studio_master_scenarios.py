@@ -54,7 +54,28 @@ def scenario_audio(name: str, root: Path) -> tuple[list[Path], dict[str, object]
 
 
 @pytest.mark.parametrize("name", SCENARIOS)
-def test_master_scenario(name: str, tmp_path: Path):
+def test_master_scenario(name: str, tmp_path: Path, monkeypatch):
+    from backend.recordings import studio_adaptive_mix
+
+    write_gain = studio_adaptive_mix._write_gain_envelope
+    gain_errors = []
+
+    def verify_gain(source, target, times, gains, cancel):
+        write_gain(source, target, times, gains, cancel)
+        before_gain, sr = sf.read(source, always_2d=True)
+        after_gain, _ = sf.read(target, always_2d=True)
+        size = round(sr * 0.1)
+        windows = len(before_gain) // size
+        powers = [
+            np.mean(samples[: windows * size].reshape(windows, size, -1) ** 2, axis=(1, 2))
+            for samples in (before_gain, after_gain)
+        ]
+        active = powers[0] > max(float(np.max(powers[0])) * 1e-4, 1e-12)
+        measured = 10 * np.log10(np.maximum(powers[1], 1e-12) / np.maximum(powers[0], 1e-12))
+        planned = np.interp((np.arange(windows) + 0.5) * 0.1, times, gains)
+        gain_errors.append(float(np.percentile(abs(measured - planned)[active], 90)))
+
+    monkeypatch.setattr(studio_adaptive_mix, "_write_gain_envelope", verify_gain)
     paths, adjustment = scenario_audio(name, tmp_path)
     before = [hashlib.sha256(path.read_bytes()).hexdigest() for path in paths]
     output = tmp_path / "master.wav"
@@ -84,8 +105,25 @@ def test_master_scenario(name: str, tmp_path: Path):
     processing = report["processing"]
     assert processing["qualityControl"]["verified"]
     assert processing["delivery"]["truePeakDbtp"] <= -1
-    assert processing["pipeline"] == "single-plan"
-    assert processing["gainApplications"] == 1
-    assert processing["mixConstraints"]["p90ErrorDb"] < 3
+    assert processing["pipeline"] == "adaptive-studio-v1"
+    assert processing["gainPlan"]["gainApplications"] == 1
+    assert len(gain_errors) == 1 and gain_errors[0] < 3
+    assert processing["vocalChain"]["order"] == [
+        "subtractive-eq",
+        "peak-compressor",
+        "leveling-compressor",
+        "deesser",
+        "color-eq",
+        "saturation",
+    ]
+    assert processing["mix"]["order"] == [
+        "referenceBalance",
+        "dynamicBackingEq",
+        "parallelSpaceSends",
+        "masterGlue",
+        "truePeakLimiter",
+    ]
+    assert processing["preparation"]["cleanup"]["removedSeconds"] == 0
+    assert processing["delivery"]["verified"]
     if name == "partial":
         assert processing["gainPlan"]["activeSeconds"] > 3

@@ -200,12 +200,19 @@ export const enPerformance = {
   originalSong: 'Original song',
   recordingVersion: 'Performance version',
   studioMasterDescription:
-    'Enhances your voice with clarity, depth, and richness, perfectly blending vocals with music for a professional sound.',
+    'Adapts vocal processing, space, the music balance and final loudness to your recording and the original song.',
   studioMasterSourceTitle: 'Original recording',
   studioMasterReadyDescription:
     'The studio version is ready — play each recording to compare the sound.',
   studioMasterCreate: 'Create Studio Master',
   studioMasterProgressValue: 'Studio mixing · {progress}%',
+  studioMasterPreparingSources: 'Preparing tracks',
+  studioMasterAligningVoice: 'Checking vocal timing',
+  studioMasterPreparingVoice: 'Preparing vocals',
+  studioMasterProcessingVoice: 'Processing vocals',
+  studioMasterMixing: 'Adjusting balance and space',
+  studioMasterMastering: 'Mastering the mix',
+  studioMasterPublishing: 'Saving Studio Master',
   studioMasterReady: 'Studio Master is ready',
   studioMasterFailed: 'Studio Master could not be created',
   analysisPitchAdvice:

@@ -6,9 +6,9 @@ import pytest
 import soundfile as sf
 
 from backend.infrastructure.process_runner import ProcessRunner
-from backend.recordings.studio_delivery import MasterDelivery
-from backend.recordings.studio_dynamics import _balance_curve
-from backend.recordings.studio_space import apply_reference_space
+from backend.recordings.studio_adaptive_delivery import deliver_master
+from backend.recordings.studio_adaptive_mix import plan_balance
+from backend.recordings.studio_adaptive_space import render_sends
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recordings.studio_reference import reference_section
 from backend.recordings.studio_render import MasterRender
@@ -34,8 +34,8 @@ def test_new_pipeline_does_not_call_legacy_gain_controllers(tmp_path, monkeypatc
         exact_stems=True,
         adjustments=[adjustment],
     )
-    assert result.processing["pipeline"] == "single-plan"
-    assert result.processing["gainApplications"] == 1
+    assert result.processing["pipeline"] == "adaptive-studio-v1"
+    assert result.processing["gainPlan"]["gainApplications"] == 1
 
 
 @pytest.mark.parametrize("matching_project", [False, True])
@@ -135,7 +135,7 @@ def test_unmatched_reference_does_not_disable_the_new_plan(tmp_path, monkeypatch
     from tests.test_studio_master_scenarios import scenario_audio
 
     monkeypatch.setattr(
-        FfmpegStudioMasterRenderer, "_reference_offset", staticmethod(lambda *a: None)
+        FfmpegStudioMasterRenderer, "_reference_offset", staticmethod(lambda *a: (0.0, 0.0))
     )
     paths, _ = scenario_audio("steady", tmp_path)
     result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
@@ -146,8 +146,11 @@ def test_unmatched_reference_does_not_disable_the_new_plan(tmp_path, monkeypatch
         exact_stems=True,
         adjustments=[],
     )
-    assert result.processing["gainApplications"] == 1
+    assert result.processing["gainPlan"]["gainApplications"] == 1
     assert result.processing["gainPlan"]["activeSeconds"] > 3
+    assert result.processing["gainPlan"]["referenceUsed"] is False
+    assert result.processing["backingSource"] == "recorded-accompaniment"
+    assert result.processing["qualityControl"]["verified"]
 
 
 def test_reference_section_excludes_unperformed_song_and_rejects_seeks():
@@ -158,11 +161,15 @@ def test_reference_section_excludes_unperformed_song_and_rejects_seeks():
     assert reference_section(adjustments, 10) is None
 
 
-def test_initial_balance_uses_the_performance_and_backing():
-    levels = [np.full(100, value, dtype=float) for value in (-30, -30)]
-    gains, reliable = _balance_curve(*levels)
-    assert reliable.all()
-    np.testing.assert_allclose(gains, 0, atol=0.01)
+def test_initial_balance_preserves_capture_without_a_reference(tmp_path):
+    time = np.arange(8000 * 4) / 8000
+    paths = [tmp_path / name for name in ("voice.wav", "backing.wav")]
+    for path, frequency in zip(paths, (500, 900)):
+        sf.write(path, 0.03 * np.sin(2 * np.pi * frequency * time), 8000, subtype="FLOAT")
+    plan = plan_balance(*paths, None, None, threading.Event())
+    assert plan.active.all()
+    assert plan.report["referenceUsed"] is False
+    np.testing.assert_allclose(plan.gains, 0, atol=0.01)
 
 
 def test_peak_limiter_preserves_timeline_and_tail(tmp_path: Path):
@@ -173,26 +180,27 @@ def test_peak_limiter_preserves_timeline_and_tail(tmp_path: Path):
     v, b, output = (tmp_path / name for name in ("voice.wav", "backing.wav", "out.wav"))
     sf.write(v, voice, rate, subtype="FLOAT")
     sf.write(b, np.zeros_like(voice), rate, subtype="FLOAT")
-    delivery = MasterDelivery(
-        FfmpegStudioMasterRenderer(ProcessRunner()),
-        b,
-        v,
-        output,
-        threading.Event(),
-        sf.info(v),
-        1,
-        True,
-        False,
-        None,
-        0.2,
-        np.ones(10, dtype=bool),
-        {},
-        None,
-    )
-    delivery.run()
+    renderer = FfmpegStudioMasterRenderer(ProcessRunner())
+    delivery = deliver_master(renderer, v, output, threading.Event(), reference=v)
     actual, _ = sf.read(output)
-    gain = 10 ** (delivery.processing["delivery"]["globalGainDb"] / 20)
-    np.testing.assert_allclose(actual, voice * gain, atol=2e-6)
+    assert actual.shape == voice.shape
+    # Oversampled limiting includes anti-alias filtering. Test the observable
+    # timeline and null against the resampler alone: an inactive limiter must not
+    # shift, truncate or attenuate the filtered impulse response at either boundary.
+    resampled = tmp_path / "resampler-only.wav"
+    renderer._mix(
+        v,
+        v,
+        "[0:a]aresample=32000,aresample=8000[out]",
+        ["-c:a", "pcm_f32le", str(resampled)],
+        threading.Event(),
+    )
+    expected, _ = sf.read(resampled)
+    gain = 10 ** (delivery["globalGainDb"] / 20)
+    np.testing.assert_allclose(actual, expected * gain, atol=2e-6)
+    assert np.argmax(abs(actual[: rate // 2])) == 50
+    assert np.argmax(abs(actual[rate // 2 :])) + rate // 2 == rate - 10
+    assert delivery["truePeakDbtp"] <= -1
 
 
 def test_stereo_width_alone_does_not_synthesize_reverb(tmp_path: Path):
@@ -204,36 +212,27 @@ def test_stereo_width_alone_does_not_synthesize_reverb(tmp_path: Path):
     v, r, output = (tmp_path / name for name in ("voice.wav", "reference.wav", "out.wav"))
     sf.write(v, dry, rate, subtype="FLOAT")
     sf.write(r, reference, rate, subtype="FLOAT")
-    report = apply_reference_space(
-        FfmpegStudioMasterRenderer(ProcessRunner()),
-        r,
-        v,
-        v,
-        output,
-        threading.Event(),
-    )
+    report = render_sends(v, v, output, threading.Event(), reference=r)
     assert report["status"] == "no-supported-addition"
     actual, _ = sf.read(output, always_2d=True)
     np.testing.assert_allclose(actual, dry, atol=1e-8)
 
 
 def test_reference_balance_is_independent_of_channel_count(tmp_path: Path):
-    from backend.recordings.studio_mix_audit import reference_voice_band_distribution
-
     rate = 8000
     signal = np.sin(2 * np.pi * 700 * np.arange(rate * 8) / rate) * 0.1
     vocal, backing = tmp_path / "mono.wav", tmp_path / "stereo.wav"
     sf.write(vocal, signal, rate, subtype="FLOAT")
     sf.write(backing, np.repeat(signal[:, None], 2, axis=1), rate, subtype="FLOAT")
-    result = reference_voice_band_distribution(vocal, backing)
-    assert result is not None
-    assert abs(result["median"]) < 0.01
+    plan = plan_balance(vocal, backing, vocal, backing, threading.Event())
+    assert plan.report["referenceUsed"] is True
+    assert abs(plan.report["referenceTargetRatioDb"]) < 0.01
+    np.testing.assert_allclose(plan.gains, 0, atol=0.01)
 
 
 @pytest.mark.parametrize("source_suffix", [".wav", ".flac"])
 @pytest.mark.parametrize("dry_state", ["ready", "incomplete", "absent"])
 def test_new_plan_reads_stems_without_modifying_them(tmp_path: Path, source_suffix, dry_state):
-    from backend.recordings.studio_calibration import build_gain_plan
     from backend.recordings.studio_audio import recording_stems
 
     time = np.arange(8000 * 4) / 8000
@@ -257,10 +256,9 @@ def test_new_plan_reads_stems_without_modifying_them(tmp_path: Path, source_suff
     original_files = {path: path.read_bytes() for path in tmp_path.iterdir()}
     assert recording_stems(source, prefer_dry=True) == (selected_voice, backing)
     assert recording_stems(source) == (vocal, backing)
-    plan = build_gain_plan(
-        FfmpegStudioMasterRenderer(ProcessRunner()), vocal, backing, 0.5, threading.Event()
-    )
-    assert plan.report["globalGainDb"] > 3
+    plan = plan_balance(vocal, backing, backing, backing, threading.Event())
+    assert plan.report["medianGainDb"] > 3
+    assert plan.report["referenceUsed"] is True
     assert {path: path.read_bytes() for path in original_files} == original_files
 
     from contextlib import contextmanager
@@ -315,17 +313,27 @@ def test_studio_separation_does_not_select_kaggle(tmp_path: Path):
     master._resolver.execute.assert_called_once_with(AiCapability.SEPARATION, None)
 
 
-def test_compression_is_bypassed_without_reference_transitions():
-    from backend.recordings.studio_compression import _reference_compression
+def test_compression_controls_excess_dynamics_even_with_a_steady_reference(tmp_path):
+    from backend.recordings.studio_adaptive_dynamics import compressor_plan
+    from backend.recordings.studio_adaptive_features import analyze_voice
 
-    recorded = np.tile(np.linspace(-30, -10, 50), 5)
-    reference = np.tile(np.linspace(-20, -18, 50), 5)
-    assert _reference_compression(recorded, reference)["ratio"] == 1
+    rate = 8000
+    time = np.arange(rate * 5) / rate
+    recorded = np.sin(2 * np.pi * 500 * time) * 10 ** ((-30 + 20 * (time % 1)) / 20)
+    reference = np.sin(2 * np.pi * 500 * time) * 0.1
+    paths = [tmp_path / name for name in ("voice.wav", "reference.wav")]
+    for path, data in zip(paths, (recorded, reference)):
+        sf.write(path, data, rate, subtype="FLOAT")
+    actual, expected = (analyze_voice(path, threading.Event()) for path in paths)
+    graph, report = compressor_plan(actual, fast=False, reference=expected)
+    assert graph is not None
+    assert report["applied"] and report["ratio"] > 1
+    assert report["plannedUpperReductionDb"] <= 3
 
 
 @pytest.mark.parametrize("speed,key", [(1, 0), (1.25, 2), (0.75, -3)])
 def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key):
-    from backend.recordings.studio_reference import scope_reference
+    from backend.recordings.studio_sources import render_timeline
 
     path = tmp_path / "reference.wav"
     samples = np.arange(16000, dtype=np.float32) / 16000
@@ -334,27 +342,25 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, 
         {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
         {"elapsedSeconds": 0.25, "sourceSeconds": 1, "playbackRate": 1, "keyShift": 0},
     ]
-    vocal, _, _, report = scope_reference(path, path, adjustments, 0.5, tmp_path, threading.Event())
+    vocal = tmp_path / "performed-reference.wav"
+    renderer = FfmpegStudioMasterRenderer(ProcessRunner())
+    coverage = render_timeline(
+        renderer, path, vocal, threading.Event(), adjustments, frames=4000, rate=8000, channels=1
+    )
     actual, _ = sf.read(vocal)
     np.testing.assert_array_equal(actual, np.r_[samples[:2000], samples[8000:10000]])
-    assert report["referenceTimelineRebuilt"]
-
-    render = MasterRender.__new__(MasterRender)
-    render.renderer = FfmpegStudioMasterRenderer(ProcessRunner())
-    render.work, render.cancel = tmp_path, threading.Event()
-    render.info, render.output_channels, render.processing = sf.info(vocal), 1, {}
-    render.pitch_adjustments = adjustments
-    render._prepare_master_backing(path)
-    np.testing.assert_array_equal(sf.read(render.backing)[0], actual)
+    assert coverage == 1
 
     time = np.arange(8000) / 8000
     tones = np.sin(2 * np.pi * np.where(time < 0.5, 400, 800) * time) * 0.1
     sf.write(path, tones, 8000, subtype="FLOAT")
-    render.pitch_adjustments = [
+    adjustments = [
         {"elapsedSeconds": 0, "sourceSeconds": 0.2, "playbackRate": speed, "keyShift": key}
     ]
-    render._prepare_master_backing(path)
-    changed, rate = sf.read(render.backing)
+    render_timeline(
+        renderer, path, vocal, threading.Event(), adjustments, frames=4000, rate=8000, channels=1
+    )
+    changed, rate = sf.read(vocal)
     assert rate == 8000 and changed.shape == actual.shape
     for start, end, frequency in [(0.03, 0.13, 400), (0.43, 0.49, 800)]:
         block = changed[round(start * rate) : round(end * rate)]
@@ -385,18 +391,22 @@ def test_existing_effects_duplicate_output_channels_use_stereo(tmp_path: Path):
         (),
         None,
     )
-    render.info, render.work = sf.info(source), tmp_path
+    render.info, render.work, render.processing = sf.info(source), tmp_path, {}
     render._prepare_stems()
     assert render.output_channels == 2
     assert sf.info(source).channels == 6
 
 
-def test_phrase_balance_does_not_follow_reference_singer_crescendos():
-    voice = np.full(200, -26.0)
-    backing = np.full(200, -25.0)
-    gains, reliable = _balance_curve(voice, backing)
-    assert reliable.all()
-    assert np.ptp(gains) < 0.05
+def test_phrase_balance_does_not_invent_crescendos_without_a_reference(tmp_path):
+    time = np.arange(8000 * 6) / 8000
+    paths = [tmp_path / name for name in ("voice.wav", "backing.wav")]
+    for path, level, frequency in zip(paths, (-26, -25), (500, 900)):
+        sf.write(
+            path, 10 ** (level / 20) * np.sin(2 * np.pi * frequency * time), 8000, subtype="FLOAT"
+        )
+    plan = plan_balance(*paths, None, None, threading.Event())
+    assert plan.active.all()
+    assert np.ptp(plan.gains) < 0.05
 
 
 def test_old_space_estimators_cannot_modify_the_new_space_path(tmp_path, monkeypatch):
@@ -411,9 +421,7 @@ def test_old_space_estimators_cannot_modify_the_new_space_path(tmp_path, monkeyp
     data = np.random.default_rng(12).normal(0, 0.03, 8000 * 4)
     sf.write(voice, data, 8000, subtype="FLOAT")
     target = tmp_path / "out.wav"
-    report = apply_reference_space(
-        FfmpegStudioMasterRenderer(ProcessRunner()), voice, voice, voice, target, threading.Event()
-    )
+    report = render_sends(voice, voice, target, threading.Event(), reference=voice)
     assert report["dryPreserved"]
     np.testing.assert_array_equal(
         sf.read(target, dtype="float32")[0], sf.read(voice, dtype="float32")[0]
@@ -429,12 +437,15 @@ def test_old_space_estimators_cannot_modify_the_new_space_path(tmp_path, monkeyp
         (True, 150, True),
     ],
 )
-def test_presence_eq_restores_words_without_turning_up_the_bass(
+def test_adaptive_mix_preserves_word_prominence_without_turning_up_the_bass(
     tmp_path, monkeypatch, masked, body_frequency, changing_density
 ):
+    import backend.recordings.studio_adaptive_mix as mix_module
+
     rate = 8000
     time = np.arange(rate * 8) / rate
-    # Strong masking still needs selective EQ after the requested broadband vocal lift.
+    # Bass coloration must not make a broadband balance controller turn down words
+    # that already have the reference's correct level against the accompaniment.
     body = 0.12 if masked else 0.015
     voice = body * np.sin(2 * np.pi * body_frequency * time)
     voice += 0.035 * np.sin(2 * np.pi * 900 * time) + 0.02 * np.sin(2 * np.pi * 1800 * time)
@@ -452,6 +463,21 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
         deliver(render)
 
     monkeypatch.setattr(MasterRender, "_deliver", capture)
+    duck = mix_module.duck_backing
+    apply_gain = mix_module._write_gain_envelope
+
+    def capture_balanced(source, target, times, gains, cancel):
+        apply_gain(source, target, times, gains, cancel)
+        captured["mixed_voice"] = sf.read(target)[0][:, 0]
+
+    monkeypatch.setattr(mix_module, "_write_gain_envelope", capture_balanced)
+
+    def capture_backing(vocal, backing, target, cancel):
+        report = duck(vocal, backing, target, cancel)
+        captured["backing"] = sf.read(target)[0][:, 0]
+        return report
+
+    monkeypatch.setattr(mix_module, "duck_backing", capture_backing)
     result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
         *paths[:4],
         tmp_path / "master.wav",
@@ -463,31 +489,30 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
     signal = captured["voice"][rate : 3 * rate]
     axis = np.arange(len(signal)) / rate
 
-    def amplitude(frequency):
-        return 2 * abs(np.mean(signal * np.exp(-2j * np.pi * frequency * axis)))
+    def amplitude(samples, frequency):
+        return 2 * abs(np.mean(samples * np.exp(-2j * np.pi * frequency * axis)))
 
-    relative_change = 20 * np.log10(amplitude(900) / amplitude(body_frequency)) - 20 * np.log10(
-        0.035 / body
-    )
-    assert result.processing["gainApplications"] == 1
-    if masked:
-        assert relative_change > 1.5
-        assert any(band["gainDb"] > 0 for band in result.processing["spectralPlan"]["bands"])
-    else:
+    relative_change = 20 * np.log10(
+        amplitude(signal, 900) / amplitude(signal, body_frequency)
+    ) - 20 * np.log10(0.035 / body)
+    assert result.processing["gainPlan"]["gainApplications"] == 1
+    assert relative_change > -0.3, "Processing must not emphasize bass over the words"
+    if not masked:
         assert abs(relative_change) < 0.3
+    for frequency in (900, 1800):
+        expected = 20 * np.log10(
+            amplitude(reference[rate : 3 * rate], frequency)
+            / amplitude(music[rate : 3 * rate], frequency)
+        )
+        delivered = 20 * np.log10(
+            amplitude(captured["mixed_voice"][rate : 3 * rate], frequency)
+            / amplitude(captured["backing"][rate : 3 * rate], frequency)
+        )
+        assert abs(delivered - expected) <= 3, "Broadband matching must not bury the words"
     if changing_density:
-        signal = captured["voice"][5 * rate : 7 * rate]
-        # Clarity EQ remains off here; the new body correction may still remove coloration.
-        clarity = result.processing["spectralPlan"]["clarityAutomation"]["weight"]
-        assert max(clarity[10:14]) < 0.01
-        assert np.mean(result.processing["mixIntegration"]["bodyCutDb"][50:70]) > 1
-        assert (
-            0.3
-            < (
-                20 * np.log10(amplitude(900) / amplitude(body_frequency))
-                - 20 * np.log10(0.035 / body)
-            )
-            < 3
+        # Dynamic EQ must restore the accompaniment when the spectral conflict ends.
+        np.testing.assert_allclose(
+            captured["backing"][5 * rate : 7 * rate], music[5 * rate : 7 * rate], atol=1e-8
         )
 
 
@@ -621,55 +646,139 @@ def test_plan_tracks_accompaniment_gain_without_a_three_db_limit(tmp_path: Path)
 
 @pytest.mark.parametrize("calls", [0, 3])
 @pytest.mark.parametrize("failed", [False, True])
-def test_master_pitch_worker_stays_in_one_resource_scope(tmp_path: Path, calls, failed):
-    from contextlib import contextmanager, nullcontext
+def test_master_pitch_calls_local_analysis_lazily_without_provider_resources(
+    tmp_path: Path, monkeypatch, calls, failed
+):
+    from contextlib import nullcontext
     from types import SimpleNamespace
     from backend.ai.domain import PitchPoint
-    from backend.recordings.start_studio_master import StartStudioMaster
-    from backend.processing.compute_policy import ComputeDevice, ExecutionContext
+    from backend.recordings import start_studio_master as module
 
     events = []
     points = (PitchPoint(0, 440, 0.9, True),)
-
-    @contextmanager
-    def reuse(cancel, execution):
-        events.append("open")
-        try:
-            yield
-        finally:
-            events.append("close")
-
-    provider = SimpleNamespace(
-        reuse_pitch=reuse,
-        pitch=lambda path, **kw: events.append("pitch") or points,
-    )
-    lease = SimpleNamespace(
-        execution=ExecutionContext(ComputeDevice.CPU, 2),
-        release=lambda: events.append("release"),
-    )
     context = SimpleNamespace(cancel=threading.Event(), ensure_not_cancelled=lambda: None)
-    settings = SimpleNamespace(selected_pitch_provider=None, compute_mode="CPU", cpu_threads=2)
-    service = StartStudioMaster(
+    source = tmp_path / "voice.wav"
+
+    def analyze(path, cancel):
+        assert path == source and cancel is context.cancel
+        events.append("analyze")
+        return points
+
+    def external(*args, **kwargs):
+        pytest.fail("Offline master pitch must not resolve or allocate a neural provider")
+
+    monkeypatch.setattr(module, "analyze_pitch", analyze)
+    service = module.StartStudioMaster(
         None,
         None,
         None,
-        SimpleNamespace(execute=lambda *a: provider),
-        lambda: settings,
-        SimpleNamespace(claim_provider=lambda *a, **kw: events.append("claim") or lease),
+        SimpleNamespace(execute=external),
+        external,
+        SimpleNamespace(claim_provider=external),
         None,
         None,
         None,
     )
-    source = tmp_path / "voice.wav"
-    source.write_bytes(b"audio")
-    with pytest.raises(RuntimeError) if failed else nullcontext():
-        with service._pitch_session(context) as analyze:
+    with pytest.raises(RuntimeError, match="render failed") if failed else nullcontext():
+        with service._pitch_session(context) as pitch:
+            assert events == []
             for _ in range(calls):
-                assert analyze(source) == points
-            assert events == (["claim", "open"] + ["pitch"] * calls if calls else [])
+                assert pitch(source) == points
+            assert events == ["analyze"] * calls
             if failed:
                 raise RuntimeError("render failed")
-    assert events == (["claim", "open"] + ["pitch"] * calls + ["close", "release"] if calls else [])
+    assert events == ["analyze"] * calls
+
+
+@pytest.mark.parametrize("cancel_before_first_call", [False, True])
+def test_master_pitch_checks_cancellation_before_every_local_analysis(
+    tmp_path: Path, monkeypatch, cancel_before_first_call
+):
+    from types import SimpleNamespace
+    from backend.domain_errors import DomainError
+    from backend.recordings import start_studio_master as module
+    from backend.recordings.studio_audio import _check_cancel
+
+    cancel, calls = threading.Event(), []
+    context = SimpleNamespace(cancel=cancel, ensure_not_cancelled=lambda: _check_cancel(cancel))
+
+    def analyze(path, event):
+        assert event is cancel
+        calls.append(path)
+        return ()
+
+    monkeypatch.setattr(module, "analyze_pitch", analyze)
+    service = module.StartStudioMaster.__new__(module.StartStudioMaster)
+    source = tmp_path / "voice.wav"
+    with service._pitch_session(context) as pitch:
+        if not cancel_before_first_call:
+            assert pitch(source) == ()
+        cancel.set()
+        with pytest.raises(DomainError) as error:
+            pitch(source)
+        assert error.value.code == "ProcessCancelled"
+    assert calls == ([] if cancel_before_first_call else [source])
+
+
+def test_master_pitch_propagates_local_analysis_failure(tmp_path: Path, monkeypatch):
+    from types import SimpleNamespace
+    from backend.recordings import start_studio_master as module
+
+    failure = RuntimeError("local pitch analysis failed")
+
+    def analyze(path, cancel):
+        raise failure
+
+    monkeypatch.setattr(module, "analyze_pitch", analyze)
+    service = module.StartStudioMaster.__new__(module.StartStudioMaster)
+    context = SimpleNamespace(cancel=threading.Event(), ensure_not_cancelled=lambda: None)
+    with service._pitch_session(context) as pitch:
+        with pytest.raises(RuntimeError) as error:
+            pitch(tmp_path / "voice.wav")
+    assert error.value is failure
+
+
+@pytest.mark.parametrize("shared_room", [False, True])
+def test_master_only_passes_pitch_analysis_to_solo_recordings(tmp_path: Path, shared_room):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from backend.recordings.start_studio_master import StartStudioMaster
+
+    calls = []
+
+    def analyze(path):
+        calls.append(path)
+        return ()
+
+    @contextmanager
+    def session(context):
+        yield analyze
+
+    expected = object()
+    stems = tmp_path / "recording.dry.wav", tmp_path / "recording.backing.wav"
+    recording = SimpleNamespace(
+        session_metadata={"roomPerformance": {}} if shared_room else {},
+        file_path=tmp_path / "recording.wav",
+    )
+
+    def render(*args, **kwargs):
+        if shared_room:
+            assert kwargs["pitch"] is None
+        else:
+            assert kwargs["pitch"] is analyze
+            kwargs["pitch"](stems[0])
+        return expected
+
+    service = StartStudioMaster.__new__(StartStudioMaster)
+    service._pitch_session = session
+    service._project_identity = lambda recording: ("song", 1)
+    service._original_mix = lambda *args: None
+    service._projects = SimpleNamespace(artifact_path=lambda *args: tmp_path / args[-1])
+    service._renderer = SimpleNamespace(render=render)
+    context = SimpleNamespace(cancel=threading.Event(), progress=lambda *args: None)
+    result = service._render(recording, stems, True, tmp_path / "master.wav", context)
+    assert result is expected
+    assert calls == ([] if shared_room else [stems[0]])
 
 
 def test_ambience_envelope_does_not_compute_discarded_cepstra(tmp_path: Path, monkeypatch):
@@ -751,66 +860,65 @@ def test_pitch_quality_rejects_local_level_holes_but_allows_a_fixed_gain(tmp_pat
     assert report["accepted"] is (not dropouts)
 
 
-def test_added_reverb_is_gentler_without_reducing_direct_voice():
-    from backend.recordings.studio_space import _planned_space
-    from backend.recordings.studio_space_analysis import SpaceProfile
+def test_added_reverb_is_gentler_without_reducing_direct_voice(tmp_path, monkeypatch):
+    from backend.recordings import studio_adaptive_space
 
-    plan = _planned_space(
-        SpaceProfile(reverb_gain=0.5, decay_count=4, decay_seconds=1), SpaceProfile()
+    rate = 8000
+    samples = np.zeros(rate * 4)
+    samples[rate] = 0.2
+    voice, reference, target = [tmp_path / name for name in ("voice.wav", "ref.wav", "spatial.wav")]
+    sf.write(voice, samples, rate, subtype="FLOAT")
+    sf.write(reference, samples, rate, subtype="FLOAT")
+    monkeypatch.setattr(
+        studio_adaptive_space,
+        "_tail_evidence",
+        lambda path, cancel: (0.8, 0.1, 4) if path == reference else (0.0, 0.0, 0),
     )
-    assert plan.reverb_gain == 0.25
-    assert plan.decay_seconds == 1
+    report = render_sends(voice, voice, target, threading.Event(), reference=reference)
+    actual, _ = sf.read(target)
+    assert report["applied"]
+    assert actual[rate] == pytest.approx(samples[rate], abs=1e-8)
+    np.testing.assert_allclose(actual[: rate + 100], samples[: rate + 100], atol=1e-8)
+    wet_ratio = np.linalg.norm(actual - samples) / np.linalg.norm(samples)
+    assert wet_ratio == pytest.approx(0.1, abs=0.005)
+    assert report["decaySeconds"] == 0.8
 
 
 @pytest.mark.parametrize("dry", [False, True])
-def test_reference_space_checks_missing_effects_for_both_voice_sources(tmp_path, monkeypatch, dry):
-    from types import SimpleNamespace
-    from unittest.mock import Mock
-    import backend.recordings.studio_render as module
+@pytest.mark.parametrize("existing_wet", [0.0, 0.1])
+def test_reference_space_checks_missing_effects_for_both_voice_sources(
+    tmp_path, monkeypatch, dry, existing_wet
+):
+    import backend.recordings.studio_adaptive_space as module
 
+    rate = 8000
+    time = np.arange(rate * 4) / rate
+    voice = 0.03 * np.sin(2 * np.pi * 500 * time) * ((time > 0.5) & (time < 2.5))
     balanced = tmp_path / "balanced.wav"
+    reference = tmp_path / "reference.wav"
     target = tmp_path / "spatial-voice.wav"
-    balanced.write_bytes(b"balanced voice")
-    apply = Mock(return_value={"status": "matched"})
-    monkeypatch.setattr(module, "apply_reference_space", apply)
-    integration = Mock(return_value=(balanced, {"method": "local-tone-and-placement"}))
-    monkeypatch.setattr(module, "integrate_voice", integration)
-    render = SimpleNamespace(
-        process_voice=dry,
-        work=tmp_path,
-        renderer=object(),
-        reference_vocal=balanced,
-        user_vocal=balanced,
-        balanced=balanced,
-        backing=balanced,
-        timing_known=False,
-        cancel=threading.Event(),
-        space_reference=balanced,
-        processing={},
+    sf.write(balanced, voice, rate, subtype="FLOAT")
+    sf.write(reference, voice, rate, subtype="FLOAT")
+    before = balanced.read_bytes()
+    measured = []
+
+    def evidence(path, cancel):
+        measured.append(path)
+        return 0.6, 0.1 if path == reference else existing_wet, 4
+
+    monkeypatch.setattr(module, "_tail_evidence", evidence)
+    report = render_sends(
+        balanced, balanced, target, threading.Event(), reference=reference, recorded_is_dry=dry
     )
-    MasterRender._finish_voice(render)
-    apply.assert_called_once_with(
-        render.renderer,
-        balanced,
-        balanced,
-        balanced,
-        target,
-        render.cancel,
-        full_reference=balanced,
-        recorded_is_dry=dry,
-    )
-    assert render.balanced == balanced
-    assert balanced.read_bytes() == b"balanced voice"
-    assert render.processing["space"] == "matched"
-    assert render.processing["effectsApplied"] is True
-    assert render.processing["voiceOutputGainDb"] == 0
-    integration.assert_called_once_with(
-        render.renderer,
-        balanced,
-        balanced,
-        balanced,
-        tmp_path / "integrated-voice.wav",
-        render.cancel,
-        reference_timing=None,
-    )
-    assert not target.exists()
+    assert measured == [reference, balanced]
+    assert balanced.read_bytes() == before
+    assert report["dryPreserved"] is True
+    assert report["existingWetRatio"] == existing_wet
+    actual, _ = sf.read(target)
+    assert actual.shape == voice.shape
+    if existing_wet == 0:
+        assert report["applied"] is True
+        assert np.linalg.norm(actual - voice) > 0
+    else:
+        assert report["applied"] is False
+        np.testing.assert_array_equal(actual, sf.read(balanced)[0])

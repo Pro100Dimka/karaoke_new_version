@@ -77,6 +77,7 @@ class FfmpegStudioMasterRenderer:
         adjustments: Sequence[Mapping[str, object]] = (),
         progress: Callable[[str, float, float], None] | None = None,
         pitch: PitchAnalyzer | None = None,
+        original_mix: Path | None = None,
     ) -> StudioMasterBalance:
         return MasterRender(
             self,
@@ -93,6 +94,7 @@ class FfmpegStudioMasterRenderer:
             adjustments,
             progress,
             pitch,
+            original_mix,
         ).run()
 
     def _mix(

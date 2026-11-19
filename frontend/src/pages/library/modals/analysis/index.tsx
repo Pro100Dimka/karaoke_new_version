@@ -33,6 +33,7 @@ import {
   analysisMetrics,
   analysisStageLabel,
   gradeLabel,
+  studioMasterStageLabel,
   weakestMetric,
   type AnalysisMetricKey,
 } from './analysisPresentation';
@@ -385,7 +386,9 @@ export const PerformanceAnalysisModal = ({
                         ) : mastering ? (
                           <Stack gap={1}>
                             <ProgressBar
-                              label={tr('studioMasterTitle')}
+                              label={tr(
+                                studioMasterStageLabel(mastering.stage),
+                              )}
                               value={mastering.progress}
                             />
                             <Typography variant="caption" tone="muted">

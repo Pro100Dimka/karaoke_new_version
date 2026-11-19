@@ -63,6 +63,9 @@ class StudioMasterBalance:
     processing: Mapping[str, object] = field(default_factory=dict)
 
     def payload(self) -> dict[str, object]:
+        gain_plan = self.processing.get("gainPlan")
+        limit = gain_plan.get("maxBoostDb") if isinstance(gain_plan, Mapping) else None
+        max_boost = float(limit) if isinstance(limit, (int, float)) else _MAX_BOOST_DB
         return {
             "vocalGainDb": self.vocal_gain_db,
             "userVocalDb": self.user_vocal_db,
@@ -71,7 +74,7 @@ class StudioMasterBalance:
             "originalInstrumentalDb": self.original_instrumental_db,
             "levelMeasure": "rmsDbfs",
             "matchedFraction": self.matched_fraction,
-            "maxBoostDb": _MAX_BOOST_DB,
+            "maxBoostDb": max_boost,
             "processing": dict(self.processing),
         }
 

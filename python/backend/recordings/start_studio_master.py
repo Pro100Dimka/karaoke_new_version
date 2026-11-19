@@ -3,11 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 import logging
 from collections.abc import Callable, Iterator, Sequence, Mapping
-from contextlib import ExitStack, contextmanager
-from functools import partial
+from contextlib import contextmanager
 
 from backend.ai.domain import AiCapability, PitchPoint
-from backend.ai.ports import AiProvider, PitchReuseProvider
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.local_storage import LocalWorkStorage
@@ -16,12 +14,14 @@ from backend.serialization import dumps
 from backend.persistence import UnitOfWorkFactory
 from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
-from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
+from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.projects.ports import ProjectStorage
 from backend.recordings.domain import Recording, recording_adjustments
 from backend.recordings.ports import RecordingFileInspector, RecordingStorage
 from backend.recordings.register_recording import RegisterRecording, RegisterRecordingRequest
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
+from backend.recordings.studio_audio import StudioMasterBalance
+from backend.recordings.studio_pitch_analysis import analyze_pitch
 from backend.runtime import Clock, IdGenerator
 from backend.settings.domain import ProcessingBackend
 from backend.settings.queries import SettingsReader
@@ -87,27 +87,9 @@ class StartStudioMaster:
             exact_stems = stems is not None
             if stems is None:
                 stems = self._separate(recording, workspace, context)
-            context.progress("AnalyzingBalance", 1.0, 0.58)
-            song_id, revision = self._project_identity(recording)
+            context.progress("PreparingStudioSources", 0.0, 0.55)
             temporary = workspace / "studio-master.wav"
-            with self._pitch_session(context) as pitch:
-                balance = self._renderer.render(
-                    *stems,
-                    self._projects.artifact_path(song_id, revision, "referenceVocal"),
-                    self._projects.artifact_path(song_id, revision, "instrumental"),
-                    temporary,
-                    context.cancel,
-                    performance_mix=recording.file_path,
-                    exact_stems=exact_stems,
-                    process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
-                    match_recording_loudness=True,
-                    adjustments=recording_adjustments(recording),
-                    progress=context.progress,
-                    # The shared vocal stem can contain simultaneous singers on different notes.
-                    pitch=None
-                    if "roomPerformance" in (recording.session_metadata or {})
-                    else pitch,
-                )
+            balance = self._render(recording, stems, exact_stems, temporary, context)
             context.ensure_not_cancelled()
             context.progress("PublishingStudioMaster", 1.0, 0.92)
             master = self._publisher.execute(recording, temporary, balance.payload())
@@ -115,39 +97,59 @@ class StartStudioMaster:
         finally:
             self._workspaces.cleanup(workspace)
 
+    def _render(
+        self,
+        recording: Recording,
+        stems: tuple[Path, Path],
+        exact_stems: bool,
+        temporary: Path,
+        context: JobContext,
+    ) -> StudioMasterBalance:
+        song_id, revision = self._project_identity(recording)
+        with self._pitch_session(context) as pitch:
+            return self._renderer.render(
+                *stems,
+                self._projects.artifact_path(song_id, revision, "referenceVocal"),
+                self._projects.artifact_path(song_id, revision, "instrumental"),
+                temporary,
+                context.cancel,
+                performance_mix=recording.file_path,
+                exact_stems=exact_stems,
+                process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
+                match_recording_loudness=True,
+                adjustments=recording_adjustments(recording),
+                progress=context.progress,
+                # Shared room stems can contain simultaneous singers on different notes.
+                pitch=None if "roomPerformance" in (recording.session_metadata or {}) else pitch,
+                original_mix=self._original_mix(song_id, revision),
+            )
+
+    def _original_mix(self, song_id: str, revision: int) -> Path | None:
+        """The local original is optional; portable projects still have reference stems."""
+        try:
+            reference = self._projects.artifact_path(song_id, revision, "source")
+        except NotFoundError:
+            return None
+        if not reference.is_file():
+            return None
+        try:
+            source = Path(reference.read_text(encoding="utf-8").strip())
+            return source if source.is_file() else None
+        except (OSError, ValueError, UnicodeError):
+            logger.info("Original mix is unavailable for Studio Master: song=%s", song_id)
+            return None
+
     @contextmanager
     def _pitch_session(
         self, context: JobContext
     ) -> Iterator[Callable[[Path], Sequence[PitchPoint]]]:
-        with ExitStack() as scope:
-            analyze: Callable[[Path], Sequence[PitchPoint]] | None = None
+        def pitch(vocal: Path) -> Sequence[PitchPoint]:
+            context.ensure_not_cancelled()
+            return analyze_pitch(vocal, context.cancel)
 
-            def pitch(vocal: Path) -> Sequence[PitchPoint]:
-                nonlocal analyze
-                context.ensure_not_cancelled()
-                if analyze is None:
-                    provider, lease = self._pitch_provider(vocal, context)
-                    scope.callback(lease.release)
-                    if isinstance(provider, PitchReuseProvider):
-                        scope.enter_context(provider.reuse_pitch(context.cancel, lease.execution))
-                    analyze = partial(
-                        provider.pitch, cancel=context.cancel, execution=lease.execution
-                    )
-                return analyze(vocal)
-
-            yield pitch
-
-    def _pitch_provider(self, vocal: Path, context: JobContext) -> tuple[AiProvider, ResourceLease]:
-        context.ensure_not_cancelled()
-        settings = self._settings()
-        preferred = settings.selected_pitch_provider
-        provider = self._resolver.execute(
-            AiCapability.PITCH, None if preferred == _KAGGLE_PROVIDER else preferred
-        )
-        lease = self._resources.claim_provider(
-            provider, vocal.stat().st_size, settings.compute_mode, cpu_threads=settings.cpu_threads
-        )
-        return provider, lease
+        # Local, monophonic analysis is lazy and bounded by the take's duration.
+        # It does not start a model worker or claim a GPU merely to master a take.
+        yield pitch
 
     def _separate(
         self, recording: Recording, workspace: Path, context: JobContext

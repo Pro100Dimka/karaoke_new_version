@@ -28,16 +28,69 @@ vi.mock('@neo-ui-kit/react', () => {
     Planet: () => null,
     NeonWaves: () => null,
     MessageBar: Panel,
-    ProgressBar: () => null,
+    ProgressBar: ({ label, value }: { label: string; value: number }) => (
+      <div role="progressbar" aria-label={label} aria-valuenow={value} />
+    ),
     Loader: ({ label }: { label: string }) => <div role="status">{label}</div>,
     tr: (key: string) => key,
     useLocale: () => 'ru',
+    setLocale: vi.fn(),
   };
 });
 vi.mock('../recordings/RecordingPlayer', () => ({
   RecordingPlayer: () => <div data-testid="recording-player" />,
 }));
 afterEach(cleanup);
+
+it.each([
+  ['PreparingStudioSources', 'studioMasterPreparingSources'],
+  ['AligningStudioVoice', 'studioMasterAligningVoice'],
+  ['PreparingStudioVoice', 'studioMasterPreparingVoice'],
+  ['ProcessingStudioVoice', 'studioMasterProcessingVoice'],
+  ['MixingStudioMaster', 'studioMasterMixing'],
+  ['MasteringRecording', 'studioMasterMastering'],
+  ['PublishingStudioMaster', 'studioMasterPublishing'],
+  ['PitchAnalysis', 'analysisPitchTracking'],
+  ['ReferencePitchAnalysis', 'analysisReferenceTracking'],
+  ['Queued', 'analysisWaitingResources'],
+  ['SeparatingPerformance', 'analysisSeparating'],
+  ['FutureStudioStage', 'studioMasterTitle'],
+])('shows a localized Studio Master stage for %s', (stage, label) => {
+  const recording: RecordingDto = {
+    id: 'take',
+    songId: 'song',
+    filePath: '',
+    displayName: '',
+    createdAt: '',
+    durationSeconds: 30,
+    sizeBytes: 0,
+    analyzed: true,
+    fileStatus: 'Ready',
+  };
+  render(
+    <PerformanceAnalysisModal
+      analysis={{
+        recordingId: recording.id,
+        score: 75,
+        pitch: 75,
+        rhythm: 75,
+        stability: 75,
+        summary: '',
+      }}
+      recordings={[recording]}
+      onDelete={vi.fn()}
+      onCreateStudioMaster={vi.fn()}
+      studioMaster={{ recordingId: recording.id, stage, progress: 73 }}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(
+    screen
+      .getByRole('progressbar', { name: label })
+      .getAttribute('aria-valuenow'),
+  ).toBe('73');
+  expect(screen.getByText('studioMasterProgressValue')).toBeTruthy();
+});
 
 it.each([
   [84, false, undefined],
