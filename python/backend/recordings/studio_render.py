@@ -32,7 +32,13 @@ from backend.recordings.studio_calibration import (
     validate_gain_plan,
     vocal_activity,
 )
-from backend.recordings.studio_voice import shape_voice, finish_voice, prepare_voice, match_tone
+from backend.recordings.studio_voice import (
+    shape_voice,
+    finish_voice,
+    prepare_voice,
+    match_tone,
+    reference_presence,
+)
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
 from backend.recordings.studio_reference_level import analyze_reference_level
@@ -86,6 +92,9 @@ class MasterRender:
         default=None, init=False
     )
     reference_level_correction_db: float | None = field(default=None, init=False)
+    reference_presence: tuple[np.ndarray, np.ndarray, np.ndarray] | None = field(
+        default=None, init=False
+    )
 
     def run(self) -> StudioMasterBalance:
         self.info = sf.info(self.performance_mix)
@@ -310,21 +319,26 @@ class MasterRender:
             self.reference_balance = self.times, *reference
         self.reliable = vocal_activity(self.voice_db)
 
-    def _shape_voice(self) -> None:
-        match_tone(self)
-        evidence = measure_mix_spectrum(self.vocal, self.backing, self.cancel)
-        self.overlap = evidence["overlap"]
-        self.plan = build_gain_plan(
+    def _gain_plan(self) -> GainPlan:
+        return build_gain_plan(
             self.renderer,
             self.vocal,
             self.backing,
             self.overlap,
             self.cancel,
             reference_balance=self.reference_balance,
+            reference_presence=self.reference_presence,
             reference_level_correction_db=(
                 self.reference_level_correction_db if self.reference_balance is not None else None
             ),
         )
+
+    def _shape_voice(self) -> None:
+        match_tone(self)
+        evidence = measure_mix_spectrum(self.vocal, self.backing, self.cancel)
+        self.overlap = evidence["overlap"]
+        self.reference_presence = reference_presence(self)
+        self.plan = self._gain_plan()
         evidence["clarityBands"] = plan_presence_eq(
             self.vocal, self.backing, self.plan, self.cancel
         )
@@ -343,19 +357,7 @@ class MasterRender:
 
     def _write_balanced(self) -> None:
         if self.spectral["bands"]:
-            self.plan = build_gain_plan(
-                self.renderer,
-                self.vocal,
-                self.backing,
-                self.overlap,
-                self.cancel,
-                reference_balance=self.reference_balance,
-                reference_level_correction_db=(
-                    self.reference_level_correction_db
-                    if self.reference_balance is not None
-                    else None
-                ),
-            )
+            self.plan = self._gain_plan()
         self.balanced = self.work / "planned-voice.wav"
         self.peak_bound = 0.0
         _write_gain_envelope(

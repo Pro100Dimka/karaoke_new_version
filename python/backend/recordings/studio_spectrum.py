@@ -10,6 +10,7 @@ import soundfile as sf
 from scipy.signal import resample_poly, butter, sosfilt
 from backend.recordings.studio_space_analysis import SpaceProfile, _decay
 from backend.recordings.studio_calibration import GainPlan
+from backend.recordings.studio_clarity import clarity_boosts
 
 from backend.recordings.studio_audio import (
     _PROFILE_SECONDS,
@@ -258,6 +259,7 @@ def _paired_octave_rows(
         selected = [(hz >= low) & (hz < high) for low, high in zip(edges[:-1], edges[1:])]
         window = np.hanning(size)[:, None]
         rows = []
+        clarity = gain_plan.clarity_need if gain_plan is not None else None
         for vocal in singer.blocks(blocksize=size, always_2d=True):
             _check_cancel(cancel)
             accompaniment = music.read(len(vocal), always_2d=True)
@@ -265,9 +267,10 @@ def _paired_octave_rows(
                 continue
             if gain_plan is not None:
                 time = (singer.tell() - len(vocal) + np.arange(len(vocal))) / singer.samplerate
-                if gain_plan.presence is not None and np.interp(
-                    time[len(time) // 2], gain_plan.times, gain_plan.presence
-                ) < 1:
+                if (
+                    clarity is not None
+                    and np.interp(time[len(time) // 2], gain_plan.times, clarity) < 1
+                ):
                     continue
                 gain = np.interp(time, gain_plan.times, gain_plan.gains)
                 vocal *= np.power(10.0, gain[:, None] / 20)
@@ -341,8 +344,8 @@ def plan_presence_eq(
     weights *= np.all(shares[:, 2:4] > 0.01, axis=0)
     if weights.sum() <= 1e-20:
         return []
-    boosts = np.clip(-prominence, 0, 3)
-    gain = float(np.average(boosts, weights=weights))
+    boosts = clarity_boosts(plan.clarity_bands, plan.clarity_need, plan.active, prominence)
+    gain = min(float(np.average(boosts, weights=weights)), plan.clarity_limit)
     if gain < 1:
         return []
     frequency = float(

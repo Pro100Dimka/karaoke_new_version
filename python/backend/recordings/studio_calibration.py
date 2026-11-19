@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import threading
 import numpy as np
@@ -9,6 +9,7 @@ from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _prof
 from backend.recordings.studio_delivery import measure_mix_loudness
 from backend.recordings.studio_dynamics import _slow_gain_envelope
 from backend.recordings.studio_leveling import correction_response, local_outlier_gain
+from backend.recordings.studio_clarity import measure_reference_clarity
 
 _STEP = 0.02
 _REFERENCE_MAX_ATTENUATION_LU = 3.0
@@ -23,6 +24,19 @@ class GainPlan:
     offset: NDArray[np.float64]
     report: dict[str, object]
     presence: np.ndarray | None = None
+    clarity: np.ndarray | None = None
+    clarity_bands: np.ndarray | None = None
+
+    @property
+    def clarity_need(self) -> np.ndarray | None:
+        return self.presence if self.clarity is None else self.clarity
+
+    @property
+    def clarity_limit(self) -> float:
+        if self.clarity is None or self.report.get("balanceBasis") != "verified-source-reference":
+            return 3.0
+        supported = self.active & (self.clarity >= 1)
+        return min(float(np.median(self.clarity[supported])), 3.0) if supported.any() else 0.0
 
     def report_dynamics(
         self,
@@ -236,8 +250,7 @@ def _voiced_activity(
 ) -> np.ndarray:
     profile = _voicing_profile(voice, cancel)
     confidence = np.interp(times, (np.arange(len(profile)) + 0.5) * 0.04, profile)
-    body = active & (confidence >= 0.65)
-    return body if body.any() else active
+    return np.asarray(active & (confidence >= 0.65), dtype=bool)
 
 
 def _context_levels(
@@ -307,7 +320,7 @@ def _support_words(
     return target + soft_word_lift, soft_word_lift
 
 
-def build_gain_plan(
+def _build_gain_plan(
     renderer: MasterRenderer,
     voice: Path,
     backing: Path,
@@ -316,17 +329,18 @@ def build_gain_plan(
     *,
     reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
     reference_level_correction_db: float | None = None,
-) -> GainPlan:
+) -> tuple[GainPlan, np.ndarray]:
     times, level, music, meter_times, active, offset = _detector(renderer, voice, backing, cancel)
     report: dict[str, object] = {
         "method": "single-context-envelope",
         "activeSeconds": float(np.count_nonzero(active) * _STEP),
     }
     if not active.any():
-        return GainPlan(times, np.zeros_like(level), active, level, offset, report)
+        return GainPlan(times, np.zeros_like(level), active, level, offset, report), active
     body = _voiced_activity(voice, times, active, cancel)
+    context_body = body if body.any() else active
     baseline, placement, reference_verified = _context_levels(
-        times, level, body, overlap, reference_balance, reference_level_correction_db
+        times, level, context_body, overlap, reference_balance, reference_level_correction_db
     )
     target = _target_levels(times, level, music, meter_times, baseline, placement)
     placement_gain = target - level
@@ -344,7 +358,43 @@ def build_gain_plan(
     plan = GainPlan(times, gains, active, level + desired, offset, report, presence)
     plan.report_dynamics(soft_word_lift, overlap, desired, reference_verified)
     plan.report_automation(presence, placement, global_gain)
-    return plan
+    return plan, body
+
+
+def build_gain_plan(
+    renderer: MasterRenderer,
+    voice: Path,
+    backing: Path,
+    overlap: float,
+    cancel: threading.Event,
+    *,
+    reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+    reference_level_correction_db: float | None = None,
+    reference_presence: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+) -> GainPlan:
+    plan, voiced = _build_gain_plan(
+        renderer,
+        voice,
+        backing,
+        overlap,
+        cancel,
+        reference_balance=reference_balance,
+        reference_level_correction_db=reference_level_correction_db,
+    )
+    if plan.report.get("balanceBasis") != "verified-source-reference":
+        return replace(plan, clarity=plan.presence)
+    clarity, bands = measure_reference_clarity(
+        voice,
+        backing,
+        plan.times,
+        plan.gains,
+        voiced,
+        reference_presence,
+        reference_level_correction_db,
+        cancel,
+    )
+    _check_cancel(cancel)
+    return replace(plan, clarity=clarity, clarity_bands=bands)
 
 
 def _smoothed_gains(

@@ -18,12 +18,15 @@ from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectru
 from backend.recordings.studio_space import apply_reference_space
 from backend.recordings.studio_layers import LayerRender, apply_reference_layers
 from backend.recordings.studio_reference_tone import apply_reference_tone
+from backend.recordings.studio_clarity import presence_profile
 
 
 class VoiceFinishing(LayerRender, Protocol):
     vocal: Path
     user_vocal: Path
     reference_vocal: Path
+    original_instrumental: Path
+    reference_level_correction_db: float | None
     backing: Path
     times: NDArray[np.floating]
     source_times: NDArray[np.floating]
@@ -38,6 +41,27 @@ def match_tone(render: VoiceFinishing) -> None:
         render.cancel,
         reference_timing=(render.times, render.source_times) if render.timing_known else None,
     )
+
+
+def reference_presence(
+    render: VoiceFinishing,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+    if not render.timing_known or render.reference_level_correction_db is None:
+        return None
+    profiles = []
+    for path, center in ((render.reference_vocal, False), (render.original_instrumental, True)):
+        levels = presence_profile(path, render.cancel, center=center)[:, 1:]
+        axis = (np.arange(len(levels)) + 0.5) * 0.1
+        profiles.append(
+            np.column_stack(
+                [
+                    np.interp(render.source_times, axis, column, left=-120, right=-120)
+                    for column in levels.T
+                ]
+            )
+        )
+    _check_cancel(render.cancel)
+    return render.times, profiles[0], profiles[1]
 
 
 def finish_voice(render: VoiceFinishing) -> None:
@@ -225,7 +249,8 @@ def shape_voice(
     if not plan["bands"]:
         return voice, plan
     clarity = plan.get("clarityBands", [])
-    if automation is None or automation.presence is None or not clarity:
+    need = automation.clarity_need if automation is not None else None
+    if automation is None or need is None or not clarity:
         return _equalize(renderer, voice, backing, target, plan["bands"], cancel), plan
     tone = _equalize(
         renderer,
@@ -238,7 +263,7 @@ def shape_voice(
     colored = _equalize(
         renderer, tone, backing, target.with_stem(target.stem + "-clarity"), clarity, cancel
     )
-    weights = np.clip(automation.presence / 2, 0, 1)
+    weights = np.clip(need / 2, 0, 1)
     _blend_voice(tone, colored, target, automation.times, weights, cancel)
     plan["clarityAutomation"] = {"stepSeconds": 0.5, "weight": weights[::25].round(3).tolist()}
     return target, plan
