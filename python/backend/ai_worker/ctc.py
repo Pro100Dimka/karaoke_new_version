@@ -39,6 +39,7 @@ from backend.ai_worker.ctc_emission import (
     emission as emission,
     frame_stride_samples as frame_stride_samples,
 )
+from backend.ai_worker.ctc_guidance import preserve_following_core
 from backend.ai_worker.ctc_bounds import (
     _clamped_letters as _clamped_letters,
     _clips_letter_anchor as _clips_letter_anchor,
@@ -133,6 +134,9 @@ def align_guided(
         guided = _guided_crop(scores, frame_seconds, chunk, window, result, recovery_end, voiced)
         candidates = _guided_candidates(
             guided, reference, result, whole, window, following, entry, voiced
+        )
+        candidates = preserve_following_core(
+            candidates, reference, whole, window, anchors, scores, frame_seconds
         )
         if not candidates:
             return ordered(list(whole))
