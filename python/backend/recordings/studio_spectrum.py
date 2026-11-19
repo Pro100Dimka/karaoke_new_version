@@ -348,12 +348,10 @@ def plan_presence_eq(
     gain = min(float(np.average(boosts, weights=weights)), plan.clarity_limit)
     if gain < 1:
         return []
+    weights *= boosts
+    weights /= weights.sum()
     frequency = float(
-        np.exp(
-            np.average(
-                np.log([math.sqrt(600 * 1200), math.sqrt(1200 * 2400)]), weights=weights * boosts
-            )
-        )
+        np.exp(np.dot(np.log([math.sqrt(600 * 1200), math.sqrt(1200 * 2400)]), weights))
     )
     return [{"frequencyHz": frequency, "gainDb": gain}]
 
