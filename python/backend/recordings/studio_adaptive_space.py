@@ -13,11 +13,12 @@ import threading
 import numpy as np
 import soundfile as sf
 from scipy.fft import irfft, next_fast_len, rfft
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d, median_filter
 from scipy.signal import butter, correlate, find_peaks, sosfilt, lfilter
 
-from backend.recordings.studio_audio import _check_cancel, _profile, _temporary_wave
-from backend.recordings.studio_space_analysis import _decay
+from backend.recordings.studio_adaptive_calibration import _periodicity
+from backend.recordings.studio_audio import _band_power, _check_cancel, _profile, _temporary_wave
+from backend.recordings.studio_space_analysis import _delay, _fit_decay, _read_evidence
 from backend.recordings.studio_space import _voice_activity_level, _activity_mask
 
 
@@ -46,43 +47,87 @@ def estimate_tempo(backing: Path, cancel: threading.Event) -> tuple[float | None
     return 60 / (best * 0.02), confidence
 
 
+def _tail_candidates(levels: np.ndarray) -> list[tuple[int, float, float]]:
+    smooth = median_filter(levels, size=3)
+    floor = max(-85.0, float(np.percentile(smooth, 10)) + 6)
+    indices = np.union1d(
+        np.flatnonzero(smooth[:-2] - smooth[2:] > 5) + 2,
+        np.flatnonzero(smooth[:-4] - smooth[4:] > 6) + 4,
+    )
+    fits = []
+    for index in indices:
+        if index < 12:
+            continue
+        fit = _fit_decay(smooth, int(index), floor)
+        if fit is not None:
+            fits.append((int(index), *fit))
+    return fits
+
+
+def _diffuse_spectrum(samples: np.ndarray, rate: int) -> bool:
+    width = max(64, round(rate * 0.04))
+    complete = min(len(samples) // width, 6) * width
+    if complete < width:
+        return False
+    frames = samples[:complete].reshape(-1, width, samples.shape[1])
+    power = np.mean(
+        abs(np.fft.rfft(frames * np.hanning(width)[None, :, None], axis=1)) ** 2, axis=2
+    )
+    hz = np.fft.rfftfreq(width, 1 / rate)
+    power = power[:, (hz >= 250) & (hz < min(9000, rate * 0.45))]
+    probability = power / np.maximum(power.sum(axis=1, keepdims=True), 1e-20)
+    entropy = -np.sum(probability * np.log(np.maximum(probability, 1e-20)), axis=1)
+    periodicity = np.median([_periodicity(frame, rate) for frame in frames])
+    return bool(np.median(entropy) / math.log(max(2, power.shape[1])) >= 0.5 and periodicity < 0.92)
+
+
+def _tail_band_agreement(frames: np.ndarray, rate: int, decay: float) -> bool:
+    agreeing = 0
+    for low, high in ((250, 1000), (1000, 3000), (3000, 7000)):
+        upper = min(high, rate * 0.45)
+        if upper <= low:
+            continue
+        levels = 10 * np.log10(np.maximum(_band_power(frames, rate, (low, upper)), 1e-12))
+        smooth = median_filter(levels, size=3)
+        floor = max(-85.0, float(np.min(smooth[12:])) + 6)
+        fit = _fit_decay(smooth, 12, floor)
+        if fit is not None and abs(math.log(fit[0] / decay)) < 0.4:
+            agreeing += 1
+    return agreeing >= 2
+
+
+def _corroborated_tail(source: sf.SoundFile, index: int, decay: float) -> bool:
+    step = max(1, round(source.samplerate * 0.02))
+    source.seek((index - 12) * step)
+    samples = source.read(72 * step, always_2d=True)
+    frames = samples[: len(samples) // step * step].reshape(-1, step, source.channels)
+    if len(frames) < 19 or not _diffuse_spectrum(samples[12 * step :], source.samplerate):
+        return False
+    return _tail_band_agreement(frames, source.samplerate, decay)
+
+
 def _tail_evidence(path: Path, cancel: threading.Event) -> tuple[float, float, int]:
-    levels = _profile(path, cancel, frame_seconds=0.02)
-    decay, gain, count = _decay(levels)
-    if not gain or count < 3:
-        return 0.0, 0.0, count
-    # A periodic sustained vowel with a falling envelope is not diffuse room evidence.
-    # Inspect low-level release blocks for broadband spectral support as a second test.
-    samples = []
-    floor = float(np.percentile(levels, 85))
-    indices = np.flatnonzero((levels > floor - 32) & (levels < floor - 10))
-    if len(indices) > 32:
-        indices = indices[np.linspace(0, len(indices) - 1, 32).astype(int)]
+    candidates = _tail_candidates(_profile(path, cancel, frame_seconds=0.02))
+    evidence = []
+    previous = -50
     with sf.SoundFile(path) as source:
-        width = max(64, round(source.samplerate * 0.04))
-        hz = np.fft.rfftfreq(width, 1 / source.samplerate)
-        band = (hz >= 250) & (hz < min(9000, source.samplerate * 0.45))
-        for index in indices:
+        for index, decay, gain in candidates:
             _check_cancel(cancel)
-            source.seek(min(source.frames, round(index * 0.02 * source.samplerate)))
-            block = source.read(width, always_2d=True)
-            if len(block) != width:
+            if index - previous < 50 or not _corroborated_tail(source, index, decay):
                 continue
-            spectrum = np.mean(
-                abs(np.fft.rfft(block * np.hanning(width)[:, None], axis=0)) ** 2, axis=1
-            )[band]
-            if len(spectrum) < 4 or np.sum(spectrum) < 1e-16:
-                continue
-            probability = spectrum / np.sum(spectrum)
-            samples.append(
-                float(
-                    -np.sum(probability * np.log(np.maximum(probability, 1e-20)))
-                    / math.log(len(probability))
-                )
-            )
-    if not samples or np.median(samples) < 0.5:
-        return 0.0, 0.0, count
-    return float(np.clip(decay, 0.2, 2.0)), float(np.clip(gain, 0, 0.18)), count
+            evidence.append((decay, gain))
+            previous = index
+    if not evidence:
+        return 0.0, 0.0, 0
+    decays, gains = np.asarray(evidence).T
+    consistent = abs(np.log(decays / np.median(decays))) < 0.4
+    if not consistent.any():
+        return 0.0, 0.0, 0
+    return (
+        float(np.clip(np.median(decays[consistent]), 0.2, 2.0)),
+        float(np.clip(np.median(gains[consistent]), 0, 0.18)),
+        int(np.count_nonzero(consistent)),
+    )
 
 
 def _phrase_end_curve(voice: Path, cancel: threading.Event) -> tuple[np.ndarray, np.ndarray]:
@@ -162,7 +207,78 @@ class SendPlan:
     amount: float
     bpm: float | None
     tempo_confidence: float
+    delay_seconds: float
+    delay_amount: float
     report: dict[str, object]
+
+
+def _echo_window_support(path: Path, positions: np.ndarray, cancel: threading.Event) -> float:
+    if len(positions) > 24:
+        positions = positions[np.linspace(0, len(positions) - 1, 24).astype(int)]
+    supported = []
+    with sf.SoundFile(path) as source:
+        width = max(64, round(source.samplerate * 0.24))
+        for position in positions:
+            _check_cancel(cancel)
+            source.seek(round(float(position) * source.samplerate))
+            audio = source.read(width * 8, always_2d=True)
+            complete = len(audio) // width * width
+            if complete < width:
+                continue
+            frames = audio[:complete].reshape(-1, width, source.channels)
+            strongest = frames[np.argmax(np.mean(frames**2, axis=(1, 2)))]
+            supported.append(_diffuse_spectrum(strongest, source.samplerate))
+    return float(np.mean(supported)) if np.count_nonzero(supported) >= 3 else 0.0
+
+
+def _echo_evidence(path: Path | None, cancel: threading.Event) -> tuple[float, float, float]:
+    if path is None:
+        return 0.0, 0.0, 0.0
+    _, cepstra, positions = _read_evidence(path, cancel)
+    delay, gain, support = _delay(cepstra)
+    if not gain:
+        return 0.0, 0.0, 0.0
+    # A long-quefrency peak can also be produced by dry vibrato or a pitch glide.
+    # Require independent, spectrally broad active windows before adding a copy.
+    agreeing = cepstra[:, round(delay * 8000)] > 0.01
+    corroboration = _echo_window_support(path, positions[agreeing], cancel)
+    return (delay, gain, min(support, corroboration)) if corroboration >= 0.25 else (0.0, 0.0, 0.0)
+
+
+def _delay_plan(
+    voice: Path, reference: Path | None, cancel: threading.Event
+) -> tuple[float, float, dict[str, object]]:
+    delay, expected, support = _echo_evidence(reference, cancel)
+    actual_delay, actual, _ = _echo_evidence(voice, cancel) if expected else (0.0, 0.0, 0.0)
+    same = abs(actual_delay - delay) <= max(0.012, delay * 0.08)
+    amount = float(np.clip(expected - (actual if same else 0), 0, 0.16))
+    return (
+        delay,
+        amount,
+        {
+            "referenceDelaySeconds": delay,
+            "referenceDelayGain": expected,
+            "referenceDelaySupport": support,
+            "delayEvidenceMethod": "persistent-repeat-with-aperiodic-active-window-support",
+            "existingDelaySeconds": actual_delay,
+            "existingDelayGain": actual,
+            "delaySendGain": amount,
+            "delayDecision": "measured-reference-repeat"
+            if amount >= 0.015
+            else "unresolved-reference-repeat"
+            if expected == 0
+            else "already-present",
+        },
+    )
+
+
+def _tempo_delay(delay: float, bpm: float | None) -> tuple[float, bool]:
+    if not delay or bpm is None:
+        return delay, False
+    notes = 60 / bpm * np.array([0.25, 0.5, 0.75, 1, 1.5, 2])
+    nearest = float(notes[np.argmin(abs(notes - delay))])
+    synced = abs(nearest - delay) <= delay * 0.05
+    return (nearest if synced else delay), synced
 
 
 def _plan_sends(
@@ -174,9 +290,11 @@ def _plan_sends(
 ) -> SendPlan:
     decay, expected, support = _tail_evidence(reference, cancel) if reference else (0.0, 0.0, 0)
     # Digital dry capture still includes acoustic room decay and breathy releases.
-    _, existing, _ = _tail_evidence(voice, cancel)
+    existing_decay, existing, _ = _tail_evidence(voice, cancel)
     amount = math.sqrt(max(0.0, expected**2 - existing**2))
-    bpm, confidence = estimate_tempo(backing, cancel) if amount >= 0.015 else (None, 0.0)
+    delay, delay_amount, delay_report = _delay_plan(voice, reference, cancel)
+    bpm, confidence = estimate_tempo(backing, cancel) if delay_amount >= 0.015 else (None, 0.0)
+    delay, synced = _tempo_delay(delay, bpm)
     report: dict[str, object] = {
         "method": "separate-diffuse-reverb-and-phrase-delay-sends",
         "dryPreserved": True,
@@ -184,23 +302,30 @@ def _plan_sends(
         "decaySeconds": decay,
         "referenceWetRatio": expected,
         "existingWetRatio": existing,
+        "existingDecaySeconds": existing_decay,
+        "reverbDecision": "supported-diffuse-tail"
+        if amount >= 0.015
+        else "unresolved-reference-space"
+        if expected == 0
+        else "already-present",
+        "reverbEvidenceMethod": "local-decay-fit-with-multiple-bands-and-aperiodic-support",
+        "delayTempoSynchronized": synced,
         "recordedIsDry": recorded_is_dry,
         "wetLowCutHz": 200.0,
         "wetDuckingDb": -20 * math.log10(0.75),
         "wetDuckingSmoothingMs": 50.0,
+        **delay_report,
     }
-    return SendPlan(decay, amount, bpm, confidence, report)
+    return SendPlan(decay, amount, bpm, confidence, delay, delay_amount, report)
 
 
 def _delay_bus(
     voice: Path, work: Path, plan: SendPlan, cancel: threading.Event
-) -> tuple[str, Path, float] | None:
-    if plan.bpm is None or plan.tempo_confidence < 0.5:
-        return None
+) -> tuple[tuple[str, Path, float], float]:
     info = sf.info(voice)
-    delay_seconds = 30 / plan.bpm
-    impulse = np.zeros((round(delay_seconds * 2 * info.samplerate) + 1, info.channels))
-    impulse[round(delay_seconds * info.samplerate)], impulse[-1] = 1.0, 0.25
+    delay_seconds = plan.delay_seconds
+    impulse = np.zeros((round((delay_seconds + 0.08) * info.samplerate) + 1, info.channels))
+    impulse[round(delay_seconds * info.samplerate)] = 1.0
     band = butter(
         2,
         [min(200, info.samplerate * 0.05), min(6000, info.samplerate * 0.43)],
@@ -209,23 +334,33 @@ def _delay_bus(
         output="sos",
     )
     delayed = work / "delay.wav"
-    _convolve_send(
+    dry_energy, _ = _convolve_send(
         voice, delayed, sosfilt(band, impulse, axis=0), cancel, _phrase_end_curve(voice, cancel)
     )
-    return "delay", delayed, min(0.08, plan.amount * 0.5)
+    return ("delay", delayed, plan.delay_amount), dry_energy
+
+
+def _reverb_bus(
+    voice: Path, work: Path, plan: SendPlan, cancel: threading.Event
+) -> tuple[tuple[str, Path, float], float]:
+    info, reverb = sf.info(voice), work / "reverb.wav"
+    impulse = _reverb_impulse(info.samplerate, info.channels, plan.decay)
+    dry_energy, wet_energy = _convolve_send(voice, reverb, impulse, cancel)
+    scale = min(4.0, plan.amount * math.sqrt(dry_energy / max(wet_energy, 1e-20)))
+    return ("reverb", reverb, scale), dry_energy
 
 
 def _render_send_buses(
     voice: Path, work: Path, plan: SendPlan, cancel: threading.Event
 ) -> tuple[list[tuple[str, Path, float]], float]:
-    info, reverb = sf.info(voice), work / "reverb.wav"
-    impulse = _reverb_impulse(info.samplerate, info.channels, plan.decay)
-    dry_energy, wet_energy = _convolve_send(voice, reverb, impulse, cancel)
-    scale = min(4.0, plan.amount * math.sqrt(dry_energy / max(wet_energy, 1e-20)))
-    buses = [("reverb", reverb, scale)]
-    delay = _delay_bus(voice, work, plan, cancel)
-    if delay is not None:
-        buses.append(delay)
+    buses = []
+    dry_energy = 0.0
+    if plan.amount >= 0.015:
+        bus, dry_energy = _reverb_bus(voice, work, plan, cancel)
+        buses.append(bus)
+    if plan.delay_amount >= 0.015:
+        bus, dry_energy = _delay_bus(voice, work, plan, cancel)
+        buses.append(bus)
     return buses, dry_energy
 
 
@@ -282,7 +417,7 @@ def _send_report(plan: SendPlan, energy: dict[str, float], dry_energy: float) ->
         "status": "matched",
         "tempoBpm": plan.bpm,
         "tempoConfidence": plan.tempo_confidence,
-        "delaySeconds": 30 / plan.bpm if plan.bpm is not None else 0.0,
+        "delaySeconds": plan.delay_seconds if plan.delay_amount >= 0.015 else 0.0,
         "buses": {
             name: {"wetToDryDb": 10 * math.log10(max(value, 1e-30) / max(dry_energy, 1e-30))}
             for name, value in energy.items()
@@ -301,7 +436,7 @@ def render_sends(
 ) -> dict[str, object]:
     _check_cancel(cancel)
     plan = _plan_sends(voice, backing, reference, recorded_is_dry, cancel)
-    if plan.amount < 0.015:
+    if max(plan.amount, plan.delay_amount) < 0.015:
         shutil.copyfile(voice, target)
         return {
             **plan.report,

@@ -8,10 +8,17 @@ import threading
 
 import numpy as np
 import soundfile as sf
-from scipy.ndimage import gaussian_filter1d, maximum_filter1d, median_filter
 
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_adaptive_calibration import calibrate_gains
+from backend.recordings.studio_adaptive_phrases import (
+    MAX_RIDE_DB_PER_SECOND,
+    WINDOW_SECONDS,
+    phrase_gain_targets,
+    recording_presence_weights,
+    section_ratio_errors,
+    supported_reference_phrases,
+)
 from backend.recordings.studio_audio import _profile
 
 _STEP = 0.1
@@ -41,13 +48,15 @@ class ReferenceAnchor:
     report: dict[str, object]
     instrumental_rest: np.ndarray
     rest_music_level: float
+    voice_active: np.ndarray
+    reference_active: np.ndarray
 
 
-def vocal_activity(levels: np.ndarray) -> np.ndarray:
+def vocal_activity(levels: np.ndarray, dynamic_range: float = 36.0) -> np.ndarray:
     audible = levels[levels > -100]
     if not len(audible):
         return np.zeros(len(levels), dtype=bool)
-    return levels > max(-90.0, float(np.percentile(audible, 95)) - 36)
+    return levels > max(-90.0, float(np.percentile(audible, 95)) - dynamic_range)
 
 
 def _lead_profile(path: Path, cancel: threading.Event) -> np.ndarray:
@@ -85,13 +94,18 @@ def _spectral_anchor(
     voice: np.ndarray,
     expected: np.ndarray,
     cancel: threading.Event,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, object]]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, object]]:
     band, reference_band = _presence_profile(vocal, cancel), _presence_profile(reference, cancel)
     supported, voice_report = _band_support(band, voice)
     reference_supported, reference_report = _band_support(reference_band, expected)
-    weights = gaussian_filter1d((supported & reference_supported).astype(float), 1, mode="nearest")
-    weights[~(supported & reference_supported)] = 0
     active = vocal_activity(voice)
+    reference_active = vocal_activity(expected, 24.0)
+    weights = recording_presence_weights(
+        voice, expected, active, reference_active, supported, reference_supported
+    )
+    trusted = supported_reference_phrases(active, reference_active, supported, reference_supported)
+    if not np.any(weights):
+        trusted[:] = True
     fraction = float(np.mean(weights[active] > 0.5)) if active.any() else 0.0
     for report in (voice_report, reference_report):
         report.update(
@@ -103,6 +117,7 @@ def _spectral_anchor(
         voice + weights * (band - voice),
         expected + weights * (reference_band - expected),
         weights,
+        trusted,
         {
             "voiceSpectralAnchor": voice_report,
             "referenceSpectralAnchor": reference_report,
@@ -124,6 +139,28 @@ def _anchor_regions(weights: np.ndarray) -> list[dict[str, object]]:
     ]
 
 
+def _empty_anchor(voice: np.ndarray, music: np.ndarray) -> ReferenceAnchor:
+    empty = np.zeros(len(voice))
+    fallback: dict[str, object] = {
+        "voiceSpectralAnchor": {"presenceFraction": 0.0},
+        "referenceSpectralAnchor": {"presenceFraction": 0.0},
+        "anchorRegions": [],
+    }
+    return ReferenceAnchor(
+        voice,
+        empty,
+        empty,
+        music,
+        empty.astype(bool),
+        empty,
+        fallback,
+        empty.astype(bool),
+        0.0,
+        vocal_activity(voice),
+        empty.astype(bool),
+    )
+
+
 def _reference_anchor(
     vocal: Path,
     reference: Path | None,
@@ -132,27 +169,33 @@ def _reference_anchor(
     music: np.ndarray,
     cancel: threading.Event,
 ) -> ReferenceAnchor:
-    empty = np.zeros(len(voice))
-    fallback: dict[str, object] = {
-        "voiceSpectralAnchor": {"presenceFraction": 0.0},
-        "referenceSpectralAnchor": {"presenceFraction": 0.0},
-        "anchorRegions": [],
-    }
     if reference is None or original is None:
-        return ReferenceAnchor(
-            voice, empty, empty, music, empty.astype(bool), empty, fallback, empty.astype(bool), 0.0
-        )
+        return _empty_anchor(voice, music)
     expected, backing = _lead_profile(reference, cancel), _profile(original, cancel)
     if len(expected) != len(voice) or len(backing) != len(voice):
         raise DependencyError(
             "StudioMasterStemMismatch", "Reference must cover the recording timeline"
         )
-    matched = vocal_activity(voice) & vocal_activity(expected)
-    matched &= vocal_activity(music) == vocal_activity(backing)
+    voice_active, reference_active = vocal_activity(voice), vocal_activity(expected, 24.0)
+    reference_active &= vocal_activity(music) == vocal_activity(backing)
     actual_music, reference_music, rests, scale = _music_anchor_levels(music, backing)
-    actual, desired, weights, report = _spectral_anchor(vocal, reference, voice, expected, cancel)
+    actual, desired, weights, trusted, report = _spectral_anchor(
+        vocal, reference, voice, expected, cancel
+    )
+    reference_active &= trusted
+    matched = voice_active & reference_active
     return ReferenceAnchor(
-        actual, desired, reference_music, actual_music, matched, weights, report, rests, scale
+        actual,
+        desired,
+        reference_music,
+        actual_music,
+        matched,
+        weights,
+        report,
+        rests,
+        scale,
+        voice_active,
+        reference_active,
     )
 
 
@@ -172,21 +215,14 @@ def _music_anchor_levels(
 def _desired_gains(times: np.ndarray, anchor: ReferenceAnchor, enabled: bool) -> np.ndarray:
     if not enabled:
         return np.zeros(len(times))
-    indices = np.flatnonzero(anchor.matched)
-    errors = (anchor.reference - anchor.backing - anchor.voice + anchor.music)[indices]
-    desired: np.ndarray = np.interp(times, times[indices], errors)
-    if len(indices) >= 5:
-        desired = gaussian_filter1d(
-            median_filter(desired, size=7, mode="nearest"), 2, mode="nearest"
-        )
-    return desired
-
-
-def _supported_target(gains: np.ndarray, matched: np.ndarray) -> np.ndarray:
-    support = maximum_filter1d(matched.astype(float), size=7, mode="constant")
-    result: np.ndarray = gains * gaussian_filter1d(support, sigma=1.0, mode="nearest")
-    result[support == 0] = 0
-    return result
+    return phrase_gain_targets(
+        anchor.voice,
+        anchor.reference,
+        anchor.music - anchor.backing,
+        anchor.voice_active,
+        anchor.reference_active,
+        anchor.matched,
+    )
 
 
 def _gain_statistics(
@@ -217,7 +253,11 @@ def _balance_report(
         "method": "absolute-reference-center-vocal-to-backing-ratio"
         if enabled
         else "preserve-capture-balance-without-reliable-reference",
-        "levelMeasure": "100ms-adaptive-presence-band-or-center-RMS",
+        "automationMethod": "phrase-reference-vocal-and-common-backing-calibration",
+        "levelMeasure": "phrase-core-medians-with-recording-spectral-anchor",
+        "balanceWindowSeconds": WINDOW_SECONDS,
+        "maxLocalRideDbPerSecond": MAX_RIDE_DB_PER_SECOND,
+        "referenceEndBehavior": "hold-current-phrase-gain-and-preserve-input-calibration",
         "referenceTargetRatioDb": float(np.median(ratios[anchor.matched])) if enabled else None,
         "referenceUsed": enabled,
         "referenceMatchedFraction": coverage,
@@ -248,9 +288,6 @@ def plan_balance(
     enabled = bool(anchor.matched.any() and coverage >= 0.35)
     requested = _desired_gains(times, anchor, enabled)
     gains, calibration = calibrate_gains(vocal, voice, requested, anchor.matched & enabled, cancel)
-    gains = _supported_target(gains, anchor.matched)
-    no_boost = ~active
-    gains[no_boost] = np.minimum(0, gains[no_boost])
     report = _balance_report(anchor, active, gains, requested, enabled, coverage)
     report.update(calibration)
     return BalancePlan(
@@ -279,8 +316,14 @@ def measure_balance(
     if np.any(plan.presence_weights > 0):
         voice += plan.presence_weights * (_presence_profile(vocal, cancel) - voice)
     errors = abs((voice - music - plan.reference_ratios)[plan.matched])
+    sections = section_ratio_errors(voice, music, plan.reference_ratios, plan.matched)
     return {
         "p90ReferenceRatioErrorDb": float(np.percentile(errors, 90)),
         "medianReferenceRatioErrorDb": float(np.median(errors)),
+        "p90SectionReferenceRatioErrorDb": float(np.percentile(sections, 90))
+        if len(sections)
+        else None,
+        "medianSectionReferenceRatioErrorDb": float(np.median(sections)) if len(sections) else None,
+        "comparisonWindowSeconds": WINDOW_SECONDS,
         "measurementStage": "rendered-balanced-dry-vocal-and-ducked-backing",
     }

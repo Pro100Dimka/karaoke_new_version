@@ -111,17 +111,96 @@ def test_cleanup_preserves_quiet_breathy_ending_and_attenuates_only_established_
     assert output.shape == voice.shape
 
 
-def test_quiet_held_vowel_cannot_be_used_as_the_room_noise_floor(tmp_path):
+@pytest.mark.parametrize("frequency", [65, 220])
+def test_quiet_held_vowel_cannot_be_used_as_the_room_noise_floor(tmp_path, frequency):
     from backend.recordings.studio_adaptive_voice import prepare_voice
 
     rate = 16000
     time = np.arange(rate * 8) / rate
-    voice = np.where(time < 4, 0.3, 0.003) * np.sin(2 * np.pi * 220 * time)
+    voice = np.where(time < 4, 0.3, 0.003) * np.sin(2 * np.pi * frequency * time)
     source = _write(tmp_path / "quiet-held-vowel.wav", voice, rate)
     target = tmp_path / "prepared.wav"
     prepare_voice(_renderer(), source, target, threading.Event())
     output, _ = sf.read(target)
     assert _db_ratio(output[6 * rate :], voice[6 * rate :]) > -1
+
+
+@pytest.mark.parametrize("residue_kind", ["dc", "tonal"])
+@pytest.mark.parametrize("scale", [1.0, 0.05])
+def test_floor_residue_does_not_join_phrases_or_drive_clip_gain(tmp_path, residue_kind, scale):
+    from backend.recordings.studio_adaptive_features import analyze_voice
+    from backend.recordings.studio_adaptive_dynamics import preparation_gain
+
+    rate = 16000
+    time = np.arange(rate * 12) / rate
+    residue = 0.0001 * (1 + 0.8 * np.sin(2 * np.pi * 1.4 * time))
+    if residue_kind == "tonal":
+        residue *= np.sin(2 * np.pi * 130 * time)
+    phrases = ((time >= 3) & (time < 4.5)) | ((time >= 8) & (time < 9.5))
+    voice = 0.1 * np.sin(2 * np.pi * 220 * time) * phrases
+    source = _write(tmp_path / "separation-residue.wav", scale * (voice + residue), rate)
+    features = analyze_voice(source, threading.Event())
+    _, report = preparation_gain(features, None)
+    assert 2.9 <= features.active_seconds < 3.3
+    assert not features.active[features.times < 2.5].any()
+    assert features.low_edge_hz > 150
+    assert report["clipGain"]["phraseCount"] == 2
+    for point in report["clipGain"]["automation"]:
+        if point["seconds"] < 2.5 or 5 < point["seconds"] < 7.5:
+            assert abs(point["gainDb"]) < 0.01
+
+
+def test_dc_offset_cannot_protect_established_room_noise_as_a_vowel(tmp_path):
+    from backend.recordings.studio_adaptive_voice import prepare_voice
+
+    rate = 16000
+    time = np.arange(rate * 7) / rate
+    room = 0.001 + np.random.default_rng(803).normal(0, 0.0001, len(time))
+    voice = 0.1 * np.sin(2 * np.pi * 220 * time) * ((time >= 1) & (time < 2))
+    source = _write(tmp_path / "dc-room.wav", voice + room, rate)
+    target = tmp_path / "prepared.wav"
+    report = prepare_voice(_renderer(), source, target, threading.Event())
+    output, _ = sf.read(target)
+    assert _db_ratio(output[4 * rate : 5 * rate], room[4 * rate : 5 * rate]) < -2
+    assert report["cleanup"]["attenuatedSeconds"] > 2
+    assert _db_ratio(output[rate : 2 * rate], (voice + room)[rate : 2 * rate]) > -0.2
+
+
+def test_audible_intro_is_preserved_when_the_reference_is_still_silent(tmp_path):
+    from backend.recordings.studio_adaptive_voice import prepare_voice
+
+    rate = 16000
+    time = np.arange(rate * 7) / rate
+    carrier = np.sin(2 * np.pi * 220 * time)
+    intro = (time >= 1) & (time < 1.4)
+    phrase = (time >= 4) & (time < 6)
+    voice = carrier * (0.08 * intro + 0.1 * phrase) + 0.0001
+    source = _write(tmp_path / "independent-intro.wav", voice, rate)
+    reference = _write(tmp_path / "reference.wav", carrier * 0.1 * phrase, rate)
+    target = tmp_path / "prepared.wav"
+    prepare_voice(_renderer(), source, target, threading.Event(), reference=reference)
+    output, _ = sf.read(target)
+    assert abs(_db_ratio(output[intro], voice[intro])) < 0.2
+    assert output.shape == voice.shape
+
+
+@pytest.mark.parametrize("quiet_frequency", [40, 65])
+def test_quiet_bass_is_protected_by_the_full_insert_highpass(tmp_path, quiet_frequency):
+    from backend.recordings.studio_adaptive_voice import process_voice
+
+    rate = 16000
+    time = np.arange(rate * 8) / rate
+    voice = np.where(
+        time < 4,
+        0.3 * np.sin(2 * np.pi * 220 * time),
+        0.003 * np.sin(2 * np.pi * quiet_frequency * time),
+    )
+    source = _write(tmp_path / "quiet-bass.wav", voice, rate)
+    target = tmp_path / "processed.wav"
+    report = process_voice(_renderer(), source, target, threading.Event())
+    output, _ = sf.read(target)
+    assert _db_ratio(output[6 * rate :], voice[6 * rate :]) > -1.3
+    assert report["subtractiveEq"]["highpassHz"] < quiet_frequency * 0.65
 
 
 def test_split_band_deessing_reduces_sibilants_without_ducking_body(tmp_path):

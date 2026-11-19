@@ -41,7 +41,9 @@ class VoiceFeatures:
     rms_db: FloatArray
     peak_db: FloatArray
     bands_db: FloatArray
+    # Only significant signal drives processing plans; preservation can be broader.
     active: NDArray[np.bool_]
+    protected: NDArray[np.bool_]
     noise_floor_db: float
     noise_confident: bool
     frequencies: FloatArray
@@ -72,7 +74,9 @@ def active_mask(levels: FloatArray) -> tuple[NDArray[np.bool_], float, bool]:
     quiet = levels < floor + 1.8
     stationary = max((b - a for a, b in regions(quiet)), default=0) >= 18
     noise = bool(-108 < floor < -28 and high - floor >= 18 and stationary)
-    threshold = max(-110, min(floor + 6 if noise else high - 40, high - 35))
+    # Control statistics need significant signal. A low measured floor must not
+    # turn separation residue into a sung phrase or a target for clip gain.
+    threshold = max(-110, floor + 6 if noise else high - 35, high - 35)
     return levels > threshold, floor, noise
 
 
@@ -123,16 +127,22 @@ def _frame_statistics(
     powers = np.stack(
         [2 * np.sum(spectrum[:, mask], axis=1).mean(axis=1) / scale for mask in masks], axis=1
     )
-    linked = spectrum.sum(axis=2)
-    tonal = linked.max(axis=1) > 0.2 * np.maximum(linked.sum(axis=1), 1e-12)
-    return rms, peaks, 10 * np.log10(np.maximum(powers, 1e-12)), tonal
+    return rms, peaks, 10 * np.log10(np.maximum(powers, 1e-12)), _tonal_evidence(frames, window)
 
 
-def _spectrum_indices(active: NDArray[np.bool_]) -> NDArray[np.int64]:
+def _tonal_evidence(frames: FloatArray, window: FloatArray) -> NDArray[np.bool_]:
+    # DC and its window leakage are not a vowel. Demeaning only the analysis
+    # preserves the source samples and retains bass energy below 100 Hz.
+    centered = frames - np.mean(frames, axis=1, keepdims=True)
+    linked = np.sum(abs(np.fft.rfft(centered * window[None, :, None], axis=1)) ** 2, axis=2)
+    return np.asarray(linked.max(axis=1) > 0.2 * np.maximum(linked.sum(axis=1), 1e-12))
+
+
+def _spectrum_indices(active: NDArray[np.bool_], limit: int = 192) -> NDArray[np.int64]:
     indices = np.flatnonzero(active)
     if not indices.size:
         return np.asarray(indices, dtype=np.int64)
-    selected = np.unique(np.linspace(0, len(indices) - 1, min(192, len(indices))).astype(int))
+    selected = np.unique(np.linspace(0, len(indices) - 1, min(limit, len(indices))).astype(int))
     return np.asarray(indices[selected], dtype=np.int64)
 
 
@@ -185,9 +195,40 @@ def _low_edge(spectrum: FloatArray, frequencies: FloatArray) -> float | None:
     return float(frequencies[low_band][position])
 
 
+def _quiet_bass_frames(
+    rms: FloatArray, bands: FloatArray, tonal: NDArray[np.bool_], active: NDArray[np.bool_]
+) -> NDArray[np.bool_]:
+    if not active.any():
+        return np.zeros_like(active)
+    # Keep a quiet bass note out of dynamics statistics, but check its actual
+    # spectrum before selecting the high-pass. Near-floor residue is insufficient.
+    significant = rms > float(np.percentile(rms[active], 75)) - 50
+    return tonal & ~active & significant & (bands[:, 0] > rms - 12)
+
+
+def _quiet_low_edge(
+    audio: sf.SoundFile,
+    quiet: NDArray[np.bool_],
+    step: float,
+    window: FloatArray,
+    frequency: FloatArray,
+    cancel: threading.Event,
+) -> float | None:
+    if np.count_nonzero(quiet) < 3:
+        return None
+    edges = []
+    for index in _spectrum_indices(quiet, limit=48):
+        _check_cancel(cancel)
+        edge = _low_edge(_read_spectrum(audio, int(index), step, window), frequency)
+        if edge is not None:
+            edges.append(edge)
+    return float(np.percentile(edges, 10)) if edges else None
+
+
 def _spectral_summary(
     path: Path,
     active: NDArray[np.bool_],
+    quiet_bass: NDArray[np.bool_],
     step: float,
     cancel: threading.Event,
 ) -> tuple[FloatArray, FloatArray, FloatArray, float]:
@@ -213,11 +254,13 @@ def _spectral_summary(
             if edge is not None:
                 low_edges.append(edge)
         frames = np.asarray(summary, dtype=np.float64)
+        low = float(np.percentile(low_edges, 10)) if low_edges else 120.0
+        quiet_low = _quiet_low_edge(audio, quiet_bass, step, window, frequency, cancel)
         return (
             centers,
             np.median(frames, axis=0),
             frames,
-            float(np.percentile(low_edges, 10)) if low_edges else 120.0,
+            min(low, quiet_low) if quiet_low is not None else low,
         )
 
 
@@ -226,10 +269,11 @@ def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
     rms, peaks, bands, tonal, rate, frames, channels = _measure_blocks(path, cancel)
     step = max(1, round(rate * 0.02)) / rate
     active, floor, noise = active_mask(rms)
-    # A low, steady vowel is not a stationary room-noise measurement. This veto
-    # deliberately also preserves ambiguous tonal hum rather than erase singing.
-    active |= tonal & (rms > -100)
-    frequencies, spectrum, spectra, low = _spectral_summary(path, active, step, cancel)
+    # Ambiguous quiet tone can be preserved without influencing vocal statistics.
+    protected = active | (tonal & (rms > -100))
+    protected |= (rms > floor + 6) if noise else False
+    quiet_bass = _quiet_bass_frames(rms, bands, tonal, active)
+    frequencies, spectrum, spectra, low = _spectral_summary(path, active, quiet_bass, step, cancel)
     return VoiceFeatures(
         rate,
         frames,
@@ -240,6 +284,7 @@ def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
         peaks,
         bands,
         active,
+        protected,
         floor,
         noise,
         frequencies,
@@ -252,7 +297,7 @@ def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
 def protected_activity(features: VoiceFeatures, hold_seconds: float = 0.3) -> NDArray[np.bool_]:
     width = max(1, round(hold_seconds / features.step)) * 2 + 1
     return np.asarray(
-        maximum_filter1d(features.active.astype(np.int8), size=width, mode="nearest") > 0
+        maximum_filter1d(features.protected.astype(np.int8), size=width, mode="nearest") > 0
     )
 
 
@@ -262,6 +307,9 @@ def level_summary(features: VoiceFeatures) -> dict[str, float]:
         levels = features.rms_db
     return {
         "activeSeconds": round(features.active_seconds, 4),
+        "uncertainPreservedSeconds": float(
+            np.count_nonzero(features.protected & ~features.active) * features.step
+        ),
         "medianDbfs": float(np.median(levels)),
         "p10Dbfs": float(np.percentile(levels, 10)),
         "p90Dbfs": float(np.percentile(levels, 90)),

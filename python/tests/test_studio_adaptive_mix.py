@@ -92,7 +92,8 @@ def test_clean_quiet_capture_has_calibration_separate_from_local_boost(tmp_path,
     backing = wave(tmp_path, "backing", tone(hz=120))
     plan = plan_balance(vocal, backing, reference, backing, threading.Event())
     np.testing.assert_allclose(plan.gains[plan.active], 20, atol=0.05)
-    assert np.max(plan.gains[~plan.active], initial=0) <= 0
+    # The established input calibration remains constant through exact silence.
+    np.testing.assert_allclose(plan.gains, 20, atol=0.05)
     assert plan.report["inputCalibrationDb"] == pytest.approx(20, abs=0.05)
     assert plan.report["localAutomationLimitDb"] <= 9
     assert plan.report["totalGainLimitDb"] >= 20
@@ -113,7 +114,7 @@ def test_uncertain_noise_capture_does_not_receive_large_calibration(tmp_path, wi
     assert plan.report["limitedFraction"] > 0.9
 
 
-def test_balance_does_not_raise_silent_gaps_or_reject_short_singing(tmp_path):
+def test_balance_preserves_silent_samples_and_calibrates_short_singing(tmp_path):
     signal = np.zeros(16000 * 3)
     signal[16000:19200] = tone(seconds=0.2, gain=0.03)
     vocal = wave(tmp_path, "vocal", signal)
@@ -121,7 +122,8 @@ def test_balance_does_not_raise_silent_gaps_or_reject_short_singing(tmp_path):
     reference = wave(tmp_path, "ref", signal * 2)
     plan = plan_balance(vocal, backing, reference, backing, threading.Event())
     assert plan.active.any()
-    assert np.max(plan.gains[~plan.active], initial=0) <= 0
+    gains = np.interp(np.arange(len(signal)) / 16000, plan.times, plan.gains)
+    np.testing.assert_array_equal((signal * 10 ** (gains / 20))[signal == 0], 0)
     assert np.max(plan.gains[plan.active]) > 1
 
 
@@ -137,7 +139,7 @@ def test_one_matching_syllable_cannot_calibrate_unmatched_whole_song(tmp_path):
     np.testing.assert_array_equal(plan.gains, np.zeros_like(plan.gains))
 
 
-def test_reference_balance_does_not_extrapolate_into_unmatched_outro(tmp_path):
+def test_reference_balance_keeps_calibration_without_new_outro_targets(tmp_path):
     signal = tone(seconds=5)
     vocal = wave(tmp_path, "vocal", signal)
     backing = wave(tmp_path, "backing", tone(seconds=5, hz=120))
@@ -147,9 +149,8 @@ def test_reference_balance_does_not_extrapolate_into_unmatched_outro(tmp_path):
     plan = plan_balance(vocal, backing, reference, backing, threading.Event())
     assert plan.report["referenceUsed"]
     assert np.median(plan.gains[plan.times < 2.5]) > 5
-    np.testing.assert_array_equal(
-        plan.gains[plan.times > 3.5], np.zeros(np.count_nonzero(plan.times > 3.5))
-    )
+    np.testing.assert_allclose(plan.gains[plan.times > 3.5], 6.0206, atol=0.05)
+    assert plan.report["inputCalibrationDb"] == pytest.approx(6.0206, abs=0.05)
 
 
 def test_unmask_only_changes_overlapping_band_during_voice(tmp_path):
