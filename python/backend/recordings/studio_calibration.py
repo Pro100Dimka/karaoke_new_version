@@ -146,6 +146,34 @@ def _presence_correction(
     return np.asarray(gaussian_filter1d(correction, sigma=0.25 / _STEP, mode="nearest"))
 
 
+def _frame_voicing(
+    frames: np.ndarray, rate: int, transform: int, hz: np.ndarray
+) -> np.ndarray:
+    frames = frames - np.mean(frames, axis=1, keepdims=True)
+    power = np.sum(abs(np.fft.rfft(frames, n=transform, axis=1)) ** 2, axis=2)
+    # Keep low fundamentals intact. Cutting their windowed FFT lobes can turn
+    # out-of-range hum into spurious higher periodicity; the lag search below
+    # rejects low pitches without removing their original period evidence.
+    power[:, hz > 3500] = 0
+    correlation = np.fft.irfft(power, n=transform, axis=1)
+    low = max(1, round(rate / 500))
+    # A finite window can move a boundary tone's crest a few sample lags.
+    # Inspect a 1% neighborhood, but require a real crest rather than treating
+    # the rising correlation of slower mains hum as a voiced candidate.
+    high = int(np.ceil(rate / 70 * 1.01))
+    lags = np.arange(low - 1, high + 2)
+    # Divide by the rectangular window's autocorrelation: a long pitch period
+    # has fewer overlapping samples, not less periodic vocal energy.
+    overlap = np.maximum(1 - lags / frames.shape[1], 1e-9)
+    scores = correlation[:, lags] / np.maximum(correlation[:, [0]], 1e-20) / overlap
+    peaks = (scores[:, 1:-1] > scores[:, :-2]) & (scores[:, 1:-1] >= scores[:, 2:])
+    # Low-frequency noise can be correlated at short lags without a periodic
+    # peak. A partial final frame must also contain at least two periods.
+    peaks &= lags[1:-1] <= frames.shape[1] / 2
+    confidence = np.max(np.where(peaks, scores[:, 1:-1], 0), axis=1)
+    return np.asarray(np.clip(confidence, 0, 1), dtype=float)
+
+
 def _voicing_profile(voice: Path, cancel: threading.Event) -> np.ndarray:
     confidence = []
     with sf.SoundFile(voice) as source:
@@ -161,14 +189,8 @@ def _voicing_profile(voice: Path, cancel: threading.Event) -> np.ndarray:
             ):
                 if not frames.size:
                     continue
-                power = np.sum(abs(np.fft.rfft(frames, n=transform, axis=1)) ** 2, axis=2)
-                power[:, (hz < 150) | (hz > 3500)] = 0
-                correlation = np.fft.irfft(power, n=transform, axis=1)
-                low, high = max(1, round(source.samplerate / 500)), round(source.samplerate / 70)
-                peak = np.max(correlation[:, low:high], axis=1) / np.maximum(
-                    correlation[:, 0], 1e-20
-                )
-                confidence.extend(peak.tolist())
+                profile = _frame_voicing(frames, source.samplerate, transform, hz)
+                confidence.extend(profile.tolist())
     return np.asarray(confidence)
 
 
