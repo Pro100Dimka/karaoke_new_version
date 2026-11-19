@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { expect, it, vi } from 'vitest';
 import type { TrustedIpc } from './TrustedIpc';
 
@@ -107,7 +108,8 @@ it('keeps one display blocker while Karaoke asks for it and releases it afterwar
     requestRelaunch: vi.fn(),
   });
   const awake = (value: unknown) =>
-    handlers.get(ipcChannels.keepDisplayAwake)!({}, value);
+    handlers.get(ipcChannels.keepDisplayAwake)!({ sender }, value);
+  const sender = new EventEmitter();
 
   expect(awake(true)).toBe(true);
   expect(awake(true)).toBe(true);
@@ -124,3 +126,56 @@ it('keeps one display blocker while Karaoke asks for it and releases it afterwar
   expect(awake('yes')).toBe(false);
   expect(blocker.active.size).toBe(0);
 });
+
+it.each(['render-process-gone', 'destroyed', 'reload'])(
+  'releases the screen when its owning renderer ends through %s',
+  async (event) => {
+    const { registerDesktopIpc } = await import('./DesktopIpc');
+    const { ipcChannels } = await import('./ipcChannels');
+    const handlers = new Map<
+      string,
+      (event: unknown, ...args: unknown[]) => unknown
+    >();
+    registerDesktopIpc({
+      trustedIpc: {
+        handle: (channel: string, listener: never) =>
+          handlers.set(channel, listener),
+      } as unknown as TrustedIpc,
+      window: () => null,
+      storageRoot: () => '',
+      reveal: vi.fn(),
+      confirmClose: vi.fn(),
+      requestRelaunch: vi.fn(),
+    });
+    const sender = new EventEmitter();
+    const awake = (value: boolean) =>
+      handlers.get(ipcChannels.keepDisplayAwake)!({ sender }, value);
+    try {
+      awake(true);
+      sender.emit('did-start-navigation', {
+        isMainFrame: false,
+        isSameDocument: false,
+      });
+      sender.emit('did-start-navigation', {
+        isMainFrame: true,
+        isSameDocument: true,
+      });
+      expect(blocker.active.size).toBe(1);
+      if (event === 'reload')
+        sender.emit('did-start-navigation', {
+          isMainFrame: true,
+          isSameDocument: false,
+        });
+      else sender.emit(event);
+      expect(blocker.active.size).toBe(0);
+      expect(sender.eventNames()).toEqual([]);
+      // The replacement renderer may request a fresh blocker, with no leaked listeners.
+      expect(awake(true)).toBe(true);
+      awake(false);
+      expect(blocker.active.size).toBe(0);
+      expect(sender.eventNames()).toEqual([]);
+    } finally {
+      awake(false);
+    }
+  },
+);

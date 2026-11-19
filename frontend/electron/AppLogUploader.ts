@@ -28,9 +28,8 @@ const redact = (message: string): string =>
   message
     .replace(/([A-Z]:(?:\\{1,2}|\/)Users(?:\\{1,2}|\/))[^\\/\s]+/gi, '$1<user>')
     .replace(/(\/(?:home|Users)\/)[^/\s]+/g, '$1<user>')
-    .replace(/(X-AD-Voice-Room-Key\s*[:=]\s*)[^\s,;}]+/gi, '$1<redacted>')
     .replace(
-      /((?:"?(?:voiceToken|api[_-]?key|authorization)"?)\s*[=:]\s*["']?(?:Bearer\s+)?)[^"'\s,;}]+/gi,
+      /((?:["']?(?:X-AD-Voice-(?:Room-Key|Device)|voiceToken|api[_-]?key|authorization)["']?)\s*[=:]\s*["']?(?:(?:Bearer|Basic)\s+)?)[^"'\s,;}]+/gi,
       '$1<redacted>',
     )
     .replace(

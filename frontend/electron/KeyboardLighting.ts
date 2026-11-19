@@ -43,6 +43,8 @@ const clampPercentage = (value: number): number =>
 
 export class OpenRgbKeyboardLighting {
   private keyboards: OpenRgbKeyboard[] = [];
+  private pending: Promise<void> = Promise.resolve();
+  private revision = 0;
 
   constructor(
     executable: string,
@@ -75,7 +77,19 @@ export class OpenRgbKeyboardLighting {
     };
   }
 
-  async apply(request: KeyboardLightingRequest): Promise<void> {
+  apply(request: KeyboardLightingRequest): Promise<void> {
+    const revision = ++this.revision;
+    const applied = this.pending.then(async () => {
+      // A slow CLI command must finish before a newer setting can take effect. While it
+      // runs, music animation frames may pile up; only the newest pending state matters.
+      if (revision !== this.revision) return;
+      await this.applyCurrent(request);
+    });
+    this.pending = applied.catch(() => undefined);
+    return applied;
+  }
+
+  private async applyCurrent(request: KeyboardLightingRequest): Promise<void> {
     if (!this.keyboards.length && !(await this.capabilities()).available) {
       if (request.enabled) throw new Error('Keyboard lighting is unavailable');
       return;

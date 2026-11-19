@@ -171,13 +171,32 @@ const registerWindowControls = ({
   // Nobody touches the mouse or keyboard while singing; Windows must not dim or switch off the
   // screen in the middle of a song. One blocker at most, released as soon as Karaoke closes.
   let displayBlocker: number | null = null;
-  trustedIpc.handle(ipcChannels.keepDisplayAwake, (_event, awake: unknown) => {
-    if (awake === true && displayBlocker === null)
+  let displayOwner: BrowserWindow['webContents'] | undefined;
+  const releaseDisplayBlocker = () => {
+    if (displayBlocker !== null) powerSaveBlocker.stop(displayBlocker);
+    displayBlocker = null;
+    displayOwner?.removeListener('destroyed', releaseDisplayBlocker);
+    displayOwner?.removeListener('render-process-gone', releaseDisplayBlocker);
+    displayOwner?.removeListener('did-start-navigation', releaseOnNavigation);
+    displayOwner = undefined;
+  };
+  const releaseOnNavigation = (navigation: {
+    isMainFrame: boolean;
+    isSameDocument: boolean;
+  }) => {
+    if (navigation.isMainFrame && !navigation.isSameDocument)
+      releaseDisplayBlocker();
+  };
+  trustedIpc.handle(ipcChannels.keepDisplayAwake, (event, awake: unknown) => {
+    if (displayOwner && displayOwner !== event.sender) releaseDisplayBlocker();
+    if (awake === true && displayBlocker === null) {
       displayBlocker = powerSaveBlocker.start('prevent-display-sleep');
-    else if (awake !== true && displayBlocker !== null) {
-      powerSaveBlocker.stop(displayBlocker);
-      displayBlocker = null;
-    }
+      // Crashes and reloads cannot run React's cleanup; the lease belongs to this renderer.
+      displayOwner = event.sender;
+      displayOwner.once('destroyed', releaseDisplayBlocker);
+      displayOwner.once('render-process-gone', releaseDisplayBlocker);
+      displayOwner.on('did-start-navigation', releaseOnNavigation);
+    } else if (awake !== true) releaseDisplayBlocker();
     return displayBlocker !== null;
   });
   // The taskbar icon follows the active theme, like the icon inside the application.

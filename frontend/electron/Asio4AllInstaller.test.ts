@@ -61,3 +61,55 @@ it('never launches a download whose checksum does not match the pinned release',
   ).rejects.toThrow(/checksum/i);
   expect(openPath).not.toHaveBeenCalled();
 });
+
+it('stops a headerless oversized download before buffering the whole response', async () => {
+  const chunk = new Uint8Array(1024 * 1024);
+  const { root, release } = await setup(chunk);
+  const openPath = vi.fn(async () => '');
+  const cancel = vi.fn();
+  let chunks = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (++chunks <= 16) controller.enqueue(chunk);
+      else controller.close();
+    },
+    cancel,
+  });
+  await expect(
+    launchAsio4AllInstaller(
+      root,
+      openPath,
+      release,
+      vi.fn(async () => new Response(stream)),
+    ),
+  ).rejects.toThrow(/size|large/i);
+  expect(chunks).toBeLessThan(16);
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(openPath).not.toHaveBeenCalled();
+});
+
+it.each(['http-error', 'oversized-header'])(
+  'releases an unread response rejected for %s',
+  async (failure) => {
+    const { root, release } = await setup(new Uint8Array([1]));
+    const openPath = vi.fn(async () => '');
+    const cancel = vi.fn();
+    const response = new Response(new ReadableStream({ cancel }), {
+      status: failure === 'http-error' ? 503 : 200,
+      headers:
+        failure === 'oversized-header'
+          ? { 'content-length': String(9 * 1024 * 1024) }
+          : {},
+    });
+    await expect(
+      launchAsio4AllInstaller(
+        root,
+        openPath,
+        release,
+        vi.fn(async () => response),
+      ),
+    ).rejects.toThrow();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(openPath).not.toHaveBeenCalled();
+  },
+);

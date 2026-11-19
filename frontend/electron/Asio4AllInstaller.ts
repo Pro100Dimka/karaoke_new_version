@@ -19,6 +19,28 @@ const asio4AllRelease: Asio4AllRelease = {
 
 const maximumInstallerBytes = 8 * 1024 * 1024;
 
+const readInstaller = async (response: Response): Promise<Buffer> => {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('ASIO4ALL installer has an invalid size');
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > maximumInstallerBytes)
+        throw new Error('ASIO4ALL installer is unexpectedly large');
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+  if (!size) throw new Error('ASIO4ALL installer has an invalid size');
+  return Buffer.concat(chunks, size);
+};
+
 export const launchAsio4AllInstaller = async (
   root: string,
   openPath: (path: string) => Promise<string>,
@@ -36,14 +58,16 @@ export const launchAsio4AllInstaller = async (
     signal: AbortSignal.timeout(120_000),
     redirect: 'error',
   });
-  if (!response.ok)
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
     throw new Error(`ASIO4ALL download failed (${response.status})`);
+  }
   const declared = Number(response.headers.get('content-length') ?? 0);
-  if (declared > maximumInstallerBytes)
+  if (declared > maximumInstallerBytes) {
+    await response.body?.cancel().catch(() => undefined);
     throw new Error('ASIO4ALL installer is unexpectedly large');
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (!bytes.length || bytes.length > maximumInstallerBytes)
-    throw new Error('ASIO4ALL installer has an invalid size');
+  }
+  const bytes = await readInstaller(response);
   const checksum = createHash('sha256').update(bytes).digest('hex');
   if (checksum.toLowerCase() !== release.sha256.toLowerCase())
     throw new Error('ASIO4ALL installer checksum mismatch');

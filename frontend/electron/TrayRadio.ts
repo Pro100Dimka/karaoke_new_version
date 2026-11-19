@@ -122,7 +122,7 @@ export const createTrayRadio = ({
     );
   };
 
-  shell.onStatus((status) => sync(status));
+  const unsubscribe = shell.onStatus((status) => sync(status));
 
   return {
     /**
@@ -139,9 +139,11 @@ export const createTrayRadio = ({
         status.radio.enabled
       ))
         return false;
+      sync(status);
+      // Closing may hide the window only after there is a visible way to bring it back.
+      if (!tray) return false;
       hiddenToTray = true;
       current.hide();
-      sync(status);
       if (!toldOnce) {
         toldOnce = true;
         notify('A&D Voice', shellText(status.language, 'trayStillPlaying'));
@@ -149,6 +151,7 @@ export const createTrayRadio = ({
       return true;
     },
     destroy(): void {
+      unsubscribe();
       tray?.destroy();
       tray = null;
     },

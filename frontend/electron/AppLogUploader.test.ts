@@ -218,6 +218,25 @@ it('redacts JSON credentials and token query parameters', async () => {
   expect(message).toContain('<redacted>');
 });
 
+it.each([
+  '{"X-AD-Voice-Room-Key":"private-room-key"}',
+  "{'X-AD-Voice-Room-Key': 'private-room-key'}",
+  '{"X-AD-Voice-Device":"private-device-secret"}',
+  'X-AD-Voice-Device: private-device-secret',
+  "{'apiKey': 'private-api-key', 'voiceToken': 'private-voice-token'}",
+  '{"Authorization":"Basic private-basic-credential"}',
+])(
+  'redacts authentication credentials in structured diagnostics: %s',
+  async (details) => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const logs = new AppLogUploader(send);
+    logs.add('electron', 'error', details);
+    await logs.flush();
+    expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
+    expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+  },
+);
+
 it('redacts escaped Windows home paths in Python tracebacks and retains their severity', async () => {
   const send = vi.fn().mockResolvedValue(undefined);
   const logs = new AppLogUploader(send);
