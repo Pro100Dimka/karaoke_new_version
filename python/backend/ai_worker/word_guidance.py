@@ -4,6 +4,11 @@ from dataclasses import dataclass, replace
 import numpy as np
 import torch
 from backend.ai_worker import ctc
+from backend.ai_worker.guidance_neighbors import (
+    _bridge_candidates,
+    _clips_supported_anchor,
+    _phrase_timings,
+)
 
 from backend.ai_worker.guidance_phrases import (
     _best_phrase_match as _best_phrase_match,
@@ -155,10 +160,14 @@ class _GuidancePass:
 
     def apply(self, result: list[ctc.AlignedWord], window: ctc.Window) -> None:
         phrase, local = self._phrase(window)
-        timings = dict(self.heard) | local
+        timings = _phrase_timings(self.heard, local)
         first, last = max(0, window.first - 1), min(len(self.words), window.last + 1)
         options = [[word] for word in result[first:last]]
         self._add_alternatives(options, first, window, phrase, timings)
+        for offset, candidate in _bridge_candidates(
+            options, self.scores, self.frame_seconds, self.voiced
+        ):
+            options[offset].append(candidate)
         boundary = _boundary_pair(
             result,
             self.scores,
@@ -181,6 +190,8 @@ class _GuidancePass:
             self.voiced,
             margin=self.margin,
             boundary=boundary,
+            scores=self.scores,
+            frame_seconds=self.frame_seconds,
         )
         self._mark_entries(result, window, timings)
 
@@ -266,6 +277,8 @@ def _select_sequence(
     *,
     margin: float = 0.6,
     boundary: tuple[int, ctc.AlignedWord, ctc.AlignedWord] | None = None,
+    scores: torch.Tensor | None = None,
+    frame_seconds: float | None = None,
 ) -> list[ctc.AlignedWord]:
     """Choose word cores jointly; an improvement cannot crush or reverse a neighbour."""
     baseline = ctc.ordered(original)
@@ -278,7 +291,10 @@ def _select_sequence(
             paths = [
                 (cost + distance, confidence - word.score, [*path, word])
                 for cost, confidence, path in states
-                if not path or _compatible(path[-1], word, baseline[index - 1], voiced)
+                if not path
+                or _compatible(
+                    path[-1], word, baseline[index - 1], voiced, scores=scores, step=frame_seconds
+                )
                 if boundary is None
                 or first + index != boundary[0] + 1
                 or (path[-1] == boundary[1]) == (word == boundary[2])
@@ -305,12 +321,18 @@ def _compatible(
     right: ctc.AlignedWord,
     original: ctc.AlignedWord,
     voiced: np.ndarray,
+    *,
+    scores: torch.Tensor | None = None,
+    step: float | None = None,
 ) -> bool:
     return (
         left.start < right.start
         # Separate crops can reuse the same consonant. A closer recognition
         # span cannot remove a supported letter from the preceding word.
-        and (left.score <= ctc._PREFERENCE or not ctc._clips_letter_anchor(left, right.start))
+        and (
+            left.score <= ctc._PREFERENCE
+            or not _clips_supported_anchor(left, right.start, scores, step)
+        )
         and ctc._implausible([ctc.ordered([left, right])[0]], voiced)
         <= ctc._implausible([original], voiced)
     )
