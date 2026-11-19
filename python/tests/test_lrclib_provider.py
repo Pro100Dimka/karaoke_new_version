@@ -585,7 +585,7 @@ def test_fallback_catalog_finds_balabama_lyrics_and_matches_transliterated_artis
 
     candidates = provider.search(song, Language.AUTO, threading.Event())
 
-    assert len(candidates) == 1
+    assert {candidate.artist for candidate in candidates} == {"Другой", "Балабама"}
     discovery = LyricsDiscovery(_NoSidecar(), (provider,), LyricsMatchPolicy())
     provider.search = lambda *_: candidates  # type: ignore[method-assign]
     result = discovery.discover(

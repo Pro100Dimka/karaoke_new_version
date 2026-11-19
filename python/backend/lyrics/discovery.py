@@ -3,12 +3,18 @@ from __future__ import annotations
 import threading
 from collections import Counter
 from dataclasses import dataclass, replace
-from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Sequence
 
 from backend.ai.ports import AiProvider, BatchTranscriber
 from backend.domain_errors import DependencyError, DomainError
+from backend.lyrics.catalogue_lookup import (
+    CatalogueCache,
+    LyricsMatchPolicy as LyricsMatchPolicy,
+    matches_metadata,
+    select_catalogue,
+    supported_alternative,
+)
 from backend.lyrics.codec import (
     decode_document,
     decode_timing_hints,
@@ -30,11 +36,8 @@ from backend.lyrics.phrases import (
     performed_phrases as performed_phrases,
 )
 from backend.projects.ports import ProjectStorage
-from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import (
-    normalize_catalog_identity,
     clean_lyrics,
-    strip_annotations,
     strip_catalog_credits,
 )
 from backend.lyrics.ports import (
@@ -45,12 +48,6 @@ from backend.lyrics.ports import (
 )
 from backend.songs.domain import Language, Song
 from backend.processing.compute_policy import ExecutionContext
-
-
-@dataclass(frozen=True, slots=True)
-class LyricsMatchPolicy:
-    duration_tolerance_seconds: float = 8.0
-    duration_tolerance_fraction: float = 0.10
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +67,7 @@ class PreparedLyrics:
     found: LyricsDiscoveryResult | None
     warnings: tuple[str, ...]
     transcripts: tuple[str, ...] | None = None
+    online_candidates: tuple[tuple[int, tuple[LyricsCandidate, ...]], ...] = ()
 
 
 def lyrics_ending_start(song: Song, found: LyricsDiscoveryResult | None) -> float | None:
@@ -127,10 +125,15 @@ class LyricsDiscovery:
     def lookup(self, song: Song, cancel: threading.Event, online_enabled: bool) -> PreparedLyrics:
         local = self._local(song)
         warnings: list[str] = []
+        cache: CatalogueCache = {}
         previous = self._previous(song, warnings) if local is None else None
         found = (
             local
-            or (self._from_online(song, cancel, warnings, previous) if online_enabled else None)
+            or (
+                self._from_online(song, cancel, warnings, previous, cache=cache)
+                if online_enabled
+                else None
+            )
             or previous
         )
         if found:
@@ -143,7 +146,7 @@ class LyricsDiscovery:
                     for hint in found.timing_hints
                 ),
             )
-        return PreparedLyrics(found, tuple(warnings))
+        return PreparedLyrics(found, tuple(warnings), online_candidates=tuple(cache.items()))
 
     def _performed(
         self,
@@ -159,16 +162,13 @@ class LyricsDiscovery:
         recognized, ending = self._transcripts(
             song, sources, asr, cancel, found, execution, source.transcripts
         )
-        language = lyrics_language(song, found.lyrics if found else "")
         transcripts = [
-            clean_lyrics(lyrics, language.value if found else lyrics_language(song, lyrics).value)
+            clean_lyrics(lyrics, lyrics_language(song, found.lyrics if found else lyrics).value)
             for lyrics in recognized
         ]
-        found = self._recognized_version(song, found, transcripts)
-        if source.found is not None and found is None:
-            warnings.append("LyricsCatalogRejected")
-            if online_enabled:
-                found = self._from_online(song, cancel, warnings, transcripts=transcripts)
+        found = self._recognized_catalogue(
+            song, source, transcripts, cancel, warnings, online_enabled
+        )
         for lyrics in transcripts:
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
@@ -184,6 +184,28 @@ class LyricsDiscovery:
                 found.repeat_baseline or found.lyrics, found.repeat_baseline_hints
             ),
         )
+
+    def _recognized_catalogue(
+        self,
+        song: Song,
+        source: PreparedLyrics,
+        transcripts: Sequence[str],
+        cancel: threading.Event,
+        warnings: list[str],
+        online_enabled: bool,
+    ) -> LyricsDiscoveryResult | None:
+        found = self._recognized_version(song, source.found, transcripts)
+        if source.found is not None and found is None:
+            warnings.append("LyricsCatalogRejected")
+        if found is None and online_enabled:
+            return self._from_online(
+                song,
+                cancel,
+                warnings,
+                transcripts=transcripts,
+                cache=dict(source.online_candidates),
+            )
+        return found
 
     def _transcripts(
         self,
@@ -253,6 +275,7 @@ class LyricsDiscovery:
             item
             for item in found.alternatives
             if _catalog_matches_performance(item.lyrics, transcripts)
+            and supported_alternative(song, item, found.lyrics, self._policy, transcripts)
         )
         if not alternatives:
             return (
@@ -341,33 +364,30 @@ class LyricsDiscovery:
         previous: LyricsDiscoveryResult | None = None,
         *,
         transcripts: Sequence[str] = (),
+        cache: CatalogueCache | None = None,
     ) -> LyricsDiscoveryResult | None:
-        for provider in self._online:
-            try:
-                candidates = provider.search(song, song.language, cancel)
-            except DependencyError as exc:
-                warnings.append(f"{provider.provider_id}:{exc.code}")
-                continue
-            candidates = tuple(
-                item
-                for item in candidates
-                if _catalog_matches_performance(item.lyrics, transcripts)
-            )
-            matches = [item for item in candidates if self._matches(song, item)]
-            if matches:
-                eligible = [
-                    item for item in candidates if self._matches(song, item, check_artist=False)
-                ]
-                return self._select_version(
-                    song,
-                    eligible,
-                    matches[0],
-                    previous,
-                    warnings,
-                    provider.provider_id,
-                    transcripts,
-                )
-        return None
+        selected = select_catalogue(
+            self._online,
+            song,
+            self._policy,
+            cancel,
+            warnings,
+            {} if cache is None else cache,
+            transcripts,
+        )
+        if selected is None:
+            return None
+        if not matches_metadata(song, selected.matched, self._policy):
+            previous = None
+        return self._select_version(
+            song,
+            selected.candidates,
+            selected.matched,
+            previous,
+            warnings,
+            selected.source,
+            transcripts,
+        )
 
     def _select_version(
         self,
@@ -409,45 +429,12 @@ class LyricsDiscovery:
             tuple(dict.fromkeys([matched, *eligible])),
         )
 
-    def _matches(
-        self,
-        song: Song,
-        candidate: LyricsCandidate,
-        *,
-        check_artist: bool = True,
-    ) -> bool:
-        if not _similar(song.title, candidate.title):
-            return False
-        if (
-            check_artist
-            and song.artist != UNKNOWN_ARTIST
-            and not _similar(song.artist, candidate.artist)
-        ):
-            return False
-        if song.duration is None or candidate.duration is None:
-            return True
-        tolerance = max(
-            self._policy.duration_tolerance_seconds,
-            song.duration * self._policy.duration_tolerance_fraction,
-        )
-        return abs(song.duration - candidate.duration) <= tolerance
-
 
 def _cached_catalog_text(lyrics: str, saved: object, hints: tuple[LyricLineTiming, ...]) -> str:
     text = saved if isinstance(saved, str) and saved.split() == lyrics.split() else lyrics
     catalog = "\n".join(hint.text for hint in hints)
     # Recover phrase boundaries only when the complete catalogue has the same words.
     return strip_catalog_credits(catalog if catalog.split() == text.split() else text)
-
-
-_SIMILARITY = 0.84
-
-
-def _similar(expected: str, actual: str) -> bool:
-    """Catalog titles differ from file names by brackets, case and punctuation, so names are compared loosely."""
-    left = normalize_catalog_identity(strip_annotations(expected))
-    right = normalize_catalog_identity(strip_annotations(actual))
-    return bool(left) and bool(right) and SequenceMatcher(None, left, right).ratio() >= _SIMILARITY
 
 
 def lyrics_language(song: Song, lyrics: str = "") -> Language:

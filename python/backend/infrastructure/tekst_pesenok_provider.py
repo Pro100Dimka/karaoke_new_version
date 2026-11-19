@@ -64,28 +64,57 @@ class TekstPesenokLyricsProvider:
         title = strip_annotations(song.title)
         queries = (f"{song.artist} {title}".strip(), title)
         seen: set[str] = set()
+        candidates: list[LyricsCandidate] = []
+        failures: list[DependencyError] = []
         for query in queries:
             if cancel.is_set():
                 return ()
-            candidates: list[LyricsCandidate] = []
-            for url in self._search_urls(query):
-                if cancel.is_set():
-                    return ()
-                if url in seen:
-                    continue
-                seen.add(url)
-                candidate = self._candidate(url)
-                if candidate and _relevant(song, candidate):
-                    candidates.append(candidate)
-            if candidates:
+            try:
+                candidates.extend(self._query_candidates(song, query, seen, cancel, failures))
+            except DependencyError as exc:
+                if exc.code == "ProviderRateLimited":
+                    raise
+                failures.append(exc)
+            if cancel.is_set():
+                return ()
+            if any(_relevant(song, candidate) for candidate in candidates):
                 return tuple(candidates)
-        return ()
+        if not candidates and failures:
+            raise failures[-1]
+        return tuple(candidates)
 
-    def _search_urls(self, query: str) -> tuple[str, ...]:
+    def _query_candidates(
+        self,
+        song: Song,
+        query: str,
+        seen: set[str],
+        cancel: threading.Event,
+        failures: list[DependencyError],
+    ) -> tuple[LyricsCandidate, ...]:
+        candidates = []
+        for url in self._search_urls(query, song.title):
+            if cancel.is_set():
+                return ()
+            if url in seen:
+                continue
+            seen.add(url)
+            try:
+                candidate = self._candidate(url)
+            except DependencyError as exc:
+                if exc.code == "ProviderRateLimited":
+                    raise
+                failures.append(exc)
+                continue
+            if candidate and _similar(song.title, candidate.title):
+                candidates.append(candidate)
+        return tuple(candidates)
+
+    def _search_urls(self, query: str, title: str) -> tuple[str, ...]:
         page = self._fetch_page(f"{self._base_url}/?{urllib.parse.urlencode({'s': query})}")
         return tuple(
             urllib.parse.urljoin(f"{self._base_url}/", match.group("url"))
             for match in _SEARCH_ROW.finditer(page)
+            if _similar(title, _clean_html_lyrics(match.group("title")))
         )
 
     def _candidate(self, url: str) -> LyricsCandidate | None:
@@ -143,9 +172,10 @@ def _clean_html_lyrics(value: str) -> str:
 
 
 def _relevant(song: Song, candidate: LyricsCandidate) -> bool:
-    def similar(left: str, right: str) -> bool:
-        expected = normalize_catalog_identity(strip_annotations(left))
-        actual = normalize_catalog_identity(strip_annotations(right))
-        return bool(expected and actual) and SequenceMatcher(None, expected, actual).ratio() >= 0.84
+    return _similar(song.title, candidate.title) and _similar(song.artist, candidate.artist)
 
-    return similar(song.title, candidate.title) and similar(song.artist, candidate.artist)
+
+def _similar(left: str, right: str) -> bool:
+    expected = normalize_catalog_identity(strip_annotations(left))
+    actual = normalize_catalog_identity(strip_annotations(right))
+    return bool(expected and actual) and SequenceMatcher(None, expected, actual).ratio() >= 0.84
