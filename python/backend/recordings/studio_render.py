@@ -36,6 +36,8 @@ from backend.recordings.studio_calibration import (
 from backend.recordings.studio_voice import shape_voice, integrate_voice, prepare_voice
 from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
+from backend.recordings.studio_layers import apply_reference_layers
+from backend.ai.domain import PitchPoint
 
 
 @dataclass(slots=True)
@@ -54,6 +56,7 @@ class MasterRender:
     adjustments: Sequence[Mapping[str, object]]
     progress: Callable[[str, float, float], None] | None
     pitch: PitchAnalyzer | None = None
+    reference_pitch: Sequence[PitchPoint] = field(default=(), init=False)
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
     backing: Path = field(init=False)
@@ -344,6 +347,7 @@ class MasterRender:
         self.reliable = np.interp(self.times, self.plan.times, self.plan.active.astype(float)) > 0.5
 
     def _finish_voice(self) -> None:
+        direct = self.balanced
         target = self.work / "spatial-voice.wav"
         effects = apply_reference_space(
             self.renderer,
@@ -370,6 +374,7 @@ class MasterRender:
             reference_timing=(self.times, self.source_times) if self.timing_known else None,
         )
         self.processing["voiceOutputGainDb"] = 0.0
+        apply_reference_layers(self, direct)
 
     def _balance_report(self) -> StudioMasterBalance:
         output_info = sf.info(self.target)

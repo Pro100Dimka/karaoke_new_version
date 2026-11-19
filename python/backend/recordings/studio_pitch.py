@@ -31,6 +31,7 @@ class PitchRender(Protocol):
     info: sf._SoundFileInfo
     output_channels: int
     pitch: PitchAnalyzer | None
+    reference_pitch: Sequence[PitchPoint]
     timing_known: bool
     reliable: NDArray[np.bool_]
     voice_db: NDArray[np.float64]
@@ -252,6 +253,7 @@ def apply_reference_pitch(render: PitchRender) -> dict[str, object]:
     if render.progress:
         render.progress("ReferencePitchAnalysis", 0.0, 0.69)
     reference = render.pitch(render.reference_vocal)
+    render.reference_pitch = reference
     times, correction, voice, target, eligible = _pitch_curve(render, actual, reference)
     corrected = int(np.count_nonzero(abs(correction) > 0.1))
     if corrected < 30:
