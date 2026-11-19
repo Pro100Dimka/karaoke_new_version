@@ -66,6 +66,8 @@ body:has(.titleBarFullscreen) dialog.ad-dialog > header {
   justify-content: flex-end;
   -webkit-app-region: drag;
   height: var(--title);
+  /* Native popovers default to auto; pressed window buttons must not scroll the toolbar. */
+  overflow: visible;
   margin: 0;
   padding: 0;
   border: 0;
