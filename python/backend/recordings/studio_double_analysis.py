@@ -173,7 +173,7 @@ def _region(
     total_gain = min(0.35, 2 * 10 ** (side_db / 20))
     depth = float(np.clip(np.percentile(abs(evidence.detune[anchors]), 75) * 0.1, 1, 4))
     confidence = float(np.clip(np.median(evidence.similarity[anchors]), 0, 1))
-    return _double_pair(start, end, total_gain, depth, confidence), {
+    return _double_pair(start, end, total_gain, depth, confidence, side_db), {
         "start": start,
         "end": end,
         "strongFrames": len(anchors),
@@ -185,7 +185,7 @@ def _region(
 
 
 def _double_pair(
-    start: float, end: float, total_gain: float, depth: float, confidence: float
+    start: float, end: float, total_gain: float, depth: float, confidence: float, side_db: float
 ) -> list[VocalLayerRegion]:
     """Reconstruct an estimated pair; these delays are not measured source timing."""
     return [
@@ -198,8 +198,9 @@ def _double_pair(
             pan=pan,
             modulation_ms=depth,
             confidence=confidence,
+            target_side_to_mid_db=side_db,
         )
-        for delay, pan in ((20, -0.75), (27, 0.75))
+        for delay, pan in ((20, -1.0), (27, 1.0))
     ]
 
 

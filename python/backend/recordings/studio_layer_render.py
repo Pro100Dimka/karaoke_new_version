@@ -18,9 +18,48 @@ from scipy.ndimage import distance_transform_edt
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _temporary_wave
 from backend.recordings.studio_doubling import render_double_layers
+from backend.recordings.studio_double_calibration import (
+    DoubleCalibration,
+    calibrate_double_return,
+    calibration_report,
+    sum_with_double_budget,
+)
 from backend.recordings.studio_layer_types import VocalLayerRegion
 
 _BLOCK = 32768
+
+
+def _valid_target(region: VocalLayerRegion) -> bool:
+    target = region.target_side_to_mid_db
+    return target is None or (
+        region.kind == "double" and math.isfinite(target) and -30 < target < -3
+    )
+
+
+def _paired_targets(regions: list[VocalLayerRegion]) -> list[VocalLayerRegion]:
+    automatic = [region for region in regions if region.target_side_to_mid_db is not None]
+    accepted = []
+    for start, end in {(region.start, region.end) for region in automatic}:
+        pair = [region for region in automatic if (region.start, region.end) == (start, end)]
+        if (
+            len(pair) == 2
+            and pair[0].pan * pair[1].pan < 0
+            and pair[0].target_side_to_mid_db == pair[1].target_side_to_mid_db
+        ):
+            accepted.extend(pair)
+    return [
+        region for region in regions if region.target_side_to_mid_db is None or region in accepted
+    ]
+
+
+def _supported_kind(region: VocalLayerRegion) -> bool:
+    if region.kind == "octave":
+        return region.semitones in (-12, 12) and not region.modulation_ms
+    return (
+        region.kind == "double"
+        and region.semitones == 0
+        and region.delay_ms >= region.modulation_ms
+    )
 
 
 def _valid_regions(regions: Sequence[VocalLayerRegion], duration: float) -> list[VocalLayerRegion]:
@@ -36,7 +75,7 @@ def _valid_regions(regions: Sequence[VocalLayerRegion], duration: float) -> list
             region.modulation_ms,
             region.confidence,
         )
-        if not all(math.isfinite(value) for value in values):
+        if not all(math.isfinite(value) for value in values) or not _valid_target(region):
             continue
         if not (0 <= region.start < region.end <= duration and 0 < region.gain <= 1):
             continue
@@ -44,15 +83,9 @@ def _valid_regions(regions: Sequence[VocalLayerRegion], duration: float) -> list
             continue
         if not (0 <= region.modulation_ms <= 20 and 0 < region.confidence <= 1):
             continue
-        if region.kind == "octave" and region.semitones in (-12, 12) and not region.modulation_ms:
+        if _supported_kind(region):
             result.append(region)
-        elif (
-            region.kind == "double"
-            and region.semitones == 0
-            and region.delay_ms >= region.modulation_ms
-        ):
-            result.append(region)
-    return result
+    return _paired_targets(result)
 
 
 def _read_context(audio: sf.SoundFile, start: int, count: int) -> NDArray[np.float64]:
@@ -282,21 +315,75 @@ def _render_returns(
     paths, octave = _octave_returns(
         renderer, direct, work, regions, info.channels, (times, weights), energy, cancel
     )
-    doubles = [region for region in regions if region.kind == "double"]
-    double: dict[str, object] = {"applied": False}
-    if doubles:
-        path = work / "double-return.wav"
-        double = render_double_layers(direct, path, doubles, cancel, channels=info.channels)
+    path, double, calibration = _double_return(
+        direct, finished, work, regions, info.channels, (times, weights), cancel
+    )
+    if path is not None:
         paths.append(path)
     wet_peak = _wet_peak(paths, info.frames, info.channels, cancel)
     if wet_peak <= 1e-12:
-        return {"applied": False, "reason": "silent-layer-return"}
+        return _silent_return(calibration)
     gain = min(1.0, peak / wet_peak)
     mixed = work / "mixed.wav"
-    _sum_returns(finished, paths, mixed, gain, cancel)
+    budget = _sum_layer_returns(finished, paths, mixed, gain, calibration, cancel)
     _check_cancel(cancel)
     mixed.replace(target)
-    return {"applied": True, "wetPeakGain": gain, "octaveReturns": octave, "doubling": double}
+    return {
+        "applied": True,
+        "wetPeakGain": gain,
+        "octaveReturns": octave,
+        "doubling": double,
+        **budget,
+    }
+
+
+def _silent_return(calibration: DoubleCalibration | None) -> dict[str, object]:
+    return {
+        "applied": False,
+        "reason": "silent-layer-return",
+        "doublingCalibration": calibration_report(calibration)
+        if calibration
+        else {"applied": False},
+    }
+
+
+def _double_return(
+    direct: Path,
+    finished: Path,
+    work: Path,
+    regions: Sequence[VocalLayerRegion],
+    channels: int,
+    activity: tuple[NDArray[np.float64], NDArray[np.float64]],
+    cancel: threading.Event,
+) -> tuple[Path | None, dict[str, object], DoubleCalibration | None]:
+    doubles = [region for region in regions if region.kind == "double"]
+    if not doubles:
+        return None, {"applied": False}, None
+    path = work / "double-return.wav"
+    report = render_double_layers(
+        direct, path, doubles, cancel, channels=channels, activity=activity
+    )
+    calibration = None
+    if any(region.target_side_to_mid_db is not None for region in doubles):
+        calibration = calibrate_double_return(
+            finished, path, work / "calibrated-double.wav", regions, activity, cancel
+        )
+        path = calibration.path
+    return path, report, calibration
+
+
+def _sum_layer_returns(
+    finished: Path,
+    paths: Sequence[Path],
+    target: Path,
+    gain: float,
+    calibration: DoubleCalibration | None,
+    cancel: threading.Event,
+) -> dict[str, object]:
+    if calibration is not None:
+        return sum_with_double_budget(finished, paths, target, gain, calibration, cancel)
+    _sum_returns(finished, paths, target, gain, cancel)
+    return {}
 
 
 def render_vocal_layers(

@@ -120,12 +120,30 @@ def _layer(
     time: NDArray[np.float64],
     rate: int,
     region: VocalLayerRegion,
+    activity: tuple[NDArray[np.float64], NDArray[np.float64]] | None,
 ) -> NDArray[np.float64]:
     source_time = time - _delay_seconds(time, region)
     delayed = _fractional_delay(context, source_time * rate, first)
     gain = _region_gain(time, source_time, region) * region.gain
+    if activity is not None and region.target_side_to_mid_db is not None:
+        gain *= np.interp(source_time, *activity, left=0, right=0)
     pan = np.sqrt([(1 - region.pan) / 2, (1 + region.pan) / 2]) if context.shape[1] == 2 else 1
     return np.asarray(delayed * gain[:, None] * pan, dtype=np.float64)
+
+
+def _wet_block(
+    context: NDArray[np.float64],
+    first: int,
+    time: NDArray[np.float64],
+    rate: int,
+    regions: Sequence[VocalLayerRegion],
+    activity: tuple[NDArray[np.float64], NDArray[np.float64]] | None,
+) -> NDArray[np.float64]:
+    wet = np.zeros((len(time), context.shape[1]), dtype=np.float64)
+    for region in regions:
+        if region.start <= time[-1] and region.end > time[0]:
+            wet += _layer(context, first, time, rate, region, activity)
+    return wet
 
 
 def render_double_layers(
@@ -135,6 +153,7 @@ def render_double_layers(
     cancel: threading.Event,
     *,
     channels: int | None = None,
+    activity: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
 ) -> dict[str, object]:
     """Write one wet-only double bus; the caller adds it to the finished vocal once."""
     _check_cancel(cancel)
@@ -153,12 +172,10 @@ def render_double_layers(
             count = min(_BLOCK_FRAMES, info.frames - offset)
             context = _read_context(audio, offset - history, count + history + 2, channels)
             time = np.arange(offset, offset + count, dtype=np.float64) / info.samplerate
-            wet = np.zeros((count, channels), dtype=np.float64)
-            for region in selected:
-                if region.start < (offset + count) / info.samplerate and region.end > time[0]:
-                    wet += _layer(context, offset - history, time, info.samplerate, region)
+            wet = _wet_block(context, offset - history, time, info.samplerate, selected, activity)
             peak = max(peak, float(np.max(np.abs(wet))))
             output.write(wet)
+    _check_cancel(cancel)
     return {
         "applied": peak > 0,
         "method": "fractional-modulated-double",

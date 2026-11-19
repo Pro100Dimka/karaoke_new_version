@@ -15,3 +15,4 @@ class VocalLayerRegion:
     pan: float = 0.0
     modulation_ms: float = 0.0
     confidence: float = 1.0
+    target_side_to_mid_db: float | None = None
