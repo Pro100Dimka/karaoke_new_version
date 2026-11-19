@@ -78,6 +78,49 @@ def test_collapsed_primary_proposes_only_one_contiguous_matching_phrase():
     assert proposals[0].candidate == ("We", "sail", "home", "through", "silver", "rain")
 
 
+@pytest.mark.parametrize("primary_word, observed_word", [("café", "cafe"), ("naïve", "naive")])
+def test_collapsed_diacritic_variant_preserves_literal_primary(primary_word, observed_word):
+    baseline = f"At the {primary_word}"
+    ending = phrase("Stars guide us", 18)
+    primary = view(
+        "vocal",
+        [
+            (word, 12 + i * 0.02, 12 + (i + 1) * 0.02)
+            for i, word in enumerate(baseline.split())
+        ]
+        + ending,
+    )
+    original = view(
+        "original",
+        [*phrase(f"at the {observed_word}", 4), *phrase("we sing softly", 8), *ending],
+    )
+
+    proposals = insertion_candidates(f"{baseline}\nStars guide us", [primary, original], 30)
+
+    assert len(proposals) == 1
+    assert proposals[0].primary == ("At", "the", primary_word)
+    assert proposals[0].retained_positions == (0, 1, 2)
+    assert proposals[0].candidate == ("At", "the", primary_word, "we", "sing", "softly")
+    assert proposals[0].evidence[0].observed[2].text == observed_word
+
+
+def test_collapsed_diacritic_variants_cannot_hide_a_second_matching_block():
+    ending = phrase("Stars guide us", 20)
+    primary = view(
+        "vocal",
+        [
+            (word, 11 + i * 0.02, 11 + (i + 1) * 0.02)
+            for i, word in enumerate("At the café".split())
+        ]
+        + ending,
+    )
+    original = view(
+        "original", [*phrase("at the café at the cafe we sing softly", 4), *ending]
+    )
+
+    assert insertion_candidates("At the café\nStars guide us", [primary, original], 30) == ()
+
+
 def test_collapsed_primary_with_repeated_contiguous_block_is_ambiguous():
     ending = phrase("Stars guide us", 20)
     primary = view(

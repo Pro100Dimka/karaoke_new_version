@@ -192,13 +192,14 @@ def _collapsed_block(
     primary: Sequence[TimedToken], alternative: Sequence[TimedToken]
 ) -> tuple[int, ...] | None:
     # A whole collapsed phrase can propose text, never timestamps. Its occurrence
-    # must be one exact contiguous block; acoustic acceptance remains mandatory.
+    # must be one contiguous block under the same spelling equivalence as retained
+    # words; acoustic acceptance remains mandatory.
     if len(primary) < _MINIMUM_BLOCK or any(
         word.end - word.start + 1e-9 >= _CRAMMED_WORD_SECONDS for word in primary
     ):
         return None
-    keys = [token_key(word.text) for word in primary]
-    other = [token_key(word.text) for word in alternative]
+    keys = [_orthographic_key(word.text) for word in primary]
+    other = [_orthographic_key(word.text) for word in alternative]
     starts = [
         index
         for index in range(len(other) - len(keys) + 1)
