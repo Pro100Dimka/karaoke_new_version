@@ -128,6 +128,33 @@ const LibrarySongs = observer(
       completeCatalog,
     } = useLibraryCatalog(query, viewFilters, selecting || playlistsOpen);
 
+    useEffect(() => {
+      if (
+        !selecting ||
+        !completeCatalog ||
+        !catalog.data ||
+        catalog.isFetching ||
+        catalog.isPlaceholderData ||
+        catalog.isError
+      )
+        return;
+      // A card or song settings can delete a selected song outside the batch action.
+      // Only the complete catalog can distinguish a deletion from a hidden search result.
+      const existing = new Set(localSongs.map((song) => song.id));
+      setSelected((current) => {
+        const next = new Set([...current].filter((id) => existing.has(id)));
+        return next.size === current.size ? current : next;
+      });
+    }, [
+      selecting,
+      completeCatalog,
+      catalog.data,
+      catalog.isFetching,
+      catalog.isPlaceholderData,
+      catalog.isError,
+      localSongs,
+    ]);
+
     const entrance = store.playback.returned;
     const [returning, setReturning] = useState(
       Boolean(entrance?.performanceReturn),

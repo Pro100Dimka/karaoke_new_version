@@ -23,6 +23,7 @@ import type {
   OnlineInbox,
   SocialInbox,
   SocialInvite,
+  SocialNotice,
   SocialPerson,
 } from '../../contracts/social';
 import { PersonAvatar } from './PersonAvatar';
@@ -57,14 +58,20 @@ const Alert = ({
   </Card>
 );
 
+type OnlineAlertProps = {
+  inbox: OnlineInbox;
+  roomRequests: readonly SocialNotice[];
+  dismissRoomRequest(request: SocialNotice): void;
+};
+
 /**
  * Friend requests and room invitations waiting for an answer, in a corner of every screen. A
  * request put off with "Later" stays in the Friends window; an invitation expires with its room.
  */
-const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
+const OnlineSocialAlerts = observer((props: OnlineAlertProps) => {
+  const { inbox, roomRequests, dismissRoomRequest } = props;
   useLocale();
   const { preferences } = store;
-  const { room } = store.online;
   const invitations = useRoomInvitations();
   const invitationVersion = useSyncExternalStore(
     invitations.subscribe,
@@ -101,9 +108,6 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
   }, [inbox.invites, invitations, invitationVersion, busy]);
   const requests = inbox.friendRequests.filter(
     (person) => !later.has(person.accountId),
-  );
-  const roomRequests = inbox.notices.filter(
-    (notice) => notice.kind === 'JoinRequested' && notice.roomId === room?.code,
   );
   const invites = pendingInvites.filter(
     (invite) =>
@@ -173,21 +177,35 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
             name: request.person.displayName,
           })}
           actions={
-            <Button
-              size="sm"
-              variant="primary"
-              icon="check"
-              disabled={busy || !request.roomId}
-              onClick={() => {
-                const roomId = request.roomId;
-                if (roomId)
-                  void run(() =>
-                    invitations.approve(request.person.accountId, roomId),
-                  );
-              }}
-            >
-              {tr('social.acceptAction')}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="primary"
+                icon="check"
+                disabled={busy || !request.roomId}
+                onClick={() => {
+                  const roomId = request.roomId;
+                  if (roomId)
+                    void run(async () => {
+                      await invitations.approve(
+                        request.person.accountId,
+                        roomId,
+                      );
+                      dismissRoomRequest(request);
+                    });
+                }}
+              >
+                {tr('social.acceptAction')}
+              </Button>
+              <Button
+                size="sm"
+                icon="close"
+                disabled={busy}
+                onClick={() => dismissRoomRequest(request)}
+              >
+                {tr('close')}
+              </Button>
+            </>
           }
         />
       ))}
@@ -236,5 +254,47 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
   );
 });
 
-export const SocialAlerts = ({ inbox }: { inbox: SocialInbox }) =>
-  inbox.type === 'inbox' ? <OnlineSocialAlerts inbox={inbox} /> : null;
+export const SocialAlerts = observer(({ inbox }: { inbox: SocialInbox }) => {
+  const roomId = store.online.room?.code;
+  const [roomRequests, setRoomRequests] = useState<readonly SocialNotice[]>([]);
+  // Join requests are one-shot notices, unlike invitations. Keep the action available
+  // across later inbox pushes and a temporary social disconnect until the host answers.
+  useEffect(() => {
+    setRoomRequests((current) => {
+      const retained = current.filter((request) => request.roomId === roomId);
+      const incoming =
+        inbox.type === 'inbox'
+          ? inbox.notices.filter(
+              (notice) =>
+                notice.kind === 'JoinRequested' && notice.roomId === roomId,
+            )
+          : [];
+      if (!incoming.length && retained.length === current.length)
+        return current;
+      return [
+        ...new Map(
+          [...retained, ...incoming].map((request) => [
+            request.person.accountId,
+            request,
+          ]),
+        ).values(),
+      ];
+    });
+  }, [inbox, roomId]);
+  const dismissRoomRequest = (answered: SocialNotice) => {
+    setRoomRequests((current) =>
+      current.filter(
+        (request) =>
+          request.roomId !== answered.roomId ||
+          request.person.accountId !== answered.person.accountId,
+      ),
+    );
+  };
+  return inbox.type === 'inbox' ? (
+    <OnlineSocialAlerts
+      inbox={inbox}
+      roomRequests={roomRequests.filter((request) => request.roomId === roomId)}
+      dismissRoomRequest={dismissRoomRequest}
+    />
+  ) : null;
+});

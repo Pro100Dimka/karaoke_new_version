@@ -58,6 +58,8 @@ export const createAudioPlayers = (
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
   let loadingOwner: symbol | undefined;
+  let pendingGain:
+    { owner: symbol | undefined; value: number | undefined } | undefined;
   let previewKind: 'recording' | 'song' = 'recording';
   let previewServiceInstanceId: string | undefined;
   let previewGeneration = 0;
@@ -106,6 +108,8 @@ export const createAudioPlayers = (
     const previousOwner = previewOwner;
     const previousRecordingId = previewRecordingId;
     loadingOwner = owner;
+    const requestedGain = { owner, value: gain };
+    pendingGain = requestedGain;
     try {
       const assertCurrent = () => {
         if (generation !== previewGeneration)
@@ -150,8 +154,15 @@ export const createAudioPlayers = (
         previewKind = kind;
         previewServiceInstanceId = values.ServiceInstanceId;
       }
-      if (gain !== undefined) {
-        await ops.command('SetGain', { target: 'preview', value: gain });
+      // The volume control remains usable during loading. Apply its latest value before
+      // starting playback, then let further changes go straight to the owned preview.
+      assertCurrent();
+      pendingGain = undefined;
+      if (requestedGain.value !== undefined) {
+        await ops.command('SetGain', {
+          target: 'preview',
+          value: requestedGain.value,
+        });
         assertCurrent();
       }
       if (loadRequired || state !== playingState)
@@ -165,7 +176,10 @@ export const createAudioPlayers = (
         previewOwner = previousOwner;
       throw error;
     } finally {
-      if (generation === previewGeneration) loadingOwner = undefined;
+      if (generation === previewGeneration) {
+        loadingOwner = undefined;
+        pendingGain = undefined;
+      }
     }
   };
 
@@ -176,6 +190,7 @@ export const createAudioPlayers = (
     if (owner !== undefined && owner === loadingOwner && !ownsPreview(owner)) {
       previewGeneration += 1;
       loadingOwner = undefined;
+      pendingGain = undefined;
       return;
     }
     if (recordingId !== undefined && previewRecordingId !== recordingId) return;
@@ -183,6 +198,7 @@ export const createAudioPlayers = (
     previewGeneration += 1;
     previewOwner = undefined;
     loadingOwner = undefined;
+    pendingGain = undefined;
     await ops.command('StopRecordingPreview');
     previewRecordingId = null;
   };
@@ -230,6 +246,10 @@ export const createAudioPlayers = (
     },
     stopRecordingPreview: stopPreview,
     async setPreviewVolume(gain, owner) {
+      if (pendingGain && pendingGain.owner === owner) {
+        pendingGain.value = gain;
+        return;
+      }
       if (!ownsPreview(owner)) return;
       await ops.command('SetGain', { target: 'preview', value: gain });
     },

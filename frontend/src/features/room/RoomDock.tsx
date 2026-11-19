@@ -1,4 +1,5 @@
 import { Button, tr, useLocale, useRouter } from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
 import {
   useEffect,
   useLayoutEffect,
@@ -37,7 +38,7 @@ import { canControlRoom } from '../../application/room/roomModel';
 // The room panel's window starts at the size of the in-app dock.
 const roomPanelSize = { width: 555, height: 660 };
 
-export const RoomDock = () => {
+export const RoomDock = observer(() => {
   const { room } = store.online;
   const membership = useRoomMembership();
   const roomLibrary = useRoomLibraryCommands();
@@ -387,4 +388,4 @@ export const RoomDock = () => {
       </aside>
     </DetachedPanel>
   );
-};
+});

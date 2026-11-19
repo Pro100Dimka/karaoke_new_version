@@ -51,6 +51,42 @@ const setup = () => {
 };
 
 describe('recording preview ownership', () => {
+  it('keeps a pending player volume separate from the active player and discards it on cancellation', async () => {
+    const { players, command, pythonRequest } = setup();
+    const active = Symbol('active');
+    const pending = Symbol('pending');
+    await players.playRecording('active', active, 0.5);
+    let finish!: (
+      reply: Awaited<ReturnType<AudioPlayerOperations['pythonRequest']>>,
+    ) => void;
+    pythonRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const loading = players.playRecording('pending', pending, 1);
+    const outcome = loading.catch(() => 'cancelled');
+    await vi.waitFor(() => expect(pythonRequest).toHaveBeenCalledTimes(2));
+    command.mockClear();
+    await players.setPreviewVolume(0, pending);
+    expect(command).not.toHaveBeenCalled();
+    await players.setPreviewVolume(0.4, active);
+    expect(command).toHaveBeenLastCalledWith('SetGain', {
+      target: 'preview',
+      value: 0.4,
+    });
+    await players.stopRecordingPreview(pending);
+    command.mockClear();
+    finish({ ok: true, status: 200, body: { filePath: 'pending.wav' } });
+    expect(await outcome).toBe('cancelled');
+    expect(command).not.toHaveBeenCalled();
+    await players.playRecording('active', active, 0.6);
+    expect(command.mock.calls.filter(([name]) => name === 'SetGain')).toEqual([
+      ['SetGain', { target: 'preview', value: 0.6 }],
+    ]);
+  });
+
   it.each(['valid', 'missing', 'preparing', 'native-failure'])(
     'hands over a playing take only to a valid replacement (%s)',
     async (replacement) => {

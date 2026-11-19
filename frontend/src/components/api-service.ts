@@ -122,7 +122,12 @@ export const importSong = async (
     });
     await client.cancelQueries({ queryKey: ['songs'] });
     client.setQueriesData<InfiniteData<SongPage>>(
-      { queryKey: ['songs'] },
+      {
+        queryKey: ['songs'],
+        // Only the complete catalog can accept an imported song before the server
+        // applies each search's filters and cursor ordering on refresh below.
+        predicate: ({ queryKey }) => queryKey[2] === null,
+      },
       (data) =>
         data && {
           ...data,

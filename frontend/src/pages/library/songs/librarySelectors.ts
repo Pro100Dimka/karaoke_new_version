@@ -57,8 +57,8 @@ const durationMatches: Record<
 > = {
   all: () => true,
   short: (seconds) => seconds < 180,
-  medium: (seconds) => seconds >= 180 && seconds <= 300,
-  long: (seconds) => seconds > 300,
+  medium: (seconds) => seconds >= 180 && seconds < 300,
+  long: (seconds) => seconds >= 300,
 };
 
 export const selectLibrarySongs = (

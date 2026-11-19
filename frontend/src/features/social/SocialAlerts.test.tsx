@@ -8,7 +8,9 @@ import {
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { OnlineInbox } from '../../contracts/social';
+import type { RoomStateDto } from '../../contracts/models';
 import { RoomInvitationCoordinator } from '../../application/social/RoomInvitationCoordinator';
+import { store } from '../../providers/store';
 import { SocialAlerts } from './SocialAlerts';
 
 const social = vi.hoisted(() => ({
@@ -23,6 +25,7 @@ const social = vi.hoisted(() => ({
     isHandled: vi.fn(() => false),
     canRetry: vi.fn(() => false),
     accept: vi.fn(),
+    approve: vi.fn(),
   },
   notify: vi.fn(),
 }));
@@ -72,6 +75,78 @@ beforeEach(() => {
   vi.clearAllMocks();
   social.coordinator = null;
   social.invitations.accept.mockResolvedValue(undefined);
+  social.invitations.approve.mockResolvedValue(undefined);
+  store.online.room = null;
+});
+
+const joinRequestInbox = {
+  ...inbox,
+  notices: [{ kind: 'JoinRequested', person, roomId: 'ROOM' }],
+} as OnlineInbox;
+
+it.each([false, true])(
+  'keeps an unanswered request to join after its one-shot notice is consumed (reconnected: %s)',
+  (reconnected) => {
+    store.online.room = { code: 'ROOM', role: 'host' } as RoomStateDto;
+    const view = render(<SocialAlerts inbox={joinRequestInbox} />);
+    expect(
+      screen.getByRole('button', { name: 'social.acceptAction' }),
+    ).toBeEnabled();
+
+    if (reconnected)
+      view.rerender(<SocialAlerts inbox={{ type: 'offline' }} />);
+    view.rerender(<SocialAlerts inbox={inbox} />);
+
+    expect(
+      screen.getByRole('button', { name: 'social.acceptAction' }),
+    ).toBeEnabled();
+  },
+);
+
+it('keeps a failed room approval retryable and removes it after the invitation is sent', async () => {
+  store.online.room = { code: 'ROOM', role: 'host' } as RoomStateDto;
+  social.invitations.approve.mockRejectedValueOnce(new Error('Offline'));
+  render(<SocialAlerts inbox={joinRequestInbox} />);
+  fireEvent.click(screen.getByRole('button', { name: 'social.acceptAction' }));
+  await waitFor(() => expect(social.notify).toHaveBeenCalledOnce());
+  const retry = screen.getByRole('button', { name: 'social.acceptAction' });
+  await waitFor(() => expect(retry).toBeEnabled());
+
+  fireEvent.click(retry);
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'social.acceptAction' }),
+    ).toBeNull(),
+  );
+  expect(social.invitations.approve).toHaveBeenCalledTimes(2);
+  expect(social.invitations.approve).toHaveBeenLastCalledWith('friend', 'ROOM');
+});
+
+it('lets the host dismiss a request without inviting the person', () => {
+  store.online.room = { code: 'ROOM', role: 'host' } as RoomStateDto;
+  const view = render(<SocialAlerts inbox={joinRequestInbox} />);
+  fireEvent.click(screen.getByRole('button', { name: 'close' }));
+  view.rerender(<SocialAlerts inbox={inbox} />);
+
+  expect(
+    screen.queryByRole('button', { name: 'social.acceptAction' }),
+  ).toBeNull();
+  expect(social.invitations.approve).not.toHaveBeenCalled();
+});
+
+it('discards a retained room request after leaving its room', () => {
+  store.online.room = { code: 'ROOM', role: 'host' } as RoomStateDto;
+  const view = render(<SocialAlerts inbox={joinRequestInbox} />);
+  view.rerender(<SocialAlerts inbox={inbox} />);
+  store.online.room = null;
+  view.rerender(<SocialAlerts inbox={{ ...inbox }} />);
+  store.online.room = { code: 'ROOM', role: 'host' } as RoomStateDto;
+  view.rerender(<SocialAlerts inbox={{ ...inbox }} />);
+
+  expect(
+    screen.queryByRole('button', { name: 'social.acceptAction' }),
+  ).toBeNull();
 });
 
 it('accepts an approved join after the current friends action finishes', async () => {

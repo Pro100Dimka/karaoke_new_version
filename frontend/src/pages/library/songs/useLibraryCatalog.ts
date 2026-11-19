@@ -130,23 +130,29 @@ export const useLibraryCatalog = (
     setPlayed(loadLastPlayed());
     return stop;
   }, []);
-  const visibleSongs = useMemo(
-    () =>
-      completeCatalog
-        ? selectLibrarySongs(
-            playlist
-              ? songs.filter((song) => playlist.songIds.includes(song.id))
-              : songs,
-            serverFilter,
-            played,
-          )
-        : serverFilter.sort === 'recent'
-          ? [...songs].sort((a, b) =>
-              compareAddedSongs(a, b, serverFilter.direction),
-            )
+  const visibleSongs = useMemo(() => {
+    if (completeCatalog)
+      return selectLibrarySongs(
+        playlist
+          ? songs.filter((song) => playlist.songIds.includes(song.id))
           : songs,
-    [songs, completeCatalog, serverFilter, played, playlist],
-  );
+        serverFilter,
+        played,
+      );
+    // Only pending imports need local filtering. Server pages own text matching
+    // and cursor order, including the previous results kept during a new search.
+    const hiddenImports = new Set(imports.map((song) => song.id));
+    for (const song of selectLibrarySongs(imports, serverFilter))
+      hiddenImports.delete(song.id);
+    const matching = hiddenImports.size
+      ? songs.filter((song) => !hiddenImports.has(song.id))
+      : songs;
+    return serverFilter.sort === 'recent'
+      ? [...matching].sort((a, b) =>
+          compareAddedSongs(a, b, serverFilter.direction),
+        )
+      : matching;
+  }, [songs, completeCatalog, imports, serverFilter, played, playlist]);
 
   return {
     catalog,

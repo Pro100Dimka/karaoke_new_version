@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { getErrorMessage, type FallbackProps } from 'react-error-boundary';
 import { version } from '../../package.json';
+import { TitleBar } from '../app/TitleBar';
 
 const ErrorFallback = ({ error }: FallbackProps) => {
   const locale = useLocale();
@@ -29,44 +30,47 @@ const ErrorFallback = ({ error }: FallbackProps) => {
   };
   const report = `${text}\n${JSON.stringify(details, null, 2)}`;
   return (
-    <Dialog
-      open
-      width="wide"
-      icon="warning"
-      dismissible={false}
-      title={tr('errorBoundary.title')}
-      description={tr('errorBoundary.description')}
-      confirmLabel={tr('errorBoundary.retry')}
-      cancelLabel={tr('errorBoundary.home')}
-      onOpenChange={() => location.assign(import.meta.env.BASE_URL)}
-      onConfirm={() => {
-        location.reload();
-        return false;
-      }}
-    >
-      <Stack gap={3}>
-        <Card
-          title={tr('errorBoundary.error')}
-          actions={
-            <IconButton
-              icon="copy"
-              label={tr('errorBoundary.copy')}
-              onClick={() => copyText(report)}
+    <>
+      <TitleBar />
+      <Dialog
+        open
+        width="wide"
+        icon="warning"
+        dismissible={false}
+        title={tr('errorBoundary.title')}
+        description={tr('errorBoundary.description')}
+        confirmLabel={tr('errorBoundary.retry')}
+        cancelLabel={tr('errorBoundary.home')}
+        onOpenChange={() => location.assign(import.meta.env.BASE_URL)}
+        onConfirm={() => {
+          location.reload();
+          return false;
+        }}
+      >
+        <Stack gap={3}>
+          <Card
+            title={tr('errorBoundary.error')}
+            actions={
+              <IconButton
+                icon="copy"
+                label={tr('errorBoundary.copy')}
+                onClick={() => copyText(report)}
+              />
+            }
+          >
+            <Typography
+              as="pre"
+              variant="mono"
+              text={text}
+              style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
             />
-          }
-        >
-          <Typography
-            as="pre"
-            variant="mono"
-            text={text}
-            style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-          />
-        </Card>
-        <CollapsibleSection title={tr('errorBoundary.details')}>
-          <KeyValueList items={Object.entries(details)} />
-        </CollapsibleSection>
-      </Stack>
-    </Dialog>
+          </Card>
+          <CollapsibleSection title={tr('errorBoundary.details')}>
+            <KeyValueList items={Object.entries(details)} />
+          </CollapsibleSection>
+        </Stack>
+      </Dialog>
+    </>
   );
 };
 

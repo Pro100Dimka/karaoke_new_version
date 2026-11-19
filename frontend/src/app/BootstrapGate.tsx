@@ -10,6 +10,7 @@ import { safeAudioConfiguration } from '../shared/preferences/preferences';
 import { desktopClient } from '../services/desktopClient';
 import { Button, EmptyState, tr, useLocale } from '@neo-ui-kit/react';
 import { expectedPythonApiVersion } from './serviceStatus';
+import { TitleBar } from './TitleBar';
 
 import { useVoiceChain } from '../features/karaoke/console/voiceChain';
 import { useAcousticLatencyAutoSave } from './useAcousticLatencyAutoSave';
@@ -84,32 +85,35 @@ export const BootstrapGate = observer(
     }
 
     return (
-      <main className="bootstrapState" role="alert">
-        <EmptyState
-          icon="warning"
-          title={tr(
-            python.kind === 'incompatible'
-              ? 'pythonIncompatible'
-              : 'pythonUnavailable',
-          )}
-          description={
-            python.kind === 'incompatible'
-              ? tr('versionMismatch', {
-                  found: python.version,
-                  expected: `API ${expectedPythonApiVersion}`,
-                })
-              : tr('pythonUnavailableHint')
-          }
-          action={
-            <Button
-              variant="primary"
-              icon="refresh"
-              onClick={() => void probe()}
-              label={tr('retry')}
-            />
-          }
-        />
-      </main>
+      <>
+        <TitleBar />
+        <main className="bootstrapState" role="alert">
+          <EmptyState
+            icon="warning"
+            title={tr(
+              python.kind === 'incompatible'
+                ? 'pythonIncompatible'
+                : 'pythonUnavailable',
+            )}
+            description={
+              python.kind === 'incompatible'
+                ? tr('versionMismatch', {
+                    found: python.version,
+                    expected: `API ${expectedPythonApiVersion}`,
+                  })
+                : tr('pythonUnavailableHint')
+            }
+            action={
+              <Button
+                variant="primary"
+                icon="refresh"
+                onClick={() => void probe()}
+                label={tr('retry')}
+              />
+            }
+          />
+        </main>
+      </>
     );
   },
 );

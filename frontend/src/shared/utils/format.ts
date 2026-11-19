@@ -1,3 +1,9 @@
+import searchCasefold from './searchCasefold.generated.json';
+
+// Complete default casefold from scripts/generate-search-casefold.py.
+const casefoldMappings: Readonly<Record<string, string>> =
+  searchCasefold.mappings;
+
 export const formatTime = (seconds: number): string => {
   const safe = Math.max(0, Math.round(seconds));
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
@@ -11,7 +17,10 @@ export const formatPreciseTime = (seconds: number): string => {
 };
 
 export const normalizeSearch = (value: string): string =>
-  value.normalize('NFKC').toLocaleLowerCase();
+  Array.from(
+    value.normalize('NFKC'),
+    (char) => casefoldMappings[char.codePointAt(0)!] ?? char,
+  ).join('');
 
 export const formatBytes = (bytes: number): string => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const;

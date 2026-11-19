@@ -1,11 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { tr } from '@neo-ui-kit/react';
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { SongDto } from '../../../contracts/models';
 import LibrarySongs from './index';
 
-const state = vi.hoisted(() => ({ visible: true }));
+const state = vi.hoisted(() => ({
+  visible: true,
+  exists: true,
+  phase: 'ready' as 'ready' | 'loading' | 'placeholder' | 'failed',
+}));
 const song = {
   id: 'song',
   title: 'Song',
@@ -41,15 +45,26 @@ vi.mock('../modals/song-settings', () => ({ SongSettingsModal: () => null }));
 vi.mock('./useSongActions', () => ({ curtainMilliseconds: 400 }));
 vi.mock('./useLibraryCatalog', () => ({
   useLibraryCatalog: () => ({
-    catalog: { data: {}, isFetching: false, isPlaceholderData: false },
+    catalog: {
+      data: {},
+      isFetching: state.phase === 'loading',
+      isPlaceholderData: state.phase === 'placeholder',
+      isError: state.phase === 'failed',
+    },
     summary: { data: { total: 1 } },
     client: {},
-    localSongs: [song],
+    localSongs: state.exists ? [song] : [],
     songs: [song],
     visibleSongs: state.visible ? [song] : [],
     completeCatalog: true,
   }),
 }));
+
+beforeEach(() => {
+  state.visible = true;
+  state.exists = true;
+  state.phase = 'ready';
+});
 vi.mock('./song-grid', () => ({
   VirtualGrid: ({
     items,
@@ -107,3 +122,49 @@ it('keeps the selection controls available when a search hides every selected so
   ).not.toBeInTheDocument();
   expect(screen.getByText('Empty results')).toBeInTheDocument();
 });
+
+it.each(['loading', 'placeholder', 'failed'] as const)(
+  'retains selection while the complete catalog is %s and after retry',
+  (phase) => {
+    const props = {
+      playlistsOpen: false,
+      onClosePlaylists: vi.fn(),
+      onReady: vi.fn(),
+      view: {
+        query: '',
+        filters: {
+          status: 'all',
+          language: 'all',
+          duration: 'all',
+          artwork: 'all',
+        } as const,
+      },
+      onOpenProcessing: vi.fn(),
+      pageRef: { current: null },
+      onPlay: vi.fn(),
+      songSelection: () => undefined,
+    };
+    const view = render(<LibrarySongs {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Select song' }));
+    state.exists = false;
+    state.visible = false;
+    state.phase = phase;
+    view.rerender(<LibrarySongs {...props} view={{ ...props.view }} />);
+    expect(
+      screen.getByRole('button', { name: tr('cancel') }),
+    ).toBeInTheDocument();
+
+    state.exists = true;
+    state.visible = true;
+    state.phase = 'ready';
+    view.rerender(<LibrarySongs {...props} view={{ ...props.view }} />);
+    expect(
+      screen.getByRole('button', { name: tr('cancel') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: tr('deleteSelectedSongs', { count: 1 }),
+      }),
+    ).not.toBeDisabled();
+  },
+);
