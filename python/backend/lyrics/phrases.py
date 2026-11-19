@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 from typing import Sequence
 
 from backend.domain_errors import ConflictError
+from backend.lyrics.catalogue_versions import corroborated_versions
 from backend.lyrics.ports import LyricsCandidate
 from backend.text_normalization import clean_lyrics
 
@@ -309,6 +310,7 @@ def _best_catalog_version(
     distances: dict[LyricsCandidate, float],
     transcripts: Sequence[str],
 ) -> LyricsCandidate:
+    candidates = corroborated_versions(candidates, transcripts, _lyrics_key, _line_matches)
     coverage = {item: _performed_coverage(item.lyrics, transcripts) for item in candidates}
     best = max(coverage.values())
     # A few accidental matches cannot distinguish versions more reliably than the
