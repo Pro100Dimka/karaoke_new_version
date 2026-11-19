@@ -265,9 +265,10 @@ def _paired_octave_rows(
                 continue
             if gain_plan is not None:
                 time = (singer.tell() - len(vocal) + np.arange(len(vocal))) / singer.samplerate
-                if gain_plan.presence is not None and np.interp(
-                    time[len(time) // 2], gain_plan.times, gain_plan.presence
-                ) < 1:
+                if (
+                    gain_plan.presence is not None
+                    and np.interp(time[len(time) // 2], gain_plan.times, gain_plan.presence) < 1
+                ):
                     continue
                 gain = np.interp(time, gain_plan.times, gain_plan.gains)
                 vocal *= np.power(10.0, gain[:, None] / 20)

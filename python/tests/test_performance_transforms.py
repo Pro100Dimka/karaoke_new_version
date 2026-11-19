@@ -53,7 +53,8 @@ def test_tempo_preserves_scalar_lag_ranking(mode):
         for lag in range(30, 101)
     }
     expected = (
-        None if len(envelope) < 300 or max(scores.values()) <= 0
+        None
+        if len(envelope) < 300 or max(scores.values()) <= 0
         else round(6000 / max(scores, key=scores.get), 2)
     )
     assert _estimate_bpm(envelope, 100) == expected

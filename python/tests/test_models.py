@@ -102,7 +102,9 @@ def test_failed_new_model_does_not_delete_working_version(client, tmp_path: Path
 
 
 @pytest.mark.parametrize("switch_selection", [False, True])
-def test_failed_redownload_preserves_verified_same_version(client, tmp_path, monkeypatch, switch_selection):
+def test_failed_redownload_preserves_verified_same_version(
+    client, tmp_path, monkeypatch, switch_selection
+):
     declare(client, "asr", "retry", b"verified-weights", tmp_path / "source.bin")
     first = client.post("/models/asr/retry/download")
     assert wait_for_job(client, first.json()["jobId"])["state"] == "Succeeded"

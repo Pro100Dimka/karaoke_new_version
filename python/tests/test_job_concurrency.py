@@ -86,6 +86,7 @@ def test_job_events_are_ordered_even_when_work_completes_during_submit(tmp_path,
         monkeypatch.setattr(
             manager._events, "publish", lambda name, payload: events.append((name, payload))
         )
+
         def submit(identity, work):
             manager._events.publish("job.changed", {"jobId": "background-job", "state": "Running"})
             work(threading.Event())
@@ -93,7 +94,8 @@ def test_job_events_are_ordered_even_when_work_completes_during_submit(tmp_path,
         monkeypatch.setattr(manager._executor, "submit", submit)
         job = manager.start(JobType.SONG_PROCESSING, lambda context: None)
         states = [
-            payload["state"] for name, payload in events
+            payload["state"]
+            for name, payload in events
             if name == "job.changed" and payload.get("jobId") == job.job_id
         ]
         assert states == ["Queued", "Running", "Succeeded"]
@@ -103,7 +105,9 @@ def test_job_events_are_ordered_even_when_work_completes_during_submit(tmp_path,
 def test_a_committed_result_survives_a_late_cancellation(tmp_path, monkeypatch, job_type):
     with app_client(tmp_path) as client:
         manager = client.app.state.container.system.jobs
-        monkeypatch.setattr(manager._executor, "submit", lambda identity, work: work(threading.Event()))
+        monkeypatch.setattr(
+            manager._executor, "submit", lambda identity, work: work(threading.Event())
+        )
         report = {"revision": 2, "resultId": "committed-result"}
 
         def work(context):

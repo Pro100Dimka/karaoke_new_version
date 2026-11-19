@@ -72,7 +72,9 @@ class ImportPackage:
                     ensure_not_cancelled()
                 if same_revision:
                     self._publication.supplement_same_revision(archive_path, inspection, song_id)
-                    result = PackageImportResult(self._activate_existing(song_id, inspection), False)
+                    result = PackageImportResult(
+                        self._activate_existing(song_id, inspection), False
+                    )
                 else:
                     assert published is not None
                     result = self._commit(inspection, song_id, published)
