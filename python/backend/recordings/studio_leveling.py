@@ -25,10 +25,13 @@ def local_outlier_gain(
     context = np.interp(positions, positions[active], levels[active])
     window = max(3, round(0.4 / frame_seconds) // 2 * 2 + 1)
     context = median_filter(context, size=window, mode="nearest")
-    reduction = np.minimum(_soft_excess(levels - context, 0.5, 1.0) * 0.95, 18.0)
+    # A short sung word can be surrounded by audible breaths. Its local median
+    # then measures breath level, so require an outlier above the voiced phrase too.
+    reference = np.maximum(context, baseline)
+    reduction = np.minimum(_soft_excess(levels - reference, 0.5, 1.0) * 0.95, 18.0)
     # A quiet sustained word may outlast the local median, so retain the slower
     # phrase context for upward control. Breath protection is applied afterwards.
-    lift = np.minimum(_soft_excess(np.maximum(context, baseline) - levels, 2.0, 2.0) * 0.75, 12.0)
+    lift = np.minimum(_soft_excess(reference - levels, 2.0, 2.0) * 0.75, 12.0)
     return np.asarray(lift - reduction, dtype=float)
 
 
