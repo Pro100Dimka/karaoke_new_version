@@ -191,7 +191,7 @@ class LyricsDiscovery:
         prefetched: Sequence[str] | None = None,
     ) -> tuple[Sequence[str], tuple[Language, Sequence[str]] | None]:
         sources = [reference_vocal]
-        if found and song.source_path and song.source_path.is_file():
+        if song.source_path and song.source_path.is_file():
             sources.append(song.source_path)
         sources = list(dict.fromkeys(sources))
         language = lyrics_language(song, found.lyrics if found else "")
