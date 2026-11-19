@@ -255,9 +255,7 @@ def test_master_balance_uses_backing_independently_of_reference_level(
             sf.write(target, samples, rate, subtype="FLOAT")
             return {"status": "matched", "dryPreserved": True}
 
-        monkeypatch.setattr(
-            "backend.recordings.studio_voice.apply_reference_space", spatial_energy
-        )
+        monkeypatch.setattr("backend.recordings.studio_voice.apply_reference_space", spatial_energy)
 
     rng = np.random.default_rng(12)
     voice = rng.normal(0, 0.05, 8000 * 6)

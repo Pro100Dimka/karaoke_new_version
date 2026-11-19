@@ -146,9 +146,7 @@ def _presence_correction(
     return np.asarray(gaussian_filter1d(correction, sigma=0.25 / _STEP, mode="nearest"))
 
 
-def _frame_voicing(
-    frames: np.ndarray, rate: int, transform: int, hz: np.ndarray
-) -> np.ndarray:
+def _frame_voicing(frames: np.ndarray, rate: int, transform: int, hz: np.ndarray) -> np.ndarray:
     frames = frames - np.mean(frames, axis=1, keepdims=True)
     power = np.sum(abs(np.fft.rfft(frames, n=transform, axis=1)) ** 2, axis=2)
     # Keep low fundamentals intact. Cutting their windowed FFT lobes can turn
