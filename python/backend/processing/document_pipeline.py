@@ -281,6 +281,7 @@ class BuildProcessingDocument:
                 online_enabled=options.online_lyrics,
                 execution=execution,
                 prepared=prepared_lyrics,
+                original_audio=prepared.normalized_original,
             ),
             progress=0.60,
         )

@@ -166,12 +166,11 @@ class PipelineOrchestrator:
         if fraction is None or concurrency is None or not isinstance(asr, StreamingTranscriber):
             return self._audio.run(song, providers, workspace, context, reports, execution), None
         source = self._document.find_lyrics(song, options, context, reports)
-        original = song.source_path
-        if source.found is None or original is None:
+        if source.found is None or song.source_path is None:
             return self._audio.run(song, providers, workspace, context, reports, execution), source
         lyrics = source
 
-        def overlap(separate: SeparationOperation) -> SeparatedAudio:
+        def overlap(original: Path, separate: SeparationOperation) -> SeparatedAudio:
             nonlocal lyrics
             separated, lyrics = self._overlap(
                 song, source, original, asr, separate, context, reports, execution, concurrency

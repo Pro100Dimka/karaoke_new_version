@@ -107,11 +107,16 @@ class LyricsDiscovery:
         online_enabled: bool,
         execution: ExecutionContext,
         prepared: PreparedLyrics | None = None,
+        original_audio: Path | None = None,
     ) -> LyricsDiscoveryResult:
         source = prepared if prepared is not None else self.lookup(song, cancel, online_enabled)
+        sources = [reference_vocal]
+        original = original_audio if original_audio is not None else song.source_path
+        if original and original != reference_vocal and original.is_file():
+            sources.append(original)
         return self._performed(
             song,
-            reference_vocal,
+            sources,
             asr,
             cancel,
             source,
@@ -143,7 +148,7 @@ class LyricsDiscovery:
     def _performed(
         self,
         song: Song,
-        reference_vocal: Path,
+        sources: Sequence[Path],
         asr: AiProvider,
         cancel: threading.Event,
         source: PreparedLyrics,
@@ -152,7 +157,7 @@ class LyricsDiscovery:
     ) -> LyricsDiscoveryResult:
         found, warnings = source.found, list(source.warnings)
         recognized, ending = self._transcripts(
-            song, reference_vocal, asr, cancel, found, execution, source.transcripts
+            song, sources, asr, cancel, found, execution, source.transcripts
         )
         language = lyrics_language(song, found.lyrics if found else "")
         transcripts = [
@@ -171,7 +176,7 @@ class LyricsDiscovery:
                 found = LyricsDiscoveryResult(lyrics, "ASR", tuple(warnings))
         if found is None:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
-        found = self._ending(song, reference_vocal, asr, cancel, found, execution, ending)
+        found = self._ending(song, sources, asr, cancel, found, execution, ending)
         return replace(
             found,
             timing_hints=reconcile_timing_hints(found.lyrics, found.timing_hints),
@@ -183,17 +188,13 @@ class LyricsDiscovery:
     def _transcripts(
         self,
         song: Song,
-        reference_vocal: Path,
+        sources: Sequence[Path],
         asr: AiProvider,
         cancel: threading.Event,
         found: LyricsDiscoveryResult | None,
         execution: ExecutionContext,
         prefetched: Sequence[str] | None = None,
     ) -> tuple[Sequence[str], tuple[Language, Sequence[str]] | None]:
-        sources = [reference_vocal]
-        if song.source_path and song.source_path.is_file():
-            sources.append(song.source_path)
-        sources = list(dict.fromkeys(sources))
         language = lyrics_language(song, found.lyrics if found else "")
         ending = lyrics_ending_start(song, found)
         if prefetched is not None:
@@ -216,7 +217,7 @@ class LyricsDiscovery:
     def _ending(
         self,
         song: Song,
-        vocal: Path,
+        sources: Sequence[Path],
         asr: AiProvider,
         cancel: threading.Event,
         found: LyricsDiscoveryResult,
@@ -227,9 +228,6 @@ class LyricsDiscovery:
         if found.source == "ASR" or not song.duration or song.duration <= 48:
             return found
         language = lyrics_language(song, found.lyrics)
-        sources = [vocal]
-        if song.source_path and song.source_path != vocal and song.source_path.is_file():
-            sources.append(song.source_path)
         heard = (
             recognized[1]
             if recognized is not None and recognized[0] is language

@@ -62,6 +62,7 @@ class PreparedAudio:
     instrumental: Path
     reference_vocal: Path
     rhythm: tuple[tuple[float, float], ...] = ()
+    normalized_original: Path | None = None
 
 
 class PrepareProcessingAudio:
@@ -88,7 +89,7 @@ class PrepareProcessingAudio:
         reports: list[StageReport],
         execution: ExecutionContext,
         *,
-        during_separation: Callable[[SeparationOperation], SeparatedAudio] | None = None,
+        during_separation: Callable[[Path, SeparationOperation], SeparatedAudio] | None = None,
     ) -> PreparedAudio:
         normalized, cache_hit = self._normalize_audio(song, workspace, context, reports)
         music = self._analyze_music(normalized, context, reports)
@@ -99,10 +100,17 @@ class PrepareProcessingAudio:
             )
 
         separated = (
-            separate(execution) if during_separation is None else during_separation(separate)
+            separate(execution)
+            if during_separation is None
+            else during_separation(normalized, separate)
         )
         return PreparedAudio(
-            cache_hit, music, separated.instrumental, separated.reference_vocal, separated.rhythm
+            cache_hit,
+            music,
+            separated.instrumental,
+            separated.reference_vocal,
+            separated.rhythm,
+            normalized,
         )
 
     def _normalize_audio(
