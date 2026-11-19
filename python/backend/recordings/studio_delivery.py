@@ -13,6 +13,7 @@ from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
 from dataclasses import dataclass, field
 from concurrent.futures import Future
 from backend.recordings.studio_audio import MasterRenderer
+from backend.recordings.studio_meter import measure_master_levels
 
 
 def measure_stem_loudness(
@@ -157,15 +158,7 @@ class MasterDelivery:
     def _verify_peaks(self) -> dict[str, float]:
         limit = 0.891251
         for attempt in range(3):
-            measured = self.renderer._mix(
-                self.target,
-                self.target,
-                "[0:a]" + loudnorm_filter(lra=11) + "[out]",
-                ["-f", "null", "-"],
-                self.cancel,
-                quiet=False,
-            )
-            levels = parse_loudness(measured.stderr)
+            levels = measure_master_levels(self.renderer, self.target, self.cancel)
             if levels is None or not math.isfinite(levels["input_tp"]):
                 raise DependencyError(
                     "StudioMasterInvalidAudio", "Master true peak could not be measured"
