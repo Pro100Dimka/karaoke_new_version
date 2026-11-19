@@ -1,0 +1,583 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-11-19T17:04:45.880672+00:00",
+  "branch": "fix/app-bugs-excluding-processing-20261119",
+  "startingCommit": "34eae170d0a12beea5ae48421fe334b93dda7969",
+  "originalMainCommit": "b7e3aec091faa8896450cbe575cda4ab92544b13",
+  "testedSourceCommit": "23f3708715d790dccea4b78d31d1f2f155052308",
+  "testedLocalSourceCommit": "c9d0e0ce7bbabbe9583599b29830310ee60ed017",
+  "testedSourceSubtrees": {
+    "frontend": "f1e08b650b61c983bd2ad79075a0a9fa96dab091",
+    "python": "3a202b3d79595e223986ff8a657902becd443cee",
+    "AudioService": "4586162af8c579a3edf5aa0f9d4ef3dc72a04a76"
+  },
+  "pythonSourceFilesUnchangedDuringFullRun": 482,
+  "fullRunOrder": [
+    "native",
+    "frontend",
+    "backend"
+  ],
+  "fullSuiteResults": [
+    {
+      "name": "backend-mypy",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "-m",
+        "mypy",
+        "--platform",
+        "win32",
+        "backend",
+        "scripts"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 0,
+      "elapsed_seconds": 13.73,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/backend-mypy.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/backend-mypy.log",
+      "savedLog": "logs/backend-mypy.log",
+      "sha256": "b8b75a520684c782a2c2c3f5084972402b9f00ea1fbfe3f249a93cda4576e18f",
+      "savedLogSha256": "b8b75a520684c782a2c2c3f5084972402b9f00ea1fbfe3f249a93cda4576e18f"
+    },
+    {
+      "name": "backend-pytest",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--durations=15",
+        "--basetemp",
+        "/workspace/scratch/726a7fe1e251/karaoke_new_version/.dev-data/temp/checks/second/pytest"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 1,
+      "elapsed_seconds": 338.05,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/backend-pytest.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/backend-pytest.log",
+      "savedLog": "logs/backend-pytest.log",
+      "sha256": "f7d3b68869d34227a2f89c956296ba4fd572f302b81e1770d817acc04cb307b9",
+      "savedLogSha256": "e01826fb167965ee433c5bf251f32d11e2cdff9afaccb6c984485d787846573a"
+    },
+    {
+      "name": "backend-required-static",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "scripts/run_checks.py",
+        "--require-dev-tools",
+        "--skip-tests"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 1,
+      "elapsed_seconds": 2.75,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/backend-required-static.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/backend-required-static.log",
+      "savedLog": "logs/backend-required-static.log",
+      "sha256": "e4b5bfa35fa0398719e8dbd73f555e8a2ef7bdb748f77c2bd95c00caaad35c17",
+      "savedLogSha256": "e4b5bfa35fa0398719e8dbd73f555e8a2ef7bdb748f77c2bd95c00caaad35c17"
+    },
+    {
+      "name": "backend-ruff",
+      "command": [
+        "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "backend",
+        "tests",
+        "scripts"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/python",
+      "exit_code": 0,
+      "elapsed_seconds": 0.04,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/backend-ruff.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/backend-ruff.log",
+      "savedLog": "logs/backend-ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "savedLogSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "frontend-architecture",
+      "command": [
+        "node",
+        "scripts/check-architecture.mjs"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 0.44,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/frontend-architecture.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/frontend-architecture.log",
+      "savedLog": "logs/frontend-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 8.27,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/frontend-build.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/frontend-build.log",
+      "savedLog": "logs/frontend-build.log",
+      "sha256": "e8fb7f3c6555269df05311f75a5a8ed26d519cb0698929bc93feaf5363147175",
+      "savedLogSha256": "46ad44143a7f2252a8708aea90cab077f9c9ad834bc407065cea995c0f2fba64"
+    },
+    {
+      "name": "frontend-node",
+      "command": [
+        "node",
+        "--test",
+        "electron/multi-electron-room-plan.test.mjs",
+        "electron/network-impairment.test.mjs",
+        "electron/room-transfer.test.mjs",
+        "electron/start-script.test.mjs",
+        "electron/startup-media.test.mjs",
+        "scripts/audio-control.test.mjs",
+        "scripts/check-architecture.test.mjs",
+        "scripts/check-rules.test.mjs",
+        "scripts/native-test-isolation.test.mjs",
+        "scripts/release-script.test.mjs",
+        "scripts/smoke-catalog.test.mjs",
+        "scripts/startup-lock.test.mjs",
+        "scripts/ui-package-install.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 1.28,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/frontend-node.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/frontend-node.log",
+      "savedLog": "logs/frontend-node.log",
+      "sha256": "dd5439d12dd42c0df6b33db0116e59db36caff791189a4282f06d9bcaa1ccd8e",
+      "savedLogSha256": "dd5439d12dd42c0df6b33db0116e59db36caff791189a4282f06d9bcaa1ccd8e"
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 0,
+      "elapsed_seconds": 7.22,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/frontend-typecheck.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/frontend-typecheck.log",
+      "savedLog": "logs/frontend-typecheck.log",
+      "sha256": "3018cee1da8d074bafeb4b29ea92a288de11137b99baa8692f14bec5696209ae",
+      "savedLogSha256": "083c5dee15587a172540b4fff31aaf5868415a405adbe7a13b82449427ef4914"
+    },
+    {
+      "name": "frontend-vitest",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--maxWorkers=4"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version/frontend",
+      "exit_code": 1,
+      "elapsed_seconds": 27.36,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/frontend-vitest.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/frontend-vitest.log",
+      "savedLog": "logs/frontend-vitest.log",
+      "sha256": "8d548b7403332d5f80629f9d0d0d0e96145772a918d2c946696e62c491c682c6",
+      "savedLogSha256": "5c22964ad1015725e4371064aa15eb95d2d070f6d059da7a13b9a2b4a71d2d91"
+    },
+    {
+      "name": "native-build",
+      "command": [
+        "cmake",
+        "--build",
+        "/workspace/scratch/726a7fe1e251/audio-build",
+        "-j",
+        "4"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version",
+      "exit_code": 0,
+      "elapsed_seconds": 0.19,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/native-build.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/native-build.log",
+      "savedLog": "logs/native-build.log",
+      "sha256": "50d471ca58d2692f40c40e58085501aafb539e87782b302952c5810b1af4aadc",
+      "savedLogSha256": "50d471ca58d2692f40c40e58085501aafb539e87782b302952c5810b1af4aadc"
+    },
+    {
+      "name": "native-ctest",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "/workspace/scratch/726a7fe1e251/audio-build",
+        "--output-on-failure"
+      ],
+      "cwd": "/workspace/scratch/726a7fe1e251/karaoke_new_version",
+      "exit_code": 8,
+      "elapsed_seconds": 172.8,
+      "log": "/workspace/scratch/726a7fe1e251/verification-second/native-ctest.log",
+      "originalLog": "/workspace/scratch/726a7fe1e251/verification-second/native-ctest.log",
+      "savedLog": "logs/native-ctest.log",
+      "sha256": "dc5d0a0eaee3247139ab38e40c0d857edee2189dc625ff0d63a7b5ea0741763a",
+      "savedLogSha256": "dc5d0a0eaee3247139ab38e40c0d857edee2189dc625ff0d63a7b5ea0741763a"
+    }
+  ],
+  "results": {
+    "frontend": {
+      "passedTests": 1203,
+      "passedSuites": 172,
+      "failedCollectionSuites": 1
+    },
+    "node": {
+      "passed": 109,
+      "skipped": 5,
+      "failed": 0
+    },
+    "backend": {
+      "passed": 2176,
+      "failed": 3,
+      "skipped": 10,
+      "failedCases": [
+        "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[balance]",
+        "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]",
+        "tests/test_studio_master_regressions.py::test_seek_reference_contains_only_performed_sections[1.25-2]"
+      ]
+    },
+    "native": {
+      "passedCases": 509,
+      "failedCases": [
+        "controlPipePreservesRepliesAfterServerClose",
+        "controlPipeStopCancelsIdleAndStalledClients",
+        "performanceRecordingDrainsBeforeDeviceGenerationChanges"
+      ],
+      "passedCtestEntries": 2,
+      "totalCtestEntries": 3
+    }
+  },
+  "diagnosticLogs": [
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-api-bounds-green.log",
+      "savedLog": "logs/second-backend-api-bounds-green.log",
+      "sha256": "98f5d5f29ef3d16dc88e2707703e5e22620b19f3ffd8cd1e26063333cca441f7",
+      "savedLogSha256": "98f5d5f29ef3d16dc88e2707703e5e22620b19f3ffd8cd1e26063333cca441f7"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-api-bounds-red.log",
+      "savedLog": "logs/second-backend-api-bounds-red.log",
+      "sha256": "9937dd42545fd3fe6b0f7ec022c5a9388a4196d14823a6409ee7b57eda340e21",
+      "savedLogSha256": "99dd25135316f2d027e4bb6ff379e267d05f52015f3aa2d4fb50a64e1c8fbd91"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-architecture.log",
+      "savedLog": "logs/second-backend-architecture.log",
+      "sha256": "2ae6eb297c2e2619b22b2e5c12ee72ef85a154207bd8087df233bbc2637c6f9e",
+      "savedLogSha256": "2ae6eb297c2e2619b22b2e5c12ee72ef85a154207bd8087df233bbc2637c6f9e"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-cancel-green.log",
+      "savedLog": "logs/second-backend-export-cancel-green.log",
+      "sha256": "8400f1fc0c004658b4462e2971e11dfd647b898c95360d063c4daea72b718c98",
+      "savedLogSha256": "8400f1fc0c004658b4462e2971e11dfd647b898c95360d063c4daea72b718c98"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-cancel-red.log",
+      "savedLog": "logs/second-backend-export-cancel-red.log",
+      "sha256": "88f9c7c4dbd8e9717f72e5dff0aa3c677c90370a53e0520f3e74ecde6925f1b5",
+      "savedLogSha256": "a890b44768d2252e49c4cd1a67b5e96aab3648fd9a830159c882646cc235eb7e"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-clip-green.log",
+      "savedLog": "logs/second-backend-export-clip-green.log",
+      "sha256": "62c552e091bc2770fd9c5c6d371d35d5d3b592a561e9cd108cfa8d5ea1657153",
+      "savedLogSha256": "62c552e091bc2770fd9c5c6d371d35d5d3b592a561e9cd108cfa8d5ea1657153"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-clip-red.log",
+      "savedLog": "logs/second-backend-export-clip-red.log",
+      "sha256": "a73da77646d9bd00cff7c6810f05230810c4ceb7a4c765af9513dc6059ba30ae",
+      "savedLogSha256": "4cc712a12ad4013d0dbe42eaa0544672eb0c8a462dde1210f9b37ff123a64c55"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-preflight-green.log",
+      "savedLog": "logs/second-backend-export-preflight-green.log",
+      "sha256": "71113ee746ab0da1b88e6c07182d794bd63efc2f66e9d011166c2e7c953044a4",
+      "savedLogSha256": "71113ee746ab0da1b88e6c07182d794bd63efc2f66e9d011166c2e7c953044a4"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-preflight-red.log",
+      "savedLog": "logs/second-backend-export-preflight-red.log",
+      "sha256": "0bc3f539597efed4b82349c931c8c7fb6852766086716afef97e76272b621c1f",
+      "savedLogSha256": "b0e8acf24b79f52bf9de2e9b6e52ca781234ac8d1e142ebf3703a84a76e7aeae"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-snapshot-size-red.log",
+      "savedLog": "logs/second-backend-export-snapshot-size-red.log",
+      "sha256": "cb271ba2f847d4df466050ad7a4c74e9f28b3f4dc2c74ca859e61054c8ae3f37",
+      "savedLogSha256": "7bca06a183ea9df7cd08e5cacb507cd55377823b8df21608a9f8a08fee46f323"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-export-validation-red.log",
+      "savedLog": "logs/second-backend-export-validation-red.log",
+      "sha256": "b8f771dc90a2ab64f610d30cb17c394614762e3074709ec6133953f22ecc81ec",
+      "savedLogSha256": "54f2f1cc7b2aa101c6fa76a2538d9c11d62c8c9543c778d0f40d6ce0fcf3ba72"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-focused-final.log",
+      "savedLog": "logs/second-backend-focused-final.log",
+      "sha256": "a1ddcb3ca29aa2c6af70fa967033e8485b3bd7b16e07e80f5e8a4c3f5ea874a8",
+      "savedLogSha256": "a1ddcb3ca29aa2c6af70fa967033e8485b3bd7b16e07e80f5e8a4c3f5ea874a8"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-format.log",
+      "savedLog": "logs/second-backend-format.log",
+      "sha256": "7ff2df5e4a19c344d6ea2dfc25c25d2370159894cbac570f392753b22180e09c",
+      "savedLogSha256": "7ff2df5e4a19c344d6ea2dfc25c25d2370159894cbac570f392753b22180e09c"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-import-idempotency-green.log",
+      "savedLog": "logs/second-backend-import-idempotency-green.log",
+      "sha256": "3e5e0d2a0769ed91c99b6c64abfec359b2a1b2f6cd2a15f0111b68abb12fb3de",
+      "savedLogSha256": "3e5e0d2a0769ed91c99b6c64abfec359b2a1b2f6cd2a15f0111b68abb12fb3de"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-import-idempotency-red.log",
+      "savedLog": "logs/second-backend-import-idempotency-red.log",
+      "sha256": "b2369daa5fd5f742d2890a8c91daf1ea23c76cac5d62feebac3b1408c304525d",
+      "savedLogSha256": "beb50b3bee094aa21fe526b23fefe8a7f95f1415dc7e7915a332cdb8181f1fb4"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-mypy-win32.log",
+      "savedLog": "logs/second-backend-mypy-win32.log",
+      "sha256": "14fdf673bd175fe32ef42df34666481bb15e465313f7dbef32d0aea2ba76a26e",
+      "savedLogSha256": "14fdf673bd175fe32ef42df34666481bb15e465313f7dbef32d0aea2ba76a26e"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-mypy.log",
+      "savedLog": "logs/second-backend-mypy.log",
+      "sha256": "8274d42aa21b605dac29b911d1773ba062ea5addcb07d65e26fa8206091e22cb",
+      "savedLogSha256": "8274d42aa21b605dac29b911d1773ba062ea5addcb07d65e26fa8206091e22cb"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-ruff.log",
+      "savedLog": "logs/second-backend-ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "savedLogSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-snapshot-final.log",
+      "savedLog": "logs/second-backend-snapshot-final.log",
+      "sha256": "30ee279caf941f76027a0c984a0acb8a7ac4ff0eee0f895e3023b55da5a45bb7",
+      "savedLogSha256": "30ee279caf941f76027a0c984a0acb8a7ac4ff0eee0f895e3023b55da5a45bb7"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-zip-constructor-red.log",
+      "savedLog": "logs/second-backend-zip-constructor-red.log",
+      "sha256": "546cb369a9164ffbdbe0a1db3d4b082790fe79cf5664ddbd711b64a871f28a60",
+      "savedLogSha256": "af4185ce99cf6026c5dbf5e8c3de91d69638e26e702fdbe66bc70a7ae3c10b80"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-zip-green.log",
+      "savedLog": "logs/second-backend-zip-green.log",
+      "sha256": "38a8bda397ce6220e802fdbf56d1e5e9205385e3e2a6e4b9e1b80fc47d31c89a",
+      "savedLogSha256": "38a8bda397ce6220e802fdbf56d1e5e9205385e3e2a6e4b9e1b80fc47d31c89a"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-zip-idempotency-green.log",
+      "savedLog": "logs/second-backend-zip-idempotency-green.log",
+      "sha256": "136d78bd7fe0efa7083bd3b4721e3500cdb63dc0767f7887e78945babf81b0e7",
+      "savedLogSha256": "136d78bd7fe0efa7083bd3b4721e3500cdb63dc0767f7887e78945babf81b0e7"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-backend-zip-red.log",
+      "savedLog": "logs/second-backend-zip-red.log",
+      "sha256": "143460bedf7209f670d717c443954d6b682c7784dca8b52d1c026ffa04c5a65e",
+      "savedLogSha256": "96780a23aca815922c544cb9e9705c0c6d54fa4eaade00b10774c43fac5020ab"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-architecture.log",
+      "savedLog": "logs/second-desktop-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-final-focused.log",
+      "savedLog": "logs/second-desktop-final-focused.log",
+      "sha256": "f772abc78c0752a1eee95b4180e95cb3b8d2d541abbdfda619045ff56c15d129",
+      "savedLogSha256": "935b12af0cda4d487d7ad5aa4cd1f9a501e20ab934b0c277b5aae3ff0dc672c7"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-notifications-green.log",
+      "savedLog": "logs/second-desktop-notifications-green.log",
+      "sha256": "4abe19ba81095bf9f50dc54d89162383d9e6ad5e0cef46728b4b727020670098",
+      "savedLogSha256": "69cba5c42dc9ff8d47dff5b88ff3fd6447e0a0a45d6492ef05e6e912449f4ce6"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-notifications-red.log",
+      "savedLog": "logs/second-desktop-notifications-red.log",
+      "sha256": "9aecf471db021d9b1483951cf4ae1f44799fabc7608be417beb99ee685ea7d0e",
+      "savedLogSha256": "eb53833af078435c73030a9ab03eb91e695c7aba98a43b2383e255f837cf9af6"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-reactivation-red.log",
+      "savedLog": "logs/second-desktop-reactivation-red.log",
+      "sha256": "6a8c670374431d901af5587164e9082aadd821b9889ac890bfc1f6f51265fa1d",
+      "savedLogSha256": "772a013a015bff59e307e9315fbe66758cd210d223b1e87cc6a17ed395278c00"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-shell-green.log",
+      "savedLog": "logs/second-desktop-shell-green.log",
+      "sha256": "6cb4bc9a9e728860891443878786d3c8d4a1a6c0ac9053fb213764b757a691b5",
+      "savedLogSha256": "d28d0e7cd207a946526a3875ea8c691587ec05bc9f0acc3d04822dd7dc64fc8e"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-shell-red.log",
+      "savedLog": "logs/second-desktop-shell-red.log",
+      "sha256": "256cdf2da72f7b2541e4c7cccbd419a513c90dc879cf8f4e2e7f9dc4ab560bb8",
+      "savedLogSha256": "1f5daca0781307de1e9537e40dbc0020a3b6f9ea05190ad5a1c5af0d537d91eb"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-desktop-typecheck.log",
+      "savedLog": "logs/second-desktop-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-architecture.log",
+      "savedLog": "logs/second-frontend-architecture.log",
+      "sha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba",
+      "savedLogSha256": "2f9a8b9dfa25315e541ec926c53838d4bacbe6fdb2eca4c0c370840330b4ebba"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-desktop-room-green.log",
+      "savedLog": "logs/second-frontend-desktop-room-green.log",
+      "sha256": "151f35f7a4a182aac9069103107d56e7043f8c9f095901cd17fc684757831028",
+      "savedLogSha256": "6a16519db5fdf962d8083942452432beb2bdec002caef6a515fe4ec3a9e89e1a"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-desktop-room-red.log",
+      "savedLog": "logs/second-frontend-desktop-room-red.log",
+      "sha256": "ef702f066d862cd538f913a31a276cf58ebb5b2b8fc1db1658692a468132a2d7",
+      "savedLogSha256": "777a30640214ff1e5e33f856bfba64997ade23e7e50d79d298ee1c0fabfe6038"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-focused-final.log",
+      "savedLog": "logs/second-frontend-focused-final.log",
+      "sha256": "1bfd6be14570494653691f6b35bcab204807759175bcc803b269bab70bd4432a",
+      "savedLogSha256": "f4aac40376dca3086f4c73dab5e499fb13915fffff643ee5c8d79a97d9aa0d7c"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-format.log",
+      "savedLog": "logs/second-frontend-format.log",
+      "sha256": "01a29dc228367b3edade7f823a417d50294213ffe4cf2cf8b289622ef9827a25",
+      "savedLogSha256": "01a29dc228367b3edade7f823a417d50294213ffe4cf2cf8b289622ef9827a25"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-radio-green.log",
+      "savedLog": "logs/second-frontend-radio-green.log",
+      "sha256": "03244204c9263462c5c9294fd9ee4aacdfb78f7a0f8fcfd541b3441006e0772f",
+      "savedLogSha256": "3ed3580dbf1e8497d6e82229aa8aa15b5825bee89dc72a34be244f67800ed5a2"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-radio-red.log",
+      "savedLog": "logs/second-frontend-radio-red.log",
+      "sha256": "937e6371a01b1a7636c6e710aefb21a772d1a09530fff0d018ef08c43cb53ade",
+      "savedLogSha256": "80a8a1c4907875b7297c1df5d8fb98d801b7be18d4515239387e65c5bb05464d"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-recording-preview-green.log",
+      "savedLog": "logs/second-frontend-recording-preview-green.log",
+      "sha256": "3f9c5458e368bec3247140945244c22da270e9abdb63f82e6ef433589c071001",
+      "savedLogSha256": "09424c2dadb457f169d615a36fea1b0ddf276230e61005cf50711240b34dac12"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-recording-preview-red.log",
+      "savedLog": "logs/second-frontend-recording-preview-red.log",
+      "sha256": "277194f184e489d75b01ce84043c3ba2a572eefb1411972e365c0fd2e47c258d",
+      "savedLogSha256": "9ec39b8f17c02ce5da5fc5d1814d1456fb0697b67ea96c3dc8834cd5ac4fd43a"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-room-library-green.log",
+      "savedLog": "logs/second-frontend-room-library-green.log",
+      "sha256": "0c3b60047699d6e3f23f34b50fed417e1f8aa8404d264bdafa1db565fefa1cf8",
+      "savedLogSha256": "5e808cf91edef344e9e48c127a7a103cd98f686c5f75752155be7eb2854d9443"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-room-library-red.log",
+      "savedLog": "logs/second-frontend-room-library-red.log",
+      "sha256": "055ffaa2ec82a82174cedd2bc8f611154cd7973709079d9d199652e3a150446c",
+      "savedLogSha256": "48ec376e2066c5e735aa4fc449c5b65a0dd6a54ba8339da39845b9038d1e1973"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-song-settings-green.log",
+      "savedLog": "logs/second-frontend-song-settings-green.log",
+      "sha256": "5bf8af4a5fcf8e7f7e0724bd84133b2ccec31303198b5f395778b5ed84149dbd",
+      "savedLogSha256": "8035661c3169394f8f12e31dc822c6adcc1e401e8792d5f5ce1efa96d685e093"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-song-settings-red.log",
+      "savedLog": "logs/second-frontend-song-settings-red.log",
+      "sha256": "a98fcd32b986e9f39571e522b305225bffea6f1fcb15bbbcad0a151295b4a2ae",
+      "savedLogSha256": "6c23c1b61aa23f7250db0dac8ea49e0ab863a3f6d052b0b4aa1d2655a669d951"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-frontend-types.log",
+      "savedLog": "logs/second-frontend-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "savedLogSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-native-focused-green.log",
+      "savedLog": "logs/second-native-focused-green.log",
+      "sha256": "e590389c0585ffcec09bba330835568d345994557b38b6d56ceb8ffa76801bdb",
+      "savedLogSha256": "e590389c0585ffcec09bba330835568d345994557b38b6d56ceb8ffa76801bdb"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-native-green-build.log",
+      "savedLog": "logs/second-native-green-build.log",
+      "sha256": "cf072b3e64a1effd1041a907217f3df3ca0a34d81d132dc99d69f063b09b91d8",
+      "savedLogSha256": "cf072b3e64a1effd1041a907217f3df3ca0a34d81d132dc99d69f063b09b91d8"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-native-loading-green.log",
+      "savedLog": "logs/second-native-loading-green.log",
+      "sha256": "1f2c008bec6fb461e7b02edcf0386a624e0ef24228e4d9d29fa213203d9d158d",
+      "savedLogSha256": "1f2c008bec6fb461e7b02edcf0386a624e0ef24228e4d9d29fa213203d9d158d"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-native-loading-red.log",
+      "savedLog": "logs/second-native-loading-red.log",
+      "sha256": "f5f8351f7fe4220309f76dc195f226676fbe20467fd563d8ba198469d449a355",
+      "savedLogSha256": "f5f8351f7fe4220309f76dc195f226676fbe20467fd563d8ba198469d449a355"
+    },
+    {
+      "originalLog": "/workspace/scratch/726a7fe1e251/second-native-red-build.log",
+      "savedLog": "logs/second-native-red-build.log",
+      "sha256": "70f160491e1d0e1b2c8aa878e4f993ea00e373b33861ded17d8a1c6e6adca908",
+      "savedLogSha256": "70f160491e1d0e1b2c8aa878e4f993ea00e373b33861ded17d8a1c6e6adca908"
+    }
+  ],
+  "sourceCommitPublication": [
+    {
+      "localCommit": "1d97ba7fef3425cc02531faf71a630b86016bf32",
+      "publishedCommit": "18b13d19e5874ca989797334619d15c929eca286",
+      "tree": "050b3709325db7f201e927d76be97b9dcf86c144",
+      "parent": "34eae170d0a12beea5ae48421fe334b93dda7969"
+    },
+    {
+      "localCommit": "c9d0e0ce7bbabbe9583599b29830310ee60ed017",
+      "publishedCommit": "23f3708715d790dccea4b78d31d1f2f155052308",
+      "tree": "4c97142ee9e5cc8ba643f33dec7d4e69bb66ab61",
+      "parent": "18b13d19e5874ca989797334619d15c929eca286"
+    }
+  ],
+  "readableLogNormalization": "Trailing whitespace and extra final blank lines removed; original and saved SHA-256 values are retained.",
+  "liveAcceptanceComplete": false,
+  "newRegressionCases": {
+    "rendererAndElectron": 20,
+    "backend": 38,
+    "native": 1,
+    "total": 59
+  },
+  "changedSourceAndTestFiles": 37
+}

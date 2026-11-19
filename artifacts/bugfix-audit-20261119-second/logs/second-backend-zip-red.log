@@ -1,0 +1,1066 @@
+...................................FFFFFFFFFFFF                          [100%]
+=================================== FAILURES ===================================
+_ test_unsupported_archive_encodings_return_a_package_error[inspect-encrypted] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod0')
+encoding = 'encrypted', operation = 'inspect'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+>       with pytest.raises(DomainError) as error:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'backend.domain_errors.DomainError'>
+
+tests/test_package_security.py:207: Failed
+_ test_unsupported_archive_encodings_return_a_package_error[inspect-strong-encryption] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod1')
+encoding = 'strong-encryption', operation = 'inspect'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+>       with pytest.raises(DomainError) as error:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'backend.domain_errors.DomainError'>
+
+tests/test_package_security.py:207: Failed
+_ test_unsupported_archive_encodings_return_a_package_error[inspect-patched-data] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod2')
+encoding = 'patched-data', operation = 'inspect'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+>       with pytest.raises(DomainError) as error:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'backend.domain_errors.DomainError'>
+
+tests/test_package_security.py:207: Failed
+_ test_unsupported_archive_encodings_return_a_package_error[inspect-unsupported-compression] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod3')
+encoding = 'unsupported-compression', operation = 'inspect'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+>       with pytest.raises(DomainError) as error:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'backend.domain_errors.DomainError'>
+
+tests/test_package_security.py:207: Failed
+__ test_unsupported_archive_encodings_return_a_package_error[read-encrypted] ___
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod4')
+encoding = 'encrypted', operation = 'read'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+>               archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+
+tests/test_package_security.py:211:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:35: in read_text
+    raw = bundle.read(info)
+          ^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1585: in read
+    with self.open(name, "r", pwd) as fp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+name = <ZipInfo filename='package.json' filemode='?rw-------' file_size=20>
+mode = 'r', pwd = None
+
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        """Return file-like object for 'name'.
+
+        name is a string for the file name within the ZIP file, or a ZipInfo
+        object.
+
+        mode should be 'r' to read a file already in the ZIP file, or 'w' to
+        write to a file newly added to the archive.
+
+        pwd is the password to decrypt files (only used for reading).
+
+        When writing, if the file size is not known in advance but may exceed
+        2 GiB, pass force_zip64 to use the ZIP64 format, which can handle large
+        files.  If the size is known in advance, it is best to pass a ZipInfo
+        instance for name, with zinfo.file_size set.
+        """
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                    "is an open writing handle on it. "
+                    "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(sizeFileHeader)
+            if len(fheader) != sizeFileHeader:
+                raise BadZipFile("Truncated file header")
+            fheader = struct.unpack(structFileHeader, fheader)
+            if fheader[_FH_SIGNATURE] != stringFileHeader:
+                raise BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[_FH_FILENAME_LENGTH])
+            if fheader[_FH_EXTRA_FIELD_LENGTH]:
+                zef_file.seek(fheader[_FH_EXTRA_FIELD_LENGTH], whence=1)
+
+            if zinfo.flag_bits & _MASK_COMPRESSED_PATCH:
+                # Zip 2.7: compressed patched data
+                raise NotImplementedError("compressed patched data (flag bit 5)")
+
+            if zinfo.flag_bits & _MASK_STRONG_ENCRYPTION:
+                # strong encryption
+                raise NotImplementedError("strong encryption (flag bit 6)")
+
+            if fheader[_FH_GENERAL_PURPOSE_FLAG_BITS] & _MASK_UTF_FILENAME:
+                # UTF-8 filename
+                fname_str = fname.decode("utf-8")
+            else:
+                fname_str = fname.decode(self.metadata_encoding or "cp437")
+
+            if fname_str != zinfo.orig_filename:
+                raise BadZipFile(
+                    'File name in directory %r and header %r differ.'
+                    % (zinfo.orig_filename, fname))
+
+            if (zinfo._end_offset is not None and
+                zef_file.tell() + zinfo.compress_size > zinfo._end_offset):
+                if zinfo._end_offset == zinfo.header_offset:
+                    import warnings
+                    warnings.warn(
+                        f"Overlapped entries: {zinfo.orig_filename!r} "
+                        f"(possible zip bomb)",
+                        skip_file_prefixes=(os.path.dirname(__file__),))
+                else:
+                    raise BadZipFile(
+                        f"Overlapped entries: {zinfo.orig_filename!r} "
+                        f"(possible zip bomb)")
+
+            # check for encrypted flag & handle password
+            is_encrypted = zinfo.flag_bits & _MASK_ENCRYPTED
+            if is_encrypted:
+                if not pwd:
+                    pwd = self.pwd
+                if pwd and not isinstance(pwd, bytes):
+                    raise TypeError("pwd: expected bytes, got %s" % type(pwd).__name__)
+                if not pwd:
+>                   raise RuntimeError("File %r is encrypted, password "
+                                       "required for extraction" % name)
+E                                      RuntimeError: File <ZipInfo filename='package.json' filemode='?rw-------' file_size=20> is encrypted, password required for extraction
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1689: RuntimeError
+_ test_unsupported_archive_encodings_return_a_package_error[read-strong-encryption] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod5')
+encoding = 'strong-encryption', operation = 'read'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+>               archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+
+tests/test_package_security.py:211:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:35: in read_text
+    raw = bundle.read(info)
+          ^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1585: in read
+    with self.open(name, "r", pwd) as fp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+name = <ZipInfo filename='package.json' filemode='?rw-------' file_size=20>
+mode = 'r', pwd = None
+
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        """Return file-like object for 'name'.
+
+        name is a string for the file name within the ZIP file, or a ZipInfo
+        object.
+
+        mode should be 'r' to read a file already in the ZIP file, or 'w' to
+        write to a file newly added to the archive.
+
+        pwd is the password to decrypt files (only used for reading).
+
+        When writing, if the file size is not known in advance but may exceed
+        2 GiB, pass force_zip64 to use the ZIP64 format, which can handle large
+        files.  If the size is known in advance, it is best to pass a ZipInfo
+        instance for name, with zinfo.file_size set.
+        """
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                    "is an open writing handle on it. "
+                    "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(sizeFileHeader)
+            if len(fheader) != sizeFileHeader:
+                raise BadZipFile("Truncated file header")
+            fheader = struct.unpack(structFileHeader, fheader)
+            if fheader[_FH_SIGNATURE] != stringFileHeader:
+                raise BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[_FH_FILENAME_LENGTH])
+            if fheader[_FH_EXTRA_FIELD_LENGTH]:
+                zef_file.seek(fheader[_FH_EXTRA_FIELD_LENGTH], whence=1)
+
+            if zinfo.flag_bits & _MASK_COMPRESSED_PATCH:
+                # Zip 2.7: compressed patched data
+                raise NotImplementedError("compressed patched data (flag bit 5)")
+
+            if zinfo.flag_bits & _MASK_STRONG_ENCRYPTION:
+                # strong encryption
+>               raise NotImplementedError("strong encryption (flag bit 6)")
+E               NotImplementedError: strong encryption (flag bit 6)
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1655: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[read-patched-data] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod6')
+encoding = 'patched-data', operation = 'read'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+>               archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+
+tests/test_package_security.py:211:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:35: in read_text
+    raw = bundle.read(info)
+          ^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1585: in read
+    with self.open(name, "r", pwd) as fp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+name = <ZipInfo filename='package.json' filemode='?rw-------' file_size=20>
+mode = 'r', pwd = None
+
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        """Return file-like object for 'name'.
+
+        name is a string for the file name within the ZIP file, or a ZipInfo
+        object.
+
+        mode should be 'r' to read a file already in the ZIP file, or 'w' to
+        write to a file newly added to the archive.
+
+        pwd is the password to decrypt files (only used for reading).
+
+        When writing, if the file size is not known in advance but may exceed
+        2 GiB, pass force_zip64 to use the ZIP64 format, which can handle large
+        files.  If the size is known in advance, it is best to pass a ZipInfo
+        instance for name, with zinfo.file_size set.
+        """
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                    "is an open writing handle on it. "
+                    "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(sizeFileHeader)
+            if len(fheader) != sizeFileHeader:
+                raise BadZipFile("Truncated file header")
+            fheader = struct.unpack(structFileHeader, fheader)
+            if fheader[_FH_SIGNATURE] != stringFileHeader:
+                raise BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[_FH_FILENAME_LENGTH])
+            if fheader[_FH_EXTRA_FIELD_LENGTH]:
+                zef_file.seek(fheader[_FH_EXTRA_FIELD_LENGTH], whence=1)
+
+            if zinfo.flag_bits & _MASK_COMPRESSED_PATCH:
+                # Zip 2.7: compressed patched data
+>               raise NotImplementedError("compressed patched data (flag bit 5)")
+E               NotImplementedError: compressed patched data (flag bit 5)
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1651: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[read-unsupported-compression] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod7')
+encoding = 'unsupported-compression', operation = 'read'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+>               archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+
+tests/test_package_security.py:211:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:35: in read_text
+    raw = bundle.read(info)
+          ^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1585: in read
+    with self.open(name, "r", pwd) as fp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1694: in open
+    return ZipExtFile(zef_file, mode, zinfo, pwd, True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:882: in __init__
+    self._decompressor = _get_decompressor(self._compress_type)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:778: in _get_decompressor
+    _check_compression(compress_type)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+compression = 99
+
+    def _check_compression(compression):
+        if compression == ZIP_STORED:
+            pass
+        elif compression == ZIP_DEFLATED:
+            if not zlib:
+                raise RuntimeError(
+                    "Compression requires the (missing) zlib module")
+        elif compression == ZIP_BZIP2:
+            if not bz2:
+                raise RuntimeError(
+                    "Compression requires the (missing) bz2 module")
+        elif compression == ZIP_LZMA:
+            if not lzma:
+                raise RuntimeError(
+                    "Compression requires the (missing) lzma module")
+        else:
+>           raise NotImplementedError("That compression method is not supported")
+E           NotImplementedError: That compression method is not supported
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:758: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[extract-encrypted] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod8')
+encoding = 'encrypted', operation = 'extract'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+                archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+            else:
+>               archive.extract(path, tmp_path / "extracted")
+
+tests/test_package_security.py:213:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:59: in extract
+    with bundle.open(info, "r") as source, target.open("wb") as output:
+         ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+name = <ZipInfo filename='package.json' filemode='?rw-------' file_size=20>
+mode = 'r', pwd = None
+
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        """Return file-like object for 'name'.
+
+        name is a string for the file name within the ZIP file, or a ZipInfo
+        object.
+
+        mode should be 'r' to read a file already in the ZIP file, or 'w' to
+        write to a file newly added to the archive.
+
+        pwd is the password to decrypt files (only used for reading).
+
+        When writing, if the file size is not known in advance but may exceed
+        2 GiB, pass force_zip64 to use the ZIP64 format, which can handle large
+        files.  If the size is known in advance, it is best to pass a ZipInfo
+        instance for name, with zinfo.file_size set.
+        """
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                    "is an open writing handle on it. "
+                    "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(sizeFileHeader)
+            if len(fheader) != sizeFileHeader:
+                raise BadZipFile("Truncated file header")
+            fheader = struct.unpack(structFileHeader, fheader)
+            if fheader[_FH_SIGNATURE] != stringFileHeader:
+                raise BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[_FH_FILENAME_LENGTH])
+            if fheader[_FH_EXTRA_FIELD_LENGTH]:
+                zef_file.seek(fheader[_FH_EXTRA_FIELD_LENGTH], whence=1)
+
+            if zinfo.flag_bits & _MASK_COMPRESSED_PATCH:
+                # Zip 2.7: compressed patched data
+                raise NotImplementedError("compressed patched data (flag bit 5)")
+
+            if zinfo.flag_bits & _MASK_STRONG_ENCRYPTION:
+                # strong encryption
+                raise NotImplementedError("strong encryption (flag bit 6)")
+
+            if fheader[_FH_GENERAL_PURPOSE_FLAG_BITS] & _MASK_UTF_FILENAME:
+                # UTF-8 filename
+                fname_str = fname.decode("utf-8")
+            else:
+                fname_str = fname.decode(self.metadata_encoding or "cp437")
+
+            if fname_str != zinfo.orig_filename:
+                raise BadZipFile(
+                    'File name in directory %r and header %r differ.'
+                    % (zinfo.orig_filename, fname))
+
+            if (zinfo._end_offset is not None and
+                zef_file.tell() + zinfo.compress_size > zinfo._end_offset):
+                if zinfo._end_offset == zinfo.header_offset:
+                    import warnings
+                    warnings.warn(
+                        f"Overlapped entries: {zinfo.orig_filename!r} "
+                        f"(possible zip bomb)",
+                        skip_file_prefixes=(os.path.dirname(__file__),))
+                else:
+                    raise BadZipFile(
+                        f"Overlapped entries: {zinfo.orig_filename!r} "
+                        f"(possible zip bomb)")
+
+            # check for encrypted flag & handle password
+            is_encrypted = zinfo.flag_bits & _MASK_ENCRYPTED
+            if is_encrypted:
+                if not pwd:
+                    pwd = self.pwd
+                if pwd and not isinstance(pwd, bytes):
+                    raise TypeError("pwd: expected bytes, got %s" % type(pwd).__name__)
+                if not pwd:
+>                   raise RuntimeError("File %r is encrypted, password "
+                                       "required for extraction" % name)
+E                                      RuntimeError: File <ZipInfo filename='package.json' filemode='?rw-------' file_size=20> is encrypted, password required for extraction
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1689: RuntimeError
+_ test_unsupported_archive_encodings_return_a_package_error[extract-strong-encryption] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod9')
+encoding = 'strong-encryption', operation = 'extract'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+                archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+            else:
+>               archive.extract(path, tmp_path / "extracted")
+
+tests/test_package_security.py:213:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:59: in extract
+    with bundle.open(info, "r") as source, target.open("wb") as output:
+         ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+name = <ZipInfo filename='package.json' filemode='?rw-------' file_size=20>
+mode = 'r', pwd = None
+
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        """Return file-like object for 'name'.
+
+        name is a string for the file name within the ZIP file, or a ZipInfo
+        object.
+
+        mode should be 'r' to read a file already in the ZIP file, or 'w' to
+        write to a file newly added to the archive.
+
+        pwd is the password to decrypt files (only used for reading).
+
+        When writing, if the file size is not known in advance but may exceed
+        2 GiB, pass force_zip64 to use the ZIP64 format, which can handle large
+        files.  If the size is known in advance, it is best to pass a ZipInfo
+        instance for name, with zinfo.file_size set.
+        """
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                    "is an open writing handle on it. "
+                    "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(sizeFileHeader)
+            if len(fheader) != sizeFileHeader:
+                raise BadZipFile("Truncated file header")
+            fheader = struct.unpack(structFileHeader, fheader)
+            if fheader[_FH_SIGNATURE] != stringFileHeader:
+                raise BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[_FH_FILENAME_LENGTH])
+            if fheader[_FH_EXTRA_FIELD_LENGTH]:
+                zef_file.seek(fheader[_FH_EXTRA_FIELD_LENGTH], whence=1)
+
+            if zinfo.flag_bits & _MASK_COMPRESSED_PATCH:
+                # Zip 2.7: compressed patched data
+                raise NotImplementedError("compressed patched data (flag bit 5)")
+
+            if zinfo.flag_bits & _MASK_STRONG_ENCRYPTION:
+                # strong encryption
+>               raise NotImplementedError("strong encryption (flag bit 6)")
+E               NotImplementedError: strong encryption (flag bit 6)
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1655: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[extract-patched-data] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod10')
+encoding = 'patched-data', operation = 'extract'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+                archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+            else:
+>               archive.extract(path, tmp_path / "extracted")
+
+tests/test_package_security.py:213:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:59: in extract
+    with bundle.open(info, "r") as source, target.open("wb") as output:
+         ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+name = <ZipInfo filename='package.json' filemode='?rw-------' file_size=20>
+mode = 'r', pwd = None
+
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        """Return file-like object for 'name'.
+
+        name is a string for the file name within the ZIP file, or a ZipInfo
+        object.
+
+        mode should be 'r' to read a file already in the ZIP file, or 'w' to
+        write to a file newly added to the archive.
+
+        pwd is the password to decrypt files (only used for reading).
+
+        When writing, if the file size is not known in advance but may exceed
+        2 GiB, pass force_zip64 to use the ZIP64 format, which can handle large
+        files.  If the size is known in advance, it is best to pass a ZipInfo
+        instance for name, with zinfo.file_size set.
+        """
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                    "is an open writing handle on it. "
+                    "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(sizeFileHeader)
+            if len(fheader) != sizeFileHeader:
+                raise BadZipFile("Truncated file header")
+            fheader = struct.unpack(structFileHeader, fheader)
+            if fheader[_FH_SIGNATURE] != stringFileHeader:
+                raise BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[_FH_FILENAME_LENGTH])
+            if fheader[_FH_EXTRA_FIELD_LENGTH]:
+                zef_file.seek(fheader[_FH_EXTRA_FIELD_LENGTH], whence=1)
+
+            if zinfo.flag_bits & _MASK_COMPRESSED_PATCH:
+                # Zip 2.7: compressed patched data
+>               raise NotImplementedError("compressed patched data (flag bit 5)")
+E               NotImplementedError: compressed patched data (flag bit 5)
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1651: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[extract-unsupported-compression] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-red2/test_unsupported_archive_encod11')
+encoding = 'unsupported-compression', operation = 'extract'
+
+    @pytest.mark.parametrize(
+        "encoding", ["encrypted", "strong-encryption", "patched-data", "unsupported-compression"]
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+                archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+            else:
+>               archive.extract(path, tmp_path / "extracted")
+
+tests/test_package_security.py:213:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:59: in extract
+    with bundle.open(info, "r") as source, target.open("wb") as output:
+         ^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1694: in open
+    return ZipExtFile(zef_file, mode, zinfo, pwd, True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:882: in __init__
+    self._decompressor = _get_decompressor(self._compress_type)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:778: in _get_decompressor
+    _check_compression(compress_type)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+compression = 99
+
+    def _check_compression(compression):
+        if compression == ZIP_STORED:
+            pass
+        elif compression == ZIP_DEFLATED:
+            if not zlib:
+                raise RuntimeError(
+                    "Compression requires the (missing) zlib module")
+        elif compression == ZIP_BZIP2:
+            if not bz2:
+                raise RuntimeError(
+                    "Compression requires the (missing) bz2 module")
+        elif compression == ZIP_LZMA:
+            if not lzma:
+                raise RuntimeError(
+                    "Compression requires the (missing) lzma module")
+        else:
+>           raise NotImplementedError("That compression method is not supported")
+E           NotImplementedError: That compression method is not supported
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:758: NotImplementedError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[inspect-encrypted]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[inspect-strong-encryption]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[inspect-patched-data]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[inspect-unsupported-compression]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[read-encrypted]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[read-strong-encryption]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[read-patched-data]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[read-unsupported-compression]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[extract-encrypted]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[extract-strong-encryption]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[extract-patched-data]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[extract-unsupported-compression]
+12 failed, 35 passed, 2 warnings in 0.37s

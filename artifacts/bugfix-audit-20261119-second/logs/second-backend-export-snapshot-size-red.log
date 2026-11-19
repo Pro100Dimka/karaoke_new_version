@@ -1,0 +1,112 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_reexport_after_a_smaller_manual_clip_does_not_copy_the_archived_clip ___
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-snapshot-size-red/test_reexport_after_a_smaller_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f1ff5d7b290>
+
+    def test_reexport_after_a_smaller_manual_clip_does_not_copy_the_archived_clip(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        original_clip = tmp_path / "original.mp4"
+        original_clip.write_bytes(b"\x00\x00\x00\x18ftyp" + bytes(2_000_000))
+        replacement = tmp_path / "smaller.mp4"
+        replacement.write_bytes(b"\x00\x00\x00\x18ftypreplacement")
+        with app_client(tmp_path / "source", ai_providers=(FakeAiProvider(),)) as client:
+            song, _ = make_ready_and_export(client, source)
+            assert client.patch(
+                f"/songs/{song['songId']}", json={"videoPath": str(original_clip)}
+            ).status_code == 200
+            started = client.post(f"/packages/export/{song['songId']}")
+            package = Path(wait_for_job(client, started.json()["jobId"])["report"]["path"])
+
+        runtime = tmp_path / "relay"
+        with app_client(runtime) as client:
+            started = client.post("/packages/import", json={"path": str(package)})
+            imported = wait_for_job(client, started.json()["jobId"])
+            assert imported["state"] == "Succeeded", imported
+            changed = client.patch(f"/songs/{song['songId']}", json={"videoPath": str(replacement)})
+            assert changed.status_code == 200, changed.text
+            revision = changed.json()["activeRevision"]
+            archived_clip = runtime / "songs" / song["songId"] / "revisions" / str(revision) / "media/clip.mp4"
+            assert archived_clip.stat().st_size > 100 * replacement.stat().st_size
+            copy = shutil.copyfile
+
+            def copy_selected(source, destination, *, follow_symlinks=True):
+                assert Path(source) != archived_clip, "Export copied the obsolete archived clip"
+                return copy(source, destination, follow_symlinks=follow_symlinks)
+
+            with monkeypatch.context() as patch:
+                patch.setattr(shutil, "copyfile", copy_selected)
+                preflight = client.app.state.container.packages.start_export._preflight
+                selected_bytes = preflight.execute(song["songId"], revision)
+                patch.setattr(
+                    preflight._storage,
+                    "free_bytes",
+                    lambda _path: preflight._margin + 2 * selected_bytes,
+                )
+                started = client.post(f"/packages/export/{song['songId']}")
+                exported = wait_for_job(client, started.json()["jobId"])
+>           assert exported["state"] == "Succeeded", exported
+E           AssertionError: {'entityId': '4aba49c4-a227-460f-8c71-6ed68d38a535', 'error': {'code': 'InternalJobError', 'details': {}, 'message': '...ground job failed'}, 'finishedAt': '2026-11-19T16:55:06.981632Z', 'jobId': 'a5eebb53-e4f4-4d84-819e-319827aeaa46', ...}
+E           assert 'Failed' == 'Succeeded'
+E
+E             - Succeeded
+E             + Failed
+
+tests/test_package_export_preflight.py:130: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    backend.processing.job_manager:job_manager.py:206 Unexpected background job error
+Traceback (most recent call last):
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/processing/job_manager.py", line 199, in _run
+    self._execute(job_id, work, cancel)
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/processing/job_manager.py", line 232, in _execute
+    report = work(context)
+             ^^^^^^^^^^^^^
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/packages/background.py", line 36, in <lambda>
+    lambda context: self._run(song_id, revision, context),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/packages/background.py", line 42, in _run
+    path = self._export.execute(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/packages/export_package.py", line 58, in execute
+    snapshot = self._snapshot(song, revision_meta.revision, workspace)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/packages/export_package.py", line 82, in _snapshot
+    return self._projects.snapshot_revision(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/infrastructure/local_projects.py", line 152, in snapshot_revision
+    shutil.copytree(source, target)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/shutil.py", line 600, in copytree
+    return _copytree(entries=entries, src=src, dst=dst, symlinks=symlinks,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/shutil.py", line 536, in _copytree
+    copytree(srcobj, dstname, symlinks, ignore, copy_function,
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/shutil.py", line 600, in copytree
+    return _copytree(entries=entries, src=src, dst=dst, symlinks=symlinks,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/shutil.py", line 540, in _copytree
+    copy_function(srcobj, dstname)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/shutil.py", line 475, in copy2
+    copyfile(src, dst, follow_symlinks=follow_symlinks)
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/tests/test_package_export_preflight.py", line 116, in copy_selected
+    assert Path(source) != archived_clip, "Export copied the obsolete archived clip"
+AssertionError: Export copied the obsolete archived clip
+assert PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-snapshot-size-red/test_reexport_after_a_smaller_0/relay/songs/4aba49c4-a227-460f-8c71-6ed68d38a535/revisions/2/media/clip.mp4') != PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-snapshot-size-red/test_reexport_after_a_smaller_0/relay/songs/4aba49c4-a227-460f-8c71-6ed68d38a535/revisions/2/media/clip.mp4')
+ +  where PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-snapshot-size-red/test_reexport_after_a_smaller_0/relay/songs/4aba49c4-a227-460f-8c71-6ed68d38a535/revisions/2/media/clip.mp4') = Path(<DirEntry 'clip.mp4'>)
+WARNING  backend.processing.job_manager:job_manager.py:317 Background job failed
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_export_preflight.py::test_reexport_after_a_smaller_manual_clip_does_not_copy_the_archived_clip
+1 failed, 2 warnings in 1.68s

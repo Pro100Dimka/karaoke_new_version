@@ -1,0 +1,41 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/application/room/RoomProjectCoordinator.test.ts (19 tests | 2 failed) 429ms
+   × publishes an empty library once on joining and again after backend recovery 7ms
+   × withdraws songs deleted while the backend was unavailable 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/application/room/RoomProjectCoordinator.test.ts > publishes an empty library once on joining and again after backend recovery
+AssertionError: expected "vi.fn()" to be called once with arguments: [ 'room-a', [] ]
+
+Number of calls: 0
+
+ ❯ src/application/room/RoomProjectCoordinator.test.ts:12:42
+     10|     coordinator.setPythonReady(true);
+     11|     await vi.advanceTimersByTimeAsync(5000);
+     12|     expect(services.room.publishLibrary).toHaveBeenCalledExactlyOnceWi…
+       |                                          ^
+     13|       'room-a',
+     14|       [],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/application/room/RoomProjectCoordinator.test.ts > withdraws songs deleted while the backend was unavailable
+AssertionError: expected "vi.fn()" to be called 2 times, but got 1 times
+ ❯ src/application/room/RoomProjectCoordinator.test.ts:50:42
+     48|     coordinator.setPythonReady(true);
+     49|     await vi.advanceTimersByTimeAsync(1000);
+     50|     expect(services.room.publishLibrary).toHaveBeenCalledTimes(2);
+       |                                          ^
+     51|     expect(services.room.publishLibrary).toHaveBeenLastCalledWith('roo…
+     52|   } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 17 passed (19)
+   Start at  18:41:31
+   Duration  979ms (transform 146ms, setup 87ms, import 161ms, tests 429ms, environment 195ms)

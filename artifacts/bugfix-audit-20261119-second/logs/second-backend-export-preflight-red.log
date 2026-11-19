@@ -1,0 +1,150 @@
+FF.F                                                                     [100%]
+=================================== FAILURES ===================================
+__ test_package_export_reserves_space_for_the_selected_clip_and_its_snapshot ___
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_reserves_s0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4e50fe6b70>
+
+    def test_package_export_reserves_space_for_the_selected_clip_and_its_snapshot(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        clip = tmp_path / "clip.mp4"
+        clip.write_bytes(b"\x00\x00\x00\x18ftyp" + bytes(64_000))
+        with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+            song, _ = make_ready_and_export(client, source)
+            starter = client.app.state.container.packages.start_export
+            preflight = starter._preflight
+            without_clip = preflight.execute(song["songId"], None)
+            updated = client.patch(f"/songs/{song['songId']}", json={"videoPath": str(clip)})
+            assert updated.status_code == 200, updated.text
+            monkeypatch.setattr(
+                preflight._storage,
+                "free_bytes",
+                lambda _path: preflight._margin + without_clip * 2,
+            )
+
+            response = client.post(f"/packages/export/{song['songId']}")
+
+>           assert response.status_code == 503, response.text
+E           AssertionError: {"jobId":"777134e7-ea68-4e90-a2f7-cab1a46ff0dd","state":"Queued"}
+E           assert 202 == 503
+E            +  where 202 = <Response [202 Accepted]>.status_code
+
+tests/test_package_export_preflight.py:39: AssertionError
+_ test_package_export_counts_a_portable_clip_once_with_the_selected_size[16000] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_counts_a_p0')
+selected_size = 16000
+
+    @pytest.mark.parametrize("selected_size", [16_000, 32_000, 64_000])
+    def test_package_export_counts_a_portable_clip_once_with_the_selected_size(
+        tmp_path: Path, selected_size: int
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        clip = tmp_path / "selected.mp4"
+        clip.write_bytes(b"\x00\x00\x00\x18ftyp" + bytes(selected_size))
+        runtime = tmp_path / "runtime"
+        with app_client(runtime, ai_providers=(FakeAiProvider(),)) as client:
+            song, _ = make_ready_and_export(client, source)
+            updated = client.patch(f"/songs/{song['songId']}", json={"videoPath": str(clip)})
+            assert updated.status_code == 200, updated.text
+            revision = updated.json()["activeRevision"]
+            preflight = client.app.state.container.packages.start_export._preflight
+            projects = preflight._projects
+            manifest = projects.load_manifest(song["songId"], revision)
+            project = runtime / "songs" / song["songId"] / "revisions" / str(revision)
+            archived_clip = project / "media/clip.mp4"
+            archived_clip.parent.mkdir(parents=True, exist_ok=True)
+            archived_clip.write_bytes(b"\x00\x00\x00\x18ftyp" + bytes(32_000))
+            artifact = ProjectArtifact(
+                "clip",
+                Path("media/clip.mp4"),
+                ArtifactCategory.PORTABLE,
+                hashlib.sha256(archived_clip.read_bytes()).hexdigest(),
+            )
+            (project / "manifest.json").write_text(
+                encode_manifest(replace(manifest, artifacts=(*manifest.artifacts, artifact))),
+                encoding="utf-8",
+            )
+            base_size = projects.portable_revision_size(song["songId"], revision)
+
+            required = preflight.execute(song["songId"], revision)
+
+>           assert required == base_size - archived_clip.stat().st_size + clip.stat().st_size
+E           AssertionError: assert 219514 == ((219514 - 32008) + 16008)
+E            +  where 32008 = os.stat_result(st_mode=33188, st_ino=798415, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=32008, st_atime=1795107063, st_mtime=1795107063, st_ctime=1795107063).st_size
+E            +    where os.stat_result(st_mode=33188, st_ino=798415, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=32008, st_atime=1795107063, st_mtime=1795107063, st_ctime=1795107063) = stat()
+E            +      where stat = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_counts_a_p0/runtime/songs/0271f959-4283-49c4-8814-aee8d3e9ab24/revisions/2/media/clip.mp4').stat
+E            +  and   16008 = os.stat_result(st_mode=33188, st_ino=796989, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=16008, st_atime=1795107063, st_mtime=1795107062, st_ctime=1795107062).st_size
+E            +    where os.stat_result(st_mode=33188, st_ino=796989, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=16008, st_atime=1795107063, st_mtime=1795107062, st_ctime=1795107062) = stat()
+E            +      where stat = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_counts_a_p0/selected.mp4').stat
+
+tests/test_package_export_preflight.py:80: AssertionError
+_ test_package_export_counts_a_portable_clip_once_with_the_selected_size[64000] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_counts_a_p2')
+selected_size = 64000
+
+    @pytest.mark.parametrize("selected_size", [16_000, 32_000, 64_000])
+    def test_package_export_counts_a_portable_clip_once_with_the_selected_size(
+        tmp_path: Path, selected_size: int
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        clip = tmp_path / "selected.mp4"
+        clip.write_bytes(b"\x00\x00\x00\x18ftyp" + bytes(selected_size))
+        runtime = tmp_path / "runtime"
+        with app_client(runtime, ai_providers=(FakeAiProvider(),)) as client:
+            song, _ = make_ready_and_export(client, source)
+            updated = client.patch(f"/songs/{song['songId']}", json={"videoPath": str(clip)})
+            assert updated.status_code == 200, updated.text
+            revision = updated.json()["activeRevision"]
+            preflight = client.app.state.container.packages.start_export._preflight
+            projects = preflight._projects
+            manifest = projects.load_manifest(song["songId"], revision)
+            project = runtime / "songs" / song["songId"] / "revisions" / str(revision)
+            archived_clip = project / "media/clip.mp4"
+            archived_clip.parent.mkdir(parents=True, exist_ok=True)
+            archived_clip.write_bytes(b"\x00\x00\x00\x18ftyp" + bytes(32_000))
+            artifact = ProjectArtifact(
+                "clip",
+                Path("media/clip.mp4"),
+                ArtifactCategory.PORTABLE,
+                hashlib.sha256(archived_clip.read_bytes()).hexdigest(),
+            )
+            (project / "manifest.json").write_text(
+                encode_manifest(replace(manifest, artifacts=(*manifest.artifacts, artifact))),
+                encoding="utf-8",
+            )
+            base_size = projects.portable_revision_size(song["songId"], revision)
+
+            required = preflight.execute(song["songId"], revision)
+
+>           assert required == base_size - archived_clip.stat().st_size + clip.stat().st_size
+E           AssertionError: assert 219514 == ((219514 - 32008) + 64008)
+E            +  where 32008 = os.stat_result(st_mode=33188, st_ino=797905, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=32008, st_atime=1795107065, st_mtime=1795107065, st_ctime=1795107065).st_size
+E            +    where os.stat_result(st_mode=33188, st_ino=797905, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=32008, st_atime=1795107065, st_mtime=1795107065, st_ctime=1795107065) = stat()
+E            +      where stat = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_counts_a_p2/runtime/songs/caea5608-726d-4cee-a906-214644724f33/revisions/2/media/clip.mp4').stat
+E            +  and   64008 = os.stat_result(st_mode=33188, st_ino=798442, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=64008, st_atime=1795107065, st_mtime=1795107064, st_ctime=1795107064).st_size
+E            +    where os.stat_result(st_mode=33188, st_ino=798442, st_dev=27, st_nlink=1, st_uid=1000, st_gid=1000, st_size=64008, st_atime=1795107065, st_mtime=1795107064, st_ctime=1795107064) = stat()
+E            +      where stat = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-preflight-red2/test_package_export_counts_a_p2/selected.mp4').stat
+
+tests/test_package_export_preflight.py:80: AssertionError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_export_preflight.py::test_package_export_reserves_space_for_the_selected_clip_and_its_snapshot
+FAILED tests/test_package_export_preflight.py::test_package_export_counts_a_portable_clip_once_with_the_selected_size[16000]
+FAILED tests/test_package_export_preflight.py::test_package_export_counts_a_portable_clip_once_with_the_selected_size[64000]
+3 failed, 1 passed, 2 warnings in 4.82s

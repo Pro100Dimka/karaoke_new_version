@@ -1,0 +1,29 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/ShellIpc.test.ts (4 tests | 3 failed) 12ms
+   × queues desktop commands after the renderer ends through render-process-gone until its replacement is ready 9ms
+   × queues desktop commands after the renderer ends through destroyed until its replacement is ready 1ms
+   × queues desktop commands after the renderer ends through reload until its replacement is ready 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/ShellIpc.test.ts > queues desktop commands after the renderer ends through render-process-gone until its replacement is ready
+ FAIL  electron/ShellIpc.test.ts > queues desktop commands after the renderer ends through destroyed until its replacement is ready
+ FAIL  electron/ShellIpc.test.ts > queues desktop commands after the renderer ends through reload until its replacement is ready
+AssertionError: expected "vi.fn()" to be called once, but got 2 times
+ ❯ electron/ShellIpc.test.ts:49:25
+     47|     else sender.emit(event);
+     48|     shell.send({ type: 'importFiles', paths: ['/music/song.wav'] });
+     49|     expect(sender.send).toHaveBeenCalledOnce();
+       |                         ^
+     50|
+     51|     ready(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  18:41:14
+   Duration  578ms (transform 60ms, setup 109ms, import 41ms, tests 12ms, environment 259ms)

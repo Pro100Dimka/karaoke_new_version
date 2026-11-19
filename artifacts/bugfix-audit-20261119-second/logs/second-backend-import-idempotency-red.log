@@ -1,0 +1,776 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____ test_overlapping_package_imports_reserve_an_idempotency_key_once[True] ____
+
+self = <sqlalchemy.engine.base.Connection object at 0x7f9d20f95640>
+dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f9d292bf740>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7f9d20f953d0>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7f9d2921c5f0>
+parameters = [('ImportPackage', 'shared-key', '891a16ea04443475770640649a9805747c699c920c56494e6263e7e2190144e1', 'eb16dff0-ada4-4be7-a182-bb053590066e', '2026-11-19 16:44:53.727394')]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+
+        effective_parameters: Optional[_AnyExecuteParams]
+
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+
+        if self._echo:
+            self._log_info(str_statement)
+
+            stats = context._get_cache_stats()
+
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f9d292bf740>
+cursor = <sqlite3.Cursor object at 0x7f9d20fa2ec0>
+statement = 'INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)'
+parameters = ('ImportPackage', 'shared-key', '891a16ea04443475770640649a9805747c699c920c56494e6263e7e2190144e1', 'eb16dff0-ada4-4be7-a182-bb053590066e', '2026-11-19 16:44:53.727394')
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7f9d20f953d0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.IntegrityError: UNIQUE constraint failed: idempotency.operation, idempotency.key
+
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: IntegrityError
+
+The above exception was the direct cause of the following exception:
+
+self = <backend.infrastructure.database.SqlUnitOfWork object at 0x7f9d20f69940>
+
+    def commit(self) -> None:
+        changes = {
+            "songIds": list(self.songs.changed),
+            "deletedIds": list(self.songs.deleted),
+            "playedIds": list(self.history.played),
+            "modelIds": list(self.models.changed),
+            "recordingIds": list(self.recordings.changed),
+        }
+        try:
+            with self._catalog_lock if any(changes.values()) else nullcontext():
+>               self._session.commit()
+
+backend/infrastructure/database.py:152:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2035: in commit
+    trans.commit(_to_root=True)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1316: in commit
+    self._prepare_impl()
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1290: in _prepare_impl
+    self.session.flush()
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:94: in save_obj
+    _emit_insert_statements(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:1234: in _emit_insert_statements
+    result = connection.execute(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f9d292bf740>
+cursor = <sqlite3.Cursor object at 0x7f9d20fa2ec0>
+statement = 'INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)'
+parameters = ('ImportPackage', 'shared-key', '891a16ea04443475770640649a9805747c699c920c56494e6263e7e2190144e1', 'eb16dff0-ada4-4be7-a182-bb053590066e', '2026-11-19 16:44:53.727394')
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7f9d20f953d0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: idempotency.operation, idempotency.key
+E       [SQL: INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)]
+E       [parameters: ('ImportPackage', 'shared-key', '891a16ea04443475770640649a9805747c699c920c56494e6263e7e2190144e1', 'eb16dff0-ada4-4be7-a182-bb053590066e', '2026-11-19 16:44:53.727394')]
+E       (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: IntegrityError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-idempotency-red/test_overlapping_package_impor0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d29337620>
+same_input = True
+
+    @pytest.mark.parametrize("same_input", [True, False])
+    def test_overlapping_package_imports_reserve_an_idempotency_key_once(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, same_input: bool
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+            _, package = make_ready_and_export(client, source)
+            starter = client.app.state.container.packages.start_import
+            save = starter._save
+            entered, release = threading.Event(), threading.Event()
+            guard = threading.Lock()
+
+            def paused_save(*args):
+                with guard:
+                    first = not entered.is_set()
+                    entered.set()
+                if first:
+                    assert release.wait(10), "Second import request did not finish"
+                return save(*args)
+
+            monkeypatch.setattr(starter, "_save", paused_save)
+            decision = (
+                PackageImportDecision.SAFE_ONLY
+                if same_input
+                else PackageImportDecision.ACCEPT_DIVERGENT
+            )
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(
+                    starter.execute, package, PackageImportDecision.SAFE_ONLY, "shared-key"
+                )
+                try:
+                    assert entered.wait(10), "First import did not reach idempotency persistence"
+                    second = pool.submit(starter.execute, package, decision, "shared-key")
+                    wait((second,), timeout=1)
+                finally:
+                    release.set()
+>               original = first.result(timeout=10)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_package_import_idempotency.py:54:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/packages/background.py:79: in execute
+    self._save(idempotency_key, request_hash, job.job_id)
+tests/test_package_import_idempotency.py:36: in paused_save
+    return save(*args)
+           ^^^^^^^^^^^
+backend/packages/background.py:122: in _save
+    transaction.commit()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <backend.infrastructure.database.SqlUnitOfWork object at 0x7f9d20f69940>
+
+    def commit(self) -> None:
+        changes = {
+            "songIds": list(self.songs.changed),
+            "deletedIds": list(self.songs.deleted),
+            "playedIds": list(self.history.played),
+            "modelIds": list(self.models.changed),
+            "recordingIds": list(self.recordings.changed),
+        }
+        try:
+            with self._catalog_lock if any(changes.values()) else nullcontext():
+                self._session.commit()
+                self._clear_changes()
+                if any(changes.values()) and self._notify:
+                    self._notify(changes)
+        except SQLAlchemyError as exc:
+            self.rollback()
+            logger.exception("Database transaction failed")
+>           raise DependencyError("DatabaseWriteFailed", "Database transaction failed") from exc
+E           backend.domain_errors.DependencyError: Database transaction failed
+
+backend/infrastructure/database.py:159: DependencyError
+------------------------------ Captured log call -------------------------------
+ERROR    backend.infrastructure.database:database.py:158 Database transaction failed
+Traceback (most recent call last):
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.IntegrityError: UNIQUE constraint failed: idempotency.operation, idempotency.key
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/infrastructure/database.py", line 152, in commit
+    self._session.commit()
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1316, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1290, in _prepare_impl
+    self.session.flush()
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+    self._flush(objects)
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+    flush_context.execute()
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+    rec.execute(self)
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 94, in save_obj
+    _emit_insert_statements(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1234, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: idempotency.operation, idempotency.key
+[SQL: INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)]
+[parameters: ('ImportPackage', 'shared-key', '891a16ea04443475770640649a9805747c699c920c56494e6263e7e2190144e1', 'eb16dff0-ada4-4be7-a182-bb053590066e', '2026-11-19 16:44:53.727394')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+___ test_overlapping_package_imports_reserve_an_idempotency_key_once[False] ____
+
+self = <sqlalchemy.engine.base.Connection object at 0x7f9d28896e10>
+dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f9d285f11f0>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7f9d288951f0>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7f9d288bda00>
+parameters = [('ImportPackage', 'shared-key', '54b93f7c02c8ddfdb09858b0e3a11f64abf24eaa946c3a725d3633741c9d28e7', '8e831b8b-21fc-4b2d-ab21-14c97383810a', '2026-11-19 16:44:55.509085')]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+
+        effective_parameters: Optional[_AnyExecuteParams]
+
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+
+        if self._echo:
+            self._log_info(str_statement)
+
+            stats = context._get_cache_stats()
+
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f9d285f11f0>
+cursor = <sqlite3.Cursor object at 0x7f9d2889fec0>
+statement = 'INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)'
+parameters = ('ImportPackage', 'shared-key', '54b93f7c02c8ddfdb09858b0e3a11f64abf24eaa946c3a725d3633741c9d28e7', '8e831b8b-21fc-4b2d-ab21-14c97383810a', '2026-11-19 16:44:55.509085')
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7f9d288951f0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.IntegrityError: UNIQUE constraint failed: idempotency.operation, idempotency.key
+
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: IntegrityError
+
+The above exception was the direct cause of the following exception:
+
+self = <backend.infrastructure.database.SqlUnitOfWork object at 0x7f9d28896de0>
+
+    def commit(self) -> None:
+        changes = {
+            "songIds": list(self.songs.changed),
+            "deletedIds": list(self.songs.deleted),
+            "playedIds": list(self.history.played),
+            "modelIds": list(self.models.changed),
+            "recordingIds": list(self.recordings.changed),
+        }
+        try:
+            with self._catalog_lock if any(changes.values()) else nullcontext():
+>               self._session.commit()
+
+backend/infrastructure/database.py:152:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2035: in commit
+    trans.commit(_to_root=True)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1316: in commit
+    self._prepare_impl()
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1290: in _prepare_impl
+    self.session.flush()
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:94: in save_obj
+    _emit_insert_statements(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:1234: in _emit_insert_statements
+    result = connection.execute(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f9d285f11f0>
+cursor = <sqlite3.Cursor object at 0x7f9d2889fec0>
+statement = 'INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)'
+parameters = ('ImportPackage', 'shared-key', '54b93f7c02c8ddfdb09858b0e3a11f64abf24eaa946c3a725d3633741c9d28e7', '8e831b8b-21fc-4b2d-ab21-14c97383810a', '2026-11-19 16:44:55.509085')
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7f9d288951f0>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: idempotency.operation, idempotency.key
+E       [SQL: INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)]
+E       [parameters: ('ImportPackage', 'shared-key', '54b93f7c02c8ddfdb09858b0e3a11f64abf24eaa946c3a725d3633741c9d28e7', '8e831b8b-21fc-4b2d-ab21-14c97383810a', '2026-11-19 16:44:55.509085')]
+E       (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+../../../3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: IntegrityError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-idempotency-red/test_overlapping_package_impor1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d20f69490>
+same_input = False
+
+    @pytest.mark.parametrize("same_input", [True, False])
+    def test_overlapping_package_imports_reserve_an_idempotency_key_once(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, same_input: bool
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+            _, package = make_ready_and_export(client, source)
+            starter = client.app.state.container.packages.start_import
+            save = starter._save
+            entered, release = threading.Event(), threading.Event()
+            guard = threading.Lock()
+
+            def paused_save(*args):
+                with guard:
+                    first = not entered.is_set()
+                    entered.set()
+                if first:
+                    assert release.wait(10), "Second import request did not finish"
+                return save(*args)
+
+            monkeypatch.setattr(starter, "_save", paused_save)
+            decision = (
+                PackageImportDecision.SAFE_ONLY
+                if same_input
+                else PackageImportDecision.ACCEPT_DIVERGENT
+            )
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(
+                    starter.execute, package, PackageImportDecision.SAFE_ONLY, "shared-key"
+                )
+                try:
+                    assert entered.wait(10), "First import did not reach idempotency persistence"
+                    second = pool.submit(starter.execute, package, decision, "shared-key")
+                    wait((second,), timeout=1)
+                finally:
+                    release.set()
+>               original = first.result(timeout=10)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_package_import_idempotency.py:54:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/packages/background.py:79: in execute
+    self._save(idempotency_key, request_hash, job.job_id)
+tests/test_package_import_idempotency.py:36: in paused_save
+    return save(*args)
+           ^^^^^^^^^^^
+backend/packages/background.py:122: in _save
+    transaction.commit()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <backend.infrastructure.database.SqlUnitOfWork object at 0x7f9d28896de0>
+
+    def commit(self) -> None:
+        changes = {
+            "songIds": list(self.songs.changed),
+            "deletedIds": list(self.songs.deleted),
+            "playedIds": list(self.history.played),
+            "modelIds": list(self.models.changed),
+            "recordingIds": list(self.recordings.changed),
+        }
+        try:
+            with self._catalog_lock if any(changes.values()) else nullcontext():
+                self._session.commit()
+                self._clear_changes()
+                if any(changes.values()) and self._notify:
+                    self._notify(changes)
+        except SQLAlchemyError as exc:
+            self.rollback()
+            logger.exception("Database transaction failed")
+>           raise DependencyError("DatabaseWriteFailed", "Database transaction failed") from exc
+E           backend.domain_errors.DependencyError: Database transaction failed
+
+backend/infrastructure/database.py:159: DependencyError
+------------------------------ Captured log call -------------------------------
+ERROR    backend.infrastructure.database:database.py:158 Database transaction failed
+Traceback (most recent call last):
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.IntegrityError: UNIQUE constraint failed: idempotency.operation, idempotency.key
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/726a7fe1e251/karaoke_new_version/python/backend/infrastructure/database.py", line 152, in commit
+    self._session.commit()
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1316, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1290, in _prepare_impl
+    self.session.flush()
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+    self._flush(objects)
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+    flush_context.execute()
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+    rec.execute(self)
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 94, in save_obj
+    _emit_insert_statements(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1234, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/workspace/scratch/3fab33f62f10/karaoke_new_version/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: idempotency.operation, idempotency.key
+[SQL: INSERT INTO idempotency (operation, "key", request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)]
+[parameters: ('ImportPackage', 'shared-key', '54b93f7c02c8ddfdb09858b0e3a11f64abf24eaa946c3a725d3633741c9d28e7', '8e831b8b-21fc-4b2d-ab21-14c97383810a', '2026-11-19 16:44:55.509085')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_import_idempotency.py::test_overlapping_package_imports_reserve_an_idempotency_key_once[True]
+FAILED tests/test_package_import_idempotency.py::test_overlapping_package_imports_reserve_an_idempotency_key_once[False]
+2 failed, 2 warnings in 3.76s

@@ -1,0 +1,41 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx (4 tests | 2 failed) 32ms
+   × keeps the pending preview owned when seeking before it finishes loading 7ms
+   × can pause a preview that was positioned while it was still loading 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/modals/recordings/useRecordingPlayback.test.tsx > keeps the pending preview owned when seeking before it finishes loading
+AssertionError: expected "vi.fn()" to be called with arguments: [ Any<Symbol> ]
+
+Number of calls: 0
+
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx:88:44
+     86|   await act(() => result.current.seek(20));
+     87|   unmount();
+     88|   expect(audioClient.stopRecordingPreview).toHaveBeenCalledWith(
+       |                                            ^
+     89|     expect.any(Symbol),
+     90|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/library/modals/recordings/useRecordingPlayback.test.tsx > can pause a preview that was positioned while it was still loading
+AssertionError: expected "vi.fn()" to be called once, but got 0 times
+ ❯ src/pages/library/modals/recordings/useRecordingPlayback.test.tsx:127:45
+    125|
+    126|   await act(() => result.current.toggle());
+    127|   expect(audioClient.pauseRecordingPreview).toHaveBeenCalledOnce();
+       |                                             ^
+    128|   expect(audioClient.playRecording).toHaveBeenCalledOnce();
+    129|   expect(result.current.playing).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  18:43:08
+   Duration  774ms (transform 79ms, setup 131ms, import 54ms, tests 32ms, environment 358ms)

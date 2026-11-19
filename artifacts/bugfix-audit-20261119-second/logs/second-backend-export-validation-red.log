@@ -1,0 +1,96 @@
+..F.                                                                     [100%]
+=================================== FAILURES ===================================
+__ test_package_export_cancellation_respects_archive_publication[validation] ___
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-validation-red/test_package_export_cancellati2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fa3286424e0>
+cancel_at = 'validation'
+
+    @pytest.mark.parametrize(
+        "cancel_at", ["snapshot", "archive", "validation", "after-publication"]
+    )
+    def test_package_export_cancellation_respects_archive_publication(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancel_at: str
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        runtime = tmp_path / "runtime"
+        with app_client(runtime, ai_providers=(FakeAiProvider(),)) as client:
+            song, output = make_ready_and_export(client, source)
+            output.unlink()
+            exporter = client.app.state.container.packages.start_export._export
+            entered, release = threading.Event(), threading.Event()
+
+            def pause() -> None:
+                entered.set()
+                assert release.wait(10), "Cancellation request did not finish"
+
+            if cancel_at == "snapshot":
+                snapshot = exporter._projects.snapshot_revision
+
+                def blocked_snapshot(*args, **kwargs):
+                    result = snapshot(*args, **kwargs)
+                    pause()
+                    return result
+
+                monkeypatch.setattr(exporter._projects, "snapshot_revision", blocked_snapshot)
+            elif cancel_at == "validation":
+                validate = zip_archive._validate_built_archive
+
+                def blocked_validation(path):
+                    validate(path)
+                    pause()
+
+                monkeypatch.setattr(zip_archive, "_validate_built_archive", blocked_validation)
+            else:
+                build = exporter._archive.build
+
+                def blocked_build(destination, files, texts, progress=None):
+                    def checkpoint(fraction: float) -> None:
+                        if not entered.is_set():
+                            pause()
+                        if progress is not None:
+                            progress(fraction)
+
+                    build(
+                        destination,
+                        files,
+                        texts,
+                        progress=checkpoint if cancel_at == "archive" else progress,
+                    )
+                    if cancel_at == "after-publication":
+                        pause()
+
+                monkeypatch.setattr(exporter._archive, "build", blocked_build)
+
+            started = client.post(f"/packages/export/{song['songId']}")
+            assert started.status_code == 202, started.text
+            try:
+                assert entered.wait(10), "Export did not reach the cancellation checkpoint"
+                cancelled = client.post(f"/jobs/{started.json()['jobId']}/cancel")
+                assert cancelled.status_code == 200, cancelled.text
+            finally:
+                release.set()
+            result = wait_for_job(client, started.json()["jobId"])
+            published = cancel_at == "after-publication"
+>           assert result["state"] == ("Succeeded" if published else "Cancelled"), result
+E           AssertionError: {'entityId': '760ff3fe-86a0-4be9-b530-d0e910bbfd98', 'error': None, 'finishedAt': '2026-11-19T16:43:12.096817Z', 'jobId': '75a44e07-3985-41c8-bd08-745725b4a795', ...}
+E           assert 'Succeeded' == 'Cancelled'
+E
+E             - Cancelled
+E             + Succeeded
+
+tests/test_package_export_cancellation.py:83: AssertionError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_export_cancellation.py::test_package_export_cancellation_respects_archive_publication[validation]
+1 failed, 3 passed, 2 warnings in 4.85s

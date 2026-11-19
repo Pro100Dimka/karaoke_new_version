@@ -1,0 +1,3 @@
+[1/3] Building CXX object CMakeFiles/audioservice_core.dir/src/media/MediaSource.cpp.o
+[2/3] Linking CXX static library libaudioservice_core.a
+[3/3] Linking CXX executable audioservice_tests

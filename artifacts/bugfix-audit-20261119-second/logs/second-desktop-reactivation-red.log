@@ -1,0 +1,41 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+stderr | electron/main-security.test.ts
+AudioService executable not found: unused.exe
+
+ ❯ electron/main-security.test.ts (28 tests | 2 failed) 522ms
+   × resets reveal when activation replaces a closed main window 4ms
+   × resets close confirmation when activation replaces a closed main window 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/main-security.test.ts > resets reveal when activation replaces a closed main window
+AssertionError: expected "vi.fn()" to be called 2 times, but got 1 times
+ ❯ electron/main-security.test.ts:521:27
+    519|     if (scenario === 'reveal') {
+    520|       mocks.handlers.get(ipcChannels.appReady)?.(event);
+    521|       expect(window.show).toHaveBeenCalledTimes(shown + 1);
+       |                           ^
+    522|     } else {
+    523|       const closing = { preventDefault: vi.fn() };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  electron/main-security.test.ts > resets close confirmation when activation replaces a closed main window
+AssertionError: expected "vi.fn()" to be called once, but got 0 times
+ ❯ electron/main-security.test.ts:526:38
+    524|       contents.send.mockClear();
+    525|       window.emit('close', closing);
+    526|       expect(closing.preventDefault).toHaveBeenCalledOnce();
+       |                                      ^
+    527|       expect(contents.send).toHaveBeenCalledWith(ipcChannels.closeRequ…
+    528|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 26 passed (28)
+   Start at  18:44:48
+   Duration  1.15s (transform 382ms, setup 114ms, import 58ms, tests 522ms, environment 318ms)

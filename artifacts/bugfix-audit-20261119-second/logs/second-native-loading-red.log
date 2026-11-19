@@ -1,0 +1,6 @@
+[ RUN      ] stoppingLoadingMediaWaitsForDecodedAudio
+FAIL: Stop cannot report a loading source as ready before decoding completes
+FAIL: a stopped but still loading source cannot start empty playback
+FAIL: the loaded source can play normally after Stop during loading
+[  FAILED  ] stoppingLoadingMediaWaitsForDecodedAudio
+3 tests failed

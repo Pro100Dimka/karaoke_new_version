@@ -1,0 +1,158 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+___ test_package_export_cancellation_respects_archive_publication[snapshot] ____
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-cancel-red/test_package_export_cancellati0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f0a2b579130>
+cancel_at = 'snapshot'
+
+    @pytest.mark.parametrize("cancel_at", ["snapshot", "archive", "after-publication"])
+    def test_package_export_cancellation_respects_archive_publication(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancel_at: str
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        runtime = tmp_path / "runtime"
+        with app_client(runtime, ai_providers=(FakeAiProvider(),)) as client:
+            song, output = make_ready_and_export(client, source)
+            output.unlink()
+            exporter = client.app.state.container.packages.start_export._export
+            entered, release = threading.Event(), threading.Event()
+
+            def pause() -> None:
+                entered.set()
+                assert release.wait(10), "Cancellation request did not finish"
+
+            if cancel_at == "snapshot":
+                snapshot = exporter._projects.snapshot_revision
+
+                def blocked_snapshot(*args, **kwargs):
+                    result = snapshot(*args, **kwargs)
+                    pause()
+                    return result
+
+                monkeypatch.setattr(exporter._projects, "snapshot_revision", blocked_snapshot)
+            else:
+                build = exporter._archive.build
+
+                def blocked_build(destination, files, texts, progress=None):
+                    def checkpoint(fraction: float) -> None:
+                        if not entered.is_set():
+                            pause()
+                        if progress is not None:
+                            progress(fraction)
+
+                    build(
+                        destination,
+                        files,
+                        texts,
+                        progress=checkpoint if cancel_at == "archive" else progress,
+                    )
+                    if cancel_at == "after-publication":
+                        pause()
+
+                monkeypatch.setattr(exporter._archive, "build", blocked_build)
+
+            started = client.post(f"/packages/export/{song['songId']}")
+            assert started.status_code == 202, started.text
+            try:
+                assert entered.wait(10), "Export did not reach the cancellation checkpoint"
+                cancelled = client.post(f"/jobs/{started.json()['jobId']}/cancel")
+                assert cancelled.status_code == 200, cancelled.text
+            finally:
+                release.set()
+            result = wait_for_job(client, started.json()["jobId"])
+            published = cancel_at == "after-publication"
+>           assert result["state"] == ("Succeeded" if published else "Cancelled"), result
+E           AssertionError: {'entityId': '835a8bf0-f51f-4530-9a72-034ad45b23d8', 'error': None, 'finishedAt': '2026-11-19T16:42:22.587701Z', 'jobId': '6fb71a84-54cd-4c60-a3fb-f5f530581380', ...}
+E           assert 'Succeeded' == 'Cancelled'
+E
+E             - Cancelled
+E             + Succeeded
+
+tests/test_package_export_cancellation.py:72: AssertionError
+____ test_package_export_cancellation_respects_archive_publication[archive] ____
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-cancel-red/test_package_export_cancellati1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f0a2b46c680>
+cancel_at = 'archive'
+
+    @pytest.mark.parametrize("cancel_at", ["snapshot", "archive", "after-publication"])
+    def test_package_export_cancellation_respects_archive_publication(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancel_at: str
+    ) -> None:
+        source = tmp_path / "song.wav"
+        write_wav(source)
+        runtime = tmp_path / "runtime"
+        with app_client(runtime, ai_providers=(FakeAiProvider(),)) as client:
+            song, output = make_ready_and_export(client, source)
+            output.unlink()
+            exporter = client.app.state.container.packages.start_export._export
+            entered, release = threading.Event(), threading.Event()
+
+            def pause() -> None:
+                entered.set()
+                assert release.wait(10), "Cancellation request did not finish"
+
+            if cancel_at == "snapshot":
+                snapshot = exporter._projects.snapshot_revision
+
+                def blocked_snapshot(*args, **kwargs):
+                    result = snapshot(*args, **kwargs)
+                    pause()
+                    return result
+
+                monkeypatch.setattr(exporter._projects, "snapshot_revision", blocked_snapshot)
+            else:
+                build = exporter._archive.build
+
+                def blocked_build(destination, files, texts, progress=None):
+                    def checkpoint(fraction: float) -> None:
+                        if not entered.is_set():
+                            pause()
+                        if progress is not None:
+                            progress(fraction)
+
+                    build(
+                        destination,
+                        files,
+                        texts,
+                        progress=checkpoint if cancel_at == "archive" else progress,
+                    )
+                    if cancel_at == "after-publication":
+                        pause()
+
+                monkeypatch.setattr(exporter._archive, "build", blocked_build)
+
+            started = client.post(f"/packages/export/{song['songId']}")
+            assert started.status_code == 202, started.text
+            try:
+                assert entered.wait(10), "Export did not reach the cancellation checkpoint"
+                cancelled = client.post(f"/jobs/{started.json()['jobId']}/cancel")
+                assert cancelled.status_code == 200, cancelled.text
+            finally:
+                release.set()
+            result = wait_for_job(client, started.json()["jobId"])
+            published = cancel_at == "after-publication"
+>           assert result["state"] == ("Succeeded" if published else "Cancelled"), result
+E           AssertionError: {'entityId': '3a487621-b9d6-4125-a6e2-0b34673cdbb9', 'error': None, 'finishedAt': '2026-11-19T16:42:23.717359Z', 'jobId': '05460e59-78c4-470b-b407-4b2bcc697c32', ...}
+E           assert 'Succeeded' == 'Cancelled'
+E
+E             - Cancelled
+E             + Succeeded
+
+tests/test_package_export_cancellation.py:72: AssertionError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_export_cancellation.py::test_package_export_cancellation_respects_archive_publication[snapshot]
+FAILED tests/test_package_export_cancellation.py::test_package_export_cancellation_respects_archive_publication[archive]
+2 failed, 1 passed, 2 warnings in 3.83s

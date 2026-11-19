@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-19",
+  "branch": "fix/app-bugs-excluding-processing-20261119",
+  "startingCommit": "34eae170d0a12beea5ae48421fe334b93dda7969",
+  "testedSourceCommit": "23f3708715d790dccea4b78d31d1f2f155052308",
+  "status": "not-complete-live-verification-unavailable",
+  "environment": "Linux test container; no participating Windows workstation, macOS desktop, or physical audio devices",
+  "requiredBy": "AGENTS.md: real Windows room/project-transfer/multi-instance live gate",
+  "affectedScenarios": [
+    "Empty library publication after backend recovery",
+    "Manual room radio failure and retry",
+    "Desktop room entry and renderer replacement",
+    "Project export/import, cancellation and selected clip snapshots",
+    "Recording preview seek during load and native Stop readiness",
+    "Main-window activation and close confirmation"
+  ],
+  "liveChecks": {
+    "startMultyBatTwoRealElectronWindows": "not-run",
+    "renderedHostAndGuestRoomAndTransferScenarios": "not-run",
+    "ordinaryWindowsStartBatPreviewAndDesktopScenarios": "not-run",
+    "actualMicrophoneAndRemotePlayback": "not-run",
+    "audioDiagnosticsFromBothProcesses": "not-collected",
+    "audioDeviceSwitching": "not-run",
+    "windowsProcessCleanup": "not-run",
+    "macOsReactivation": "not-run"
+  },
+  "screenshots": [],
+  "machineAudioDiagnostics": null,
+  "automatedEvidence": "../../bugfix-audit-20261119-second/report.md",
+  "completionClaim": false
+}

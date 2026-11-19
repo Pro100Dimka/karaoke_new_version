@@ -1,0 +1,598 @@
+.......................................FF....F.....FF                    [100%]
+=================================== FAILURES ===================================
+_ test_unsupported_archive_encodings_return_a_package_error[inspect-unsupported-version] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-constructor-red/test_unsupported_archive_encod4')
+encoding = 'unsupported-version', operation = 'inspect'
+
+    @pytest.mark.parametrize(
+        "encoding",
+        [
+            "encrypted",
+            "strong-encryption",
+            "patched-data",
+            "unsupported-compression",
+            "unsupported-version",
+            "invalid-utf8-name",
+        ],
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        elif encoding == "unsupported-version":
+            struct.pack_into("<H", content, 4, 255)
+            struct.pack_into("<H", content, central + 6, 255)
+        elif encoding == "invalid-utf8-name":
+            struct.pack_into("<H", content, 6, 0x800)
+            struct.pack_into("<H", content, central + 8, 0x800)
+            content[30] = 0xFF
+            content[central + 46] = 0xFF
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+>               archive.inspect(path)
+
+tests/test_package_security.py:225:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:24: in inspect
+    with zipfile.ZipFile(archive, "r") as bundle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1371: in __init__
+    self._RealGetContents()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+
+    def _RealGetContents(self):
+        """Read in the table of contents for the ZIP file."""
+        fp = self.fp
+        try:
+            endrec = _EndRecData(fp)
+        except OSError:
+            raise BadZipFile("File is not a zip file")
+        if not endrec:
+            raise BadZipFile("File is not a zip file")
+        if self.debug > 1:
+            print(endrec)
+        size_cd = endrec[_ECD_SIZE]             # bytes in central directory
+        offset_cd = endrec[_ECD_OFFSET]         # offset of central directory
+        self._comment = endrec[_ECD_COMMENT]    # archive comment
+
+        # "concat" is zero, unless zip was concatenated to another file
+        concat = endrec[_ECD_LOCATION] - size_cd - offset_cd
+
+        if self.debug > 2:
+            inferred = concat + offset_cd
+            print("given, inferred, offset", offset_cd, inferred, concat)
+        # self.start_dir:  Position of start of central directory
+        self.start_dir = offset_cd + concat
+        if self.start_dir < 0:
+            raise BadZipFile("Bad offset for central directory")
+        fp.seek(self.start_dir, 0)
+        data = fp.read(size_cd)
+        fp = io.BytesIO(data)
+        total = 0
+        while total < size_cd:
+            centdir = fp.read(sizeCentralDir)
+            if len(centdir) != sizeCentralDir:
+                raise BadZipFile("Truncated central directory")
+            centdir = struct.unpack(structCentralDir, centdir)
+            if centdir[_CD_SIGNATURE] != stringCentralDir:
+                raise BadZipFile("Bad magic number for central directory")
+            if self.debug > 2:
+                print(centdir)
+            filename = fp.read(centdir[_CD_FILENAME_LENGTH])
+            orig_filename_crc = crc32(filename)
+            flags = centdir[_CD_FLAG_BITS]
+            if flags & _MASK_UTF_FILENAME:
+                # UTF-8 file names extension
+                filename = filename.decode('utf-8')
+            else:
+                # Historical ZIP filename encoding
+                filename = filename.decode(self.metadata_encoding or 'cp437')
+            # Create ZipInfo instance to store file information
+            x = ZipInfo(filename)
+            x.extra = fp.read(centdir[_CD_EXTRA_FIELD_LENGTH])
+            x.comment = fp.read(centdir[_CD_COMMENT_LENGTH])
+            x.header_offset = centdir[_CD_LOCAL_HEADER_OFFSET]
+            (x.create_version, x.create_system, x.extract_version, x.reserved,
+             x.flag_bits, x.compress_type, t, d,
+             x.CRC, x.compress_size, x.file_size) = centdir[1:12]
+            if x.extract_version > MAX_EXTRACT_VERSION:
+>               raise NotImplementedError("zip file version %.1f" %
+                                          (x.extract_version / 10))
+E               NotImplementedError: zip file version 25.5
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1486: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[inspect-invalid-utf8-name] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-constructor-red/test_unsupported_archive_encod5')
+encoding = 'invalid-utf8-name', operation = 'inspect'
+
+    @pytest.mark.parametrize(
+        "encoding",
+        [
+            "encrypted",
+            "strong-encryption",
+            "patched-data",
+            "unsupported-compression",
+            "unsupported-version",
+            "invalid-utf8-name",
+        ],
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        elif encoding == "unsupported-version":
+            struct.pack_into("<H", content, 4, 255)
+            struct.pack_into("<H", content, central + 6, 255)
+        elif encoding == "invalid-utf8-name":
+            struct.pack_into("<H", content, 6, 0x800)
+            struct.pack_into("<H", content, central + 8, 0x800)
+            content[30] = 0xFF
+            content[central + 46] = 0xFF
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+>               archive.inspect(path)
+
+tests/test_package_security.py:225:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:24: in inspect
+    with zipfile.ZipFile(archive, "r") as bundle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1371: in __init__
+    self._RealGetContents()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+
+    def _RealGetContents(self):
+        """Read in the table of contents for the ZIP file."""
+        fp = self.fp
+        try:
+            endrec = _EndRecData(fp)
+        except OSError:
+            raise BadZipFile("File is not a zip file")
+        if not endrec:
+            raise BadZipFile("File is not a zip file")
+        if self.debug > 1:
+            print(endrec)
+        size_cd = endrec[_ECD_SIZE]             # bytes in central directory
+        offset_cd = endrec[_ECD_OFFSET]         # offset of central directory
+        self._comment = endrec[_ECD_COMMENT]    # archive comment
+
+        # "concat" is zero, unless zip was concatenated to another file
+        concat = endrec[_ECD_LOCATION] - size_cd - offset_cd
+
+        if self.debug > 2:
+            inferred = concat + offset_cd
+            print("given, inferred, offset", offset_cd, inferred, concat)
+        # self.start_dir:  Position of start of central directory
+        self.start_dir = offset_cd + concat
+        if self.start_dir < 0:
+            raise BadZipFile("Bad offset for central directory")
+        fp.seek(self.start_dir, 0)
+        data = fp.read(size_cd)
+        fp = io.BytesIO(data)
+        total = 0
+        while total < size_cd:
+            centdir = fp.read(sizeCentralDir)
+            if len(centdir) != sizeCentralDir:
+                raise BadZipFile("Truncated central directory")
+            centdir = struct.unpack(structCentralDir, centdir)
+            if centdir[_CD_SIGNATURE] != stringCentralDir:
+                raise BadZipFile("Bad magic number for central directory")
+            if self.debug > 2:
+                print(centdir)
+            filename = fp.read(centdir[_CD_FILENAME_LENGTH])
+            orig_filename_crc = crc32(filename)
+            flags = centdir[_CD_FLAG_BITS]
+            if flags & _MASK_UTF_FILENAME:
+                # UTF-8 file names extension
+>               filename = filename.decode('utf-8')
+                           ^^^^^^^^^^^^^^^^^^^^^^^^
+E               UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1473: UnicodeDecodeError
+_ test_unsupported_archive_encodings_return_a_package_error[read-unsupported-version] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-constructor-red/test_unsupported_archive_encod10')
+encoding = 'unsupported-version', operation = 'read'
+
+    @pytest.mark.parametrize(
+        "encoding",
+        [
+            "encrypted",
+            "strong-encryption",
+            "patched-data",
+            "unsupported-compression",
+            "unsupported-version",
+            "invalid-utf8-name",
+        ],
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        elif encoding == "unsupported-version":
+            struct.pack_into("<H", content, 4, 255)
+            struct.pack_into("<H", content, central + 6, 255)
+        elif encoding == "invalid-utf8-name":
+            struct.pack_into("<H", content, 6, 0x800)
+            struct.pack_into("<H", content, central + 8, 0x800)
+            content[30] = 0xFF
+            content[central + 46] = 0xFF
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+>               archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+
+tests/test_package_security.py:227:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:31: in read_text
+    with zipfile.ZipFile(archive, "r") as bundle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1371: in __init__
+    self._RealGetContents()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+
+    def _RealGetContents(self):
+        """Read in the table of contents for the ZIP file."""
+        fp = self.fp
+        try:
+            endrec = _EndRecData(fp)
+        except OSError:
+            raise BadZipFile("File is not a zip file")
+        if not endrec:
+            raise BadZipFile("File is not a zip file")
+        if self.debug > 1:
+            print(endrec)
+        size_cd = endrec[_ECD_SIZE]             # bytes in central directory
+        offset_cd = endrec[_ECD_OFFSET]         # offset of central directory
+        self._comment = endrec[_ECD_COMMENT]    # archive comment
+
+        # "concat" is zero, unless zip was concatenated to another file
+        concat = endrec[_ECD_LOCATION] - size_cd - offset_cd
+
+        if self.debug > 2:
+            inferred = concat + offset_cd
+            print("given, inferred, offset", offset_cd, inferred, concat)
+        # self.start_dir:  Position of start of central directory
+        self.start_dir = offset_cd + concat
+        if self.start_dir < 0:
+            raise BadZipFile("Bad offset for central directory")
+        fp.seek(self.start_dir, 0)
+        data = fp.read(size_cd)
+        fp = io.BytesIO(data)
+        total = 0
+        while total < size_cd:
+            centdir = fp.read(sizeCentralDir)
+            if len(centdir) != sizeCentralDir:
+                raise BadZipFile("Truncated central directory")
+            centdir = struct.unpack(structCentralDir, centdir)
+            if centdir[_CD_SIGNATURE] != stringCentralDir:
+                raise BadZipFile("Bad magic number for central directory")
+            if self.debug > 2:
+                print(centdir)
+            filename = fp.read(centdir[_CD_FILENAME_LENGTH])
+            orig_filename_crc = crc32(filename)
+            flags = centdir[_CD_FLAG_BITS]
+            if flags & _MASK_UTF_FILENAME:
+                # UTF-8 file names extension
+                filename = filename.decode('utf-8')
+            else:
+                # Historical ZIP filename encoding
+                filename = filename.decode(self.metadata_encoding or 'cp437')
+            # Create ZipInfo instance to store file information
+            x = ZipInfo(filename)
+            x.extra = fp.read(centdir[_CD_EXTRA_FIELD_LENGTH])
+            x.comment = fp.read(centdir[_CD_COMMENT_LENGTH])
+            x.header_offset = centdir[_CD_LOCAL_HEADER_OFFSET]
+            (x.create_version, x.create_system, x.extract_version, x.reserved,
+             x.flag_bits, x.compress_type, t, d,
+             x.CRC, x.compress_size, x.file_size) = centdir[1:12]
+            if x.extract_version > MAX_EXTRACT_VERSION:
+>               raise NotImplementedError("zip file version %.1f" %
+                                          (x.extract_version / 10))
+E               NotImplementedError: zip file version 25.5
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1486: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[extract-unsupported-version] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-constructor-red/test_unsupported_archive_encod16')
+encoding = 'unsupported-version', operation = 'extract'
+
+    @pytest.mark.parametrize(
+        "encoding",
+        [
+            "encrypted",
+            "strong-encryption",
+            "patched-data",
+            "unsupported-compression",
+            "unsupported-version",
+            "invalid-utf8-name",
+        ],
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        elif encoding == "unsupported-version":
+            struct.pack_into("<H", content, 4, 255)
+            struct.pack_into("<H", content, central + 6, 255)
+        elif encoding == "invalid-utf8-name":
+            struct.pack_into("<H", content, 6, 0x800)
+            struct.pack_into("<H", content, central + 8, 0x800)
+            content[30] = 0xFF
+            content[central + 46] = 0xFF
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+                archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+            else:
+>               archive.extract(path, tmp_path / "extracted")
+
+tests/test_package_security.py:229:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:50: in extract
+    with zipfile.ZipFile(archive, "r") as bundle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1371: in __init__
+    self._RealGetContents()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+
+    def _RealGetContents(self):
+        """Read in the table of contents for the ZIP file."""
+        fp = self.fp
+        try:
+            endrec = _EndRecData(fp)
+        except OSError:
+            raise BadZipFile("File is not a zip file")
+        if not endrec:
+            raise BadZipFile("File is not a zip file")
+        if self.debug > 1:
+            print(endrec)
+        size_cd = endrec[_ECD_SIZE]             # bytes in central directory
+        offset_cd = endrec[_ECD_OFFSET]         # offset of central directory
+        self._comment = endrec[_ECD_COMMENT]    # archive comment
+
+        # "concat" is zero, unless zip was concatenated to another file
+        concat = endrec[_ECD_LOCATION] - size_cd - offset_cd
+
+        if self.debug > 2:
+            inferred = concat + offset_cd
+            print("given, inferred, offset", offset_cd, inferred, concat)
+        # self.start_dir:  Position of start of central directory
+        self.start_dir = offset_cd + concat
+        if self.start_dir < 0:
+            raise BadZipFile("Bad offset for central directory")
+        fp.seek(self.start_dir, 0)
+        data = fp.read(size_cd)
+        fp = io.BytesIO(data)
+        total = 0
+        while total < size_cd:
+            centdir = fp.read(sizeCentralDir)
+            if len(centdir) != sizeCentralDir:
+                raise BadZipFile("Truncated central directory")
+            centdir = struct.unpack(structCentralDir, centdir)
+            if centdir[_CD_SIGNATURE] != stringCentralDir:
+                raise BadZipFile("Bad magic number for central directory")
+            if self.debug > 2:
+                print(centdir)
+            filename = fp.read(centdir[_CD_FILENAME_LENGTH])
+            orig_filename_crc = crc32(filename)
+            flags = centdir[_CD_FLAG_BITS]
+            if flags & _MASK_UTF_FILENAME:
+                # UTF-8 file names extension
+                filename = filename.decode('utf-8')
+            else:
+                # Historical ZIP filename encoding
+                filename = filename.decode(self.metadata_encoding or 'cp437')
+            # Create ZipInfo instance to store file information
+            x = ZipInfo(filename)
+            x.extra = fp.read(centdir[_CD_EXTRA_FIELD_LENGTH])
+            x.comment = fp.read(centdir[_CD_COMMENT_LENGTH])
+            x.header_offset = centdir[_CD_LOCAL_HEADER_OFFSET]
+            (x.create_version, x.create_system, x.extract_version, x.reserved,
+             x.flag_bits, x.compress_type, t, d,
+             x.CRC, x.compress_size, x.file_size) = centdir[1:12]
+            if x.extract_version > MAX_EXTRACT_VERSION:
+>               raise NotImplementedError("zip file version %.1f" %
+                                          (x.extract_version / 10))
+E               NotImplementedError: zip file version 25.5
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1486: NotImplementedError
+_ test_unsupported_archive_encodings_return_a_package_error[extract-invalid-utf8-name] _
+
+tmp_path = PosixPath('/workspace/scratch/726a7fe1e251/backend-test-tmp-zip-constructor-red/test_unsupported_archive_encod17')
+encoding = 'invalid-utf8-name', operation = 'extract'
+
+    @pytest.mark.parametrize(
+        "encoding",
+        [
+            "encrypted",
+            "strong-encryption",
+            "patched-data",
+            "unsupported-compression",
+            "unsupported-version",
+            "invalid-utf8-name",
+        ],
+    )
+    @pytest.mark.parametrize("operation", ["inspect", "read", "extract"])
+    def test_unsupported_archive_encodings_return_a_package_error(
+        tmp_path: Path, encoding: str, operation: str
+    ) -> None:
+        path = tmp_path / "unsupported.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("package.json", '{"packageVersion":1}')
+        content = bytearray(path.read_bytes())
+        central = content.index(b"PK\x01\x02")
+        if encoding == "unsupported-compression":
+            struct.pack_into("<H", content, 8, 99)
+            struct.pack_into("<H", content, central + 10, 99)
+        elif encoding == "unsupported-version":
+            struct.pack_into("<H", content, 4, 255)
+            struct.pack_into("<H", content, central + 6, 255)
+        elif encoding == "invalid-utf8-name":
+            struct.pack_into("<H", content, 6, 0x800)
+            struct.pack_into("<H", content, central + 8, 0x800)
+            content[30] = 0xFF
+            content[central + 46] = 0xFF
+        else:
+            flag = {"encrypted": 1, "strong-encryption": 64, "patched-data": 32}[encoding]
+            struct.pack_into("<H", content, 6, flag)
+            struct.pack_into("<H", content, central + 8, flag)
+        path.write_bytes(content)
+        archive = ZipPackageArchive()
+
+        with pytest.raises(DomainError) as error:
+            if operation == "inspect":
+                archive.inspect(path)
+            elif operation == "read":
+                archive.read_text(path, PurePosixPath("package.json"), max_bytes=1024)
+            else:
+>               archive.extract(path, tmp_path / "extracted")
+
+tests/test_package_security.py:229:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/infrastructure/zip_archive.py:50: in extract
+    with zipfile.ZipFile(archive, "r") as bundle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1371: in __init__
+    self._RealGetContents()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <zipfile.ZipFile [closed]>
+
+    def _RealGetContents(self):
+        """Read in the table of contents for the ZIP file."""
+        fp = self.fp
+        try:
+            endrec = _EndRecData(fp)
+        except OSError:
+            raise BadZipFile("File is not a zip file")
+        if not endrec:
+            raise BadZipFile("File is not a zip file")
+        if self.debug > 1:
+            print(endrec)
+        size_cd = endrec[_ECD_SIZE]             # bytes in central directory
+        offset_cd = endrec[_ECD_OFFSET]         # offset of central directory
+        self._comment = endrec[_ECD_COMMENT]    # archive comment
+
+        # "concat" is zero, unless zip was concatenated to another file
+        concat = endrec[_ECD_LOCATION] - size_cd - offset_cd
+
+        if self.debug > 2:
+            inferred = concat + offset_cd
+            print("given, inferred, offset", offset_cd, inferred, concat)
+        # self.start_dir:  Position of start of central directory
+        self.start_dir = offset_cd + concat
+        if self.start_dir < 0:
+            raise BadZipFile("Bad offset for central directory")
+        fp.seek(self.start_dir, 0)
+        data = fp.read(size_cd)
+        fp = io.BytesIO(data)
+        total = 0
+        while total < size_cd:
+            centdir = fp.read(sizeCentralDir)
+            if len(centdir) != sizeCentralDir:
+                raise BadZipFile("Truncated central directory")
+            centdir = struct.unpack(structCentralDir, centdir)
+            if centdir[_CD_SIGNATURE] != stringCentralDir:
+                raise BadZipFile("Bad magic number for central directory")
+            if self.debug > 2:
+                print(centdir)
+            filename = fp.read(centdir[_CD_FILENAME_LENGTH])
+            orig_filename_crc = crc32(filename)
+            flags = centdir[_CD_FLAG_BITS]
+            if flags & _MASK_UTF_FILENAME:
+                # UTF-8 file names extension
+>               filename = filename.decode('utf-8')
+                           ^^^^^^^^^^^^^^^^^^^^^^^^
+E               UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1473: UnicodeDecodeError
+=============================== warnings summary ===============================
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[inspect-unsupported-version]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[inspect-invalid-utf8-name]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[read-unsupported-version]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[extract-unsupported-version]
+FAILED tests/test_package_security.py::test_unsupported_archive_encodings_return_a_package_error[extract-invalid-utf8-name]
+5 failed, 48 passed, 2 warnings in 0.26s

@@ -1,0 +1,37 @@
+[
+  {
+    "test": "stoppingLoadingMediaWaitsForDecodedAudio",
+    "exit_code": 0,
+    "elapsed_seconds": 0.003
+  },
+  {
+    "test": "stoppingFailedMediaPreservesTheFailureUntilReload",
+    "exit_code": 0,
+    "elapsed_seconds": 0.002
+  },
+  {
+    "test": "staleDecodedPcmNeverLeaksAfterSeek",
+    "exit_code": 0,
+    "elapsed_seconds": 0.002
+  },
+  {
+    "test": "seekUpdatesAuthoritativePosition",
+    "exit_code": 0,
+    "elapsed_seconds": 0.003
+  },
+  {
+    "test": "unloadQuiescesDecoderWorker",
+    "exit_code": 0,
+    "elapsed_seconds": 0.001
+  },
+  {
+    "test": "audioReconfigurePreservesActiveKaraokeMedia",
+    "exit_code": 0,
+    "elapsed_seconds": 0.005
+  },
+  {
+    "test": "radioStopsWhenPreviewActivates",
+    "exit_code": 0,
+    "elapsed_seconds": 0.003
+  }
+]

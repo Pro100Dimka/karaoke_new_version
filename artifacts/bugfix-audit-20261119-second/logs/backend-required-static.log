@@ -1,0 +1,187 @@
+WARNING: backend/remote_worker.py: 422 lines; review responsibility
+WARNING: backend/room/commands.py: 468 lines; review responsibility
+WARNING: backend/api/room_routes.py: 467 lines; review responsibility
+WARNING: backend/api/room_server_app.py: 379 lines; review responsibility
+WARNING: backend/songs/import_song.py: 319 lines; review responsibility
+WARNING: backend/analysis/scoring.py: 497 lines; review responsibility
+WARNING: backend/recordings/studio_dynamics.py: 336 lines; review responsibility
+WARNING: backend/recordings/studio_spectrum.py: 487 lines; review responsibility
+WARNING: backend/recordings/studio_space_analysis.py: 487 lines; review responsibility
+WARNING: backend/recordings/studio_space.py: 485 lines; review responsibility
+WARNING: backend/recordings/studio_render.py: 500 lines; review responsibility
+WARNING: backend/lyrics/phrases.py: 378 lines; review responsibility
+WARNING: backend/lyrics/discovery.py: 498 lines; review responsibility
+WARNING: backend/infrastructure/command_ai_provider.py: 480 lines; review responsibility
+WARNING: backend/infrastructure/profile_migration.py: 392 lines; review responsibility
+WARNING: backend/infrastructure/process_runner.py: 386 lines; review responsibility
+WARNING: backend/infrastructure/sql_songs.py: 411 lines; review responsibility
+WARNING: backend/infrastructure/audd_recognition.py: 445 lines; review responsibility
+WARNING: backend/infrastructure/oracle_ai_provider.py: 358 lines; review responsibility
+WARNING: backend/infrastructure/voice_relay.py: 459 lines; review responsibility
+WARNING: backend/infrastructure/voice_relay_state.py: 306 lines; review responsibility
+WARNING: backend/infrastructure/voice_relay_ingress.py: 379 lines; review responsibility
+WARNING: backend/infrastructure/sqlite_rooms.py: 303 lines; review responsibility
+WARNING: backend/infrastructure/profile_cleanup.py: 355 lines; review responsibility
+WARNING: backend/infrastructure/voice_relay_metrics.py: 332 lines; review responsibility
+WARNING: backend/infrastructure/profile_paths.py: 332 lines; review responsibility
+WARNING: backend/infrastructure/library_storage.py: 496 lines; review responsibility
+WARNING: backend/ai_worker/ctc.py: 372 lines; review responsibility
+WARNING: backend/ai_worker/word_guidance.py: 311 lines; review responsibility
+WARNING: backend/ai_worker/recognition.py: 482 lines; review responsibility
+WARNING: backend/ai_worker/speech_windows.py: 458 lines; review responsibility
+WARNING: backend/ai_worker/guidance_candidates.py: 396 lines; review responsibility
+WARNING: backend/ai_worker/ctc_singing.py: 349 lines; review responsibility
+WARNING: backend/ai_worker/speech.py: 364 lines; review responsibility
+WARNING: backend/ai_worker/guidance_review.py: 322 lines; review responsibility
+WARNING: backend/ai_worker/vocal_recovery.py: 373 lines; review responsibility
+WARNING: backend/bootstrap/build.py: 345 lines; review responsibility
+WARNING: backend/processing/orchestrator.py: 322 lines; review responsibility
+WARNING: backend/processing/job_manager.py: 358 lines; review responsibility
+WARNING: backend/processing/start_processing.py: 332 lines; review responsibility
+WARNING: backend/processing/document_pipeline.py: 398 lines; review responsibility
+WARNING: backend/processing/melody_pipeline.py: 345 lines; review responsibility
+Architecture checks passed
+Bootstrap smoke passed
+unformatted: File would be reformatted
+   --> backend/recordings/studio_spectrum.py:268:20
+    |
+267 |                 time = (singer.tell() - len(vocal) + np.arange(len(vocal))) / singer.samplerate
+    -                 if gain_plan.presence is not None and np.interp(
+    -                     time[len(time) // 2], gain_plan.times, gain_plan.presence
+    -                 ) < 1:
+268 +                 if (
+269 +                     gain_plan.presence is not None
+270 +                     and np.interp(time[len(time) // 2], gain_plan.times, gain_plan.presence) < 1
+271 +                 ):
+272 |                     continue
+    |
+
+unformatted: File would be reformatted
+  --> backend/recovery/reconcile_library.py:61:29
+   |
+60 |             while page := transaction.songs.list(
+   -                 search=None, status=None, sort="createdAt", descending=False,
+   -                 limit=10_000, offset=len(songs),
+61 +                 search=None,
+62 +                 status=None,
+63 +                 sort="createdAt",
+64 +                 descending=False,
+65 +                 limit=10_000,
+66 +                 offset=len(songs),
+67 |             ):
+   |
+
+unformatted: File would be reformatted
+  --> backend/social/friends.py:62:37
+   |
+61 |             self._friends.befriend(me.account_id, requester_id, now)
+   -             self._events.add_notice(requester_id, NoticeKind.FRIEND_ACCEPTED, me.account_id, None, now)
+62 +             self._events.add_notice(
+63 +                 requester_id, NoticeKind.FRIEND_ACCEPTED, me.account_id, None, now
+64 +             )
+65 |             self._notifier.changed((me.account_id, requester_id))
+   |
+
+unformatted: File would be reformatted
+   --> tests/test_environment_settings.py:233:26
+    |
+232 |
+    - @pytest.mark.parametrize("status,payload,state", [
+    -     (200, {"status": "error", "error": {"error_code": 900}}, "invalid"),
+    -     (503, {}, "invalid"),
+    -     (503, {"status": "success"}, "invalid"),
+    -     (200, {"status": "success", "result": None}, "valid"),
+    - ])
+233 + @pytest.mark.parametrize(
+234 +     "status,payload,state",
+235 +     [
+236 +         (200, {"status": "error", "error": {"error_code": 900}}, "invalid"),
+237 +         (503, {}, "invalid"),
+238 +         (503, {"status": "success"}, "invalid"),
+239 +         (200, {"status": "success", "result": None}, "valid"),
+240 +     ],
+241 + )
+242 | def test_environment_token_verification_marks_rejected_audd_token_invalid(
+    -     tmp_path: Path, status: int, payload: dict[str, object], state: str,
+243 +     tmp_path: Path,
+244 +     status: int,
+245 +     payload: dict[str, object],
+246 +     state: str,
+247 | ) -> None:
+    |
+
+unformatted: File would be reformatted
+   --> tests/test_job_concurrency.py:89:1
+    |
+88  |         )
+89  +
+90  |         def submit(identity, work):
+--------------------------------------------------------------------------------
+96  |         states = [
+    -             payload["state"] for name, payload in events
+97  +             payload["state"]
+98  +             for name, payload in events
+99  |             if name == "job.changed" and payload.get("jobId") == job.job_id
+--------------------------------------------------------------------------------
+107 |         manager = client.app.state.container.system.jobs
+    -         monkeypatch.setattr(manager._executor, "submit", lambda identity, work: work(threading.Event()))
+108 +         monkeypatch.setattr(
+109 +             manager._executor, "submit", lambda identity, work: work(threading.Event())
+110 +         )
+111 |         report = {"revision": 2, "resultId": "committed-result"}
+    |
+
+unformatted: File would be reformatted
+   --> tests/test_models.py:105:60
+    |
+104 | @pytest.mark.parametrize("switch_selection", [False, True])
+    - def test_failed_redownload_preserves_verified_same_version(client, tmp_path, monkeypatch, switch_selection):
+105 + def test_failed_redownload_preserves_verified_same_version(
+106 +     client, tmp_path, monkeypatch, switch_selection
+107 + ):
+108 |     declare(client, "asr", "retry", b"verified-weights", tmp_path / "source.bin")
+    |
+
+unformatted: File would be reformatted
+  --> tests/test_performance_transforms.py:56:13
+   |
+55 |     expected = (
+   -         None if len(envelope) < 300 or max(scores.values()) <= 0
+56 +         None
+57 +         if len(envelope) < 300 or max(scores.values()) <= 0
+58 |         else round(6000 / max(scores, key=scores.get), 2)
+   |
+
+unformatted: File would be reformatted
+   --> tests/test_processing_e2e.py:133:12
+    |
+132 |     )
+    -     assert _with_completed_repeats(
+    -         mixed, "keep my heart keep my heart keep my heart I am alone", Event()
+    -     ).lyrics == baseline
+133 +     assert (
+134 +         _with_completed_repeats(
+135 +             mixed, "keep my heart keep my heart keep my heart I am alone", Event()
+136 +         ).lyrics
+137 +         == baseline
+138 +     )
+139 |
+    |
+
+unformatted: File would be reformatted
+   --> tests/test_project_migration_recovery.py:117:27
+    |
+116 |         repository.list.side_effect = lambda **page: songs[
+    -             page["offset"]:page["offset"] + page["limit"]
+117 +             page["offset"] : page["offset"] + page["limit"]
+118 |         ]
+--------------------------------------------------------------------------------
+123 |         issues = reconcile.execute()
+    -         assert [(issue.code, issue.entity_id) for issue in issues] == [("OrphanProject", "orphan-song")]
+124 +         assert [(issue.code, issue.entity_id) for issue in issues] == [
+125 +             ("OrphanProject", "orphan-song")
+126 +         ]
+127 |         return
+    |
+
+9 files would be reformatted, 451 files already formatted

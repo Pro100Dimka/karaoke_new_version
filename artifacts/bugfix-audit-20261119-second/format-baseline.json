@@ -1,0 +1,47 @@
+[
+  {
+    "path": "python/backend/recordings/studio_spectrum.py",
+    "unchanged_from_original_main": true,
+    "sha256": "9498444fca59fd1741c0efa266e80c1176a164dc27a86028a7cb619f21c947bb"
+  },
+  {
+    "path": "python/backend/recovery/reconcile_library.py",
+    "unchanged_from_original_main": true,
+    "sha256": "579458b1402751209ab856766bc648723d76b146923af3071eff100b252dc8be"
+  },
+  {
+    "path": "python/backend/social/friends.py",
+    "unchanged_from_original_main": true,
+    "sha256": "8c7d6b7f26f190ff555e2f960f0e421092b306d9c24935a3f5e498b6ce6a04ef"
+  },
+  {
+    "path": "python/tests/test_environment_settings.py",
+    "unchanged_from_original_main": true,
+    "sha256": "0f2561fb3ad3d55b7e8b3f0d21d1b67caff5380635ba14caa7445c8516d0f804"
+  },
+  {
+    "path": "python/tests/test_job_concurrency.py",
+    "unchanged_from_original_main": true,
+    "sha256": "e112bdeb6be4da21929a517a55bc0a4feab80b00d268df745cd454b645c43cea"
+  },
+  {
+    "path": "python/tests/test_models.py",
+    "unchanged_from_original_main": true,
+    "sha256": "7c8eab46a04dfa14b86e187e8516d6832034baff5aa4c85700454afbc915044c"
+  },
+  {
+    "path": "python/tests/test_performance_transforms.py",
+    "unchanged_from_original_main": true,
+    "sha256": "09036c3215abc2807bc7fedfacb8ccf9f26dcde4c4c57a548eed13a447616fd3"
+  },
+  {
+    "path": "python/tests/test_processing_e2e.py",
+    "unchanged_from_original_main": true,
+    "sha256": "58c6568180c00197757a136b3d2e1446ea3ef9ae663857b74fa64ce0c3ec72c2"
+  },
+  {
+    "path": "python/tests/test_project_migration_recovery.py",
+    "unchanged_from_original_main": true,
+    "sha256": "a69db96b92dc805a78e2b50d37f6f2dce58c5459bf6885de5369e12f4f2b63fa"
+  }
+]

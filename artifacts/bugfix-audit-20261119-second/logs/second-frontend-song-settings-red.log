@@ -1,0 +1,328 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/modals/song-settings/index.test.tsx (2 tests | 2 failed) 2320ms
+   × saves an explicitly cleared artist ("") 1202ms
+   × saves an explicitly cleared artist ("   ") 1116ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/modals/song-settings/index.test.tsx > saves an explicitly cleared artist ("")
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'song', ObjectContaining{…} ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+    "song",
+-   ObjectContaining {
+-     "artist": "",
++   {
++     "artist": undefined,
++     "coverPath": undefined,
++     "language": "Auto",
+      "title": "Song title",
++     "videoPath": undefined,
+    },
+  ]
+
+
+Number of calls: 1
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<dialog[39m
+        [33maria-describedby[39m=[32m"_r_1_"[39m
+        [33maria-labelledby[39m=[32m"_r_0_"[39m
+        [33mclass[39m=[32m"ad ad-dialog songSettingsDialog"[39m
+        [33mdata-ad-component[39m=[32m"Dialog"[39m
+        [33mdata-ad-material[39m=[32m"dialog"[39m
+        [33mdata-ad-width[39m=[32m"large"[39m
+        [33mopen[39m=[32m""[39m
+      [36m>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"ad-dialog-spotlight"[39m
+        [36m/>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"ad ad-header"[39m
+          [33mdata-ad-component[39m=[32m"Header"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad ad-icon"[39m
+            [33mdata-ad-component[39m=[32m"Icon"[39m
+            [33mdata-ad-surface[39m=[32m"tile"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mdata-ad-component[39m=[32m"IconAsset"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m10 2-.5 2.5-2 1.2L5 5 3 8l1.8 2v3.7L3 16l2 3 2.5-.6 2 1.2L10 22h4l.5-2.4 2-1.2L19 19l2-3-1.8-2.3V10L21 8l-2-3-2.5.7-2-1.2L14 2Z"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"12"[39m
+                [33mcy[39m=[32m"12"[39m
+                [33mr[39m=[32m"3.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ad-header-copy"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"ad ad-typography"[39m
+              [33mdata-ad-component[39m=[32m"Typography"[39m
+              [33mdata-ad-tone[39m=[32m"default"[39m
+              [33mdata-ad-variant[39m=[32m"h2"[39m
+              [33mdata-ad-weight[39m=[32m"bold"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mid[39m=[32m"_r_0_"[39m
+              [36m>[39m
+                [0mНастройки песни[0m
+              [36m</span>[39m
+            [36m</h2>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ad-header-actions"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Закрыть диалог"[39m
+              [33mclass[39m=[32m"ad ad-icon-button"[39m
+              [33mdata-ad-component[39m=[32m"IconButton"[39m
+              [33mdata-ad-material[39m=[32m"ghost"[39m
+              [33mdata-ad-variant[39m=[32m"ghost"[39m
+              [33mtitle[39m=[32m"Закрыть диалог"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"ad-button-fx"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"ad-button-plasma"[39m
+                [36m/>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"ad-button-orbit"[39m
+              [36m/>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad ad-icon"[39m
+                [33mdata-ad-component[39m=[32m"Icon"[39m
+                [33mdata-ad-surface[39m=[32m"none"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33mdata-ad-component[39m=[32m"IconAsset"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m6 6 12 12M18 6 6 18"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</span>[39m
+              [0m [0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ad ad-dialog-body"[39m
+          [33mdata-ad-component[39m=[32m"DialogBody"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mid[39m=[32m"_r_1_"[39m
+          [36m>[39m
+            [0mIncorrect artist — Song title[0m
+          [36m</p>[39m
+          [36m<form[39m
+            [33mclass[39m=[32m"songSettingsForm"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ad-grid ad-form-fields"[39m
+              [33mstyle[39m=[32m"--ad-grid-columns: repeat(12, minmax(0, 1fr)); --ad-grid-columns-sm: repeat(12, minmax(0, 1fr)); --ad-grid-columns-md: repeat(12, minmax(0, 1fr)); --ad-grid-columns-lg: repeat(12, minmax(0, 1fr)); --ad-grid-columns-xlg: repeat(12, minmax(0, 1fr)); --ad-grid-row-gap: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-sm: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-md: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-lg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-xlg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-sm: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-md: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-lg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-xlg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-align: center; --ad-grid-align-sm: center; --ad-grid-align-md: center; --ad-grid-align-lg: center; --ad-grid-align-xlg: center; --ad-grid-justify: stretch; --ad-grid-justify-sm: stretch; --ad-grid-justify-md: stretch; --ad-grid-justify-lg: stretch; --ad-grid-justify-xlg: stretch; --ad-grid-distribution: normal; --ad-grid-distribution-sm: normal; --ad-grid-distribution-md: normal; --ad-grid-distribution-lg: normal; --ad-grid-distribution-xlg: normal;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ad-grid-item ad-form-field"[39m
+                [33mstyle[39m=[32m"--ad-grid-column-start: auto; --ad-grid-column-start-sm: auto; --ad-grid-column-start-md: auto; --ad-grid-column-start-lg: auto; --ad-grid-column-start-xlg: auto; --ad-grid-column-end: span 12; --ad-grid-column-end-sm: span 12; --ad-grid-column-end-md: span 4; --ad-grid-column-end-lg: span 4; --ad-grid-column-end-xlg: span 4; --ad-grid-row-start: auto; --ad-grid-row-start-sm: auto; --ad-grid-row-start-md: auto; --ad-grid-row-start-lg: auto; --ad-grid-row-start-xlg: auto; --ad-grid-row-end: auto; --ad-grid-row-end-sm: auto; --ad-grid-row-end-md: auto; --ad-grid-row-end-lg: auto; --ad-grid-row-end-xlg: auto;"[39m
+      ...
+ ❯ src/pages/library/modals/song-settings/index.test.tsx:59:37
+     57|   fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+     58|   await waitFor(() =>
+     59|     expect(pythonClient.updateSong).toHaveBeenCalledWith(
+       |                                     ^
+     60|       song.id,
+     61|       expect.objectContaining({ title: song.title, artist: '' }),
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/library/modals/song-settings/index.test.tsx > saves an explicitly cleared artist ("   ")
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'song', ObjectContaining{…} ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+    "song",
+-   ObjectContaining {
+-     "artist": "",
++   {
++     "artist": undefined,
++     "coverPath": undefined,
++     "language": "Auto",
+      "title": "Song title",
++     "videoPath": undefined,
+    },
+  ]
+
+
+Number of calls: 1
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<dialog[39m
+        [33maria-describedby[39m=[32m"_r_k_"[39m
+        [33maria-labelledby[39m=[32m"_r_j_"[39m
+        [33mclass[39m=[32m"ad ad-dialog songSettingsDialog"[39m
+        [33mdata-ad-component[39m=[32m"Dialog"[39m
+        [33mdata-ad-material[39m=[32m"dialog"[39m
+        [33mdata-ad-width[39m=[32m"large"[39m
+        [33mopen[39m=[32m""[39m
+      [36m>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"ad-dialog-spotlight"[39m
+        [36m/>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"ad ad-header"[39m
+          [33mdata-ad-component[39m=[32m"Header"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ad ad-icon"[39m
+            [33mdata-ad-component[39m=[32m"Icon"[39m
+            [33mdata-ad-surface[39m=[32m"tile"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mdata-ad-component[39m=[32m"IconAsset"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m10 2-.5 2.5-2 1.2L5 5 3 8l1.8 2v3.7L3 16l2 3 2.5-.6 2 1.2L10 22h4l.5-2.4 2-1.2L19 19l2-3-1.8-2.3V10L21 8l-2-3-2.5.7-2-1.2L14 2Z"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"12"[39m
+                [33mcy[39m=[32m"12"[39m
+                [33mr[39m=[32m"3.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ad-header-copy"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"ad ad-typography"[39m
+              [33mdata-ad-component[39m=[32m"Typography"[39m
+              [33mdata-ad-tone[39m=[32m"default"[39m
+              [33mdata-ad-variant[39m=[32m"h2"[39m
+              [33mdata-ad-weight[39m=[32m"bold"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mid[39m=[32m"_r_j_"[39m
+              [36m>[39m
+                [0mНастройки песни[0m
+              [36m</span>[39m
+            [36m</h2>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ad-header-actions"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Закрыть диалог"[39m
+              [33mclass[39m=[32m"ad ad-icon-button"[39m
+              [33mdata-ad-component[39m=[32m"IconButton"[39m
+              [33mdata-ad-material[39m=[32m"ghost"[39m
+              [33mdata-ad-variant[39m=[32m"ghost"[39m
+              [33mtitle[39m=[32m"Закрыть диалог"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"ad-button-fx"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"ad-button-plasma"[39m
+                [36m/>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"ad-button-orbit"[39m
+              [36m/>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ad ad-icon"[39m
+                [33mdata-ad-component[39m=[32m"Icon"[39m
+                [33mdata-ad-surface[39m=[32m"none"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33mdata-ad-component[39m=[32m"IconAsset"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m6 6 12 12M18 6 6 18"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</span>[39m
+              [0m [0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ad ad-dialog-body"[39m
+          [33mdata-ad-component[39m=[32m"DialogBody"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mid[39m=[32m"_r_k_"[39m
+          [36m>[39m
+            [0mIncorrect artist — Song title[0m
+          [36m</p>[39m
+          [36m<form[39m
+            [33mclass[39m=[32m"songSettingsForm"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ad-grid ad-form-fields"[39m
+              [33mstyle[39m=[32m"--ad-grid-columns: repeat(12, minmax(0, 1fr)); --ad-grid-columns-sm: repeat(12, minmax(0, 1fr)); --ad-grid-columns-md: repeat(12, minmax(0, 1fr)); --ad-grid-columns-lg: repeat(12, minmax(0, 1fr)); --ad-grid-columns-xlg: repeat(12, minmax(0, 1fr)); --ad-grid-row-gap: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-sm: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-md: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-lg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-row-gap-xlg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-sm: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-md: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-lg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-column-gap-xlg: var(--ad-space-4, calc(var(--ad-space-unit, 0.25rem) * 4)); --ad-grid-align: center; --ad-grid-align-sm: center; --ad-grid-align-md: center; --ad-grid-align-lg: center; --ad-grid-align-xlg: center; --ad-grid-justify: stretch; --ad-grid-justify-sm: stretch; --ad-grid-justify-md: stretch; --ad-grid-justify-lg: stretch; --ad-grid-justify-xlg: stretch; --ad-grid-distribution: normal; --ad-grid-distribution-sm: normal; --ad-grid-distribution-md: normal; --ad-grid-distribution-lg: normal; --ad-grid-distribution-xlg: normal;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ad-grid-item ad-form-field"[39m
+                [33mstyle[39m=[32m"--ad-grid-column-start: auto; --ad-grid-column-start-sm: auto; --ad-grid-column-start-md: auto; --ad-grid-column-start-lg: auto; --ad-grid-column-start-xlg: auto; --ad-grid-column-end: span 12; --ad-grid-column-end-sm: span 12; --ad-grid-column-end-md: span 4; --ad-grid-column-end-lg: span 4; --ad-grid-column-end-xlg: span 4; --ad-grid-row-start: auto; --ad-grid-row-start-sm: auto; --ad-grid-row-start-md: auto; --ad-grid-row-start-lg: auto; --ad-grid-row-start-xlg: auto; --ad-grid-row-end: auto; --ad-grid-row-end-sm: auto; --ad-grid-row-end-md: auto; --ad-grid-row-end-lg: auto; --ad-grid-row-end-xlg: auto;"[39m
+      ...
+ ❯ src/pages/library/modals/song-settings/index.test.tsx:59:37
+     57|   fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+     58|   await waitFor(() =>
+     59|     expect(pythonClient.updateSong).toHaveBeenCalledWith(
+       |                                     ^
+     60|       song.id,
+     61|       expect.objectContaining({ title: song.title, artist: '' }),
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  18:40:14
+   Duration  3.53s (transform 429ms, setup 106ms, import 701ms, tests 2.32s, environment 251ms)

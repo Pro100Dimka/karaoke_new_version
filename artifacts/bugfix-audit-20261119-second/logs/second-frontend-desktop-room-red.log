@@ -1,0 +1,44 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/useLibraryDesktop.test.tsx (3 tests | 2 failed) 28ms
+   × opens the room dialog for a desktop command without an invitation code 20ms
+   × opens a queued room request once the library backend is ready 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/useLibraryDesktop.test.tsx > opens the room dialog for a desktop command without an invitation code
+AssertionError: expected "vi.fn()" to be called once with arguments: [ undefined ]
+
+Number of calls: 0
+
+ ❯ src/pages/library/useLibraryDesktop.test.tsx:22:22
+     20|   renderHook(() => useLibraryDesktop(onOpenRoom));
+     21|   act(() => libraryCommands.push({ type: 'openRoom' }));
+     22|   expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith(undefined);
+       |                      ^
+     23| });
+     24|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/library/useLibraryDesktop.test.tsx > opens a queued room request once the library backend is ready
+AssertionError: expected "vi.fn()" to be called once with arguments: [ undefined ]
+
+Number of calls: 0
+
+ ❯ src/pages/library/useLibraryDesktop.test.tsx:41:22
+     39|   state.application.services.python.kind = 'ready';
+     40|   rerender();
+     41|   expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith(undefined);
+       |                      ^
+     42| });
+     43|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  18:44:35
+   Duration  544ms (transform 75ms, setup 96ms, import 56ms, tests 28ms, environment 241ms)

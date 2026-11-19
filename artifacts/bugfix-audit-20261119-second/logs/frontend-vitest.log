@@ -1,0 +1,40 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/pages/library/modals/analysis/preparation.test.tsx (0 test)
+first error
+current error
+Service failed to start: AudioService.exe: missing executable
+currentService failed to start: service.exe: failed
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/library/modals/analysis/preparation.test.tsx [ src/pages/library/modals/analysis/preparation.test.tsx ]
+Error: [vitest] No "setLocale" export is defined on the "@neo-ui-kit/react" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+vi.mock(import("@neo-ui-kit/react"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+ ❯ new Store src/providers/store.ts:83:5
+     81|
+     82|   constructor() {
+     83|     setLocale(this.preferences.language);
+       |     ^
+     84|     makeAutoObservable(
+     85|       this,
+ ❯ src/providers/store.ts:168:22
+ ❯ src/providers/notifications.tsx:18:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 172 passed (173)
+      Tests  1203 passed (1203)
+   Start at  18:49:38
+   Duration  27.10s (transform 4.44s, setup 11.61s, import 9.91s, tests 23.60s, environment 39.96s)

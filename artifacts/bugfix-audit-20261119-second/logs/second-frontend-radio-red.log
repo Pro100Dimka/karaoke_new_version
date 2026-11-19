@@ -1,0 +1,92 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ src/providers/radio.test.tsx (17 tests | 2 failed) 2833ms
+     × reports a failed room radio toggle so it can be retried 1012ms
+     × reports a failed room radio station change so it can be retried 1008ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/providers/radio.test.tsx > RadioConnection > reports a failed room radio toggle so it can be retried
+ FAIL  src/providers/radio.test.tsx > RadioConnection > reports a failed room radio station change so it can be retried
+AssertionError: expected "vi.fn()" to be called with arguments: [ { …(2) } ]
+
+Number of calls: 0
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div />[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/providers/radio.test.tsx:169:25
+    167|       act(change);
+    168|       await waitFor(() =>
+    169|         expect(failure).toHaveBeenCalledWith({
+       |                         ^
+    170|           operation: 'errors.radioMetadata',
+    171|           error,
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: Room connection lost
+ ❯ src/providers/radio.test.tsx:160:19
+    158|       librarySort: 'recent',
+    159|     };
+    160|     const error = new Error('Room connection lost');
+       |                   ^
+    161|     appState.publishSharedState.mockRejectedValueOnce(error);
+    162|     const failure = vi.fn();
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2025:60
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+
+This error originated in "src/providers/radio.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "reports a failed room radio toggle so it can be retried". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: Room connection lost
+ ❯ src/providers/radio.test.tsx:160:19
+    158|       librarySort: 'recent',
+    159|     };
+    160|     const error = new Error('Room connection lost');
+       |                   ^
+    161|     appState.publishSharedState.mockRejectedValueOnce(error);
+    162|     const failure = vi.fn();
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2025:60
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+
+This error originated in "src/providers/radio.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "reports a failed room radio station change so it can be retried". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 15 passed (17)
+     Errors  2 errors
+   Start at  18:38:27
+   Duration  3.93s (transform 254ms, setup 209ms, import 317ms, tests 2.83s, environment 397ms)

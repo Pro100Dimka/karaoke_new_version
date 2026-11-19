@@ -1,0 +1,25 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+ ❯ electron/ServiceIpc.test.ts (2 tests | 1 failed) 11ms
+   × releases audio notification streams when a renderer crashes before a reload begins 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  electron/ServiceIpc.test.ts > releases audio notification streams when a renderer crashes before a reload begins
+AssertionError: expected "vi.fn()" to be called once, but got 0 times
+ ❯ electron/ServiceIpc.test.ts:107:24
+    105|
+    106|   sender.emit('render-process-gone', {}, { reason: 'crashed' });
+    107|   expect(stopSpectrum).toHaveBeenCalledOnce();
+       |                        ^
+    108|   expect(stopPlayback).toHaveBeenCalledOnce();
+    109|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  18:42:09
+   Duration  911ms (transform 122ms, setup 229ms, import 96ms, tests 11ms, environment 390ms)

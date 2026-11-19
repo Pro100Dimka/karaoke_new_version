@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 /workspace/scratch/726a7fe1e251/karaoke_new_version/frontend
+
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  18:41:33
+   Duration  580ms (transform 131ms, setup 231ms, import 85ms, tests 24ms, environment 600ms)
