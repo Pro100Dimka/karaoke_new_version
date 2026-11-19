@@ -1,5 +1,5 @@
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNotify } from '../../providers/notifications';
 import { errorstring, toAppError } from '../../shared/errors';
 
@@ -8,8 +8,11 @@ export const useSocialAction = () => {
   const notify = useNotify();
   const locale = useLocale();
   const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   const run = useCallback(
     async (action: () => Promise<unknown>, done?: string): Promise<boolean> => {
+      if (pending.current) return false;
+      pending.current = true;
       setBusy(true);
       try {
         await action();
@@ -22,6 +25,7 @@ export const useSocialAction = () => {
         );
         return false;
       } finally {
+        pending.current = false;
         setBusy(false);
       }
     },

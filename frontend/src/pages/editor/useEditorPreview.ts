@@ -11,13 +11,22 @@ export const useEditorPreview = (
   const [position] = useState(() => observable.box(0));
   const playingRef = useRef(playing);
   playingRef.current = playing;
+  const generation = useRef(0);
+  const pendingToggle = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!audioReady) {
-      setPlaying(false);
-      return;
-    }
-    if (!playing) return;
+    generation.current += 1;
+    pendingToggle.current = null;
+    playingRef.current = false;
+    setPlaying(false);
+    runInAction(() => position.set(0));
+    return () => {
+      generation.current += 1;
+    };
+  }, [audioReady, position]);
+
+  useEffect(() => {
+    if (!audioReady || !playing) return;
     return audioClient.observeSnapshots(
       (snapshot) => {
         runInAction(() => position.set(snapshot.positionSeconds));
@@ -31,29 +40,35 @@ export const useEditorPreview = (
   }, [audioReady, playing, onFailure, position]);
 
   const togglePlay = useCallback(async () => {
-    if (!audioReady) return;
+    if (!audioReady || pendingToggle.current !== null) return;
+    const request = generation.current;
+    pendingToggle.current = request;
+    const nextPlaying = !playingRef.current;
     try {
-      if (playingRef.current) {
-        await audioClient.pause();
-        setPlaying(false);
-      } else {
-        await audioClient.play();
-        setPlaying(true);
+      await (nextPlaying ? audioClient.play() : audioClient.pause());
+      if (request === generation.current) {
+        playingRef.current = nextPlaying;
+        setPlaying(nextPlaying);
       }
     } catch {
-      onFailure();
+      if (request === generation.current) onFailure();
+    } finally {
+      if (pendingToggle.current === request) pendingToggle.current = null;
     }
   }, [audioReady, onFailure]);
 
   const seek = useCallback(
     async (seconds: number) => {
+      if (!audioReady) return;
+      const request = generation.current;
       const snapshot = await observeOperation(
         'errors.seek',
         audioClient.seek(seconds),
       ).catch(() => null);
-      if (snapshot) runInAction(() => position.set(snapshot.positionSeconds));
+      if (snapshot && request === generation.current)
+        runInAction(() => position.set(snapshot.positionSeconds));
     },
-    [position],
+    [audioReady, position],
   );
 
   return {

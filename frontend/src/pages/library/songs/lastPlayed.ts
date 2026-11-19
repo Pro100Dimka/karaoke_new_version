@@ -7,6 +7,7 @@ import {
 import type { LastPlayed } from './librarySelectors';
 
 const key = storageKey('lastPlayed');
+const listeners = new Set<(played: LastPlayed) => void>();
 
 export const loadLastPlayed = (): LastPlayed => {
   const raw = readJson(key);
@@ -18,5 +19,15 @@ export const loadLastPlayed = (): LastPlayed => {
   );
 };
 
-export const markPlayed = (songId: string, now = Date.now()): void =>
-  writeJson(key, { ...loadLastPlayed(), [songId]: now });
+export const onLastPlayedChange = (listener: (played: LastPlayed) => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+export const markPlayed = (songId: string, now = Date.now()): void => {
+  const played = { ...loadLastPlayed(), [songId]: now };
+  writeJson(key, played);
+  listeners.forEach((listener) => listener(played));
+};

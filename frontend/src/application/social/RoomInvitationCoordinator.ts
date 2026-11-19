@@ -1,4 +1,5 @@
 import type { RoomSessionController } from '../room/RoomSessionController';
+import type { SocialInvite } from '../../contracts/social';
 
 type InvitationPort = {
   acceptInvite(id: string): Promise<{ roomId: string }>;
@@ -15,13 +16,16 @@ type InvitationPort = {
   }): Promise<void>;
 };
 type RoomPort = Pick<RoomSessionController, 'getRoom' | 'leave' | 'join'>;
+type InvitationState =
+  | { type: 'accepting'; promise: Promise<void>; invite?: SocialInvite }
+  | { type: 'retry'; roomId: string; invite?: SocialInvite }
+  | { type: 'accepted' };
 
 /** Coordinates invitations with the one local room owner. */
 export class RoomInvitationCoordinator {
-  private readonly invitations = new Map<
-    string,
-    { type: 'accepting'; promise: Promise<void> } | { type: 'accepted' }
-  >();
+  private readonly invitations = new Map<string, InvitationState>();
+  private readonly listeners = new Set<() => void>();
+  private version = 0;
   private roomTransition: Promise<void> = Promise.resolve();
 
   constructor(
@@ -30,18 +34,57 @@ export class RoomInvitationCoordinator {
     private readonly participantId = '',
   ) {}
 
+  getSnapshot = (): number => this.version;
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+  private changed(): void {
+    this.version += 1;
+    for (const listener of this.listeners) listener();
+  }
+  /** Server acceptance removes the inbox entry before the local room join finishes. */
+  availableInvites(incoming: readonly SocialInvite[]): SocialInvite[] {
+    const invites = new Map(
+      incoming.map((invite) => [invite.inviteId, invite]),
+    );
+    for (const [id, state] of this.invitations) {
+      if (state.type === 'accepted') invites.delete(id);
+      else if (state.invite && !invites.has(id)) invites.set(id, state.invite);
+    }
+    return [...invites.values()];
+  }
   isRequestedRoom(roomId: string): boolean {
     return this.social.isRequestedRoom(roomId);
   }
   isHandled(inviteId: string): boolean {
-    return this.invitations.has(inviteId);
+    const state = this.invitations.get(inviteId);
+    return state !== undefined && state.type !== 'retry';
+  }
+  canRetry(inviteId: string): boolean {
+    return this.invitations.get(inviteId)?.type === 'retry';
   }
   prune(activeInviteIds: readonly string[]): void {
     const active = new Set(activeInviteIds);
-    for (const id of this.invitations.keys())
-      if (!active.has(id)) this.invitations.delete(id);
+    let removed = false;
+    for (const [id, state] of this.invitations)
+      if (!active.has(id) && state.type === 'accepted') {
+        this.invitations.delete(id);
+        removed = true;
+      }
+    if (removed) this.changed();
   }
   decline(id: string): Promise<void> {
+    const state = this.invitations.get(id);
+    if (state?.type === 'accepted') return Promise.resolve();
+    if (state?.type === 'retry') {
+      this.social.clearRequestedRoom(state.roomId);
+      this.invitations.set(id, { type: 'accepted' });
+      this.changed();
+      return Promise.resolve();
+    }
     return this.social.declineInvite(id);
   }
   approve(accountId: string, roomId: string): Promise<void> {
@@ -54,23 +97,47 @@ export class RoomInvitationCoordinator {
     return this.social.invite(accountId, roomId);
   }
 
-  accept(inviteId: string, displayName: string): Promise<void> {
+  accept(
+    invitation: string | SocialInvite,
+    displayName: string,
+  ): Promise<void> {
+    const inviteId =
+      typeof invitation === 'string' ? invitation : invitation.inviteId;
     const existing = this.invitations.get(inviteId);
     if (existing?.type === 'accepted') return Promise.resolve();
     if (existing?.type === 'accepting') return existing.promise;
+    const invite =
+      typeof invitation === 'string' ? existing?.invite : invitation;
+    let acceptedRoom = existing?.type === 'retry' ? existing.roomId : undefined;
     const operation = this.roomTransition.then(async () => {
-      const { roomId } = await this.social.acceptInvite(inviteId);
+      const roomId =
+        acceptedRoom ?? (await this.social.acceptInvite(inviteId)).roomId;
+      acceptedRoom = roomId;
       if (this.room.getRoom()) await this.room.leave();
       await this.room.join(displayName, roomId);
       this.social.clearRequestedRoom(roomId);
       this.invitations.set(inviteId, { type: 'accepted' });
+      this.changed();
     });
     this.roomTransition = operation.catch(() => undefined);
-    this.invitations.set(inviteId, { type: 'accepting', promise: operation });
+    this.invitations.set(inviteId, {
+      type: 'accepting',
+      promise: operation,
+      invite,
+    });
+    this.changed();
     void operation.catch(() => {
       const current = this.invitations.get(inviteId);
-      if (current?.type === 'accepting' && current.promise === operation)
-        this.invitations.delete(inviteId);
+      if (current?.type !== 'accepting' || current.promise !== operation)
+        return;
+      if (acceptedRoom !== undefined)
+        this.invitations.set(inviteId, {
+          type: 'retry',
+          roomId: acceptedRoom,
+          invite,
+        });
+      else this.invitations.delete(inviteId);
+      this.changed();
     });
     return operation;
   }

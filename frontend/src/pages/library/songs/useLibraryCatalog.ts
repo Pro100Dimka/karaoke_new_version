@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -22,7 +22,7 @@ import type {
   LibraryFilters,
   LibraryViewFilters,
 } from '../hero/filters&actions/search-field';
-import { loadLastPlayed } from './lastPlayed';
+import { loadLastPlayed, onLastPlayedChange } from './lastPlayed';
 import { compareAddedSongs, selectLibrarySongs } from './librarySelectors';
 
 const emptyImports: readonly SongDto[] = [];
@@ -124,7 +124,12 @@ export const useLibraryCatalog = (
     () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
     [localSongs, room?.sharedSongs, selfId],
   );
-  const played = useMemo(() => loadLastPlayed(), []);
+  const [played, setPlayed] = useState(loadLastPlayed);
+  useEffect(() => {
+    const stop = onLastPlayedChange(setPlayed);
+    setPlayed(loadLastPlayed());
+    return stop;
+  }, []);
   const visibleSongs = useMemo(
     () =>
       completeCatalog

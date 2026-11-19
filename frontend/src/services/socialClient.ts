@@ -47,9 +47,14 @@ export const socialClient = {
   subscribe(listener: (inbox: SocialInbox) => void): () => void {
     let active = true;
     let receivedPush = false;
-    void desktopClient.socialLatest().then((message) => {
-      if (active && !receivedPush && isInbox(message)) listener(message);
-    });
+    void desktopClient.socialLatest().then(
+      (message) => {
+        if (active && !receivedPush && isInbox(message)) listener(message);
+      },
+      () => {
+        if (active && !receivedPush) listener({ type: 'offline' });
+      },
+    );
     const stop = desktopClient.onSocialInbox((message) => {
       if (active && isInbox(message)) {
         receivedPush = true;

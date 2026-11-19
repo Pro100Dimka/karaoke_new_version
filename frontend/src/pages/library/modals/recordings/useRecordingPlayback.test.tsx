@@ -1,0 +1,65 @@
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { audioClient } from '../../../../services/audioClient';
+import { reportOperationFailure } from '../../../../shared/errors';
+import { useRecordingPlayback } from './useRecordingPlayback';
+
+vi.mock('../../../../services/audioClient', () => ({
+  audioClient: {
+    playRecording: vi.fn(),
+    pauseRecordingPreview: vi.fn(),
+    seekRecordingPreview: vi.fn(),
+    stopRecordingPreview: vi.fn(),
+    recordingPreviewStatus: vi.fn(),
+    observeRecordingPreview: vi.fn(() => () => {}),
+  },
+}));
+vi.mock('../../../../shared/errors', () => ({
+  clearOperationFailure: vi.fn(),
+  reportOperationFailure: vi.fn(),
+  observeOperation: (_key: string, promise: Promise<unknown>) => promise,
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(audioClient.playRecording).mockResolvedValue({} as never);
+  vi.mocked(audioClient.pauseRecordingPreview).mockResolvedValue(undefined);
+  vi.mocked(audioClient.stopRecordingPreview).mockResolvedValue(undefined);
+  vi.mocked(audioClient.seekRecordingPreview).mockResolvedValue(undefined);
+  vi.mocked(audioClient.recordingPreviewStatus).mockResolvedValue({
+    recordingId: 'take',
+    state: 'playing',
+    positionSeconds: 0,
+  });
+});
+
+it('reports an unavailable preview status without rejecting an unobserved waveform action', async () => {
+  const failure = new Error('Audio service disconnected');
+  const { result } = renderHook(() => useRecordingPlayback({ id: 'take' }));
+  await act(() => result.current.toggle());
+  vi.mocked(audioClient.recordingPreviewStatus).mockRejectedValueOnce(failure);
+  await act(async () => {
+    await expect(result.current.seek(20)).resolves.toBeUndefined();
+  });
+  expect(reportOperationFailure).toHaveBeenCalledWith(
+    'errors.previewSeek',
+    failure,
+  );
+});
+
+it('stops the audible preview if applying the initial waveform position fails', async () => {
+  const failure = new Error('Seek rejected');
+  const { result } = renderHook(() => useRecordingPlayback({ id: 'take' }));
+  await act(() => result.current.seek(20));
+  vi.mocked(audioClient.seekRecordingPreview).mockRejectedValueOnce(failure);
+  await act(() => result.current.toggle());
+
+  expect(result.current.playing).toBe(false);
+  expect(audioClient.stopRecordingPreview).toHaveBeenCalledWith(
+    expect.any(Symbol),
+  );
+  expect(reportOperationFailure).toHaveBeenCalledWith(
+    'errors.previewPlayback',
+    failure,
+  );
+});

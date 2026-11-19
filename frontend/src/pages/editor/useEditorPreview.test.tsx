@@ -29,6 +29,93 @@ beforeEach(() => {
   });
 });
 describe('editor preview lifecycle', () => {
+  it('resets the previous song position and ignores a pending play after audio is replaced', async () => {
+    let finishPlay!: () => void;
+    vi.mocked(audioClient.play).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishPlay = () => resolve({} as never);
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ audioReady }) => useEditorPreview(audioReady, vi.fn()),
+      { initialProps: { audioReady: true } },
+    );
+    await act(() => result.current.seek(23));
+    let playing!: Promise<void>;
+    act(() => {
+      playing = result.current.togglePlay();
+    });
+    rerender({ audioReady: false });
+    expect(result.current.position).toBe(0);
+    rerender({ audioReady: true });
+    await act(async () => {
+      finishPlay();
+      await playing;
+    });
+    expect(result.current.playing).toBe(false);
+    expect(audioClient.observeSnapshots).not.toHaveBeenCalled();
+  });
+
+  it('does not seek before audio is prepared', async () => {
+    const { result } = renderHook(() => useEditorPreview(false, vi.fn()));
+    await act(() => result.current.seek(23));
+    expect(audioClient.seek).not.toHaveBeenCalled();
+    expect(result.current.position).toBe(0);
+  });
+
+  it('does not apply the previous song seek after audio is replaced', async () => {
+    let finishSeek!: () => void;
+    vi.mocked(audioClient.seek).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSeek = () =>
+            resolve({ positionSeconds: 23 } as PlaybackSnapshot);
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ audioReady }) => useEditorPreview(audioReady, vi.fn()),
+      { initialProps: { audioReady: true } },
+    );
+    let seeking!: Promise<void>;
+    act(() => {
+      seeking = result.current.seek(23);
+    });
+    rerender({ audioReady: false });
+    rerender({ audioReady: true });
+    await act(async () => {
+      finishSeek();
+      await seeking;
+    });
+    expect(result.current.position).toBe(0);
+  });
+
+  it('submits only one play operation while the previous toggle is pending', async () => {
+    let finishPlay!: () => void;
+    const pending = new Promise<PlaybackSnapshot>((resolve) => {
+      finishPlay = () => resolve({} as never);
+    });
+    vi.mocked(audioClient.play).mockReturnValue(pending);
+    const { result } = renderHook(() => useEditorPreview(true, vi.fn()));
+    let playing!: Promise<void>;
+    let duplicate!: Promise<void>;
+    act(() => {
+      playing = result.current.togglePlay();
+    });
+    act(() => {
+      duplicate = result.current.togglePlay();
+    });
+    try {
+      expect(audioClient.play).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => {
+        finishPlay();
+        await Promise.all([playing, duplicate]);
+      });
+    }
+    expect(result.current.playing).toBe(true);
+  });
+
   it.each([
     [12.5, '0:12.50'],
     [59.999, '1:00.00'],

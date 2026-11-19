@@ -27,7 +27,42 @@ it('accepts an invitation through the room session and clears the pending reques
   expect(events).toEqual(['leave', 'join', 'clear']);
 });
 
-it('keeps a failed invitation join retryable', async () => {
+it.each(['leave', 'join'])(
+  'retries a failed %s without accepting the invitation twice',
+  async (failedStep) => {
+    const social = {
+      acceptInvite: vi
+        .fn()
+        .mockResolvedValueOnce({ roomId: 'B' })
+        .mockRejectedValue(new Error('InviteAnswered')),
+      clearRequestedRoom: vi.fn(),
+    };
+    const room = {
+      getRoom: () => (failedStep === 'leave' ? { code: 'A' } : null),
+      leave: vi.fn().mockResolvedValue(undefined),
+      join: vi.fn().mockResolvedValue({ code: 'B' }),
+    };
+    room[failedStep as 'leave' | 'join'].mockRejectedValueOnce(
+      new Error('AudioService unavailable'),
+    );
+    const invitations = new RoomInvitationCoordinator(
+      social as never,
+      room as never,
+    );
+    await expect(invitations.accept('invite', 'Singer')).rejects.toThrow(
+      'AudioService unavailable',
+    );
+    expect(social.clearRequestedRoom).not.toHaveBeenCalled();
+    invitations.prune([]);
+    expect(invitations.isHandled('invite')).toBe(false);
+    await invitations.accept('invite', 'Singer');
+    expect(social.acceptInvite).toHaveBeenCalledOnce();
+    expect(social.clearRequestedRoom).toHaveBeenCalledWith('B');
+  },
+);
+
+it('deduplicates an in-flight join after the server removes its accepted invitation', async () => {
+  let finish!: (value: { code: string }) => void;
   const social = {
     acceptInvite: vi.fn(async () => ({ roomId: 'B' })),
     clearRequestedRoom: vi.fn(),
@@ -35,21 +70,53 @@ it('keeps a failed invitation join retryable', async () => {
   const room = {
     getRoom: () => null,
     leave: vi.fn(),
-    join: vi
+    join: vi.fn(
+      () =>
+        new Promise<{ code: string }>((resolve) => {
+          finish = resolve;
+        }),
+    ),
+  };
+  const invitations = new RoomInvitationCoordinator(
+    social as never,
+    room as never,
+  );
+  const first = invitations.accept('invite', 'Singer');
+  await vi.waitFor(() => expect(room.join).toHaveBeenCalledOnce());
+  invitations.prune([]);
+  const second = invitations.accept('invite', 'Singer');
+  expect(second).toBe(first);
+  finish({ code: 'B' });
+  await first;
+  expect(social.acceptInvite).toHaveBeenCalledOnce();
+});
+
+it('retries server acceptance when the invitation has not been accepted yet', async () => {
+  const social = {
+    acceptInvite: vi
       .fn()
-      .mockRejectedValueOnce(new Error('AudioService unavailable'))
-      .mockResolvedValueOnce({ code: 'B' }),
+      .mockRejectedValueOnce(new Error('Offline'))
+      .mockResolvedValueOnce({ roomId: 'B' }),
+    clearRequestedRoom: vi.fn(),
+  };
+  const room = {
+    getRoom: () => null,
+    leave: vi.fn(),
+    join: vi.fn().mockResolvedValue({ code: 'B' }),
   };
   const invitations = new RoomInvitationCoordinator(
     social as never,
     room as never,
   );
   await expect(invitations.accept('invite', 'Singer')).rejects.toThrow(
-    'AudioService unavailable',
+    'Offline',
   );
-  expect(social.clearRequestedRoom).not.toHaveBeenCalled();
+  expect(room.join).not.toHaveBeenCalled();
+  expect(invitations.isHandled('invite')).toBe(false);
+  expect(invitations.canRetry('invite')).toBe(false);
   await invitations.accept('invite', 'Singer');
-  expect(social.clearRequestedRoom).toHaveBeenCalledWith('B');
+  expect(social.acceptInvite).toHaveBeenCalledTimes(2);
+  expect(room.join).toHaveBeenCalledOnce();
 });
 
 it('does not join twice while an accepted invitation remains in the inbox', async () => {
@@ -69,6 +136,9 @@ it('does not join twice while an accepted invitation remains in the inbox', asyn
   await invitations.accept('invite', 'Singer');
   await invitations.accept('invite', 'Singer');
   expect(room.join).toHaveBeenCalledOnce();
+  expect(invitations.isHandled('invite')).toBe(true);
+  invitations.prune([]);
+  expect(invitations.isHandled('invite')).toBe(false);
 });
 
 it('serializes two different accepted invitations so the second cannot inherit the first join', async () => {

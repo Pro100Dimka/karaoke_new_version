@@ -1,5 +1,5 @@
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { refreshSongs, type SongPage } from '../../../components/api-service';
 import type { KaraokeTv } from '../../../features/karaoke/tv/karaokeTv';
 import { roomSongPlayIntent } from '../../../features/room/roomSongIntent';
@@ -139,8 +139,16 @@ export const useSongPlayback = ({
   const client = useQueryClient();
   const notify = useNotify();
   const [launching, setLaunching] = useState(false);
+  const launchTimer = useRef<number | null>(null);
   const processing = useRef(store.application.localProcessing);
   processing.current = store.application.localProcessing;
+  useEffect(
+    () => () => {
+      if (launchTimer.current !== null)
+        window.clearTimeout(launchTimer.current);
+    },
+    [],
+  );
   // While someone sings on the TV a chosen song waits its turn there, or replaces the current one.
   const playOnTv = async (song: SongDto, rehearsal = false) => {
     if (!tv) return;
@@ -172,7 +180,7 @@ export const useSongPlayback = ({
   };
 
   const playSong = (song: SongDto, rehearsal = false) => {
-    if (processing.current) return;
+    if (processing.current || launchTimer.current !== null) return;
     if (tv?.active) {
       void playOnTv(song, rehearsal);
       return;
@@ -188,7 +196,8 @@ export const useSongPlayback = ({
     }
     markPlayed(song.id);
     setLaunching(true);
-    window.setTimeout(() => {
+    launchTimer.current = window.setTimeout(() => {
+      launchTimer.current = null;
       if (processing.current) setLaunching(false);
       else {
         store.prepareKaraoke(song.id, rehearsal ? 'Rehearsal' : 'AutoStart');

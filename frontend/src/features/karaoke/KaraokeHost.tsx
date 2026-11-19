@@ -106,10 +106,12 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
         return;
       }
       const [next, ...rest] = current.queue;
-      if (next)
+      const nextId = next?.id ?? store.advancePlaylist(songId);
+      if (next) store.cancelPlaylist();
+      if (nextId)
         setTv({
-          songId: next.id,
-          mode: next.rehearsal ? 'Rehearsal' : 'AutoStart',
+          songId: nextId,
+          mode: next?.rehearsal ? 'Rehearsal' : 'AutoStart',
           queue: rest,
         });
       else endTv();

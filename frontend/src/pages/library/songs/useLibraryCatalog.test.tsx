@@ -14,6 +14,8 @@ import { libraryChanged } from '../../../services/backendEvents';
 import { useLibraryCatalog } from './useLibraryCatalog';
 import { store } from '../../../providers/store';
 import LibrarySearchField from '../hero/filters&actions/search-field';
+import { markPlayed } from './lastPlayed';
+import { clearStorage } from '../../../shared/storage/localStore';
 
 vi.mock('../../../services/pythonClient', () => ({
   pythonClient: {
@@ -46,11 +48,52 @@ let client: QueryClient;
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  clearStorage();
+  store.preferences.librarySort = 'recent';
+  store.preferences.librarySortDirection = 'desc';
+  store.preferences.karaokePlaylists = [];
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => {
   client.clear();
   vi.useRealTimers();
+});
+
+it('updates last-played sorting while the library stays open on the laptop', async () => {
+  store.preferences.librarySort = 'played';
+  const song = {
+    title: 'Song',
+    artist: 'Singer',
+    language: 'English' as const,
+    status: 'ready' as const,
+    durationSeconds: 60,
+    createdAt: '2026-01-01',
+    coverState: 'Fallback' as const,
+    activeRevision: 1,
+    projectFormatVersion: 1,
+  };
+  vi.mocked(pythonClient.listSongs).mockResolvedValue([
+    { ...song, id: 'first' },
+    { ...song, id: 'second' },
+  ]);
+  markPlayed('first', 100);
+  markPlayed('second', 200);
+  const { result } = renderHook(() => useLibraryCatalog('', filters, false), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(result.current.visibleSongs.map((song) => song.id)).toEqual([
+    'second',
+    'first',
+  ]);
+  act(() => markPlayed('first', 300));
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(result.current.visibleSongs.map((song) => song.id)).toEqual([
+    'first',
+    'second',
+  ]);
 });
 
 it('reuses recent searches, invalidates changes and expires unused results', async () => {

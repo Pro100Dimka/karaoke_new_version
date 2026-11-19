@@ -54,6 +54,7 @@ export const useRecordingPlayback = (
       setPlaying(true);
     } catch (error) {
       if (request === generation.current) {
+        void preview.stopRecordingPreview(owner.current).catch(() => undefined);
         release();
         reportOperationFailure('errors.previewPlayback', error);
       }
@@ -71,23 +72,28 @@ export const useRecordingPlayback = (
 
   const seek = useCallback(
     async (seconds: number) => {
-      if (
-        !owns.current ||
-        (await preview.recordingPreviewStatus(owner.current)).recordingId !== id
-      ) {
-        owns.current = false;
-        setPlaying(false);
-        setPosition(seconds);
-        pendingSeek.current = seconds;
-        return;
+      const request = generation.current;
+      try {
+        const status = owns.current
+          ? await preview.recordingPreviewStatus(owner.current)
+          : null;
+        if (request !== generation.current) return;
+        if (!status || status.recordingId !== id) {
+          owns.current = false;
+          setPlaying(false);
+          setPosition(seconds);
+          pendingSeek.current = seconds;
+          return;
+        }
+        await preview.seekRecordingPreview(seconds, owner.current);
+        if (request === generation.current) {
+          clearOperationFailure('errors.previewSeek');
+          setPosition(seconds);
+        }
+      } catch (error) {
+        if (request === generation.current)
+          reportOperationFailure('errors.previewSeek', error);
       }
-      await observeOperation(
-        'errors.previewSeek',
-        preview.seekRecordingPreview(seconds, owner.current),
-      ).then(
-        () => setPosition(seconds),
-        () => undefined,
-      );
     },
     [id, preview],
   );

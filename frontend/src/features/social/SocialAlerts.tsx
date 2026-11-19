@@ -1,7 +1,13 @@
 import { friendRelations } from '../../providers/social';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { playNotificationSound } from '../../providers/notifications';
 import {
   Button,
@@ -60,34 +66,51 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
   const { preferences } = store;
   const { room } = store.online;
   const invitations = useRoomInvitations();
+  const invitationVersion = useSyncExternalStore(
+    invitations.subscribe,
+    invitations.getSnapshot,
+  );
+  const pendingInvites = invitations.availableInvites(inbox.invites);
   const friends = friendRelations;
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
+  const attemptedApprovals = useRef(new Set<string>());
   const { busy, run } = useSocialAction();
   const acceptInvite = (invite: SocialInvite) =>
     run(() =>
       invitations.accept(
-        invite.inviteId,
+        invite,
         preferences.displayName || inbox.me.displayName,
       ),
     );
   useEffect(() => {
     invitations.prune(inbox.invites.map((invite) => invite.inviteId));
-    const approved = inbox.invites.find(
+    const active = new Set(pendingInvites.map((invite) => invite.inviteId));
+    for (const id of attemptedApprovals.current)
+      if (!active.has(id)) attemptedApprovals.current.delete(id);
+    if (busy) return;
+    const approved = pendingInvites.find(
       (invite) =>
         invitations.isRequestedRoom(invite.roomId) &&
-        !invitations.isHandled(invite.inviteId),
+        !invitations.isHandled(invite.inviteId) &&
+        !invitations.canRetry(invite.inviteId) &&
+        !attemptedApprovals.current.has(invite.inviteId),
     );
     if (!approved) return;
+    attemptedApprovals.current.add(approved.inviteId);
     void acceptInvite(approved);
-  }, [inbox.invites, invitations]);
+  }, [inbox.invites, invitations, invitationVersion, busy]);
   const requests = inbox.friendRequests.filter(
     (person) => !later.has(person.accountId),
   );
   const roomRequests = inbox.notices.filter(
     (notice) => notice.kind === 'JoinRequested' && notice.roomId === room?.code,
   );
-  const invites = inbox.invites.filter(
-    (invite) => !invitations.isRequestedRoom(invite.roomId),
+  const invites = pendingInvites.filter(
+    (invite) =>
+      !invitations.isRequestedRoom(invite.roomId) ||
+      invitations.canRetry(invite.inviteId) ||
+      (attemptedApprovals.current.has(invite.inviteId) &&
+        !invitations.isHandled(invite.inviteId)),
   );
   const heard = useRef(new Set<string>());
   useEffect(() => {
@@ -115,20 +138,28 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                 size="sm"
                 variant="primary"
                 icon="check"
-                disabled={busy}
+                disabled={busy || invitations.isHandled(invite.inviteId)}
                 onClick={() => void acceptInvite(invite)}
               >
-                {tr('social.acceptAction')}
+                {tr(
+                  invitations.canRetry(invite.inviteId)
+                    ? 'retry'
+                    : 'social.acceptAction',
+                )}
               </Button>
               <Button
                 size="sm"
                 icon="close"
-                disabled={busy}
+                disabled={busy || invitations.isHandled(invite.inviteId)}
                 onClick={() =>
                   void run(() => invitations.decline(invite.inviteId))
                 }
               >
-                {tr('social.declineAction')}
+                {tr(
+                  invitations.canRetry(invite.inviteId)
+                    ? 'close'
+                    : 'social.declineAction',
+                )}
               </Button>
             </>
           }

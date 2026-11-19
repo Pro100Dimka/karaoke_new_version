@@ -300,22 +300,6 @@ const LibrarySongs = observer(
       if (visibleSongs.length > 0) {
         return (
           <>
-            {selecting && (
-              <SelectionToolbar
-                selected={selected}
-                songs={visibleSongs}
-                disabled={catalog.isPlaceholderData}
-                deleting={deleting}
-                onSelect={setSelected}
-                onDelete={() => void deleteSelected()}
-                canDeleteSelected={localSongs.some(
-                  (song) =>
-                    selected.has(song.id) &&
-                    !activeJobStatuses.has(song.status),
-                )}
-                onAddToPlaylist={() => setAddingToPlaylist(true)}
-              />
-            )}
             <VirtualGrid
               items={visibleSongs}
               scrollParent={pageRef}
@@ -410,6 +394,21 @@ const LibrarySongs = observer(
             />,
             pageRef.current,
           )}
+        {selecting && (
+          <SelectionToolbar
+            selected={selected}
+            songs={visibleSongs}
+            disabled={catalog.isPlaceholderData}
+            deleting={deleting}
+            onSelect={setSelected}
+            onDelete={() => void deleteSelected()}
+            canDeleteSelected={localSongs.some(
+              (song) =>
+                selected.has(song.id) && !activeJobStatuses.has(song.status),
+            )}
+            onAddToPlaylist={() => setAddingToPlaylist(true)}
+          />
+        )}
         {content}
         {catalog.isFetchingNextPage && !!catalog.data && (
           <StatusIndicator status="processing" label={tr('library.loading')} />
