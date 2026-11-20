@@ -8,8 +8,10 @@ it.each([
   { room: true, tripped: true, observation: 'snapshot' },
   { room: false, tripped: true, observation: 'notification' },
   { room: true, tripped: true, observation: 'notification' },
+  { room: false, tripped: true, observation: 'none' },
+  { room: true, tripped: true, observation: 'none' },
 ])(
-  'keeps observed monitoring intent across Windows reconfiguration: %j',
+  'keeps monitoring intent across Windows reconfiguration: %j',
   async ({ room, tripped, observation }) => {
     let backend = 'WASAPI Shared';
     let monitoring = false;
@@ -68,9 +70,11 @@ it.each([
       unsubscribe();
       expect(onError).not.toHaveBeenCalled();
       expect(onValue).toHaveBeenCalledWith(expect.objectContaining({ monitoring: false }));
-    } else {
+    } else if (observation === 'snapshot') {
       expect((await audioClient.snapshot()).monitoring).toBe(!tripped);
     }
+    if (observation !== 'none')
+      expect.soft(backend).toBe(room || !tripped ? 'WASAPI Exclusive' : 'WASAPI Shared');
     requests.length = 0;
     await audioClient.applyConfiguration({
       backend: 'WASAPI Shared', sampleRate: 44_100, periodFrames: 0,
@@ -89,6 +93,149 @@ it.each([
     expect(backend).toBe('WASAPI Exclusive');
   },
 );
+
+it.each([false, true])('handles explicit re-enable with an old native safety trip (rejected=%s)', async (rejected) => {
+  let backend = 'WASAPI Shared';
+  let monitoring = false;
+  let safetyTripped = false;
+  let rejectNextEnable = false;
+  const requests = installBridge(({ command, args }) => {
+    if (command === 'Reconfigure') {
+      backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+      monitoring = false;
+      safetyTripped = false;
+    }
+    if (command === 'SetMonitoring') {
+      if (args?.enabled && rejectNextEnable) {
+        rejectNextEnable = false;
+        return { status: 5, text: 'Monitor enable failed' };
+      }
+      monitoring = args?.enabled === true;
+      if (monitoring) safetyTripped = false;
+    }
+    return {
+      status: 0,
+      text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+        ? `SessionState: Running\nBackend: ${backend}\nMonitoringEnabled: ${Number(monitoring)}\nMonitoringSafetyTripped: ${Number(safetyTripped)}\nRuntimeOutputSampleRate: 48000\nPlaybackState: 2`
+        : 'Ok',
+    };
+  });
+  const { audioClient } = await import('./audioClient');
+  await audioClient.setMonitoring(true);
+  monitoring = false;
+  safetyTripped = true;
+  requests.length = 0;
+  rejectNextEnable = rejected;
+  // No snapshot or reconfigure has acknowledged/reset the old trip.
+  if (rejected) {
+    await expect(audioClient.setMonitoring(true)).rejects.toThrow('Monitor enable failed');
+    expect(monitoring).toBe(false);
+    expect(backend).toBe('WASAPI Shared');
+    expect(audioClient.preferredConfiguration().backend).toBe('WASAPI Shared');
+    expect(requests.filter(({ command }) => command === 'SetMonitoring')
+      .map(({ args }) => args?.enabled)).toEqual([true, false]);
+    return;
+  }
+  const result = await audioClient.setMonitoring(true);
+  expect(result.monitoring).toBe(true);
+  expect(result.monitoringSafetyTripped).toBe(false);
+  expect(backend).toBe('WASAPI Exclusive');
+  expect(requests.filter(({ command }) => command === 'Reconfigure')).toEqual([]);
+});
+
+it('ignores a transient disabled notification during Windows reconfiguration', async () => {
+  let backend = 'WASAPI Shared';
+  let monitoring = false;
+  let duringReconfigure = false;
+  let notify: Parameters<DesktopApi['onAudioNotification']>[2] = () => {};
+  const nativeSnapshot = () =>
+    `SessionState: Running\nBackend: ${backend}\nMonitoringEnabled: ${Number(monitoring)}\nMonitoringSafetyTripped: 0\nRuntimeOutputSampleRate: 48000\nPlaybackState: 2`;
+  const requests = installBridge(({ command, args }) => {
+    if (command === 'Reconfigure') {
+      backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+      monitoring = false;
+      if (duringReconfigure)
+        notify({ status: 0, text: `${nativeSnapshot()}\nMonotonicTicks: 1`, observedAt: 1 });
+    }
+    if (command === 'SetMonitoring') monitoring = args?.enabled === true;
+    return {
+      status: 0,
+      text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command) ? nativeSnapshot() : 'Ok',
+    };
+  }, { onAudioNotification: (_command, _interval, listener) => {
+    notify = listener;
+    return () => {};
+  } });
+  const { audioClient } = await import('./audioClient');
+  const { waitForAudioOperations } = await import('./audioSession');
+  await audioClient.setMonitoring(true);
+  const received = vi.fn();
+  const failed = vi.fn();
+  const unsubscribe = audioClient.observeSnapshots(received, failed);
+  duringReconfigure = true;
+  requests.length = 0;
+  await audioClient.applyConfiguration({ backend: 'WASAPI Shared', sampleRate: 44_100, periodFrames: 0 });
+  await waitForAudioOperations();
+  unsubscribe();
+  expect(failed).not.toHaveBeenCalled();
+  expect(received).not.toHaveBeenCalled();
+  expect((await audioClient.snapshot()).monitoring).toBe(true);
+  expect(backend).toBe('WASAPI Exclusive');
+  expect(requests.filter(({ command }) => command === 'SetMonitoring').map(({ args }) => args?.enabled)).toEqual([true]);
+});
+
+it('publishes a native trip before reconciliation and never delivers it after unsubscribe', async () => {
+  let backend = 'WASAPI Shared';
+  let monitoring = false;
+  let safetyTripped = false;
+  let holdReconfigure = false;
+  let release: () => void = () => {};
+  let entered: () => void = () => {};
+  const pendingReconfigure = new Promise<void>((resolve) => { release = resolve; });
+  const reconfigureEntered = new Promise<void>((resolve) => { entered = resolve; });
+  let notify: Parameters<DesktopApi['onAudioNotification']>[2] = () => {};
+  const nativeSnapshot = () =>
+    `SessionState: Running\nBackend: ${backend}\nMonitoringEnabled: ${Number(monitoring)}\nMonitoringSafetyTripped: ${Number(safetyTripped)}\nRuntimeOutputSampleRate: 48000\nPlaybackState: 2`;
+  installBridge(async ({ command, args }) => {
+    if (command === 'Reconfigure') {
+      if (holdReconfigure) {
+        entered();
+        await pendingReconfigure;
+      }
+      backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+      monitoring = false;
+      safetyTripped = false;
+    }
+    if (command === 'SetMonitoring') {
+      monitoring = args?.enabled === true;
+      if (monitoring) safetyTripped = false;
+    }
+    return { status: 0, text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command) ? nativeSnapshot() : 'Ok' };
+  }, { onAudioNotification: (_command, _interval, listener) => {
+    notify = listener;
+    return () => {};
+  } });
+  const { audioClient } = await import('./audioClient');
+  const { waitForAudioOperations } = await import('./audioSession');
+  await audioClient.setMonitoring(true);
+  const received = vi.fn();
+  const failed = vi.fn();
+  const unsubscribe = audioClient.observeSnapshots(received, failed);
+  monitoring = false;
+  safetyTripped = true;
+  holdReconfigure = true;
+  notify({ status: 0, text: `${nativeSnapshot()}\nMonotonicTicks: 1`, observedAt: 1 });
+  await reconfigureEntered;
+  const receivedBeforeUnsubscribe = [...received.mock.calls];
+  unsubscribe();
+  received.mockClear();
+  release();
+  await waitForAudioOperations();
+  expect.soft(receivedBeforeUnsubscribe).toEqual([[expect.objectContaining({ monitoring: false, monitoringSafetyTripped: true })]]);
+  expect.soft(received).not.toHaveBeenCalled();
+  expect(failed).not.toHaveBeenCalled();
+  expect(backend).toBe('WASAPI Shared');
+});
 
 it.each(['monitor-first', 'room-first'] as const)(
   'releases Exclusive only after both reasons end: %s',
