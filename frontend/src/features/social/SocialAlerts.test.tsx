@@ -315,3 +315,70 @@ it('removes an unaccepted invitation when it expires from the server inbox', () 
     screen.queryByRole('button', { name: 'social.acceptAction' }),
   ).toBeNull();
 });
+
+it.each([
+  { requested: false, action: 'retry' },
+  { requested: true, action: 'retry' },
+  { requested: false, action: 'close' },
+  { requested: true, action: 'close' },
+])(
+  'keeps the $action action after the acceptance response is lost (requested: $requested)',
+  async ({ requested, action }) => {
+    let loseResponse!: (error: Error) => void;
+    const port = {
+      acceptInvite: vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((_, reject) => {
+              loseResponse = reject;
+            }),
+        )
+        .mockResolvedValue({ roomId: 'ROOM' }),
+      declineInvite: vi.fn(),
+      isRequestedRoom: () => requested,
+      clearRequestedRoom: vi.fn(),
+    };
+    const room = {
+      getRoom: () => null,
+      leave: vi.fn(),
+      join: vi.fn().mockResolvedValue({ code: 'ROOM' }),
+    };
+    social.coordinator = new RoomInvitationCoordinator(
+      port as never,
+      room as never,
+    );
+    const view = render(
+      <SocialAlerts inbox={{ ...inbox, invites: [approved] } as OnlineInbox} />,
+    );
+    if (!requested)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'social.acceptAction' }),
+      );
+    await waitFor(() => expect(port.acceptInvite).toHaveBeenCalledOnce());
+    // The server commits acceptance and publishes the empty inbox before the HTTP reply is lost.
+    view.rerender(<SocialAlerts inbox={inbox} />);
+    await act(async () => {
+      loseResponse(new Error('Connection reset'));
+    });
+
+    const retry = screen.getByRole('button', { name: 'retry' });
+    await waitFor(() => expect(retry).toBeEnabled());
+    expect(room.join).not.toHaveBeenCalled();
+    view.rerender(<SocialAlerts inbox={{ type: 'offline' }} />);
+    view.rerender(<SocialAlerts inbox={inbox} />);
+    expect(port.acceptInvite).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole('button', { name: action }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'retry' })).toBeNull(),
+    );
+    expect(port.acceptInvite).toHaveBeenCalledTimes(action === 'retry' ? 2 : 1);
+    expect(room.join).toHaveBeenCalledTimes(action === 'retry' ? 1 : 0);
+    if (action === 'retry')
+      expect(room.join).toHaveBeenCalledWith('Singer', 'ROOM');
+    expect(port.declineInvite).not.toHaveBeenCalled();
+    expect(port.clearRequestedRoom).toHaveBeenCalledWith('ROOM');
+  },
+);

@@ -18,7 +18,7 @@ type InvitationPort = {
 type RoomPort = Pick<RoomSessionController, 'getRoom' | 'leave' | 'join'>;
 type InvitationState =
   | { type: 'accepting'; promise: Promise<void>; invite?: SocialInvite }
-  | { type: 'retry'; roomId: string; invite?: SocialInvite }
+  | { type: 'retry'; roomId?: string; invite?: SocialInvite }
   | { type: 'accepted' };
 
 /** Coordinates invitations with the one local room owner. */
@@ -85,7 +85,8 @@ export class RoomInvitationCoordinator {
     const state = this.invitations.get(id);
     if (state?.type === 'accepted') return Promise.resolve();
     if (state?.type === 'retry') {
-      this.social.clearRequestedRoom(state.roomId);
+      const roomId = state.roomId ?? state.invite?.roomId;
+      if (roomId) this.social.clearRequestedRoom(roomId);
       this.invitations.set(id, { type: 'accepted' });
       this.changed();
       return Promise.resolve();
@@ -134,7 +135,9 @@ export class RoomInvitationCoordinator {
       const current = this.invitations.get(inviteId);
       if (current?.type !== 'accepting' || current.promise !== operation)
         return;
-      if (acceptedRoom !== undefined)
+      // The server may have accepted and removed the invite before its reply was lost.
+      // Retain the card, but only a returned room ID permits skipping server acceptance.
+      if (acceptedRoom !== undefined || invite !== undefined)
         this.invitations.set(inviteId, {
           type: 'retry',
           roomId: acceptedRoom,
