@@ -302,6 +302,13 @@ it.each(
     expect(capture).toHaveBeenCalledWith(1);
     if (cancel === 'Escape') fireEvent.keyDown(target, { key: 'Escape' });
     else pointer(target, cancel, 130, 80);
+    if (kind === 'resize') {
+      // Resize focuses the note so keyboard cancellation reaches the roll.
+      expect(view.button('n1')).toHaveFocus();
+      expect(view.note('n1')).toBe(note);
+      expect(note.getAttribute('style')).toBe(geometry);
+      act(() => view.button('n1').blur());
+    }
     expect(view.note('n1')).toBeNull();
     view.scrollTo(0);
     expect(view.note('n1')?.getAttribute('style')).toBe(geometry);

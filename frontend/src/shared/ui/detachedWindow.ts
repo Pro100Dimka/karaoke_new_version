@@ -45,13 +45,14 @@ export const fitWindowToPanel = (
 export const pointInApp = (
   screenX: number,
   screenY: number,
+  host: Window = window,
 ): { x: number; y: number } | undefined => {
   // The app's window draws its own title bar, so its frame is only what the outer size adds.
-  const frameX = (window.outerWidth - window.innerWidth) / 2;
-  const frameY = window.outerHeight - window.innerHeight - frameX;
-  const x = screenX - window.screenX - frameX;
-  const y = screenY - window.screenY - frameY;
-  return x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight
+  const frameX = (host.outerWidth - host.innerWidth) / 2;
+  const frameY = host.outerHeight - host.innerHeight - frameX;
+  const x = screenX - host.screenX - frameX;
+  const y = screenY - host.screenY - frameY;
+  return x >= 0 && y >= 0 && x <= host.innerWidth && y <= host.innerHeight
     ? { x, y }
     : undefined;
 };
@@ -67,6 +68,7 @@ export const moveWindowBySurface = (
   onDropInApp: (layout: PanelLayout, pointer?: PointerEvent) => void,
   movePanel = (left: number, top: number) => panel.moveTo(left, top),
   continuous = false,
+  getHost: () => Window = () => window,
 ): (() => void) => {
   let grab: { x: number; y: number; pointerId: number } | null = null;
   const down = (event: PointerEvent) => {
@@ -84,6 +86,7 @@ export const moveWindowBySurface = (
         event,
         onDropInApp,
         movePanel,
+        getHost,
       );
     else
       grab = {
@@ -102,7 +105,7 @@ export const moveWindowBySurface = (
     if (grab?.pointerId !== event.pointerId) return;
     const { x, y } = grab;
     grab = null;
-    const inApp = pointInApp(event.screenX, event.screenY);
+    const inApp = pointInApp(event.screenX, event.screenY, getHost());
     if (inApp)
       onDropInApp({
         left: inApp.x - x,
@@ -136,11 +139,12 @@ export const carryWindow = (
   pointer: ScreenPoint,
   onReenter?: (layout: PanelLayout, pointer: PointerEvent) => void,
   movePanel = (left: number, top: number) => panel.moveTo(left, top),
+  getHost: () => Window = () => window,
 ): void => {
   // Measured from where the window was asked to open: a window just opened may not report it yet.
   const grabX = pointer.screenX - opened.left;
   const grabY = pointer.screenY - opened.top;
-  const hosts = onReenter ? [window, panel] : [window];
+  const hosts = onReenter ? [getHost(), panel] : [getHost()];
   const end = () => {
     for (const host of hosts) {
       host.removeEventListener('pointermove', move);
@@ -163,8 +167,9 @@ export const carryWindow = (
       panel.document.body.setPointerCapture(event.pointerId);
     const left = event.screenX - grabX;
     const top = event.screenY - grabY;
-    const inside = onReenter && pointInApp(left, top);
-    if (inside && pointInApp(left + opened.width, top + opened.height)) {
+    const host = getHost();
+    const inside = onReenter && pointInApp(left, top, host);
+    if (inside && pointInApp(left + opened.width, top + opened.height, host)) {
       end();
       onReenter?.(
         {
