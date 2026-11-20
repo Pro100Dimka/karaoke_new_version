@@ -169,6 +169,8 @@ describe('editor session', () => {
     expect(result.current.position).toBe(27.25);
     expect(result.current.playing).toBe(false);
     expect(audioClient.prepareSong).toHaveBeenCalledTimes(3);
+    expect(editorApi.save).toHaveBeenCalledTimes(1);
+    expect(result.current.document?.revision).toBe(2);
   });
 
   it('disables playback while preparing a different song in the same session', async () => {

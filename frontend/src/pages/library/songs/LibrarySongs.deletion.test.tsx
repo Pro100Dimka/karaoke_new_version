@@ -13,7 +13,10 @@ import { DialogView } from '../../../providers/dialog';
 import { pythonClient } from '../../../services/pythonClient';
 import LibrarySongs from './index';
 
-const server = vi.hoisted(() => ({ songs: [] as SongDto[] }));
+const server = vi.hoisted(() => ({
+  songs: [] as SongDto[],
+  notify: vi.fn(),
+}));
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
   useRouter: () => ({ navigate: vi.fn() }),
@@ -35,7 +38,7 @@ vi.mock('../../../providers/application', () => ({
   useRoomLibraryCommands: () => null,
 }));
 vi.mock('../../../providers/notifications', () => ({
-  useNotify: () => vi.fn(),
+  useNotify: () => server.notify,
 }));
 vi.mock('../../../services/pythonClient', () => ({
   pythonClient: {
@@ -90,7 +93,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('clears a selected song after deleting it through its own card', async () => {
+const showLibrary = () =>
   render(
     <QueryClientProvider client={client}>
       <DialogView />
@@ -114,6 +117,9 @@ it('clears a selected song after deleting it through its own card', async () => 
       />
     </QueryClientProvider>,
   );
+
+it('clears a selected song after deleting it through its own card', async () => {
+  showLibrary();
   const firstCard = await screen.findByRole('listitem', {
     name: 'Singer - first',
   });
@@ -152,3 +158,92 @@ it('clears a selected song after deleting it through its own card', async () => 
     ),
   ).not.toBeDisabled();
 });
+
+it.each([
+  {
+    code: 'LibraryInUse',
+    message: 'Wait for background jobs to finish before deleting songs',
+    expectedKey: 'errorLibraryInUse',
+  },
+  {
+    code: 'SongDeletionFailed',
+    message: 'The song folder could not be moved to quarantine',
+    expectedKey: null,
+  },
+])(
+  'explains a structured $code failure in a batch and retains only failed selection for retry',
+  async ({ code, message, expectedKey }) => {
+    vi.mocked(pythonClient.deleteSong).mockRejectedValueOnce({
+      code,
+      message,
+      source: 'python',
+    });
+    showLibrary();
+    const firstCard = await screen.findByRole('listitem', {
+      name: 'Singer - first',
+    });
+    fireEvent.click(within(firstCard).getByRole('checkbox'));
+    const selectVisible = await screen.findByRole('button', {
+      name: tr('selectVisibleSongs'),
+    });
+    await waitFor(() => expect(selectVisible).toBeEnabled());
+    fireEvent.click(selectVisible);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: tr('deleteSelectedSongs', { count: 2 }),
+      }),
+    );
+    const confirmation = await screen.findByRole('dialog', {
+      name: tr('Удалить выбранные песни ({count})?', { count: 2 }),
+    });
+    fireEvent.click(
+      within(confirmation).getByRole('button', {
+        name: tr('Удалить'),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(pythonClient.deleteSong).toHaveBeenCalledTimes(2),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('listitem', {
+          name: 'Singer - second',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(server.notify).toHaveBeenCalledWith(
+      `first: ${expectedKey ? tr(expectedKey) : message}`,
+      'error',
+    );
+    expect(
+      within(
+        screen.getByRole('listitem', {
+          name: 'Singer - first',
+        }),
+      ).getByRole('checkbox'),
+    ).toBeChecked();
+
+    const retry = screen.getByRole('button', {
+      name: tr('deleteSelectedSongs', { count: 1 }),
+    });
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
+    const secondConfirmation = await screen.findByRole('dialog', {
+      name: tr('Удалить выбранные песни ({count})?', { count: 1 }),
+    });
+    fireEvent.click(
+      within(secondConfirmation).getByRole('button', {
+        name: tr('Удалить'),
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('listitem', {
+          name: 'Singer - first',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(pythonClient.deleteSong).toHaveBeenNthCalledWith(3, 'first');
+  },
+);

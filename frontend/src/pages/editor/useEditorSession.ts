@@ -228,6 +228,14 @@ export const useEditorSession = (songId: string) => {
     const requestGeneration = generation.current;
     setSaving(true);
     try {
+      if (!isEditorDirty(base, current)) {
+        if (!audioReady)
+          await refreshSavedAudio(target, base, base, requestGeneration);
+        return (
+          requestGeneration === generation.current &&
+          !isEditorDirty(base, latest.current.history?.present ?? base)
+        );
+      }
       let expected = base.revision;
       for (;;) {
         try {
@@ -297,7 +305,7 @@ export const useEditorSession = (songId: string) => {
         setSaving(false);
       }
     }
-  }, [ask, notify, locale, refreshSavedAudio]);
+  }, [ask, notify, locale, audioReady, refreshSavedAudio]);
 
   const save = useCallback((): Promise<boolean> => {
     const requestGeneration = generation.current;

@@ -97,27 +97,34 @@ export const registerProjectFileHandlers = (
     const songId = requireString(record.songId, 'songId');
     const revision = requireNumber(record.revision, 'revision');
     const bins = requireNumber(record.bins, 'bins');
-    projectRevisionRoot(songId, revision);
+    if (
+      !isSafePathComponent(songId) ||
+      !Number.isSafeInteger(revision) ||
+      revision < 0
+    )
+      throw new TypeError('Invalid project identity');
     try {
-      const { instrumental } = projectArtifacts(songId, revision);
-      return await waveformPeaks(instrumental, bins);
+      if (revision > 0) {
+        const { instrumental } = projectArtifacts(songId, revision);
+        return await waveformPeaks(instrumental, bins);
+      }
     } catch {
-      // An imported or processing song has no published instrumental yet. Decode its managed
-      // source in the backend, which already supports MP3/FLAC as well as WAV.
-      const response = await backend.request(
-        `/songs/${encodeURIComponent(songId)}/waveform?bins=${bins}`,
-      );
-      if (
-        !response.ok ||
-        !Array.isArray(response.body) ||
-        !response.body.every(
-          (value: unknown) =>
-            typeof value === 'number' && Number.isFinite(value),
-        )
-      )
-        throw new Error('Song waveform is unavailable');
-      return response.body as number[];
+      // A missing or unreadable published waveform can still use the managed source below.
     }
+    // Before the first revision, read the imported source directly. The backend supports
+    // MP3/FLAC as well as WAV, so this also works while the first processing job is running.
+    const response = await backend.request(
+      `/songs/${encodeURIComponent(songId)}/waveform?bins=${bins}`,
+    );
+    if (
+      !response.ok ||
+      !Array.isArray(response.body) ||
+      !response.body.every(
+        (value: unknown) => typeof value === 'number' && Number.isFinite(value),
+      )
+    )
+      throw new Error('Song waveform is unavailable');
+    return response.body as number[];
   });
 
   // Peaks of a saved take: the backend names the file, so the renderer never passes a path.

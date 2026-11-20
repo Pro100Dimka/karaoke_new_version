@@ -51,6 +51,7 @@ import {
 import { routes } from '../../../shared/routes';
 import { canControlRoom } from '../../../application/room/roomModel';
 import { readText, writeText } from '../../../shared/storage/localStore';
+import { errorstring, toAppError } from '../../../shared/errors';
 
 const activeJobStatuses = new Set<SongDto['status']>(['queued', 'processing']);
 
@@ -310,8 +311,10 @@ const LibrarySongs = observer(
               return next;
             });
           } catch (error) {
+            const failure = toAppError(error);
+            const key = errorstring(failure);
             notify(
-              `${song.title}: ${error instanceof Error ? error.message : String(error)}`,
+              `${song.title}: ${key ? tr(key) : failure.message}`,
               'error',
             );
           }
