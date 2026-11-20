@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import threading
 
@@ -43,19 +43,36 @@ class MasterSources:
 
 
 def _timeline_points(
-    adjustments: Sequence[Mapping[str, object]], duration: float
+    adjustments: Sequence[Mapping[str, object]], frames: int, rate: int
 ) -> tuple[tuple[PlaybackAdjustment, ...], list[float]]:
+    if frames <= 0 or rate <= 0:
+        raise _timeline_error("InvalidAudioLength", frames=frames, sampleRate=rate)
     points = parse_playback_adjustments(adjustments)
+    if not points or len(points) != len(adjustments):
+        raise _timeline_error(
+            "InvalidPlaybackAdjustment", supplied=len(adjustments), valid=len(points)
+        )
+    if points[0].elapsed_seconds != 0:
+        raise _timeline_error("MissingInitialPlaybackState", first=points[0].elapsed_seconds)
+    duration = frames / rate
+    by_frame: dict[int, PlaybackAdjustment] = {}
+    for point in points:
+        # UI changes can arrive while paused or while the finalized audio is being drained.
+        # Only the last state at a recorded frame has an audible interval.
+        if point.elapsed_seconds >= duration:
+            break
+        start = round(point.elapsed_seconds * rate)
+        if start < frames:
+            by_frame[start] = replace(point, elapsed_seconds=start / rate)
+    points = tuple(by_frame.values())
     ends = [point.elapsed_seconds for point in points[1:]] + [duration]
-    if (
-        duration <= 0
-        or not points
-        or len(points) != len(adjustments)
-        or points[0].elapsed_seconds != 0
-        or any(end <= point.elapsed_seconds for point, end in zip(points, ends))
-    ):
-        raise DependencyError("StudioMasterTimelineUnavailable", "Recording timeline is invalid")
     return points, ends
+
+
+def _timeline_error(reason: str, **details: object) -> DependencyError:
+    return DependencyError(
+        "StudioMasterTimelineUnavailable", "Recording timeline is invalid", reason=reason, **details
+    )
 
 
 def _segment_filter(point: PlaybackAdjustment, end: float, index: int, rate: int) -> str:
@@ -88,7 +105,7 @@ def render_timeline(
 ) -> float:
     """Map playback edits once; round absolute boundaries rather than each duration."""
     _check_cancel(cancel)
-    points, ends = _timeline_points(adjustments, frames / rate)
+    points, ends = _timeline_points(adjustments, frames, rate)
     available = float(sf.info(source).duration)
     covered = sum(
         min(
@@ -172,7 +189,9 @@ class _SourcePreparation:
         available = min(
             sf.info(self.reference_vocal).duration, sf.info(self.original_backing).duration
         )
-        points, ends = _timeline_points(self.adjustments or IDENTITY_TIMELINE, duration)
+        points, ends = _timeline_points(
+            self.adjustments or IDENTITY_TIMELINE, self.info.frames, self.info.samplerate
+        )
         shift = self.reference_shift / self.info.samplerate
         intervals: list[tuple[float, float]] = []
         for point, end in zip(points, ends, strict=True):

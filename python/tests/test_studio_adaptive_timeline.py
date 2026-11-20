@@ -47,8 +47,7 @@ def test_partial_take_uses_only_performed_reference_and_keeps_sample_boundaries(
     [
         [{}],
         [
-            {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
-            {"elapsedSeconds": 0, "sourceSeconds": 2, "playbackRate": 1, "keyShift": 0},
+            {"elapsedSeconds": 0.00001, "sourceSeconds": 2, "playbackRate": 1, "keyShift": 0},
         ],
     ],
 )
