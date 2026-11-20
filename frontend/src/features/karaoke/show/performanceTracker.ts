@@ -61,6 +61,7 @@ export class PerformanceTracker {
   private durations = new WeakMap<ShowNote, number>();
   private progress = new Map<string, NoteProgress>();
   private archived: { note: ShowNote; progress: NoteProgress }[] = [];
+  private scoreEntries?: { note: ShowNote; progress: NoteProgress }[];
   private cachedScore?: KaraokeNoteScore;
   private cachedHitNotes?: ReadonlySet<string>;
   private rhythmUnion = 0;
@@ -95,6 +96,7 @@ export class PerformanceTracker {
     ignoreSilence = false,
   ): void {
     this.ignoreSilence = ignoreSilence;
+    this.scoreEntries = undefined;
     this.cachedScore = undefined;
     this.cachedHitNotes = undefined;
     this.vocalActivity = vocalActivity;
@@ -146,7 +148,7 @@ export class PerformanceTracker {
 
   get noteScore(): KaraokeNoteScore {
     return (this.cachedScore ??= totalNoteScore(
-      [...this.archived, ...this.measuredNotes()],
+      (this.scoreEntries ??= [...this.archived, ...this.measuredNotes()]),
       this.durations,
       this.ignoreSilence,
       this.rhythmIntersection,
@@ -210,7 +212,10 @@ export class PerformanceTracker {
           : reliablePitchHz(pitchHz, confidence);
       const liveMidi =
         target === undefined ? undefined : pitchHzToMidi(measuredPitch);
-      const progress = this.progress.get(active.id) ?? emptyProgress();
+      const existing = this.progress.get(active.id);
+      const progress = existing ?? emptyProgress();
+      const wasUnmeasured =
+        this.ignoreSilence && progress.voiced + progress.uncertain === 0;
       const deviation =
         liveMidi === undefined || target === undefined
           ? undefined
@@ -234,6 +239,13 @@ export class PerformanceTracker {
         progress.deviations.push([deviation, overlap]);
       }
       this.progress.set(active.id, progress);
+      // Entries point to the mutable accumulators. Rebuild their ordered list
+      // only when a note can newly join it, not on every captured voice frame.
+      if (
+        !existing ||
+        (wasUnmeasured && progress.voiced + progress.uncertain > 0)
+      )
+        this.scoreEntries = undefined;
       if (
         this.cachedHitNotes &&
         !this.cachedHitNotes.has(active.id) &&
@@ -357,6 +369,7 @@ export class PerformanceTracker {
   }
 
   private restart(position: number | undefined, keepScores = true): void {
+    this.scoreEntries = undefined;
     this.cachedScore = undefined;
     this.cachedHitNotes = undefined;
     this.archived = keepScores
