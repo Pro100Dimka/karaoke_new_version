@@ -1002,7 +1002,10 @@ void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
             service.session().reconfigure(requested);
         },
         [](AudioService& service, FakeAudioBackend&) { service.session().stop(); },
-        [](AudioService& service, FakeAudioBackend&) { service.session().suspend(); },
+        [](AudioService& service, FakeAudioBackend&) {
+            expect(service.handleLine("1|RecoverSession").status == ControlStatus::Ok,
+                   "explicit recovery is handled through the normal command dispatcher");
+        },
     };
     for (const auto transition : transitions) {
         auto backend = std::make_unique<FakeAudioBackend>();
@@ -1030,6 +1033,11 @@ void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
         std::vector<float> input(480, 0.0F), expected(960);
         fake->pump(input, 1, expected, 2, 0, 0);
         const auto generation = service.session().generationId();
+        expect(!service.session().suspend() &&
+                   service.session().generationId() == generation &&
+                   service.session().state() == SessionState::Running &&
+                   service.recording().state() == RecordingState::Recording,
+               "background suspension preserves the active take and pending performance tail");
         transition(service, *fake);
         expect(service.session().generationId() > generation,
                "the transition invalidates the old device generation");
