@@ -96,6 +96,9 @@ class LocalProjectStorage:
         for relative, source in files.items():
             target = working / relative
             target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file() and target.samefile(source):
+                # A cloned revision already shares this unchanged immutable artifact.
+                continue
             target.unlink(missing_ok=True)
             shutil.copyfile(source, target)
         for relative, text in texts.items():

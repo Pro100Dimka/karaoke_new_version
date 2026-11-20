@@ -23,6 +23,7 @@ from backend.domain_errors import DependencyError
 from backend.infrastructure.ai_payloads import _number, _pitch, _word
 from backend.infrastructure.processing_transport import (
     ProcessingTransport,
+    completed_song_audio_files,
     read_bundle,
     write_bundle,
 )
@@ -160,6 +161,7 @@ class OracleAiProvider:
                 "mode": options.mode.value,
                 "onlineLyrics": options.online_lyrics,
                 "previousProvenance": previous,
+                "compactProjectAudio": True,
             },
             files,
             cancel,
@@ -234,11 +236,12 @@ class OracleAiProvider:
             )
         try:
             report = self._processing_report(raw_report, song)
+            audio = completed_song_audio_files(result, workdir)
             document = decode_document((workdir / "lyrics.json").read_text(encoding="utf-8"))
             return CompletedProcessingProject(
-                workdir / "instrumental.flac",
-                workdir / "vocals.flac",
-                workdir / "melody.flac",
+                audio["instrumental"],
+                audio["referenceVocal"],
+                audio["melody"],
                 document,
                 provenance,
                 report,

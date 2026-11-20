@@ -704,15 +704,25 @@ def test_oracle_full_processing_publishes_one_completed_project(tmp_path, monkey
             "lyricsTimingHints",
             "warnings",
         }
-        for logical, filename in {
-            "instrumental": "instrumental.flac",
-            "referenceVocal": "vocals.flac",
-            "melody": "melody.flac",
-            "lyricsSync": "lyrics.json",
+        audio_files = {}
+        for logical, name in {
+            "instrumental": "instrumental",
+            "referenceVocal": "vocals",
+            "melody": "melody",
         }.items():
-            shutil.copyfile(storage.artifact_path(song["songId"], 2, logical), output / filename)
+            artifact = storage.artifact_path(song["songId"], 2, logical)
+            filename = name + artifact.suffix
+            audio_files[logical] = filename
+            shutil.copyfile(artifact, output / filename)
+        shutil.copyfile(
+            storage.artifact_path(song["songId"], 2, "lyricsSync"), output / "lyrics.json"
+        )
         progress("ForcedAlignment", 1.0, 0.9)
-        return {"report": template_job["report"], "provenance": dict(manifest.provenance)}
+        return {
+            "report": template_job["report"],
+            "provenance": dict(manifest.provenance),
+            "audioFiles": audio_files,
+        }
 
     monkeypatch.setattr(remote, "_invoke", completed)
     with app_client(root, ai_providers=(remote,)) as client:

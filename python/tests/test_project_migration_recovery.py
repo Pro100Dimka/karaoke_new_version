@@ -67,9 +67,8 @@ def test_reconciliation_marks_corrupt_ready_project_without_guessing_repair(tmp_
         song = _ready_song(client, tmp_path)
         song_id = str(song["songId"])
         revision = int(song["activeRevision"])
-        instrumental = (
-            root / "songs" / song_id / "revisions" / str(revision) / "audio" / "instrumental.flac"
-        )
+        storage = client.app.state.container.songs.start_processing._pipeline._publisher._storage
+        instrumental = storage.artifact_path(song_id, revision, "instrumental")
         instrumental.write_bytes(b"corrupted")
 
         response = client.post("/recovery/reconcile")
@@ -260,7 +259,10 @@ def test_reconciliation_restores_only_a_complete_valid_finished_project(tmp_path
         revisions = root / "songs" / song_id / "revisions"
         before = sorted(path.name for path in revisions.iterdir())
         if project == "corrupt":
-            (revisions / str(revision) / "audio" / "instrumental.flac").write_bytes(b"corrupt")
+            storage = (
+                client.app.state.container.songs.start_processing._pipeline._publisher._storage
+            )
+            storage.artifact_path(song_id, revision, "instrumental").write_bytes(b"corrupt")
         elif project == "missing_source":
             next((root / "songs" / song_id / "source").glob("original.*")).unlink()
         with client.app.state.container.database.create() as transaction:

@@ -42,7 +42,8 @@ def attenuate_playback_stems(
             if gain == 1.0:
                 targets.append(source)
                 continue
-            target = workspace / f"{index}-{source.name}"
+            # The input may be a compressed legacy stem; scratch PCM must use a WAV container.
+            target = workspace / f"{index}-{source.stem}.wav"
             audio.seek(0)
             with sf.SoundFile(
                 target, "w", samplerate=audio.samplerate, channels=audio.channels, subtype="PCM_24"

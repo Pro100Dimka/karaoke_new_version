@@ -124,9 +124,15 @@ def test_relay_enforces_free_transfer_limit_before_upload(relay, monkeypatch):
 
 
 @pytest.mark.parametrize("cancelled", [False, True])
-def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatch, cancelled):
+@pytest.mark.parametrize("compact", [False, True])
+def test_worker_runs_complete_song_in_disposable_subprocess(
+    tmp_path, monkeypatch, cancelled, compact
+):
     import os
     from types import SimpleNamespace
+
+    import numpy as np
+    import soundfile as sf
 
     from backend import remote_worker
     from backend.remote_worker import execute
@@ -174,15 +180,28 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
         "onlineLyrics": False,
         "progressPath": str(tmp_path / "progress.json"),
     }
+    if compact:
+        payload["compactProjectAudio"] = True
     (incoming / "source.mp3").write_bytes(b"source")
     monkeypatch.setenv("AD_VOICE_MODELS", str(tmp_path / "models"))
     shutdown = []
+    expected_audio = {}
+    expected_bytes = {}
 
     def build_app(roots):
         runtime = roots.app
         runtime.mkdir(parents=True, exist_ok=True)
-        source = runtime / "artifact.flac"
-        source.write_bytes(b"ready")
+        samples = np.sin(np.arange(4410) * 0.05).astype(np.float32) * 0.05
+        stereo = np.column_stack((samples, samples * 0.7))
+        artifacts = {}
+        for logical in ("instrumental", "referenceVocal", "melody"):
+            source = runtime / (logical + (".flac" if logical == "melody" else ".mp3"))
+            sf.write(source, stereo, 44100)
+            artifacts[logical] = source
+            expected_audio[logical] = sf.read(source, dtype="float32", always_2d=True)
+            expected_bytes[logical] = source.read_bytes()
+        artifacts["lyricsSync"] = runtime / "lyrics.json"
+        artifacts["lyricsSync"].write_text("{}")
         song = SimpleNamespace(song_id="song", active_revision=1)
         job = SimpleNamespace(
             job_id="job",
@@ -195,7 +214,7 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
         )
         projects = SimpleNamespace(
             load_manifest=lambda *args: SimpleNamespace(provenance={}),
-            artifact_path=lambda *args: source,
+            artifact_path=lambda song_id, revision, logical: artifacts[logical],
         )
         monkeypatch.setattr(worker_song, "LocalProjectStorage", lambda roots: projects)
         return SimpleNamespace(
@@ -231,8 +250,29 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
         assert error.value.code == "JobCancelled"
     else:
         response, files = execute(payload, incoming, sessions, cancel)
-        assert response == {"protocolVersion": 1, "report": {}, "provenance": {}}
-        assert set(files) == {"instrumental.flac", "vocals.flac", "melody.flac", "lyrics.json"}
+        audio_names = {
+            "instrumental": "instrumental.mp3" if compact else "instrumental.flac",
+            "referenceVocal": "vocals.mp3" if compact else "vocals.flac",
+            "melody": "melody.flac",
+        }
+        assert response == {
+            "protocolVersion": 1,
+            "report": {},
+            "provenance": {},
+            **({"audioFiles": audio_names} if compact else {}),
+        }
+        assert set(files) == {*audio_names.values(), "lyrics.json"}
+        for logical, filename in audio_names.items():
+            target = files[filename]
+            expected, rate = expected_audio[logical]
+            actual, actual_rate = sf.read(target, dtype="float32", always_2d=True)
+            assert actual_rate == rate
+            assert actual.shape == expected.shape
+            if compact or logical == "melody":
+                assert target.read_bytes() == expected_bytes[logical]
+            else:
+                assert sf.info(target).format == "FLAC"
+                np.testing.assert_allclose(actual, expected, rtol=0, atol=2**-23)
         assert all(path.parent == incoming / "complete" for path in files.values())
         assert shutdown == [True]
         assert loads_object((tmp_path / "progress.json").read_text())["overallProgress"] == 1

@@ -16,6 +16,26 @@ from backend.serialization import JsonValue, dumps, loads_object
 MAX_FILE = 256 * 1024 * 1024
 
 
+def completed_song_audio_files(payload: Mapping[str, object], directory: Path) -> dict[str, Path]:
+    """Resolve named audio, retaining the fixed FLAC layout for older workers."""
+    stems = {"instrumental": "instrumental", "referenceVocal": "vocals", "melody": "melody"}
+    names = payload.get("audioFiles", {logical: stem + ".flac" for logical, stem in stems.items()})
+    if not isinstance(names, dict) or set(names) != set(stems):
+        raise ValueError("Invalid completed audio mapping")
+    files = {}
+    for logical, stem in stems.items():
+        name = names[logical]
+        if not isinstance(name, str) or name not in {
+            stem + extension for extension in (".mp3", ".flac", ".wav")
+        }:
+            raise ValueError("Invalid completed audio filename")
+        path = directory / name
+        if not path.is_file() or path.is_symlink() or path.resolve().parent != directory.resolve():
+            raise ValueError("Completed audio is missing or aliased")
+        files[logical] = path
+    return files
+
+
 def write_bundle(path: Path, payload: Mapping[str, object], files: Mapping[str, Path]) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
         archive.writestr("payload.json", dumps(payload))

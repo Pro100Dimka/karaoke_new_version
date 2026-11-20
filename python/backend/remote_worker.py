@@ -28,6 +28,7 @@ from backend.infrastructure.job_executor import run_in_background, job_failure
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
 from backend.infrastructure.processing_transport import (
     ProcessingTransport,
+    completed_song_audio_files,
     read_bundle,
     write_bundle,
 )
@@ -124,11 +125,12 @@ def _complete_song(
         )
         raise RuntimeError("Song processing failed")
     response = loads_object((directory / "output.json").read_text(encoding="utf-8"))
+    if isinstance(response.get("error"), dict):
+        return response, {}
     completed_files = {
-        name: directory / name
-        for name in ["instrumental.flac", "vocals.flac", "melody.flac", "lyrics.json"]
-        if (directory / name).is_file()
+        path.name: path for path in completed_song_audio_files(response, directory).values()
     }
+    completed_files["lyrics.json"] = directory / "lyrics.json"
     return response, completed_files
 
 

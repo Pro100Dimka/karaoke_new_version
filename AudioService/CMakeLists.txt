@@ -35,6 +35,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(dr_flac)
 
+FetchContent_Declare(
+    dr_mp3
+    URL https://raw.githubusercontent.com/mackron/dr_libs/7f032b984ae5dd3ab8a58721375aca9200f91965/dr_mp3.h
+    URL_HASH SHA256=bd539c0cafee96a73b6075607aa3caae375ca1eda7eeb8479b87b33b16212570
+    DOWNLOAD_NO_EXTRACT TRUE
+)
+FetchContent_MakeAvailable(dr_mp3)
+
 option(AUDIOSERVICE_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 option(AUDIOSERVICE_BUILD_TESTS "Build tests" ON)
 option(AUDIOSERVICE_BUILD_RELEASE_GATES "Build long release repetition gates" OFF)
@@ -64,6 +72,7 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/media/MediaController.cpp
     src/media/DecoderFactory.cpp
     src/media/FlacDecoder.cpp
+    src/media/Mp3Decoder.cpp
     src/media/MediaSource.cpp
     src/media/RateTransposeProcessor.cpp
     src/media/WavDecoder.cpp
@@ -104,7 +113,7 @@ endif()
 
 add_library(audioservice_core ${AUDIOSERVICE_CORE_SOURCES})
 target_include_directories(audioservice_core PUBLIC src)
-target_include_directories(audioservice_core SYSTEM PRIVATE ${dr_flac_SOURCE_DIR})
+target_include_directories(audioservice_core SYSTEM PRIVATE ${dr_flac_SOURCE_DIR} ${dr_mp3_SOURCE_DIR})
 target_compile_definitions(audioservice_core PUBLIC $<$<BOOL:${AUDIOSERVICE_ENABLE_ASIO}>:AUDIOSERVICE_ENABLE_ASIO=1>)
 if(WIN32)
     target_compile_definitions(audioservice_core PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -155,6 +164,7 @@ audioservice_apply_warnings(AudioService)
 
 install(TARGETS AudioService RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
 install(FILES ${dr_flac_SOURCE_DIR}/dr_flac.h DESTINATION licenses COMPONENT AudioServiceRuntime)
+install(FILES ${dr_mp3_SOURCE_DIR}/dr_mp3.h DESTINATION licenses COMPONENT AudioServiceRuntime)
 install(TARGETS NativeVoiceRelay RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
 if(MSVC)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
@@ -187,6 +197,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/network/NetworkSimulationTests.cpp
         tests/network/NetworkResilienceTests.cpp
         tests/media/MediaTests.cpp
+        tests/media/Mp3DecoderTests.cpp
         tests/media/MediaFoundationTests.cpp
         tests/devices/WindowsDeviceTests.cpp
         tests/recording/RecordingTests.cpp

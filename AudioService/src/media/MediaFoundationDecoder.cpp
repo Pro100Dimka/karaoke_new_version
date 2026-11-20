@@ -52,8 +52,7 @@ DecodedAudioFormat MediaFoundationDecoder::open(const std::string& pathOrUrl) tr
                          .extension().string();
     std::ranges::transform(extension, extension.begin(),
                            [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
-    if (extension == ".flac") {
-        auto decoder = createFlacDecoder();
+    if (auto decoder = createLocalCompressedDecoder(pathOrUrl)) {
         const auto format = decoder->open(pathOrUrl);
         pcm_ = std::move(decoder);
         cancelled_.store(false, std::memory_order_release);

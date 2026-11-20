@@ -5,6 +5,8 @@ import os
 import shutil
 import time
 from pathlib import Path
+
+import soundfile as sf
 from backend.domain_errors import DomainError
 from backend.serialization import dumps, loads_object, JsonValue
 from backend.bootstrap.container import ApplicationContainer
@@ -181,7 +183,13 @@ def _wait_for_song(app: ApplicationContainer, song: Song, payload: dict[str, Jso
 
 
 def _song_result(
-    app: ApplicationContainer, projects: LocalProjectStorage, song: Song, job: Job, directory: Path
+    app: ApplicationContainer,
+    projects: LocalProjectStorage,
+    song: Song,
+    job: Job,
+    directory: Path,
+    *,
+    compact_audio: bool = False,
 ) -> dict[str, object]:
     if job.state is not JobState.SUCCEEDED:
         response = {
@@ -193,23 +201,59 @@ def _song_result(
     else:
         song = app.songs.get_song.execute(song.song_id)
         manifest = projects.load_manifest(song.song_id, song.active_revision)
-        outputs = {
-            "instrumental.flac": "instrumental",
-            "vocals.flac": "referenceVocal",
-            "melody.flac": "melody",
-            "lyrics.json": "lyricsSync",
-        }
-        for name, logical_name in outputs.items():
-            shutil.copyfile(
-                projects.artifact_path(song.song_id, song.active_revision, logical_name),
-                directory / name,
-            )
+        audio = _export_song_audio(projects, song, directory, compact_audio)
+        shutil.copyfile(
+            projects.artifact_path(song.song_id, song.active_revision, "lyricsSync"),
+            directory / "lyrics.json",
+        )
         response = {
             "protocolVersion": 1,
             "report": dict(job.report or {}),
             "provenance": dict(manifest.provenance),
+            **({"audioFiles": audio} if compact_audio else {}),
         }
     return response
+
+
+def _export_song_audio(
+    projects: LocalProjectStorage, song: Song, directory: Path, compact: bool
+) -> dict[str, str]:
+    names = {}
+    for logical, stem in (
+        ("instrumental", "instrumental"),
+        ("referenceVocal", "vocals"),
+        ("melody", "melody"),
+    ):
+        source = projects.artifact_path(song.song_id, song.active_revision, logical)
+        extension = source.suffix.lower()
+        if extension not in {".mp3", ".flac", ".wav"}:
+            raise DomainError("AiProviderInvalidOutput", "Unsupported project audio format", 500)
+        target = directory / (stem + (extension if compact else ".flac"))
+        if extension == target.suffix:
+            shutil.copyfile(source, target)
+        else:
+            _write_legacy_flac(source, target)
+        names[logical] = target.name
+    return names
+
+
+def _write_legacy_flac(source: Path, target: Path) -> None:
+    """Older clients require FLAC; negotiated clients transfer original compact bytes."""
+    with sf.SoundFile(source) as audio:
+        with sf.SoundFile(
+            target,
+            "w",
+            samplerate=audio.samplerate,
+            channels=audio.channels,
+            format="FLAC",
+            subtype="PCM_24",
+        ) as output:
+            frames = 0
+            for block in audio.blocks(blocksize=65536, dtype="float32", always_2d=True):
+                output.write(block)
+                frames += len(block)
+            if frames != audio.frames or audio.frames <= 0:
+                raise DomainError("AiProviderInvalidOutput", "Incomplete project audio", 500)
 
 
 def process_song_task(incoming: Path, directory: Path) -> None:
@@ -225,7 +269,14 @@ def process_song_task(incoming: Path, directory: Path) -> None:
         projects = LocalProjectStorage(roots)
         song = _seed_previous(app, projects, song, incoming, payload)
         job = _wait_for_song(app, song, payload)
-        response = _song_result(app, projects, song, job, directory)
+        response = _song_result(
+            app,
+            projects,
+            song,
+            job,
+            directory,
+            compact_audio=payload.get("compactProjectAudio") is True,
+        )
     except DomainError as error:
         response = {"protocolVersion": 1, "error": {"code": error.code, "message": error.message}}
     finally:

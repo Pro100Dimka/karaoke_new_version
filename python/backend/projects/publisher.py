@@ -4,12 +4,14 @@ import hashlib
 from dataclasses import replace
 from pathlib import Path
 import threading
+from tempfile import TemporaryDirectory
 from typing import Mapping
 
 from backend.domain_errors import ConflictError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.infrastructure.lossless_audio import compress_audio
 from backend.infrastructure.process_runner import ProcessRunner
+from backend.infrastructure.project_audio import compact_stems, copy_audio
 from backend.lyrics.codec import encode_document
 from backend.lyrics.domain import LyricsDocument
 from backend.persistence import UnitOfWork, UnitOfWorkFactory
@@ -114,11 +116,37 @@ class ProjectPublisher:
         provenance: Mapping[str, object],
         source_revision: int,
     ) -> tuple[ProjectManifest, Path]:
-        runner, cancel = ProcessRunner(), threading.Event()
-        instrumental, reference_vocal, melody = (
-            compress_audio(path, runner, cancel) for path in (instrumental, reference_vocal, melody)
-        )
-        lyrics_text = encode_document(lyrics)
+        working = self._storage.begin_revision(song_id, revision)
+        # Inputs may belong to an immutable older revision. Keep all encoding and sidecars in
+        # disposable storage on the project drive, including melody-only regeneration.
+        with TemporaryDirectory(prefix="project-audio-", dir=working.parent) as directory:
+            manifest, working = self._stage_compact(
+                song_id,
+                revision,
+                (instrumental, reference_vocal, melody),
+                encode_document(lyrics),
+                provenance,
+                source_revision,
+                Path(directory),
+            )
+        self._prune_superseded_audio(song_id, source_revision, manifest, working)
+        self._validator.validate_working(manifest, working, require_ready=True)
+        return manifest, working
+
+    def _stage_compact(
+        self,
+        song_id: str,
+        revision: int,
+        audio: tuple[Path, Path, Path],
+        lyrics_text: str,
+        provenance: Mapping[str, object],
+        source_revision: int,
+        workspace: Path,
+    ) -> tuple[ProjectManifest, Path]:
+        instrumental, reference_vocal = compact_stems(audio[0], audio[1], workspace)
+        local_melody = workspace / ("melody" + audio[2].suffix)
+        copy_audio(audio[2], local_melody)
+        melody = compress_audio(local_melody, ProcessRunner(), threading.Event())
         manifest = self._manifest(
             song_id,
             revision,
@@ -136,8 +164,21 @@ class ProjectPublisher:
             self._text_files(lyrics_text, manifest),
             base_revision=source_revision,
         )
-        self._validator.validate_working(manifest, working, require_ready=True)
         return manifest, working
+
+    def _prune_superseded_audio(
+        self, song_id: str, source_revision: int, manifest: ProjectManifest, working: Path
+    ) -> None:
+        previous = self._storage.load_manifest(song_id, source_revision)
+        retained = {item.relative_path for item in manifest.artifacts}
+        generated = {"instrumental", "referenceVocal", "melody", "instrumentalPeaks"}
+        for artifact in previous.artifacts:
+            if artifact.logical_name in generated and artifact.relative_path not in retained:
+                path = self._storage.working_path(working, artifact.relative_path)
+                if not path.resolve().is_relative_to(working.resolve()):
+                    raise ValueError("Previous audio artifact path is unsafe")
+                # Only remove the cloned entry; historical revisions keep their original audio.
+                path.unlink(missing_ok=True)
 
     def _commit(
         self,
@@ -249,12 +290,12 @@ class ProjectPublisher:
             )
             for logical, (name, source) in files.items()
         )
-        if instrumental.suffix == ".flac":
+        if instrumental.suffix in {".flac", ".mp3"}:
             peaks = Path(str(instrumental) + ".peaks.json")
             artifacts += (
                 ProjectArtifact(
                     "instrumentalPeaks",
-                    Path("audio/instrumental.flac.peaks.json"),
+                    Path("audio/instrumental" + instrumental.suffix + ".peaks.json"),
                     ArtifactCategory.PORTABLE,
                     self._hasher(peaks),
                 ),
@@ -273,8 +314,8 @@ class ProjectPublisher:
             Path("audio/reference-vocal" + reference_vocal.suffix): reference_vocal,
             Path("audio/melody" + melody.suffix): melody,
         }
-        if instrumental.suffix == ".flac":
-            files[Path("audio/instrumental.flac.peaks.json")] = Path(
+        if instrumental.suffix in {".flac", ".mp3"}:
+            files[Path("audio/instrumental" + instrumental.suffix + ".peaks.json")] = Path(
                 str(instrumental) + ".peaks.json"
             )
         return files

@@ -300,9 +300,13 @@ class MelodyPipeline:
         context: JobContext,
         reports: list[StageReport],
     ) -> int:
-        instrumental, reference = attenuate_playback_stems(
-            (instrumental, reference), melody.parent / "playback", context.cancel
-        )
+        previous = self._projects.load_manifest(inputs.song.song_id, inputs.song.active_revision)
+        if previous.provenance.get("playbackPeakDbfs") != -18:
+            instrumental, reference = attenuate_playback_stems(
+                (instrumental, reference), melody.parent / "playback", context.cancel
+            )
+        # Prepared stems already have playback headroom. A small MP3 decode overshoot must not
+        # trigger attenuation and another lossy encode whenever only timings or notes change.
         return self._stages.run(
             "ProjectValidationPublication",
             CancellationPolicy.FINISH_BEFORE_CANCEL,
