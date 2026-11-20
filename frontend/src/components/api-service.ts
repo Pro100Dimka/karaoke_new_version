@@ -20,6 +20,8 @@ import {
   backendPollInterval,
   readBackendSnapshot,
 } from '../services/backendEvents';
+import { readJobSnapshot } from '../services/jobSnapshot';
+import { mapJob } from '../services/pythonMappers';
 
 export const refreshSongs = async (client: QueryClient) => {
   await client.cancelQueries({ queryKey: ['songs'] });
@@ -201,7 +203,7 @@ export const jobQuery = (type: JobType, entityId: string) =>
   queryOptions({
     queryKey: ['job', type, entityId],
     queryFn: ({ signal }) =>
-      readBackendSnapshot(
+      readJobSnapshot(
         async () => {
           const result = await bridgedHttp(
             'pythonRequest',
@@ -214,8 +216,9 @@ export const jobQuery = (type: JobType, entityId: string) =>
           signal.throwIfAborted();
           return parse(jobsSchema, result).items[0] ?? null;
         },
-        ['job.changed'],
+        (job) => new Map(job ? [[job.jobId, mapJob(job).state]] : []),
         signal,
+        { type, entityId },
       ),
     refetchInterval: backendPollInterval(1000),
   });

@@ -3,6 +3,8 @@ import {
   QueryObserver,
   useQuery,
   type QueryClient,
+  type Query,
+  type QueryKey,
 } from '@tanstack/react-query';
 import { reaction, runInAction } from 'mobx';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -24,6 +26,7 @@ import {
 } from '../services/backendEvents';
 import { desktopClient } from '../services/desktopClient';
 import { pythonClient } from '../services/pythonClient';
+import { readJobSnapshot } from '../services/jobSnapshot';
 import { recordingCoordinator } from '../services/recordingCoordinator';
 import { roomClient } from '../services/roomClient';
 import { participantId } from '../services/roomMappers';
@@ -89,22 +92,60 @@ export const useJobs = () => {
 
 export const subscribeApplication = (client: QueryClient): (() => void) => {
   const activeRuntime = getRoomRuntime();
-  let revision = 0;
+  const cache = client.getQueryCache();
+  const pendingRefreshes = new Set<Query>();
+  const refreshTimers = new Map<Query, number>();
+  let active = true;
+  const clearRefresh = (query: Query) => {
+    window.clearTimeout(refreshTimers.get(query));
+    refreshTimers.delete(query);
+  };
+  const refreshJobs = (queryKey: QueryKey) => {
+    for (const query of cache.findAll({ queryKey, type: 'active' })) {
+      clearRefresh(query);
+      if (query.state.fetchStatus === 'fetching') pendingRefreshes.add(query);
+    }
+    void client.invalidateQueries({ queryKey }, { cancelRefetch: false });
+  };
+  // Events during a read need one trailing refresh. Cancelling every read can
+  // starve publication and leaves the uncancellable desktop HTTP work running.
+  const stopRefreshes = cache.subscribe((event) => {
+    const query = event.query;
+    if (event.type === 'removed') {
+      pendingRefreshes.delete(query);
+      clearRefresh(query);
+    }
+    if (
+      event.type !== 'updated' ||
+      query.state.fetchStatus !== 'idle' ||
+      !pendingRefreshes.delete(query) ||
+      event.action.type !== 'success'
+    )
+      return;
+    refreshTimers.set(
+      query,
+      window.setTimeout(() => {
+        refreshTimers.delete(query);
+        if (active && query.isActive())
+          void client.invalidateQueries(
+            { queryKey: query.queryKey, exact: true },
+            { cancelRefetch: false },
+          );
+      }, 0),
+    );
+  });
   const jobs = new QueryObserver(client, {
     queryKey: ['jobs'],
-    queryFn: async ({ signal }) => {
-      for (;;) {
-        const started = revision;
-        try {
-          const result = await pythonClient.listJobs();
-          signal.throwIfAborted();
-          if (started === revision) return result;
-        } catch (error) {
-          signal.throwIfAborted();
-          if (started === revision) throw error;
-        }
-      }
-    },
+    queryFn: ({ signal }) =>
+      readJobSnapshot(
+        () => {
+          const query = cache.find({ queryKey: ['jobs'], exact: true });
+          if (query) pendingRefreshes.delete(query);
+          return pythonClient.listJobs();
+        },
+        (result) => new Map(result.map((job) => [job.id, job.state])),
+        signal,
+      ),
     refetchInterval: backendPollInterval(1000),
     refetchIntervalInBackground: true,
   });
@@ -151,19 +192,13 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     },
   );
   const stopVisibility = subscribeAppVisibility(updateVisibility);
-  const stopEvents = refreshOnJobChanges(() => {
-    revision++;
-    void client.invalidateQueries(
-      { queryKey: ['jobs'] },
-      { cancelRefetch: false },
-    );
-  }, 250);
+  const stopEvents = refreshOnJobChanges(() => refreshJobs(['jobs']), 250);
   const stopJobQueries = onJobChange((_jobId, job) => {
     const queryKey =
       typeof job?.type === 'string' && typeof job.entityId === 'string'
         ? ['job', job.type, job.entityId]
         : ['job'];
-    void client.invalidateQueries({ queryKey });
+    refreshJobs(queryKey);
   });
   const stopModels = onModelsChange(() => {
     for (const queryKey of [['models'], ['model-free-space']])
@@ -204,6 +239,11 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     { fireImmediately: true },
   );
   return () => {
+    active = false;
+    stopRefreshes();
+    pendingRefreshes.clear();
+    for (const timer of refreshTimers.values()) window.clearTimeout(timer);
+    refreshTimers.clear();
     stopJobs();
     jobs.destroy();
     stopEvents();
