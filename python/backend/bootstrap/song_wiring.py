@@ -72,6 +72,7 @@ def build_song_cases(
             runtime.ids,
             LocalRecordingStorage(runtime.config.roots),
             processing.jobs,
+            runtime.recording_lifecycle,
         ),
         start,
         melody,

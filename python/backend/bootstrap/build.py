@@ -237,6 +237,7 @@ def _recording_wiring(
         WaveRecordingInspector(),
         runtime.clock,
         runtime.ids,
+        runtime.recording_lifecycle,
         prepare_recording=partial(prepare_recording, renderer, projects),
         jobs=jobs,
     )

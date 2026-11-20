@@ -17,6 +17,7 @@ from backend.idempotency import IdempotencyRecord
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.content_lock import KeyedLockManager
 from backend.recordings.domain import Recording, validate_recording_id
+from backend.recordings.lifecycle import RecordingLifecycle
 from backend.recordings.ports import RecordingFileInspector, RecordingStorage
 from backend.runtime import Clock, IdGenerator
 from backend.processing.domain import JobType
@@ -49,6 +50,7 @@ class RegisterRecording:
         inspector: RecordingFileInspector,
         clock: Clock,
         ids: IdGenerator,
+        lifecycle: RecordingLifecycle,
         *,
         prepare_recording: Callable[[Recording, threading.Event], None] | None = None,
         jobs: ProcessingJobManager | None = None,
@@ -58,6 +60,7 @@ class RegisterRecording:
         self._inspector = inspector
         self._clock = clock
         self._ids = ids
+        self._lifecycle = lifecycle
         self._prepare_recording = prepare_recording
         self._jobs = jobs
         self._pending: set[str] = set()
@@ -67,7 +70,10 @@ class RegisterRecording:
 
     def execute(self, request: RegisterRecordingRequest) -> Recording:
         validate_recording_id(request.recording_id)
-        with self._registration_locks.acquire(request.recording_id):
+        with (
+            self._registration_locks.acquire(request.recording_id),
+            self._lifecycle.registration(),
+        ):
             return self._register(request)
 
     def _register(self, request: RegisterRecordingRequest) -> Recording:

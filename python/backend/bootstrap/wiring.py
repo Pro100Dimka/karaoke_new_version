@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from backend.ai.registry import AiProviderRegistry
 from backend.bootstrap.config import BackendConfig
@@ -18,6 +18,7 @@ from backend.projects.content_lock import KeyedLockManager
 from backend.projects.operations import SongOperationRegistry
 from backend.projects.validator import ProjectValidator
 from backend.recovery.ports import RecoveryJournal
+from backend.recordings.lifecycle import RecordingLifecycle
 from backend.runtime import Clock, IdGenerator
 from backend.songs.ports import FileHasher
 from backend.storage.ports import StorageSystem
@@ -31,6 +32,7 @@ class RuntimeWiring:
     clock: Clock
     ids: IdGenerator
     hasher: FileHasher
+    recording_lifecycle: RecordingLifecycle = field(default_factory=RecordingLifecycle)
 
 
 @dataclass(frozen=True, slots=True)

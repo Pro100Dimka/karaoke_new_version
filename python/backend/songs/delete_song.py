@@ -12,6 +12,7 @@ from backend.recovery.domain import RecoveryOperation
 from backend.recovery.ports import RecoveryJournal
 from backend.songs.ports import SongStorage
 from backend.recordings.ports import RecordingStorage
+from backend.recordings.lifecycle import RecordingLifecycle
 from backend.processing.job_manager import ProcessingJobManager
 from backend.processing.domain import JobType
 
@@ -27,6 +28,7 @@ class DeleteSong:
         ids: IdGenerator,
         recordings: RecordingStorage,
         jobs: ProcessingJobManager,
+        recording_lifecycle: RecordingLifecycle,
     ) -> None:
         self._uow = uow
         self._storage = storage
@@ -36,11 +38,13 @@ class DeleteSong:
         self._ids = ids
         self._recordings = recordings
         self._jobs = jobs
+        self._recording_lifecycle = recording_lifecycle
 
     def execute(self, song_id: str) -> None:
         with (
             self._operations.acquire(song_id, SongOperation.DELETE),
             self._storage.media_update(song_id),
+            self._recording_lifecycle.deletion(),
         ):
             # Processing holds per-song locks; imports write only newly allocated song folders.
             self._jobs.run_when_idle(
