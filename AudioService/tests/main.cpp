@@ -370,6 +370,13 @@ constexpr std::array tests{
 #endif
     Test{"wasapiDirectClockSkipEscalatesSharedQueue",
          Tests::wasapiDirectClockSkipEscalatesSharedQueue},
+    Test{"wasapiSharedClockAndPaddingUseOneObservation",
+         Tests::wasapiSharedClockAndPaddingUseOneObservation},
+    Test{"wasapiSharedClockRetainsRealUnderruns", Tests::wasapiSharedClockRetainsRealUnderruns},
+    Test{"wasapiSharedClockUncertaintyIsBoundedAndRecovers",
+         Tests::wasapiSharedClockUncertaintyIsBoundedAndRecovers},
+    Test{"wasapiSharedPaddingFailureDoesNotAcquireRenderPacket",
+         Tests::wasapiSharedPaddingFailureDoesNotAcquireRenderPacket},
     Test{"wasapiSharedFallsBackWhenMinimumExceedsCpuBudget",
          Tests::wasapiSharedFallsBackWhenMinimumExceedsCpuBudget},
     Test{"wasapiSharedRenderQueuesOnlyOneEnginePeriod",

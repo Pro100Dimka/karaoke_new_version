@@ -139,6 +139,7 @@ struct Render : ComStub<IAudioRenderClient> {
     UINT32 frames{MaxBlockFrames + 64};
     bool exclusive{false}, failPrefill{false};
     unsigned submitted{0}, silent{0}, acquired{0};
+    UINT32* padding{nullptr};
     std::vector<float> samples = std::vector<float>(MaxBlockFrames + 64);
     explicit Render(DriverState& value) : state(value) {}
     HRESULT STDMETHODCALLTYPE GetBuffer(UINT32 count, BYTE** data) override {
@@ -153,9 +154,12 @@ struct Render : ComStub<IAudioRenderClient> {
             state.attempted.signal();
             return AUDCLNT_E_BUFFER_SIZE_ERROR;
         }
-        return count <= frames ? S_OK : AUDCLNT_E_BUFFER_TOO_LARGE;
+        return count <= frames - (padding ? *padding : 0) ? S_OK :
+                                                          AUDCLNT_E_BUFFER_TOO_LARGE;
     }
     HRESULT STDMETHODCALLTYPE ReleaseBuffer(UINT32 count, DWORD flags) override {
+        if (padding)
+            *padding += count;
         if ((flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0) {
             silent += count;
         } else {
@@ -169,13 +173,30 @@ struct Clock : ComStub<IAudioClock> {
     UINT64 frames{1000}, ticks{900000};
     HRESULT positionResult{S_OK};
     unsigned inaccurateCalls{0};
+    UINT32* padding{nullptr};
+    std::array<UINT32, 2> consumeBefore{}, consumeAfter{};
+    unsigned positionCalls{0};
+    UINT64 underrunFrames{0};
+    void consume(UINT32 count) {
+        frames += count;
+        ticks += static_cast<UINT64>(count) * 10'000'000 / 48000;
+        if (padding) {
+            underrunFrames += count - std::min(count, *padding);
+            *padding -= std::min(count, *padding);
+        }
+    }
     HRESULT STDMETHODCALLTYPE GetFrequency(UINT64* value) override {
         *value = 48000;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetPosition(UINT64* position, UINT64* time) override {
+        const auto call = positionCalls++;
+        if (call < consumeBefore.size())
+            consume(consumeBefore[call]);
         *position = frames;
         *time = ticks;
+        if (call < consumeAfter.size())
+            consume(consumeAfter[call]);
         if (inaccurateCalls != 0) {
             --inaccurateCalls;
             return S_FALSE;
@@ -203,6 +224,7 @@ struct Client : ComStub<IAudioClient3> {
     std::vector<bool>* initializeOrder{nullptr};
     Event paddingQueried;
     int legacyInitializes{0}, stops{0};
+    unsigned paddingCalls{0}, failPaddingCall{0};
     bool trackLifetime{false};
     ULONG references{0};
     UINT32 livePeriod{0};
@@ -256,6 +278,10 @@ struct Client : ComStub<IAudioClient3> {
     HRESULT STDMETHODCALLTYPE GetCurrentPadding(UINT32* value) override {
         *value = pad;
         paddingQueried.signal();
+        if (state.started.load() && ++paddingCalls == failPaddingCall) {
+            state.attempted.signal();
+            return AUDCLNT_E_DEVICE_INVALIDATED;
+        }
         if (pad > render.frames)
             state.attempted.signal();
         return state.result(Fault::Padding);
@@ -474,6 +500,31 @@ struct Fixture {
         SetEvent(output.client.event);
         Tests::expect(callback.firstRender.wait(), "first engine pass anchors the shared cadence");
         return runtime;
+    }
+    void startConservedSharedRender() {
+        inputAvailable = false;
+        output.client.silentEvents = true;
+        callback.captureRequired = false;
+        output.client.render.padding = output.client.clock.padding = &output.client.pad;
+        output.client.clock.frames = 0;
+        output.client.clock.ticks = monotonicTicksNow() / 100;
+        auto requested = request();
+        requested.inputDeviceId.clear();
+        (void)backend.open(requested);
+        backend.start(callback, GenerationId{1});
+    }
+    void renderConservedSharedPass(UINT32 consumed,
+                                   std::array<UINT32, 2> before = {},
+                                   std::array<UINT32, 2> after = {}) {
+        auto& clock = output.client.clock;
+        clock.consume(consumed);
+        clock.consumeBefore = before;
+        clock.consumeAfter = after;
+        clock.positionCalls = 0;
+        ResetEvent(output.client.state.attempted.handle);
+        SetEvent(output.client.event);
+        Tests::expect(output.client.state.attempted.wait(),
+                      "controlled render completes its native packet");
     }
 };
 
@@ -744,6 +795,106 @@ void Tests::wasapiDirectClockSkipEscalatesSharedQueue() {
                result.renderConfirmedUnderrunFrames == result.renderClockSkipFrames &&
                result.renderQueueEscalations == 1 && result.renderQueueFrames == 512,
            "device clock passing the submitted tail directly raises the shared safety queue");
+}
+
+void Tests::wasapiSharedClockAndPaddingUseOneObservation() {
+    for (const auto afterClock : {false, true}) {
+        Fixture fixture;
+        fixture.startConservedSharedRender();
+        for (unsigned pass = 0; pass < 5; ++pass) {
+            // Every frame consumed was already queued: an engine pass is not an underrun.
+            const auto pending = fixture.output.client.pad;
+            expect(pending >= 128, "the preceding render left queued PCM");
+            fixture.renderConservedSharedPass(pending >= 128 ? pending - 128 : 0,
+                                              afterClock ? std::array<UINT32, 2>{} :
+                                                           std::array<UINT32, 2>{128, 0},
+                                              afterClock ? std::array<UINT32, 2>{128, 0} :
+                                                           std::array<UINT32, 2>{});
+            expect(fixture.output.client.clock.positionCalls <= 2,
+                   "an overlapping engine pass permits only one observation retry");
+        }
+        fixture.backend.stop();
+        const auto state = fixture.backend.snapshot();
+        expect(fixture.output.client.clock.underrunFrames == 0 &&
+                   state.renderClockSkipFrames == 0 && state.renderConfirmedUnderrunFrames == 0 &&
+                   state.renderQueueEscalations == 0 && state.renderQueueFrames == 256,
+               "legal consumption between padding and clock cannot invent skips or grow the queue");
+        const auto& last = fixture.callback.renders[4];
+        expect(last.devicePosition == static_cast<std::int64_t>(
+                   fixture.output.client.render.silent + fixture.output.client.render.submitted -
+                   last.frames),
+               "render timing identifies the actual submitted tail after a concurrent engine pass");
+        expect(fixture.callback.lost == 0 && fixture.output.client.pad == 256,
+               "the latest padding sizes the packet without losing queued PCM");
+    }
+}
+
+void Tests::wasapiSharedClockRetainsRealUnderruns() {
+    struct Case { UINT32 remaining; bool before; bool after; };
+    constexpr std::array cases{Case{0, false, false}, Case{128, false, false},
+                               Case{128, true, false}, Case{128, false, true}};
+    for (const auto test : cases) {
+        Fixture fixture;
+        fixture.startConservedSharedRender();
+        // A genuine 128-frame gap occurs before a packet with an uncertain clock is submitted.
+        fixture.output.client.clock.positionResult = S_FALSE;
+        fixture.renderConservedSharedPass(256 + 128);
+        fixture.output.client.clock.positionResult = S_OK;
+        fixture.renderConservedSharedPass(256 - test.remaining,
+                                          {test.before ? 64U : 0U, 0},
+                                          {test.after ? 64U : 0U, 0});
+        fixture.backend.stop();
+        const auto state = fixture.backend.snapshot();
+        expect(fixture.output.client.clock.underrunFrames == 128 &&
+                   state.renderClockSkipFrames == 128 && state.renderConfirmedUnderrunFrames == 128 &&
+                   state.renderQueueEscalations == 1 && state.renderQueueFrames == 512,
+               "a real prior gap remains visible with empty or positive padding and concurrent consumption");
+        const auto& packet = fixture.callback.renders[1];
+        expect(packet.devicePosition == static_cast<std::int64_t>(
+                   fixture.output.client.render.silent + fixture.output.client.render.submitted -
+                   packet.frames + 128),
+               "confirmed starvation advances presentation by exactly the missing frames");
+    }
+}
+
+void Tests::wasapiSharedClockUncertaintyIsBoundedAndRecovers() {
+    for (const auto priorGap : {0U, 128U}) {
+        Fixture fixture;
+        fixture.startConservedSharedRender();
+        fixture.output.client.clock.positionResult = S_FALSE;
+        fixture.renderConservedSharedPass(256 + priorGap);
+        fixture.output.client.clock.positionResult = S_OK;
+        fixture.renderConservedSharedPass(64, {64, 64});
+        const auto uncertain = fixture.callback.renders[1];
+        const auto previous = fixture.callback.renders[0];
+        expect(fixture.output.client.clock.positionCalls == 2 &&
+                   uncertain.devicePosition == -1 && uncertain.timestamp == -1 &&
+                   uncertain.presentationTicks == previous.presentationTicks +
+                       static_cast<MonotonicTicks>(previous.frames) * 1'000'000'000 / 48000,
+               "two overlapping observations preserve presentation continuity and stop retrying");
+        expect(uncertain.frames == 192,
+               "an uncertain clock still fills the space in the most recent padding observation");
+        fixture.renderConservedSharedPass(128);
+        fixture.backend.stop();
+        const auto state = fixture.backend.snapshot();
+        expect(fixture.output.client.clock.underrunFrames == priorGap &&
+                   state.renderClockSkipFrames == priorGap &&
+                   state.renderConfirmedUnderrunFrames == priorGap &&
+                   state.renderQueueEscalations == (priorGap != 0 ? 1U : 0U),
+               "the next stable observation recovers a real gap without retaining a false one");
+    }
+}
+
+void Tests::wasapiSharedPaddingFailureDoesNotAcquireRenderPacket() {
+    Fixture fixture;
+    fixture.startConservedSharedRender();
+    fixture.output.client.failPaddingCall = 2;
+    fixture.renderConservedSharedPass(128);
+    expect(fixture.callback.deviceLost.wait(),
+           "a failed trailing padding observation reports device loss");
+    fixture.backend.stop();
+    expect(fixture.output.client.render.acquired == 1 && fixture.callback.renderCount == 0,
+           "padding must be verified before acquiring a native packet; only prefill is acquired");
 }
 
 void Tests::wasapiSharedPeriodDiagnosticsExplainFallback() {
@@ -1376,6 +1527,10 @@ void Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively() {}
 void Tests::wasapiBusyMicrophoneFallsBackToSharedInput() {}
 void Tests::wasapiDiagnosticCanRequestInputPeriodIndependently() {}
 void Tests::wasapiDirectClockSkipEscalatesSharedQueue() {}
+void Tests::wasapiSharedClockAndPaddingUseOneObservation() {}
+void Tests::wasapiSharedClockRetainsRealUnderruns() {}
+void Tests::wasapiSharedClockUncertaintyIsBoundedAndRecovers() {}
+void Tests::wasapiSharedPaddingFailureDoesNotAcquireRenderPacket() {}
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {}
 void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
 void Tests::wasapiReportsEveryDeviceFailure() {}
