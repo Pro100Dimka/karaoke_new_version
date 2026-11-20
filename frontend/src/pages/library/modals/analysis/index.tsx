@@ -84,8 +84,11 @@ export const PerformanceAnalysisModal = ({
 }: PerformanceAnalysisModalProps) => {
   useLocale();
   const guarded = useGuardedAction();
+  // Resolve the selected master's own take before its analysis result arrives.
   const analyzed = recordings.find(
-    (recording) => recording.id === analysis?.recordingId,
+    (recording) =>
+      recording.id ===
+      (analysis?.recordingId ?? pending?.recordingId ?? recordingId),
   );
   const analyzedTakeId = recordings.some(
     (recording) => recording.id === analyzed?.sourceRecordingId,

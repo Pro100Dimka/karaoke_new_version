@@ -157,7 +157,9 @@ class FfmpegMediaInspector:
             album=_tag(tags, "album"),
             duration=duration,
             media_format=str(format_name) if format_name else source.suffix.lstrip("."),
-            embedded_lyrics=_tag(tags, "lyrics", "unsyncedlyrics", prefix="lyrics-"),
+            embedded_lyrics=(
+                _tag(tags, "lyrics", "unsyncedlyrics", prefix="lyrics-") or _tag(tags, "wm/lyrics")
+            ),
             has_embedded_artwork=has_artwork,
         )
 
