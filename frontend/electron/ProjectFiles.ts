@@ -1,5 +1,5 @@
 import { shell } from 'electron';
-import * as fs from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import type { BackendEndpoint } from './BackendEndpoint';
 import { ipcChannels } from './ipcChannels';
@@ -42,18 +42,18 @@ export const registerProjectFileHandlers = (
     );
   };
 
-  const projectArtifacts = (
+  const projectArtifacts = async (
     songId: string,
     revision: number,
-  ): {
+  ): Promise<{
     instrumental: string;
     vocals?: string;
     melody?: string;
     lyricsSync?: string;
-  } => {
+  }> => {
     const revisionRoot = projectRevisionRoot(songId, revision);
     const manifestPath = path.join(revisionRoot, 'manifest.json');
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
       artifacts?: unknown;
     };
     if (!Array.isArray(manifest.artifacts))
@@ -105,7 +105,7 @@ export const registerProjectFileHandlers = (
       throw new TypeError('Invalid project identity');
     try {
       if (revision > 0) {
-        const { instrumental } = projectArtifacts(songId, revision);
+        const { instrumental } = await projectArtifacts(songId, revision);
         return await waveformPeaks(instrumental, bins);
       }
     } catch {

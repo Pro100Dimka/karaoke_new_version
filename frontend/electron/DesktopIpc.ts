@@ -9,7 +9,7 @@ import {
   type FileFilter,
   type Rectangle,
 } from 'electron';
-import * as fs from 'node:fs';
+import { stat, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { launchAsio4AllInstaller } from './Asio4AllInstaller';
 import { projectRoot, saveStorageRoot, themeIconPath } from './AppPaths';
@@ -260,7 +260,7 @@ const registerFileDialogs = ({
       filters: [{ name: 'Text', extensions: ['txt', 'json'] }],
     });
     if (result.canceled || !result.filePath) return false;
-    fs.writeFileSync(result.filePath, content, 'utf8');
+    await writeFile(result.filePath, content, 'utf8');
     return true;
   });
 };
@@ -276,9 +276,9 @@ const registerFilesAndShell = ({
       throw new TypeError('Storage path must be absolute');
     saveStorageRoot(folder);
   });
-  trustedIpc.handle(ipcChannels.statFile, (_event, value: unknown) => {
+  trustedIpc.handle(ipcChannels.statFile, async (_event, value: unknown) => {
     const filePath = requireString(value, 'path');
-    const stats = fs.statSync(filePath);
+    const stats = await stat(filePath);
     if (!stats.isFile()) throw new Error('Not a file');
     return {
       name: path.basename(filePath),
