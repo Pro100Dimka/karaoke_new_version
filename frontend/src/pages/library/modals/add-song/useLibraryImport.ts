@@ -16,6 +16,13 @@ import { errorstring, toAppError } from '../../../../shared/errors';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { isSupportedAudio } from './importModel';
 
+const importErrorText = (cause: unknown): string => {
+  const error = toAppError(cause);
+  const key = errorstring(error);
+  const detail = !key && error.source === 'python' && error.message;
+  return `${tr(key ?? 'importFailed')}${detail ? `: ${detail}` : ''}`;
+};
+
 /** Picked and dropped files share import progress in the query cache. */
 export const useLibraryImport = () => {
   const client = useQueryClient();
@@ -62,7 +69,7 @@ export const useLibraryImport = () => {
       const name = path.split(/[\\/]/).pop() ?? path;
       const dot = name.lastIndexOf('.');
       if (!isSupportedAudio(dot < 0 ? '' : name.slice(dot + 1))) {
-        failed.push(name);
+        failed.push(`${name}: ${tr('errorUnsupportedMedia')}`);
         return [];
       }
       return [{ path, name, placeholderId: queueSongImport(client, path) }];
@@ -71,8 +78,8 @@ export const useLibraryImport = () => {
       try {
         await importAndProcess(path, {}, undefined, placeholderId);
         imported += 1;
-      } catch {
-        failed.push(name);
+      } catch (error) {
+        failed.push(`${name}: ${importErrorText(error)}`);
       }
     }
     if (imported) notify(tr('songsImported', { count: imported }), 'success');
@@ -94,7 +101,7 @@ export const useLibraryImport = () => {
       try {
         await handleImport(path, {});
       } catch (error) {
-        notify(tr(errorstring(toAppError(error)) ?? 'importFailed'), 'error');
+        notify(importErrorText(error), 'error');
       }
     });
 

@@ -15,6 +15,7 @@ from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.reconcile_library import ReconcileLibrary
 from backend.settings.queries import get_settings, SettingsReader
 from backend.settings.update_settings import UpdateSettings, ValidateSettingsSchema
+from backend.storage.cleanup import ClearStorage
 
 
 def build_system_cases(
@@ -41,6 +42,7 @@ def build_system_cases(
         executor,
         project.journal,
     )
+    cleanup = ClearStorage(processing.storage, processing.jobs)
     return SystemCases(
         capabilities,
         diagnostics,
@@ -49,8 +51,8 @@ def build_system_cases(
         ListHistory(runtime.database),
         processing.jobs,
         StartLibraryReconciliation(processing.jobs, reconcile),
-        processing.storage.clear_cache,
-        partial(processing.storage.cleanup_temp, 3600),
+        cleanup.clear_cache,
+        cleanup.clear_temp,
         lambda area: processing.storage.free_bytes(
             {"data": runtime.config.roots.app, "models": runtime.config.roots.models}[area]
         ),

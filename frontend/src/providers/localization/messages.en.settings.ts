@@ -235,6 +235,8 @@ export const enSettings = {
   errorInsufficientDisk:
     'Insufficient disk space. Open Storage settings to free space.',
   errorStorageUnavailable: 'Storage is unavailable.',
+  errorStorageInUse:
+    'Wait for background jobs to finish before clearing cache or temporary files.',
   errorInsufficientRam:
     'Not enough free RAM for processing. Close other applications and try again.',
   errorModelsInUse:

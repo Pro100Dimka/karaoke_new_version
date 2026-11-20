@@ -59,8 +59,8 @@ class FakeStorage:
         del path
         self.requirements.append(required_bytes)
 
-    def cleanup_temp(self, max_age_seconds: int) -> int:
-        del max_age_seconds
+    def cleanup_temp(self, max_age_seconds: int, *, strict: bool = False) -> int:
+        del max_age_seconds, strict
         return 0
 
 

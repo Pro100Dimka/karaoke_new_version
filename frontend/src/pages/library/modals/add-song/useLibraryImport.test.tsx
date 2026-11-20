@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { tr } from '@neo-ui-kit/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -6,6 +7,7 @@ import type { SongDto } from '../../../../contracts/models';
 import { desktopClient } from '../../../../services/desktopClient';
 import { pythonClient } from '../../../../services/pythonClient';
 import { useLibraryImport } from './useLibraryImport';
+import '../../../../providers/localization';
 
 const notifications = vi.hoisted(() => vi.fn());
 vi.mock('../../../../providers/notifications', () => ({
@@ -90,3 +92,72 @@ it('still rejects unsupported drops before sending them to the importer', async 
   expect(pythonClient.importSong).not.toHaveBeenCalled();
   expect(notifications).toHaveBeenCalledWith(expect.any(String), 'error');
 });
+
+it('reports the reason for each rejected file and continues the rest of a batch', async () => {
+  expect(tr('songsImportFailed', { names: 'probe.mp3' })).toContain(
+    'probe.mp3',
+  );
+  vi.mocked(pythonClient.importSong)
+    .mockRejectedValueOnce({
+      code: 'DuplicateSong',
+      message: 'Duplicate content',
+      source: 'python',
+    })
+    .mockRejectedValueOnce({
+      code: 'SourceMissing',
+      message: 'Source disappeared',
+      source: 'python',
+    });
+  const paths = ['duplicate.mp3', 'missing.mp3', 'valid.mp3', 'notes.txt'].map(
+    (name) => `D:\\Music\\${name}`,
+  );
+  const { result } = renderImport();
+  await act(() => result.current.importFiles(paths));
+
+  expect(
+    vi.mocked(pythonClient.importSong).mock.calls.map(([path]) => path),
+  ).toEqual(paths.slice(0, 3));
+  expect(notifications).toHaveBeenCalledWith(
+    tr('songsImportFailed', {
+      names: [
+        `notes.txt: ${tr('errorUnsupportedMedia')}`,
+        `duplicate.mp3: ${tr('errorDuplicateSong')}`,
+        `missing.mp3: ${tr('errorSourceMissing')}`,
+      ].join(', '),
+    }),
+    'error',
+  );
+  expect(notifications).toHaveBeenCalledWith(
+    tr('songsImported', { count: 1 }),
+    'success',
+  );
+  expect(client.getQueryData(['song-imports'])).toEqual([]);
+});
+
+it.each(['batch', 'picker'])(
+  'preserves an unfamiliar backend failure reason from %s',
+  async (source) => {
+    vi.mocked(pythonClient.importSong).mockRejectedValueOnce({
+      code: 'ProbeFailed',
+      message: 'Audio container could not be read',
+      source: 'python',
+    });
+    const { result } = renderImport();
+    const paths = ['D:\\Music\\track.mp3'];
+    vi.mocked(desktopClient.pickAudioFiles).mockResolvedValue(paths);
+    await act(() =>
+      source === 'picker'
+        ? result.current.addSong()
+        : result.current.importFiles(paths),
+    );
+
+    const reason = `${tr('importFailed')}: Audio container could not be read`;
+    expect(notifications).toHaveBeenCalledWith(
+      source === 'picker'
+        ? reason
+        : tr('songsImportFailed', { names: `track.mp3: ${reason}` }),
+      'error',
+    );
+    expect(client.getQueryData(['song-imports'])).toEqual([]);
+  },
+);

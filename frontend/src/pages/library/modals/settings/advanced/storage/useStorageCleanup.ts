@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { ask } from '../../../../../../providers/dialog';
 import { useNotify } from '../../../../../../providers/notifications';
 import { pythonClient as backend } from '../../../../../../services/pythonClient';
+import { errorstring, toAppError } from '../../../../../../shared/errors';
 
 type CleanupKind = 'cache' | 'temp';
 
@@ -32,8 +33,16 @@ export const useStorageCleanup = (onChanged: () => void) => {
         : backend.clearTemporaryFiles());
       notify(tr('cleanupDone'), 'success');
       onChanged();
-    } catch {
-      notify(tr('cleanupFailed'), 'error');
+    } catch (error) {
+      const failure = toAppError(error);
+      notify(
+        tr(
+          failure.code === 'StorageInUse'
+            ? 'errorStorageInUse'
+            : (errorstring(failure) ?? 'cleanupFailed'),
+        ),
+        'error',
+      );
     } finally {
       inFlight.current = false;
       setCleaning(null);

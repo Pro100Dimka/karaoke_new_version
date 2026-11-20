@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 import shutil
 import tempfile
 from pathlib import Path
@@ -10,6 +11,8 @@ from backend.domain_errors import DependencyError
 from backend.infrastructure.paths import ensure_within, safe_path_component
 from backend.runtime import Clock
 from backend.storage.domain import StorageRoots
+
+logger = logging.getLogger(__name__)
 
 
 class LocalStorageSystem:
@@ -62,27 +65,44 @@ class LocalStorageSystem:
                 requiredBytes=required_bytes,
             )
 
-    def cleanup_temp(self, max_age_seconds: int) -> int:
+    def cleanup_temp(self, max_age_seconds: int, *, strict: bool = False) -> int:
         threshold = self._clock.now().timestamp() - max_age_seconds
-        removed = 0
-        for path in self._roots.temp.iterdir():
-            if path.stat().st_mtime >= threshold:
-                continue
-            if path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-            else:
-                path.unlink(missing_ok=True)
-            removed += 1
-        return removed
+        return self._cleanup(self._roots.temp, threshold, strict=strict)
 
     def clear_cache(self) -> int:
+        return self._cleanup(self._roots.cache, None, strict=True)
+
+    def _cleanup(self, root: Path, threshold: float | None, *, strict: bool) -> int:
         removed = 0
-        for path in self._roots.cache.iterdir():
-            if path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-            else:
-                path.unlink(missing_ok=True)
-            removed += 1
+        path = root
+        try:
+            for path in root.iterdir():
+                try:
+                    if threshold is not None and path.stat().st_mtime >= threshold:
+                        continue
+                    if path.is_dir():
+                        shutil.rmtree(path)
+                    else:
+                        path.unlink()
+                except FileNotFoundError:
+                    if path.exists():
+                        raise
+                    continue
+                except OSError:
+                    if strict:
+                        raise
+                    logger.warning("Temporary file cleanup deferred: %s", path, exc_info=True)
+                    continue
+                removed += 1
+        except OSError as exc:
+            if strict:
+                raise DependencyError(
+                    "StorageUnavailable",
+                    "Some files could not be removed; close applications using them and retry",
+                    path=str(path),
+                    removed=removed,
+                ) from exc
+            logger.warning("Temporary file cleanup deferred: %s", path, exc_info=True)
         return removed
 
 
@@ -127,10 +147,14 @@ def _tree_size(root: Path) -> int:
             continue
         with entries:
             for entry in entries:
-                if entry.is_dir(follow_symlinks=False):
-                    pending.append(entry.path)
-                elif entry.is_file():
-                    total += entry.stat().st_size
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(entry.path)
+                    elif entry.is_file():
+                        total += entry.stat().st_size
+                except OSError:
+                    # Background work may remove an entry after it was listed.
+                    continue
     return total
 
 

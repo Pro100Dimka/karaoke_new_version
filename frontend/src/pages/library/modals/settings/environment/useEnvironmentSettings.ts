@@ -34,6 +34,11 @@ export const useEnvironmentSettings = () => {
   const client = useQueryClient();
   const notify = useNotify();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Rejected secrets belong only to the mounted password field, never the query snapshot.
+  const [failedSecrets, setFailedSecrets] = useState<Record<string, string>>(
+    {},
+  );
+  const edits = useRef(new Map<string, number>());
   const pending = useRef(
     new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>(),
   );
@@ -58,7 +63,15 @@ export const useEnvironmentSettings = () => {
     client.setQueryData<DisplayEntry[]>(queryKey, (entries) =>
       entries?.map((entry) => (entry.key === key ? change(entry) : entry)),
     );
+  const clearFailedSecret = (key: string) =>
+    setFailedSecrets((current) => {
+      if (!(key in current)) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   const submit = (variables: Write): Promise<DisplayEntry> => {
+    const edit = edits.current.get(variables.key);
     const before = client
       .getQueryData<DisplayEntry[]>(queryKey)
       ?.find((entry) => entry.key === variables.key);
@@ -88,10 +101,17 @@ export const useEnvironmentSettings = () => {
         },
         onSuccess: (stored, { key }) => {
           if (!isWrite && current() !== before) return;
+          if (isWrite) clearFailedSecret(key);
           update(key, () => stored);
         },
         onError: (error, { key, value }) => {
           if (!isWrite && current() !== before) return;
+          if (
+            before?.kind === 'secret' &&
+            value !== undefined &&
+            edits.current.get(key) === edit
+          )
+            setFailedSecrets((current) => ({ ...current, [key]: value }));
           update(key, (entry) => ({
             ...entry,
             value:
@@ -139,6 +159,8 @@ export const useEnvironmentSettings = () => {
     };
   }, []);
   const discard = (key: string) => {
+    edits.current.set(key, (edits.current.get(key) ?? 0) + 1);
+    clearFailedSecret(key);
     clearTimeout(pending.current.get(key)?.timer);
     pending.current.delete(key);
     setDrafts((current) => {
@@ -171,7 +193,8 @@ export const useEnvironmentSettings = () => {
       const writing = [...writes]
         .reverse()
         .find((write) => write.key === entry.key);
-      const value = draft ?? writing?.value ?? entry.value;
+      const value =
+        draft ?? writing?.value ?? failedSecrets[entry.key] ?? entry.value;
       return {
         ...entry,
         value,
