@@ -145,7 +145,9 @@ export const ProcessingModal = observer(
         await refreshSongs(client);
       });
     const onOpenFolder = (song: SongDto) =>
-      void desktopClient.revealProject(song.id, song.activeRevision);
+      void guarded(() =>
+        desktopClient.revealProject(song.id, song.activeRevision),
+      );
     const songsById = useMemo(
       () => new Map(songs.map((song) => [song.id, song])),
       [songs],

@@ -176,13 +176,13 @@ export const resizeNote = (
 export const deleteNotes = (
   document: EditorDocument,
   ids: ReadonlySet<string>,
-): EditorDocument =>
-  ids.size === 0
+): EditorDocument => {
+  if (ids.size === 0) return document;
+  const notes = document.notes.filter((note) => !ids.has(note.id));
+  return notes.length === document.notes.length
     ? document
-    : withNotes(
-        document,
-        document.notes.filter((note) => !ids.has(note.id)),
-      );
+    : withNotes(document, notes);
+};
 
 /** Snaps the start or end of the given notes to a time (playhead), still respecting neighbours and the word. */
 export const alignBoundary = (

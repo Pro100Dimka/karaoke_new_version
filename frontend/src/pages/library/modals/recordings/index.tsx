@@ -366,6 +366,7 @@ export const RecordingsModal = observer(
             recordingId={actions.analysisRecordId}
             pending={progress[actions.analysisRecordId]}
             failure={failures[actions.analysisRecordId]}
+            onRetryAnalysis={actions.retryAnalysis}
             onCancelAnalysis={onCancelAnalysis}
             recordings={recordings}
             onDelete={onDelete}

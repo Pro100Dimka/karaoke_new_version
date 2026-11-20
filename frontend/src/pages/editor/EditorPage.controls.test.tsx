@@ -223,6 +223,32 @@ it('still toggles an additive selection and replaces it when another note is cli
   expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
 });
 
+it('does not delete a stale selection or lose later Redo when history removes the selected note', async () => {
+  const world = await openEditor();
+  selectNote(world, 60);
+  fireEvent.keyDown(world, { key: 'Delete' });
+  fireEvent.keyDown(noteButton(64), { key: 'ArrowUp' });
+  fireEvent.click(screen.getByRole('button', { name: tr('undo') }));
+  fireEvent.click(screen.getByRole('button', { name: tr('undo') }));
+  selectNote(world, 60);
+  const redo = screen.getByRole('button', { name: tr('redo') });
+  fireEvent.click(redo);
+  expect(world.querySelectorAll('.ad-piano-roll-note')).toHaveLength(1);
+  expect(noteButton(64)).toBeInTheDocument();
+  expect(redo).toBeEnabled();
+
+  expect
+    .soft(screen.getByRole('button', { name: tr('editorDeleteNotes') }))
+    .toBeDisabled();
+  fireEvent.keyDown(world, { key: 'Delete' });
+
+  expect(redo).toBeEnabled();
+  expect(noteButton(64)).toBeInTheDocument();
+  fireEvent.click(redo);
+  expect(noteButton(65)).toBeInTheDocument();
+  expect(editorApi.save).not.toHaveBeenCalled();
+});
+
 it.each([
   { layout: 'Russian', save: 'ы', undo: 'я', redo: 'н', physical: true },
   { layout: 'Ukrainian', save: 'і', undo: 'я', redo: 'н', physical: true },

@@ -155,30 +155,35 @@ export const SongSettingsModal = ({
       confirmLabel={false}
     >
       <Form form={form} className="songSettingsForm">
-        <FormFields
-          fields={getRows({
-            song,
-            document,
-            coverState,
-            selected,
-            previews,
-            chooseMedia,
-            failure,
-            refining: retrying === song.id,
-            onRefine: () => void retryProcessing(song.id, 'lyrics'),
-            onEdit: () => {
-              close();
-              navigate(routes.editor(song.id));
-            },
-            onOpenFolder: () =>
-              void guarded(() =>
-                files.revealProject(song.id, song.activeRevision),
-              ),
-            onRemoveCover: () => void onRemoveCover(song),
-            onDelete: () => void confirmDelete(song),
-          })}
-          gap={4}
-        />
+        <fieldset
+          disabled={form.submitting}
+          style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+        >
+          <FormFields
+            fields={getRows({
+              song,
+              document,
+              coverState,
+              selected,
+              previews,
+              chooseMedia,
+              failure,
+              refining: retrying === song.id,
+              onRefine: () => void retryProcessing(song.id, 'lyrics'),
+              onEdit: () => {
+                close();
+                navigate(routes.editor(song.id));
+              },
+              onOpenFolder: () =>
+                void guarded(() =>
+                  files.revealProject(song.id, song.activeRevision),
+                ),
+              onRemoveCover: () => void onRemoveCover(song),
+              onDelete: () => void confirmDelete(song),
+            })}
+            gap={4}
+          />
+        </fieldset>
       </Form>
     </Dialog>
   );

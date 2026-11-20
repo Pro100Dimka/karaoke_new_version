@@ -60,12 +60,22 @@ export const useEditorSession = (songId: string) => {
   const [saving, setSaving] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const generation = useRef(0);
+  const draftBeforeWrite = useRef<ReturnType<typeof loadDraft> | undefined>(
+    undefined,
+  );
   const pendingSave = useRef<{
     generation: number;
     result: Promise<boolean>;
   } | null>(null);
 
   const document = history?.present ?? null;
+  useEffect(() => {
+    const ids = new Set(document?.notes.map((note) => note.id));
+    setSelection((current) => {
+      const retained = [...current].filter((id) => ids.has(id));
+      return retained.length === current.size ? current : new Set(retained);
+    });
+  }, [document?.notes]);
   const dirty = useMemo(
     () => (document && saved ? isEditorDirty(saved, document) : false),
     [saved, document],
@@ -83,6 +93,7 @@ export const useEditorSession = (songId: string) => {
   useEffect(() => {
     let active = true;
     generation.current += 1;
+    draftBeforeWrite.current = undefined;
     setLoad({ kind: 'loading' });
     setHistory(null);
     setSaved(null);
@@ -154,18 +165,26 @@ export const useEditorSession = (songId: string) => {
   useEffect(() => {
     if (!history || !saved) return;
     if (!dirty) {
-      // Keep a found draft until its restore dialog is answered; an undo to saved content needs none.
-      if (history.past.length || history.future.length) clearDraft(songId);
+      // Cancelling an uncommitted preview restores the draft it temporarily replaced.
+      if (
+        history.past.length ||
+        history.future.length ||
+        draftBeforeWrite.current === null
+      )
+        clearDraft(songId);
+      else if (draftBeforeWrite.current)
+        saveDraft(songId, draftBeforeWrite.current);
+      draftBeforeWrite.current = undefined;
       return;
     }
-    const timer = window.setTimeout(
-      () =>
-        saveDraft(songId, {
-          baseRevision: saved.revision,
-          document: history.present,
-        }),
-      draftDelayMilliseconds,
-    );
+    const timer = window.setTimeout(() => {
+      if (draftBeforeWrite.current === undefined)
+        draftBeforeWrite.current = loadDraft(songId);
+      saveDraft(songId, {
+        baseRevision: saved.revision,
+        document: history.present,
+      });
+    }, draftDelayMilliseconds);
     return () => window.clearTimeout(timer);
   }, [history, saved, dirty, songId]);
 
@@ -257,7 +276,10 @@ export const useEditorSession = (songId: string) => {
           );
           if (pendingEdits)
             saveDraft(target.id, { baseRevision: revision, document: present });
-          else clearDraft(target.id);
+          else {
+            draftBeforeWrite.current = undefined;
+            clearDraft(target.id);
+          }
           await refreshSavedAudio(target, base, next, requestGeneration);
           if (requestGeneration !== generation.current) return false;
           notify(tr('editorSaved'), 'success');
@@ -280,14 +302,37 @@ export const useEditorSession = (songId: string) => {
           });
           if (requestGeneration !== generation.current) return false;
           if (choice === 'reload') {
-            const latest = await editorApi.load(target.id);
+            const beforeReload = latest.current.history?.present ?? current;
+            const reloaded = await editorApi.load(target.id);
             if (requestGeneration !== generation.current) return false;
-            setSaved(latest);
-            setHistory(startHistory(latest));
+            // Reload was confirmed before these edits; a late response must not discard them.
+            if (
+              isEditorDirty(
+                beforeReload,
+                latest.current.history?.present ?? beforeReload,
+              )
+            )
+              return false;
+            const history = startHistory(reloaded);
+            latest.current = {
+              ...latest.current,
+              saved: reloaded,
+              history,
+              dirty: false,
+            };
+            setSaved(reloaded);
+            setHistory(history);
             setSelection(new Set());
+            draftBeforeWrite.current = undefined;
             clearDraft(target.id);
-            await refreshSavedAudio(target, base, latest, requestGeneration);
-            return requestGeneration === generation.current;
+            await refreshSavedAudio(target, base, reloaded, requestGeneration);
+            return (
+              requestGeneration === generation.current &&
+              !isEditorDirty(
+                reloaded,
+                latest.current.history?.present ?? reloaded,
+              )
+            );
           }
           if (choice !== 'overwrite') return false;
           // Explicit overwrite: adopt the latest revision number, keep the local edits.
@@ -338,6 +383,7 @@ export const useEditorSession = (songId: string) => {
     if (requestGeneration !== generation.current) return false;
     if (choice === 'save') return save();
     if (choice === 'discard') {
+      draftBeforeWrite.current = undefined;
       if (latest.current.song) clearDraft(latest.current.song.id);
       const base = latest.current.saved;
       if (base) {

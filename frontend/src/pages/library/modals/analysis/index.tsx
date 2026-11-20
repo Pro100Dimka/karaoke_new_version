@@ -50,6 +50,7 @@ interface PerformanceAnalysisModalProps {
   failure?: string;
   recordingId?: string;
   onCancelAnalysis?(jobId: string): void;
+  onRetryAnalysis?(): void;
 }
 
 /** Keep retained masters playable when their source take has been deleted. */
@@ -81,6 +82,7 @@ export const PerformanceAnalysisModal = ({
   failure,
   recordingId,
   onCancelAnalysis,
+  onRetryAnalysis,
 }: PerformanceAnalysisModalProps) => {
   useLocale();
   const guarded = useGuardedAction();
@@ -195,7 +197,18 @@ export const PerformanceAnalysisModal = ({
                 />
               </>
             )}
-            {failure && <MessageBar tone="error">{tr(failure)}</MessageBar>}
+            {failure && (
+              <MessageBar
+                tone="error"
+                action={
+                  onRetryAnalysis && !pending ? (
+                    <Button label={tr('retry')} onClick={onRetryAnalysis} />
+                  ) : undefined
+                }
+              >
+                {tr(failure)}
+              </MessageBar>
+            )}
             {viewed?.fileStatus === 'PreparationFailed' && (
               <RecordingPlayer recording={viewed} />
             )}
