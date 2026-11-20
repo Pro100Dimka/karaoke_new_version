@@ -98,10 +98,14 @@ export const EditorPage = () => {
         : 0,
     [document, session.load],
   );
-  const keyboard = useRef({ session, selection });
-  keyboard.current = { session, selection };
   // A drag shows live previews; the document it started from makes the whole drag one undo step.
   const dragStart = useRef<EditorDocument | null>(null);
+  // History, deletion, nudges and saving must wait until this preview is committed or cancelled.
+  const runWhenIdle = (action: () => unknown) => {
+    if (!dragStart.current) void action();
+  };
+  const keyboard = useRef({ session, selection, runWhenIdle });
+  keyboard.current = { session, selection, runWhenIdle };
   const latest = useRef(document);
   latest.current = document;
   const page = useRef<HTMLElement>(null);
@@ -134,7 +138,7 @@ export const EditorPage = () => {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      const { session, selection } = keyboard.current;
+      const { session, selection, runWhenIdle } = keyboard.current;
       if (
         event.defaultPrevented ||
         keyBelongsToControl(event.target, event.key) ||
@@ -147,16 +151,16 @@ export const EditorPage = () => {
         : event.key.toLowerCase();
       if (command && key === 's') {
         event.preventDefault();
-        void session.save();
+        runWhenIdle(session.save);
       } else if (command && (key === 'y' || (key === 'z' && event.shiftKey))) {
         event.preventDefault();
-        session.redo();
+        runWhenIdle(session.redo);
       } else if (command && key === 'z') {
         event.preventDefault();
-        session.undo();
+        runWhenIdle(session.undo);
       } else if (event.key === 'Delete' && selection.size > 0) {
         event.preventDefault();
-        session.remove(selection);
+        runWhenIdle(() => session.remove(selection));
       } else if (event.code === 'Space') {
         event.preventDefault();
         void session.togglePlay();
@@ -253,7 +257,33 @@ export const EditorPage = () => {
   };
 
   return (
-    <main className="editorPage" ref={page}>
+    <main
+      className="editorPage"
+      ref={page}
+      onPointerDownCapture={(event) => {
+        if (
+          event.button !== 0 ||
+          event.isPrimary === false ||
+          !(event.target instanceof Element)
+        )
+          return;
+        const world = event.target.closest<HTMLElement>('.ad-piano-roll-world');
+        if (!world || dragStart.current) return;
+        const body = event.target.closest('.ad-piano-roll-note-body');
+        const edge = event.target.closest('.ad-piano-roll-edge');
+        if (body || edge) dragStart.current = document;
+        if (body) return;
+        // Resize handles and the empty grid cannot receive keys by themselves. Keep Escape
+        // inside the roll; suppress the following mouse-down's default focus change.
+        event.preventDefault();
+        const focus =
+          edge?.parentElement?.querySelector<HTMLButtonElement>(
+            '.ad-piano-roll-note-body',
+          ) ?? world;
+        if (focus === world) world.tabIndex = -1;
+        focus.focus({ preventScroll: true });
+      }}
+    >
       <section className="editorControls" aria-label={tr('editorTools')}>
         <EditorHeader
           title={`${song.title} — ${song.artist}`}
@@ -263,9 +293,9 @@ export const EditorPage = () => {
           canUndo={session.canUndo}
           canRedo={session.canRedo}
           onBack={() => void leave()}
-          onUndo={session.undo}
-          onRedo={session.redo}
-          onSave={() => void session.save()}
+          onUndo={() => runWhenIdle(session.undo)}
+          onRedo={() => runWhenIdle(session.redo)}
+          onSave={() => runWhenIdle(session.save)}
         />
         <Observer>
           {() => (
@@ -326,7 +356,7 @@ export const EditorPage = () => {
             icon="trash"
             label={tr('editorDeleteNotes')}
             disabled={selection.size === 0}
-            onClick={() => session.remove(selection)}
+            onClick={() => runWhenIdle(() => session.remove(selection))}
           />
           <IconButton
             ref={helpAnchor}
@@ -377,7 +407,7 @@ export const EditorPage = () => {
             onNoteDrag={drag}
             onNoteDragEnd={dragEnd}
             onNudge={(id, pitch, seconds) =>
-              session.move(new Set([id]), pitch, seconds)
+              runWhenIdle(() => session.move(new Set([id]), pitch, seconds))
             }
           />
         )}

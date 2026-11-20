@@ -1,10 +1,10 @@
 import { useCallback, useLayoutEffect, useState, type RefObject } from 'react';
 import {
   panelControls,
-  useFloatingPanel as useKitFloatingPanel,
   type FloatingPanelOptions,
   type PanelLayout,
 } from '@neo-ui-kit/react';
+import { useHostFloatingPanel } from './useHostFloatingPanel';
 import {
   isRecord,
   readJson,
@@ -54,12 +54,12 @@ export const useMeasuredPanelSize = (
   return size;
 };
 
-/** The kit's floating panel, with labelled controls (switches, checkboxes) also keeping their own presses. */
+/** Host-aware floating gestures; labelled controls also keep their own presses. */
 export const useFloatingPanel = (
   frameRef: RefObject<HTMLElement | null>,
   options: FloatingPanelOptions = {},
 ) =>
-  useKitFloatingPanel(frameRef, {
+  useHostFloatingPanel(frameRef, {
     ...options,
     ignore: options.ignore
       ? `${labelledControls}, ${options.ignore}`

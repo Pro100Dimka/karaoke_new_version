@@ -14,6 +14,7 @@ import {
   pointInApp,
 } from './detachedWindow';
 import { keyBelongsToControl } from './keyOwnership';
+import { useHostWindow } from './hostWindow';
 import { desktopClient } from '../../services/desktopClient';
 import type { PanelLayout, ScreenPoint } from './useFloatingPanel';
 
@@ -118,6 +119,9 @@ export const useDetachedPanel = (
   onReturn?: (layout: PanelLayout) => void,
   enabled = true,
 ) => {
+  const host = useHostWindow();
+  const keyboardHost = useRef(host);
+  keyboardHost.current = host;
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const opened = useRef<Window | null>(null);
   const heldPointer = useRef<PointerEvent | null>(null);
@@ -229,6 +233,7 @@ export const useDetachedPanel = (
         dropInApp,
         movePanel,
         continuous,
+        () => keyboardHost.current,
       );
       if (pointer && at?.left !== undefined && at.top !== undefined)
         carryWindow(
@@ -237,8 +242,9 @@ export const useDetachedPanel = (
           pointer,
           continuous ? dropInApp : undefined,
           movePanel,
+          () => keyboardHost.current,
         );
-      // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
+      // The screen may move to a TV and back while this panel stays open.
       panel.addEventListener('keydown', (event) => {
         if (keyBelongsToControl(event.target, event.key)) return;
         const forwarded = new KeyboardEvent('keydown', {
@@ -251,7 +257,8 @@ export const useDetachedPanel = (
           metaKey: event.metaKey,
           cancelable: true,
         });
-        if (!window.dispatchEvent(forwarded)) event.preventDefault();
+        if (!keyboardHost.current.dispatchEvent(forwarded))
+          event.preventDefault();
       });
       panel.addEventListener('pagehide', () => {
         writeJson(boundsKey(id), {
@@ -323,7 +330,11 @@ export const useDetachedPanel = (
     const pointer = heldPointer.current;
     if (!frame || !pointer) return;
     heldPointer.current = null;
-    const point = pointInApp(pointer.screenX, pointer.screenY);
+    const point = pointInApp(
+      pointer.screenX,
+      pointer.screenY,
+      keyboardHost.current,
+    );
     if (!point) return;
     frame.dispatchEvent(
       new PointerEvent('pointerdown', {

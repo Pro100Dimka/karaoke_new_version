@@ -90,6 +90,7 @@ const knownCodes = {
   RecordingPreparing: 'recordingPreparing',
   RecordingTimingUnavailable: 'errorRecordingTimingUnavailable',
   RecordingNotFound: 'errorRecordingNotFound',
+  RecordingFileMissing: 'recordingFileMissing',
   AiProviderUnavailable: 'errorAiProviderUnavailable',
   StudioMasterUnavailable: 'studioMasterUnavailable',
   StudioMasterTimelineUnavailable: 'studioMasterTimelineUnavailable',
