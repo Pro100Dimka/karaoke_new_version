@@ -164,6 +164,7 @@ it.each(['spawn', 'error', 'cancel'])('offers updates and launches only after cl
     directory,
     automatic: () => false,
     available,
+    canInstallBeforeLaunch: () => false,
     progress: (percent) => percents.push(percent),
   });
 

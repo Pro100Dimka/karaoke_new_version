@@ -99,6 +99,8 @@ interface UpdaterOptions {
   ready: (version: string) => void;
   /** Whether updates install by themselves (Settings); off, a newer version is only announced. */
   automatic?: () => boolean;
+  /** A concrete file, invitation or task launch must reach the app before automatic installation. */
+  canInstallBeforeLaunch?: () => boolean;
   /** A newer version exists: the interface shows its offer or automatic download. */
   available?: (version: string) => void;
   /** Automatic or manual download progress, 0..100. */
@@ -286,6 +288,7 @@ export const startAutoUpdate = ({
   fetchImpl = fetch,
   directory,
   automatic = () => true,
+  canInstallBeforeLaunch = () => true,
   available = () => undefined,
   progress: downloadProgress = () => undefined,
   installFailed = () => undefined,
@@ -382,7 +385,7 @@ export const startAutoUpdate = ({
   return {
     requiresLaunchCheck: () => {
       try {
-        return automatic() && hasCachedUpdate();
+        return automatic() && canInstallBeforeLaunch() && hasCachedUpdate();
       } catch {
         return true;
       }
@@ -401,7 +404,7 @@ export const startAutoUpdate = ({
       }
       checking = true;
       try {
-        if (!hasCachedUpdate()) return false;
+        if (!canInstallBeforeLaunch() || !hasCachedUpdate()) return false;
         progress({ phase: 'checking' });
         const installer = await latestInstaller(fetchImpl, 5_000);
         if (!installer) return false;
@@ -414,6 +417,8 @@ export const startAutoUpdate = ({
           false,
         );
         if (!file) return false;
+        // Another launch can arrive during release lookup or the cached installer's hash check.
+        if (!canInstallBeforeLaunch()) return false;
         progress({ phase: 'installing', version });
         log('info', `Installing update ${version} before start`);
         await runInstaller(file);

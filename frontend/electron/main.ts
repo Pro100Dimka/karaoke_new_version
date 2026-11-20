@@ -35,7 +35,11 @@ import { applyGpuSwitches } from './GpuSwitches';
 import { startAutoUpdate } from './AutoUpdate';
 import { startRadioNowPlaying } from './RadioNowPlaying';
 import { startDesktopLaunch } from './DesktopLaunch';
-import { DesktopShell, resolveLaunchArguments } from './DesktopShell';
+import {
+  commandsFromArguments,
+  DesktopShell,
+  resolveLaunchArguments,
+} from './DesktopShell';
 import { startDiscordPresence } from './DiscordPresence';
 import { createShellNotifier, registerShellIpc } from './ShellIpc';
 import { createTaskbarIntegration } from './TaskbarIntegration';
@@ -204,9 +208,14 @@ shell.onStatus((next) => {
     });
   }
 });
+const pendingLaunches: (readonly string[])[] = [];
+const hasLaunchIntent = (argv: readonly string[]): boolean =>
+  commandsFromArguments(argv.slice(1)).length > 0;
 const updater = startAutoUpdate({
   ready: (version) => shell.send({ type: 'updateReady', version }),
   automatic: readAutoUpdate,
+  canInstallBeforeLaunch: () =>
+    !hasLaunchIntent(process.argv) && !pendingLaunches.some(hasLaunchIntent),
   available: (version) => shell.send({ type: 'updateAvailable', version }),
   progress: (percent) => shell.send({ type: 'updateProgress', percent }),
   installFailed: () => shell.send({ type: 'updateFailed' }),
@@ -219,7 +228,6 @@ const updater = startAutoUpdate({
 });
 trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
 let desktopLaunch: ReturnType<typeof startDesktopLaunch> | null = null;
-const pendingLaunches: (readonly string[])[] = [];
 let discord: ReturnType<typeof startDiscordPresence> | null = null;
 const radioNowPlaying = startRadioNowPlaying(shell);
 
