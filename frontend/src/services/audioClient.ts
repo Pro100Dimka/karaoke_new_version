@@ -32,6 +32,7 @@ import {
   endpointsAvailable,
   effectiveConfiguration,
   enqueueAudioOperation,
+  createCoalescedAudioOperation,
   ensureSession,
   onLowLatencyMicrophoneFallback,
   rawDevices,
@@ -50,6 +51,9 @@ import {
 import { createRoomVoice, restoreVoiceSession } from './audioRoomVoice';
 import { recordingCoordinator } from './recordingCoordinator';
 export { invalidateAudioSnapshots } from './audioSession';
+
+const enqueueSeek = createCoalescedAudioOperation<PlaybackSnapshot>();
+const currentSeek = () => true;
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = '';
@@ -416,8 +420,8 @@ export const audioClient: AudioServiceClient = {
     });
   },
 
-  seek(positionSeconds, isCurrent = () => true) {
-    return enqueueAudioOperation(async () => {
+  seek(positionSeconds, isCurrent = currentSeek) {
+    return enqueueSeek(async () => {
       if (!isCurrent()) throw new DOMException('Seek cancelled', 'AbortError');
       const runtime = await this.runtimeConfiguration();
       if (!isCurrent()) throw new DOMException('Seek cancelled', 'AbortError');
@@ -425,8 +429,10 @@ export const audioClient: AudioServiceClient = {
         frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)),
       });
       audioState.reconfiguration.schedule = undefined;
-      return snapshot();
-    });
+      const result = await snapshot();
+      if (!isCurrent()) throw new DOMException('Seek cancelled', 'AbortError');
+      return result;
+    }, isCurrent);
   },
 
   stop() {

@@ -202,6 +202,31 @@ export const enqueueAudioOperation = <T>(
 };
 export const waitForAudioOperations = (): Promise<unknown> => operationQueue;
 
+/** Replaces only this owner's adjacent work that has not started; every other operation is a barrier. */
+export const createCoalescedAudioOperation = <T>() => {
+  let pending:
+    | {
+        entry: { work: () => Promise<T> };
+        result: Promise<T>;
+        tail: Promise<unknown>;
+        owner: unknown;
+      }
+    | undefined;
+  return (work: () => Promise<T>, owner?: unknown): Promise<T> => {
+    if (pending?.tail === operationQueue && pending.owner === owner) {
+      pending.entry.work = work;
+      return pending.result;
+    }
+    const entry = { work };
+    const result = enqueueAudioOperation(() => {
+      if (pending?.entry === entry) pending = undefined;
+      return entry.work();
+    });
+    pending = { entry, result, tail: operationQueue, owner };
+    return result;
+  };
+};
+
 export const effectiveConfiguration = (
   configuration = audioState.preferred,
 ): RequestedAudioConfiguration => {
