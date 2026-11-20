@@ -5,6 +5,15 @@ import type {
   RoomSessionScope,
 } from './RoomSessionController';
 
+interface QueuedSettingsChange {
+  scope: RoomSessionScope;
+  targetId: string;
+  initialize: boolean;
+  patch: Partial<RoomVoiceSettings>;
+  edits: Map<keyof RoomVoiceSettings, number>;
+  result: Promise<void>;
+}
+
 /** Publishes the singer's settings and applies room edits to that singer's existing voice chain. */
 export class RoomVoiceSettingsCoordinator {
   private scope: RoomSessionScope | null = null;
@@ -12,6 +21,7 @@ export class RoomVoiceSettingsCoordinator {
   private local: RoomVoiceSettings;
   private initializing = false;
   private tail = Promise.resolve();
+  private queued?: QueuedSettingsChange;
   private readonly pending = new Map<
     keyof RoomVoiceSettings,
     { value: number; edit: number }
@@ -75,25 +85,49 @@ export class RoomVoiceSettingsCoordinator {
   ): Promise<void> {
     const scope = this.scope;
     if (!scope?.isCurrent()) return Promise.resolve();
+    // A drag keeps one latest patch behind the request already in flight. Other singers and
+    // initialization keep their position in the queue; an executing request is never changed.
+    const previous = this.queued;
+    const queued: QueuedSettingsChange =
+      previous?.scope === scope &&
+      previous.targetId === targetId &&
+      !previous.initialize &&
+      !initialize
+        ? previous
+        : {
+            scope,
+            targetId,
+            initialize,
+            patch: {},
+            edits: new Map(),
+            result: this.tail,
+          };
     const edit = ++this.edit;
-    if (targetId === this.participantId)
-      for (const key of Object.keys(patch) as (keyof RoomVoiceSettings)[]) {
-        const value = patch[key];
-        if (value !== undefined) this.pending.set(key, { value, edit });
+    for (const key of Object.keys(patch) as (keyof RoomVoiceSettings)[]) {
+      const value = patch[key];
+      if (value === undefined) continue;
+      queued.patch[key] = value;
+      if (targetId === this.participantId) {
+        this.pending.set(key, { value, edit });
+        queued.edits.set(key, edit);
       }
+    }
+    if (queued === previous) return queued.result;
+    this.queued = queued;
     const clearPending = () => {
-      for (const [key, pending] of this.pending)
-        if (pending.edit === edit) this.pending.delete(key);
+      for (const [key, sentEdit] of queued.edits)
+        if (this.pending.get(key)?.edit === sentEdit) this.pending.delete(key);
     };
     this.tail = this.tail
       .catch(() => undefined)
       .then(async () => {
+        if (this.queued === queued) this.queued = undefined;
         if (!scope.isCurrent()) return;
         try {
           const result = await this.room.updateVoiceSettings(
             scope.code,
             targetId,
-            patch,
+            queued.patch,
             initialize,
           );
           if (!scope.isCurrent()) return;
@@ -128,6 +162,7 @@ export class RoomVoiceSettingsCoordinator {
           throw error;
         }
       });
+    queued.result = this.tail;
     return this.tail;
   }
 }
