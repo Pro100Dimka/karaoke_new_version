@@ -181,7 +181,7 @@ export const resolveLaunchArguments = (
   workingDirectory: string,
 ): string[] =>
   argv.map((argument) =>
-    isAudioArgument(argument)
+    isAudioArgument(argument) && !roomCodeFromLink(argument)
       ? path.resolve(workingDirectory, argument)
       : argument,
   );

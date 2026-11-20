@@ -1,9 +1,11 @@
+import * as path from 'node:path';
 import { expect, it, vi } from 'vitest';
 import {
   DesktopShell,
   commandsFromArguments,
   idleShellStatus,
   parseShellStatus,
+  resolveLaunchArguments,
   roomCodeFromLink,
 } from './DesktopShell';
 
@@ -85,6 +87,25 @@ it('turns launch arguments into commands: links, jump-list tasks and existing au
   expect(commandsFromArguments(['C:/app/AD Voice.exe', '.'], exists)).toEqual(
     [],
   );
+});
+
+it.each([
+  'advoice://room/AB12CD?source=clip.wav',
+  'advoice://room/AB12CD/clip.wav',
+])('preserves invitation priority when resolving launch paths: %s', (link) => {
+  const directory = path.resolve('another-launch-folder');
+  const file = path.join(directory, 'song.wav');
+  const argv = resolveLaunchArguments(
+    [link, '--add-song', 'song.wav'],
+    directory,
+  );
+  expect(
+    commandsFromArguments(argv, (candidate) => candidate === file),
+  ).toEqual([
+    { type: 'joinRoom', code: 'AB12CD' },
+    { type: 'addSong' },
+    { type: 'importFiles', paths: [file] },
+  ]);
 });
 
 it('queues commands until the interface listens and reports only real status changes', () => {
