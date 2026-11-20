@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import queue
 import anyio
 from datetime import datetime
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from typing import Annotated, Literal, Mapping
 
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
@@ -22,6 +21,7 @@ from backend.version import API_VERSION, BACKEND_VERSION
 
 router = APIRouter()
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
+_EVENT_HEARTBEAT_SECONDS = 15
 
 
 @router.get("/storage/free")
@@ -208,12 +208,12 @@ def events(app: ContainerDep) -> StreamingResponse:
     return StreamingResponse(_events(app), media_type="text/event-stream")
 
 
-def _events(app: ApplicationContainer) -> Iterator[str]:
-    with app.events.subscribe() as subscriber:
+async def _events(app: ApplicationContainer) -> AsyncIterator[str]:
+    with app.events.subscribe_async() as subscriber:
         while True:
-            try:
-                event = subscriber.get(timeout=15)
-            except queue.Empty:
+            with anyio.move_on_after(_EVENT_HEARTBEAT_SECONDS) as waiting:
+                event = await subscriber.get()
+            if waiting.cancel_called:
                 yield ": heartbeat\n\n"
                 continue
             payload = {
@@ -221,6 +221,7 @@ def _events(app: ApplicationContainer) -> Iterator[str]:
                 "createdAt": event.created_at,
                 "data": dict(event.data),
             }
+            subscriber.task_done()
             yield f"data: {dumps(payload)}\n\n"
 
 

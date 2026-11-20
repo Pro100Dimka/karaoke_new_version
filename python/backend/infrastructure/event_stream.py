@@ -19,6 +19,14 @@ class BackendEvent:
     data: Mapping[str, object]
 
 
+@dataclass(eq=False, slots=True)
+class _AsyncSubscriber:
+    loop: asyncio.AbstractEventLoop
+    destination: asyncio.Queue[BackendEvent]
+    pending: queue.Queue[BackendEvent]
+    scheduled: bool = False
+
+
 class EventStream:
     def __init__(self, clock: Clock, subscriber_capacity: int = 128) -> None:
         if subscriber_capacity < 1:
@@ -26,9 +34,7 @@ class EventStream:
         self._clock = clock
         self._capacity = subscriber_capacity
         self._subscribers: set[queue.Queue[BackendEvent]] = set()
-        self._async_subscribers: set[
-            tuple[asyncio.AbstractEventLoop, asyncio.Queue[BackendEvent]]
-        ] = set()
+        self._async_subscribers: set[_AsyncSubscriber] = set()
         self._lock = threading.Lock()
 
     def publish(self, event_type: str, data: Mapping[str, object]) -> None:
@@ -37,16 +43,24 @@ class EventStream:
             # Serialize overflow eviction with all publishers; consumers only remove items.
             for subscriber in self._subscribers:
                 self._offer(subscriber, event)
-            for loop, async_subscriber in self._async_subscribers:
+            for entry in self._async_subscribers:
+                # Bound pending work before entering the loop, not just its destination queue.
+                # A stalled loop must not accumulate one callback and payload per progress event.
+                self._offer(entry.pending, event)
+                if entry.scheduled:
+                    continue
+                entry.scheduled = True
                 try:
-                    loop.call_soon_threadsafe(self._offer_async, async_subscriber, event)
+                    entry.loop.call_soon_threadsafe(self._drain_async, entry)
                 except RuntimeError:
                     pass
 
     @contextmanager
     def subscribe_async(self) -> Iterator[asyncio.Queue[BackendEvent]]:
         subscriber: asyncio.Queue[BackendEvent] = asyncio.Queue(maxsize=self._capacity)
-        entry = (asyncio.get_running_loop(), subscriber)
+        entry = _AsyncSubscriber(
+            asyncio.get_running_loop(), subscriber, queue.Queue(maxsize=self._capacity)
+        )
         with self._lock:
             self._async_subscribers.add(entry)
         try:
@@ -54,6 +68,15 @@ class EventStream:
         finally:
             with self._lock:
                 self._async_subscribers.discard(entry)
+
+    def _drain_async(self, subscriber: _AsyncSubscriber) -> None:
+        with self._lock:
+            if subscriber not in self._async_subscribers:
+                return
+            while not subscriber.pending.empty():
+                self._offer_async(subscriber.destination, subscriber.pending.get_nowait())
+                subscriber.pending.task_done()
+            subscriber.scheduled = False
 
     @staticmethod
     def _offer_async(subscriber: asyncio.Queue[BackendEvent], event: BackendEvent) -> None:
