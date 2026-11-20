@@ -162,6 +162,8 @@ def _band_power(
 
 
 class MasterRenderer(Protocol):
+    def _copy_audio(self, source: Path, target: Path, cancel: threading.Event) -> None: ...
+
     def _mix(
         self,
         first: Path,

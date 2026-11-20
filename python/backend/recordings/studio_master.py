@@ -95,6 +95,9 @@ class FfmpegStudioMasterRenderer:
             pitch,
         ).run()
 
+    def _copy_audio(self, source: Path, target: Path, cancel: threading.Event) -> None:
+        self._mix(source, source, "[0:a]anull[out]", ["-c:a", "pcm_f32le", str(target)], cancel)
+
     def _mix(
         self,
         first: Path,
