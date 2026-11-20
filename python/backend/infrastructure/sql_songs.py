@@ -365,9 +365,10 @@ def _cursor_values(
         elif query.sort in ("duration", "bpm"):
             if not isinstance(value, (int, float)) or not math.isfinite(value):
                 raise ValueError("Invalid numeric cursor")
+            value = float(value)
         elif not isinstance(value, str):
             raise ValueError("Invalid text cursor")
-    except (ValueError, TypeError, UnicodeError) as exc:
+    except (ValueError, TypeError, OverflowError, UnicodeError) as exc:
         raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400) from exc
     return value, song_id
 

@@ -125,6 +125,6 @@ def _decode_cursor(cursor: str | None) -> int:
         value = int(base64.b64decode(cursor, altchars=b"-_", validate=True))
     except ValueError as exc:
         raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400) from exc
-    if value < 0:
+    if not 0 <= value <= 2**63 - 1:
         raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400)
     return value
