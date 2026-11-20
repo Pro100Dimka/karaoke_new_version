@@ -139,6 +139,8 @@ export interface NoteProgress {
   matched: number;
   quality: number;
   deviationSum: number;
+  deviationMin: number;
+  deviationMax: number;
   deviations: [deviation: number, seconds: number][];
 }
 
@@ -150,6 +152,8 @@ export const emptyProgress = (): NoteProgress => ({
   matched: 0,
   quality: 0,
   deviationSum: 0,
+  deviationMin: Infinity,
+  deviationMax: -Infinity,
   deviations: [],
 });
 
@@ -163,8 +167,16 @@ export const assessedNoteDuration = (
   return Math.max(duration * 0.25, duration - (progress?.uncertain ?? 0));
 };
 
-export const stableSeconds = (progress: NoteProgress, mean: number): number =>
-  progress.deviations.reduce(
+export const stableSeconds = (progress: NoteProgress, mean: number): number => {
+  const { deviationMin: low, deviationMax: high } = progress;
+  const lowInside = Math.abs(low - mean) <= karaokePitchToleranceSemitones;
+  const highInside = Math.abs(high - mean) <= karaokePitchToleranceSemitones;
+  // Both extrema inside means every captured sample qualifies. `voiced` has the
+  // same chronological addition order as the full reduction, without replaying it.
+  if (lowInside && highInside) return progress.voiced;
+  if ((mean < low && !lowInside) || (mean > high && !highInside)) return 0;
+  // A mixed range still needs the original exact per-sample decision at this mean.
+  return progress.deviations.reduce(
     (seconds, [deviation, duration]) =>
       seconds +
       (Math.abs(deviation - mean) <= karaokePitchToleranceSemitones
@@ -172,6 +184,7 @@ export const stableSeconds = (progress: NoteProgress, mean: number): number =>
         : 0),
     0,
   );
+};
 
 export const scoreNote = (
   note: ShowNote,
@@ -217,24 +230,22 @@ export const totalNoteScore = (
   rhythmIntersection: number,
   rhythmUnion: number,
 ): KaraokeNoteScore => {
-  const sum = (value: (progress: NoteProgress) => number) =>
-    seen.reduce((total, { progress }) => total + value(progress), 0);
-  const voiced = sum((progress) => progress.voiced);
-  const evaluated = sum((progress) => progress.evaluated);
-  const mean =
-    voiced > 0 ? sum((progress) => progress.deviationSum) / voiced : 0;
-  return {
-    version: 3,
-    ...(ignoreSilence ? { ignoreSilence: true } : {}),
-    expectedPitchSeconds: evaluated + sum((progress) => progress.uncertain),
-    assessedPitchSeconds: evaluated,
-    pitchAccuracyPercent:
-      evaluated > 0
-        ? 100 * Math.min(1, sum((progress) => progress.matched) / evaluated)
-        : 0,
-    meanSemitoneDeviation:
-      sum((progress) => progress.absoluteDeviation) / Math.max(0.001, voiced),
-    hitNotes: seen.filter(({ note, progress }) =>
+  let voiced = 0,
+    evaluated = 0,
+    uncertain = 0,
+    matched = 0,
+    absoluteDeviation = 0,
+    deviationSum = 0,
+    hitNotes = 0;
+  // Preserve each field's note order while visiting the score entries only once.
+  for (const { note, progress } of seen) {
+    voiced += progress.voiced;
+    evaluated += progress.evaluated;
+    uncertain += progress.uncertain;
+    matched += progress.matched;
+    absoluteDeviation += progress.absoluteDeviation;
+    deviationSum += progress.deviationSum;
+    if (
       noteHitReached(
         progress.matched,
         assessedNoteDuration(
@@ -243,15 +254,26 @@ export const totalNoteScore = (
           durations.get(note),
           ignoreSilence,
         ),
-      ),
-    ).length,
+      )
+    )
+      hitNotes++;
+  }
+  const mean = voiced > 0 ? deviationSum / voiced : 0;
+  let stable = 0;
+  if (voiced > 0)
+    for (const { progress } of seen) stable += stableSeconds(progress, mean);
+  return {
+    version: 3,
+    ...(ignoreSilence ? { ignoreSilence: true } : {}),
+    expectedPitchSeconds: evaluated + uncertain,
+    assessedPitchSeconds: evaluated,
+    pitchAccuracyPercent:
+      evaluated > 0 ? 100 * Math.min(1, matched / evaluated) : 0,
+    meanSemitoneDeviation: absoluteDeviation / Math.max(0.001, voiced),
+    hitNotes,
     totalNotes: seen.length,
     rhythmAccuracyPercent:
       rhythmUnion > 0 ? 100 * Math.min(1, rhythmIntersection / rhythmUnion) : 0,
-    noteStabilityPercent:
-      voiced > 0
-        ? 100 *
-          Math.min(1, sum((progress) => stableSeconds(progress, mean)) / voiced)
-        : 0,
+    noteStabilityPercent: voiced > 0 ? 100 * Math.min(1, stable / voiced) : 0,
   };
 };

@@ -229,6 +229,8 @@ export class PerformanceTracker {
           progress.matched += overlap;
         progress.quality += quality * overlap;
         progress.deviationSum += deviation * overlap;
+        progress.deviationMin = Math.min(progress.deviationMin, deviation);
+        progress.deviationMax = Math.max(progress.deviationMax, deviation);
         progress.deviations.push([deviation, overlap]);
       }
       this.progress.set(active.id, progress);
