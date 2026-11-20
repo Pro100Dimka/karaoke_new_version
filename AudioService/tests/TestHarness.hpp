@@ -95,6 +95,7 @@ void nativeVoiceRelayReleasesOrderedSingingMixesAtTheFixedDeadline();
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues();
 void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress();
 void nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift();
+void nativeVoiceRelaySequenceWrapPreservesMissingPositions();
 void nativeVoiceRelayEchoesTheAuthenticatedSenderForRouteMeasurement();
 void nativeVoiceRelayEchoesTheSenderEvenWhenThePacketCompletesAMix();
 void nativeVoiceRelayReportsItsRecipientSendCadence();

@@ -1208,6 +1208,46 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
            "discarding stale scheduled positions re-anchors the pacer at the current timeline");
 }
 
+void nativeVoiceRelaySequenceWrapPreservesMissingPositions() {
+    NativeVoiceRelay relay;
+    configureTwoSingerRoom(relay);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    constexpr auto base = (static_cast<std::uint64_t>(UINT32_MAX) - 1U) * SharedRoomPacketFrames;
+    AdaptiveJitterBuffer receiver;
+    receiver.configure(1, 12);
+    receiver.reset();
+    for (const auto index : {0U, 1U, 3U}) {
+        const auto position = base + index * SharedRoomPacketFrames;
+        const auto wall = static_cast<double>(position) / VoiceProtocolSampleRateHz;
+        const auto monotonic = 10.0 + index * 0.0025;
+        (void)relay.receive(packet("alice", 0x1111, index, position, 100), alice,
+                            monotonic, wall);
+        const auto output = relay.receive(packet("bob", 0x2222, index, position, 1'000), bob,
+                                           monotonic + 0.0001, wall + 0.0001);
+        AudioPacketHeader header{};
+        require(decodeAudioPacketHeader(forTarget(output, alice).bytes, header),
+                "the relay sends a decodable mix across the sequence boundary");
+        expect(header.sequence == static_cast<std::uint32_t>(UINT32_MAX - 1U + index),
+               "the wire sequence wraps while the musical timestamp remains continuous");
+        receiver.push({header.sequence, header.timestampFrame, header.channels, header.frames,
+                       {}, header.codec});
+        NetworkAudioPacket received{};
+        if (index == 3U) {
+            require(receiver.pop(received) == JitterPopOutcome::Lost,
+                    "a missing sequence zero is detected across wrap");
+            expect(received.sequence == 0 &&
+                       (received.timestampFrame & ~SharedAudioTimelineFlag) ==
+                           base + 2U * SharedRoomPacketFrames,
+                   "the missing packet keeps its musical position at wrap");
+        }
+        require(receiver.pop(received) == JitterPopOutcome::Delivered,
+                "the current mix is accepted after sequence wrap");
+        expect(received.timestampFrame == header.timestampFrame,
+               "wrap does not shift the delivered mix");
+    }
+}
+
 void nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift() {
     NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
@@ -1426,6 +1466,8 @@ void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek() {
     expect(decodeAudioPacketHeader(forTarget(output, alice).bytes, header) &&
                header.streamEpoch == 2,
            "a backward seek starts a fresh server mix generation");
+    expect(header.sequence == seekPosition / SharedRoomPacketFrames,
+           "the new generation uses its musical position rather than the retired send counter");
     expect(std::ranges::all_of(samples(forTarget(output, bob).bytes),
                                [](auto value) { return value == 200; }),
            "retained positions from before a seek cannot affect the resumed mix");

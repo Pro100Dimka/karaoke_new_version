@@ -148,6 +148,8 @@ constexpr std::array tests{
          Tests::nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress},
     Test{"nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift",
          Tests::nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift},
+    Test{"nativeVoiceRelaySequenceWrapPreservesMissingPositions",
+         Tests::nativeVoiceRelaySequenceWrapPreservesMissingPositions},
     Test{"nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient",
          Tests::nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient},
     Test{"nativeVoiceRelayKeepsOnTimeSingingPositionsInRecipientOrder",
