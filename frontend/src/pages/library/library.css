@@ -1,5 +1,10 @@
 /* The library page: identity and headline numbers, the toolbar, then the songs as a grid of
    Neo UI cards. Only layout and the song card's own scene live here. */
+.routeSurface:has(> .libraryPage) {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .dropOverlay {
   position: absolute;
   inset: 0.75rem;
