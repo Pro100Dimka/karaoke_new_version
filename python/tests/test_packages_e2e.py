@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import httpx
 import pytest
 import json
 import shutil
@@ -7,8 +9,11 @@ import sqlite3
 import zipfile
 import threading
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
+from backend.infrastructure.artwork_cache import ArtworkCache
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
@@ -556,6 +561,38 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
 def test_exported_package_preserves_recognized_song_metadata(tmp_path: Path) -> None:
     source = tmp_path / "recognized.wav"
     write_wav(source)
+    remote_cover = "https://images.example/cover.jpg"
+    image = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKElEQVR4nO3NMQ0AAAgD"
+        "sOnEvw+mgoOkSf8ms7cEAoFAIBAIBALBl6A6NGRMj43CRwAAAABJRU5ErkJggg=="
+    )
+    requested: list[str] = []
+
+    def catalog(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        assert str(request.url) == remote_cover
+        return httpx.Response(200, headers={"content-type": "image/png"}, content=image)
+
+    def assert_cover(client, song) -> None:
+        container = client.app.state.container
+        with container.database.create() as transaction:
+            stored = transaction.songs.get(song["songId"])
+            assert stored is not None
+            assert stored.artwork_url == remote_cover
+        url = urlsplit(song["artworkUrl"])
+        assert url._replace(query="").geturl() == (
+            f"http://testserver/songs/{song['songId']}/cover"
+        )
+        assert datetime.fromisoformat(parse_qs(url.query)["v"][0]) == datetime.fromisoformat(
+            song["updatedAt"]
+        )
+        container.artwork = ArtworkCache(
+            container.roots.cache / "artwork", httpx.MockTransport(catalog)
+        )
+        served = client.get(song["artworkUrl"])
+        assert served.status_code == 200, served.text
+        assert served.content == image
+
     with app_client(
         tmp_path / "source-runtime",
         ai_providers=(FakeAiProvider(),),
@@ -563,6 +600,11 @@ def test_exported_package_preserves_recognized_song_metadata(tmp_path: Path) -> 
     ) as source_client:
         song, package = make_ready_and_export(source_client, source)
         source_song = source_client.get(f"/songs/{song['songId']}").json()
+        assert_cover(source_client, source_song)
+
+    identity = _package_json(package)["songIdentity"]
+    assert identity["artworkUrl"] == remote_cover
+    assert identity["recognitionExternalId"] == "track-123"
 
     with app_client(tmp_path / "target-runtime") as target_client:
         started = target_client.post(
@@ -572,18 +614,19 @@ def test_exported_package_preserves_recognized_song_metadata(tmp_path: Path) -> 
         job = wait_for_job(target_client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
         imported = target_client.get(f"/songs/{song['songId']}").json()
+        assert_cover(target_client, imported)
 
+    assert requested == [remote_cover, remote_cover]
+    # The canonical artwork identity survives import; its local serving URL uses the target's version.
     for field in (
         "title",
         "artist",
         "album",
         "genre",
-        "artworkUrl",
         "videoUrl",
         "recognitionProvider",
     ):
         assert imported[field] == source_song[field], field
-    assert _package_json(package)["songIdentity"]["recognitionExternalId"] == "track-123"
 
 
 def test_checksum_failure_does_not_publish_song(tmp_path: Path) -> None:
