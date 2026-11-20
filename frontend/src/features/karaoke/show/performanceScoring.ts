@@ -167,6 +167,20 @@ export const assessedNoteDuration = (
   return Math.max(duration * 0.25, duration - (progress?.uncertain ?? 0));
 };
 
+// Samples are append-only. A completed note's exact sum can be retained while
+// the moving overall mean leaves the same samples inside the tolerance band.
+const stability = new WeakMap<
+  NoteProgress,
+  {
+    count: number;
+    seconds: number;
+    insideLow: number;
+    insideHigh: number;
+    outsideLow: number;
+    outsideHigh: number;
+  }
+>();
+
 export const stableSeconds = (progress: NoteProgress, mean: number): number => {
   const { deviationMin: low, deviationMax: high } = progress;
   const lowInside = Math.abs(low - mean) <= karaokePitchToleranceSemitones;
@@ -175,15 +189,46 @@ export const stableSeconds = (progress: NoteProgress, mean: number): number => {
   // same chronological addition order as the full reduction, without replaying it.
   if (lowInside && highInside) return progress.voiced;
   if ((mean < low && !lowInside) || (mean > high && !highInside)) return 0;
-  // A mixed range still needs the original exact per-sample decision at this mean.
-  return progress.deviations.reduce(
-    (seconds, [deviation, duration]) =>
-      seconds +
-      (Math.abs(deviation - mean) <= karaokePitchToleranceSemitones
-        ? duration
-        : 0),
-    0,
-  );
+  const cached = stability.get(progress);
+  if (
+    cached &&
+    cached.count === progress.deviations.length &&
+    (cached.insideLow === Infinity ||
+      (Math.abs(cached.insideLow - mean) <= karaokePitchToleranceSemitones &&
+        Math.abs(cached.insideHigh - mean) <=
+          karaokePitchToleranceSemitones)) &&
+    mean > cached.outsideLow &&
+    Math.abs(cached.outsideLow - mean) > karaokePitchToleranceSemitones &&
+    mean < cached.outsideHigh &&
+    Math.abs(cached.outsideHigh - mean) > karaokePitchToleranceSemitones
+  )
+    return cached.seconds;
+
+  const next = {
+    count: progress.deviations.length,
+    seconds: 0,
+    insideLow: Infinity,
+    insideHigh: -Infinity,
+    outsideLow: -Infinity,
+    outsideHigh: Infinity,
+  };
+  for (const [deviation, duration] of progress.deviations) {
+    const inside = Math.abs(deviation - mean) <= karaokePitchToleranceSemitones;
+    // Keep the original chronological addition, including rejected samples.
+    next.seconds += inside ? duration : 0;
+    if (inside) {
+      next.insideLow = Math.min(next.insideLow, deviation);
+      next.insideHigh = Math.max(next.insideHigh, deviation);
+    } else if (deviation < mean) {
+      next.outsideLow = Math.max(next.outsideLow, deviation);
+    } else if (deviation > mean) {
+      next.outsideHigh = Math.min(next.outsideHigh, deviation);
+    }
+  }
+  // NaN/Infinity cannot define a reusable band; finite requests still use the
+  // ordinary comparisons above, preserving their exact boundary behavior.
+  if (Number.isFinite(mean)) stability.set(progress, next);
+  return next.seconds;
 };
 
 export const scoreNote = (

@@ -48,6 +48,45 @@ it('does not revisit five minutes of stable pitch samples on each new frame', ()
   expect(reads).toBeLessThan(1000);
 });
 
+it('does not replay completed mixed-pitch notes while their stability membership is unchanged', () => {
+  let reads = 0;
+  const empty = scoring.emptyProgress;
+  vi.spyOn(scoring, 'emptyProgress').mockImplementation(() => {
+    const progress = empty();
+    progress.deviations = new Proxy(progress.deviations, {
+      get(target, key, receiver) {
+        if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    return progress;
+  });
+  const tracker = new PerformanceTracker();
+  tracker.load(
+    Array.from({ length: 620 }, (_, index) => ({
+      id: `n${index}`,
+      start: index / 2,
+      end: index / 2 + 0.48,
+      pitch: 60,
+    })),
+    [],
+  );
+  const pitch = (frame: number) =>
+    440 * 2 ** ((60 + 2 * Math.sin(frame * 0.13) - 69) / 12);
+  for (let frame = 0; frame <= 18000; frame++)
+    tracker.update(frame / 60, pitch(frame));
+  expect(tracker.noteScore.noteStabilityPercent).toBeGreaterThan(0);
+  expect(tracker.noteScore.noteStabilityPercent).toBeLessThan(100);
+  reads = 0;
+  for (let frame = 18001; frame <= 18120; frame++) {
+    tracker.update(frame / 60, pitch(frame));
+    expect(tracker.noteScore.noteStabilityPercent).toBeGreaterThan(0);
+  }
+  // Reclassify the current note and any boundary actually crossed by the mean,
+  // rather than visiting ~18,000 old samples on all 120 new frames.
+  expect(reads).toBeLessThan(20000);
+});
+
 const stableReference = (progress: scoring.NoteProgress, mean: number) =>
   progress.deviations.reduce(
     (seconds, [deviation, duration]) =>
@@ -118,6 +157,49 @@ it('preserves exact stability at both tolerance edges, shifted means and mixed r
         stableReference(progress, center),
       );
   }
+});
+
+it('keeps cached mixed-pitch sums exact as the mean touches or jumps across tolerance boundaries', () => {
+  const progress = progressOf([
+    [-4, 0.016],
+    [-1 - Number.EPSILON, 0.017],
+    [-1, 0.018],
+    [-0.2, 0.019],
+    [0, 0.02],
+    [0.3, 0.021],
+    [1, 0.022],
+    [1 + Number.EPSILON, 0.023],
+    [4, 0.024],
+  ]);
+  const centers = [
+    0,
+    Number.EPSILON,
+    -Number.EPSILON,
+    0.01,
+    0.02,
+    0.3,
+    -0.3,
+    10,
+    -10,
+    3,
+    -3,
+    NaN,
+    Infinity,
+    -Infinity,
+    0,
+  ];
+  for (const mean of centers)
+    expect(scoring.stableSeconds(progress, mean)).toBe(
+      stableReference(progress, mean),
+    );
+
+  // An appended voiced sample must invalidate the previously classified sum.
+  progress.deviations.push([0.5, 0.013]);
+  progress.voiced += 0.013;
+  for (const mean of centers)
+    expect(scoring.stableSeconds(progress, mean)).toBe(
+      stableReference(progress, mean),
+    );
 });
 
 /** Original independent per-field reductions, including their exact addition order. */
