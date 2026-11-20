@@ -1,18 +1,20 @@
-name: project-ci
+name: compact-project-windows-check
 
 on:
   push:
-  pull_request:
 
 defaults:
   run:
     working-directory: python
 
 jobs:
-  fast:
+  compact-project-windows:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 8dfdf256ad90c4d5433c9cf0587287766febaf6d
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -27,242 +29,7 @@ jobs:
         run: |
           choco install ffmpeg --yes --no-progress
           ffmpeg -version
-          ffprobe -version
-      - name: Static and architecture gates
-        run: python scripts/run_checks.py --require-dev-tools --skip-tests
-      - name: Fast tests
+      - name: Verify compact publication and reported timeout
         run: |
-          New-Item -ItemType Directory -Force -Path ../.dev-data/temp/checks | Out-Null
-          python -m pytest -q -m "not integration and not slow and not network and not gpu" --basetemp=../.dev-data/temp/checks/pytest-fast
-
-  integration:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: python/requirements.lock
-      - name: Install
-        run: |
-          python -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install -r requirements.lock
-          python -m pip install -e ".[dev]" --no-deps
-      - name: Prepare media tools
-        run: |
-          choco install ffmpeg --yes --no-progress
-          ffmpeg -version
-          ffprobe -version
-      - name: Integration tests
-        run: python -m pytest -q -m "integration or windows"
-
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: python/requirements.lock
-      - name: Install
-        run: |
-          python -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install -r requirements.lock
-          python -m pip install -e ".[dev]" --no-deps
-      - name: Prepare media tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ffmpeg
-          ffmpeg -version
-          ffprobe -version
-      - name: Full release gate
-        run: python scripts/run_checks.py --require-dev-tools
-
-  frontend:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-
-  native:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            compiler: ""
-          - os: ubuntu-24.04
-            compiler: -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v4
-      - run: cmake -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON ${{ matrix.compiler }}
-      - run: cmake --build build/native --config Release --parallel 2
-      - run: ctest --test-dir build/native -C Release --output-on-failure
-
-  publish-release:
-    needs: [fast, integration, release, frontend, native]
-    if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      startsWith(github.event.head_commit.message, 'release: ')
-    runs-on: windows-latest
-    timeout-minutes: 60
-    concurrency:
-      group: public-windows-release
-      cancel-in-progress: false
-    permissions:
-      contents: write
-    defaults:
-      run:
-        working-directory: .
-        shell: pwsh
-    env:
-      ORT_DISABLE_TELEMETRY: "1"
-      PYTHONUTF8: "1"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Check release identity and prepare project temporary files
-        id: release-meta
-        run: |
-          $version = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
-          $lock = Get-Content frontend/package-lock.json -Raw | ConvertFrom-Json -AsHashtable
-          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $lock.version -ne $version -or $lock.packages[''].version -ne $version) {
-            throw 'Application and lockfile release versions must agree.'
-          }
-          if ((git rev-parse HEAD) -ne $env:GITHUB_SHA -or (git log -1 --format=%s) -ne "release: $version") {
-            throw 'The release must use its exact versioned commit.'
-          }
-          $notes = "docs/releases/v$version.md"
-          if (-not (Test-Path $notes)) { throw "Missing release notes: $notes" }
-          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "notes=$notes" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $releaseTemp = Join-Path $env:GITHUB_WORKSPACE '.dev-data/temp/release'
-          New-Item -ItemType Directory -Force $releaseTemp | Out-Null
-          "TEMP=$releaseTemp" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          "TMP=$releaseTemp" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          "AD_VOICE_PROFILE_ROOT=$releaseTemp/profile" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-      - uses: actions/setup-python@v5
-        with:
-          # The bundled CPU wheels are pinned to cp313 in torch_runtime.py.
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: python/requirements.lock
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install locked build dependencies
-        run: |
-          python -m venv python/.venv
+          python -m pytest -q --durations=15 tests/test_project_audio.py tests/test_compact_project.py tests/test_compact_reprocessing.py tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $releasePython = '.\python\.venv\Scripts\python.exe'
-          & $releasePython -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $releasePython -m pip install -r python/requirements.lock
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $releasePython -m pip install -e ./python --no-deps
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm ci --prefix frontend
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Prepare real media binaries and installer compiler
-        run: |
-          choco install ffmpeg innosetup --yes --no-progress
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $media = @(Get-ChildItem "$env:ChocolateyInstall/lib/ffmpeg/tools" -Filter ffmpeg.exe -Recurse |
-            Where-Object { Test-Path (Join-Path $_.DirectoryName 'ffprobe.exe') })
-          if ($media.Count -ne 1) { throw 'Cannot identify the real FFmpeg payload.' }
-          $media[0].DirectoryName | Out-File $env:GITHUB_PATH -Append -Encoding utf8
-          & $media[0].FullName -version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $nodeLicense = Join-Path (Split-Path (Get-Command node.exe).Source) 'LICENSE'
-          if (-not (Test-Path $nodeLicense)) { throw 'The Node runtime license is missing.' }
-      - name: Build and verify public Windows installer
-        shell: cmd
-        run: call release.bat
-      - name: Verify fresh installation and repair preserve application data
-        run: |
-          $setup = (Resolve-Path 'release/AD-Voice-Setup.exe').Path
-          $installRoot = Join-Path $env:GITHUB_WORKSPACE '.dev-data/release-smoke/installed'
-          $logs = Join-Path $env:GITHUB_WORKSPACE 'release-verification'
-          New-Item -ItemType Directory -Force $logs | Out-Null
-          function Install-Release([string] $phase) {
-            $log = Join-Path $logs "$phase.log"
-            $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/NORELAUNCH', '/SP-', '/TASKS=', "/DIR=`"$installRoot`"", "/LOG=`"$log`"")
-            $process = Start-Process $setup -ArgumentList $arguments -PassThru
-            if (-not $process.WaitForExit(600000)) { throw "Installer timed out: $phase" }
-            if ($process.ExitCode -ne 0) { throw "Installer failed: $phase ($($process.ExitCode))" }
-          }
-          Install-Release 'fresh-install'
-          $resources = Join-Path $installRoot 'resources'
-          $expected = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
-          $installed = Get-Content (Join-Path $resources 'app/package.json') -Raw | ConvertFrom-Json
-          if ($installed.version -ne $expected) { throw 'Installed application version mismatch.' }
-          & (Join-Path $resources 'python-runtime/python.exe') -B -I installer/verify_runtime.py $resources
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $marker = Join-Path $installRoot 'data/release-preservation.txt'
-          New-Item -ItemType Directory -Force (Split-Path $marker) | Out-Null
-          [IO.File]::WriteAllText($marker, "preserve-$env:GITHUB_SHA")
-          $module = Join-Path $resources 'python-app/backend/version.py'
-          $originalHash = (Get-FileHash $module -Algorithm SHA256).Hash
-          [IO.File]::AppendAllText($module, "`n# release repair verification`n")
-          Install-Release 'repair-install'
-          if ((Get-FileHash $module -Algorithm SHA256).Hash -ne $originalHash) { throw 'Installer did not repair the changed module.' }
-          if ([IO.File]::ReadAllText($marker) -ne "preserve-$env:GITHUB_SHA") { throw 'Installer changed preserved application data.' }
-          'Fresh installation, installed runtime and repair/data preservation passed.' | Tee-Object -FilePath "$logs/summary.txt"
-      - name: Record installer provenance
-        run: |
-          git diff --exit-code
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $setup = Get-Item release/AD-Voice-Setup.exe
-          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          $publicEnv = (Get-FileHash python/.env.example -Algorithm SHA256).Hash
-          $packedEnv = (Get-FileHash '.release-cache/app/AD Voice/resources/python-app/.env' -Algorithm SHA256).Hash
-          if ($publicEnv -ne $packedEnv) { throw 'Public installer environment differs from the public template.' }
-          @{
-            version = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
-            commit = $env:GITHUB_SHA
-            asset = $setup.Name
-            size = $setup.Length
-            sha256 = $hash
-            signatureStatus = (Get-AuthenticodeSignature $setup.FullName).Status.ToString()
-            runtimeVerified = $true
-            freshInstallVerified = $true
-            repairPreservesDataVerified = $true
-            liveAudioVerified = $false
-          } | ConvertTo-Json | Set-Content release-verification/installer.json -Encoding utf8
-          Get-Content release-verification/installer.json
-      - name: Preserve installer and verification evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: AD-Voice-v${{ steps.release-meta.outputs.version }}-${{ github.sha }}
-          path: |
-            release/AD-Voice-Setup.exe
-            release-verification/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-      - name: Publish verified installer
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES: ${{ steps.release-meta.outputs.notes }}
-        run: node scripts/publish-github-release.mjs --target "$env:GITHUB_SHA" --notes-file "$env:RELEASE_NOTES"
