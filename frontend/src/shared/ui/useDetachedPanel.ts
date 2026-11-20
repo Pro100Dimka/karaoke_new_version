@@ -246,7 +246,11 @@ export const useDetachedPanel = (
         );
       // The screen may move to a TV and back while this panel stays open.
       panel.addEventListener('keydown', (event) => {
-        if (keyBelongsToControl(event.target, event.key)) return;
+        if (
+          event.defaultPrevented ||
+          keyBelongsToControl(event.target, event.key)
+        )
+          return;
         const forwarded = new KeyboardEvent('keydown', {
           key: event.key,
           code: event.code,
