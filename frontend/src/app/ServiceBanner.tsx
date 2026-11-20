@@ -58,7 +58,7 @@ export const ServiceBanner = observer(() => {
   const download = useUpdateDownload();
   const { pathname } = useRouter();
   const notify = useNotify();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   const downloading = typeof download === 'number';
   const version = update ?? available;
@@ -99,7 +99,7 @@ export const ServiceBanner = observer(() => {
       {version &&
         (downloading ||
           update ||
-          (!dismissed && pathname === routes.library)) && (
+          (version !== dismissedVersion && pathname === routes.library)) && (
           <MessageBar
             tone="info"
             action={
@@ -110,7 +110,7 @@ export const ServiceBanner = observer(() => {
                       size="sm"
                       variant="ghost"
                       disabled={installing}
-                      onClick={() => setDismissed(true)}
+                      onClick={() => setDismissedVersion(version)}
                       label={tr('Отклонить')}
                     />
                   )}
