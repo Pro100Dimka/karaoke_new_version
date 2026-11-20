@@ -96,12 +96,12 @@ def test_change_wake_cursor_cannot_relabel_a_newer_room_snapshot(
     captured_cursor = repository.version(room.room_id)
     saved: list[Room] = []
 
-    def change_after_cursor(room_id: str, after: int, timeout: float = 25.0) -> int:
+    async def change_after_cursor(room_id: str, after: int, timeout: float = 25.0) -> int:
         assert room_id == room.room_id and after == 0
         saved.append(_shared(cases, room_id, "collaborator"))
         return captured_cursor
 
-    monkeypatch.setattr(repository, "wait_for_change", change_after_cursor)
+    monkeypatch.setattr(repository, "wait_for_change_async", change_after_cursor)
     with TestClient(_app(cases, repository)) as client:
         response = client.get(
             f"/rooms/{room.room_id}/changes", params={"participantId": "host", "after": 0}

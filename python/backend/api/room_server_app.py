@@ -205,7 +205,7 @@ def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> Non
     ) -> dict[str, object]:
         room_id = normalize_room_id(room_id)
         await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
-        version = await anyio.to_thread.run_sync(lambda: repository.wait_for_change(room_id, after))
+        version = await repository.wait_for_change_async(room_id, after)
         room = await anyio.to_thread.run_sync(repository.get, room_id)
         if room is None:
             return {"version": version, "room": None}
