@@ -190,6 +190,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/media/MediaFoundationTests.cpp
         tests/devices/WindowsDeviceTests.cpp
         tests/recording/RecordingTests.cpp
+        tests/recording/RecordingCaptureBoundaryTests.cpp
         tests/dsp/DspTests.cpp
         tests/dsp/LoudnessTests.cpp
         tests/ipc/ProtocolTests.cpp

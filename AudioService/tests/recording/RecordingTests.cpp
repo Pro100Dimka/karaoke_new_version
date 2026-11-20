@@ -9,6 +9,7 @@
 #include "recording/RecordingEngine.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cfenv>
 #include <chrono>
 #include <filesystem>
@@ -1184,6 +1185,206 @@ void performanceTeardownRetainsCapturedVoiceBeforeCutoff() {
                    std::equal(pending.performance.begin(), pending.performance.end(),
                               rendered.performance.begin(), same),
                "teardown must retain accepted capture PCM that aligns before the original cutoff");
+    }
+}
+
+void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
+    constexpr std::uint32_t Rate = 48'000, Late = 1'440, DuringFinish = 16, AfterFinish = 8;
+    constexpr double Pi = 3.14159265358979323846;
+    struct Saved {
+        std::vector<float> audible, dry, backing, performance;
+    };
+    for (const auto block : {128U, 480U}) {
+        const auto cutoff = block * 64;
+        const auto total = cutoff + (DuringFinish + AfterFinish) * block;
+        const auto source = tempRoot / ("live-finish-source-" + std::to_string(block) + ".wav");
+        makeTestWav(source, total + block, Rate);
+        const auto run = [&](bool pause, bool reference) {
+            FakeBackendSettings settings;
+            settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = block;
+            settings.runtime.inputEndpointBufferFrames = settings.runtime.outputEndpointBufferFrames =
+                block * 2;
+            settings.runtime.clockRelationship = ClockRelationship::Independent;
+            AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+            service.start();
+            (void)service.session().prepare({});
+            service.session().start();
+            auto& engine = service.realtime();
+            engine.setDspEnabled(false);
+            engine.setMonitoring(true);
+            engine.setSystemGain(1);
+            const auto generation = service.session().generationId();
+            service.media().load(MediaSlot::Music, source.string());
+            require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                    "the live-finish fixture needs decoded accompaniment");
+            const auto path = tempRoot / ("live-finish-" + std::to_string(block) + "-" +
+                                         std::to_string(pause) + "-" + std::to_string(reference) + ".wav");
+            require(service.handleLine("1|PrepareRecording|id=live-finish|tap=performance|backing=true|path=" +
+                                        path.string()).status == ControlStatus::Ok &&
+                        service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                    "the live paired performance starts before the pending marker");
+            service.media().play(MediaContext::Karaoke);
+            // The paired traces use the same 100-ns rounding phase at fractional periods.
+            const auto origin = monotonicTicksNow() / 100 * 100 - 5'000'000'000LL;
+            std::vector<float> input(block), output(block * 2);
+            Saved saved;
+            const auto capture = [&](std::uint32_t frame, bool marker = false) {
+                std::fill(input.begin(), input.end(), 0.0F);
+                if (marker)
+                    for (std::uint32_t index = 0; index < block / 2; ++index)
+                        input[block / 4 + index] = static_cast<float>(
+                            0.1 * (1.0 - std::cos(2.0 * Pi * index / (block / 2 - 1))) *
+                            std::sin(2.0 * Pi * 1'000.0 * index / Rate));
+                const auto ticks = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / Rate;
+                engine.onCapture(generation, {input.data(), nullptr, block, 1, frame,
+                                               ticks / 100, 0, 0, ticks});
+            };
+            const auto render = [&](std::uint32_t frame) {
+                const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+                while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < block &&
+                       std::chrono::steady_clock::now() < ready)
+                    std::this_thread::yield();
+                require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= block,
+                        "a live-finish callback has decoded PCM available");
+                const auto presentation = origin + static_cast<MonotonicTicks>(frame + Late) *
+                                                       1'000'000'000LL / Rate;
+                const auto clock = origin + static_cast<MonotonicTicks>(frame + block) *
+                                                1'000'000'000LL / Rate;
+                engine.onRender(generation, {nullptr, output.data(), block, 2, frame,
+                                              clock / 100, 0, presentation});
+                saved.audible.insert(saved.audible.end(), output.begin(), output.end());
+            };
+            for (std::uint32_t frame = 0; frame < cutoff; frame += block) {
+                capture(frame);
+                render(frame);
+            }
+            const auto beforeMarker = engine.snapshot();
+            const auto retainedBeforeMarker = beforeMarker.clockBridge.fillFrames;
+            capture(cutoff, true);
+            require(engine.snapshot().clockBridge.fillFrames == retainedBeforeMarker + block,
+                    "the marker is accepted before requesting the fixed recording boundary");
+            const auto continueAudio = [&] {
+                for (std::uint32_t index = 0; index < DuringFinish; ++index) {
+                    const auto frame = cutoff + index * block;
+                    if (index != 0)
+                        capture(frame);
+                    render(frame);
+                }
+            };
+            if (reference) {
+                continueAudio();
+            } else {
+                RecordingTestAccess::holdPerformanceReader(engine);
+                std::atomic<bool> completed{false};
+                ControlResponse response;
+                std::thread control([&] {
+                    response = service.handleLine(pause ? "1|PauseRecording" : "1|StopRecording");
+                    completed.store(true, std::memory_order_release);
+                });
+                struct JoinControl {
+                    RealtimeEngine& engine;
+                    std::thread& thread;
+                    bool held{true};
+                    void finish() {
+                        if (held) {
+                            RecordingTestAccess::releasePerformanceReader(engine);
+                            held = false;
+                        }
+                        if (thread.joinable()) thread.join();
+                    }
+                    ~JoinControl() { finish(); }
+                } join{engine, control};
+                const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+                while (!engine.recordingFinishPending() && !completed.load(std::memory_order_acquire) &&
+                       std::chrono::steady_clock::now() < ready)
+                    std::this_thread::yield();
+                require(engine.recordingFinishPending(),
+                        "the live command publishes its capture boundary before the next render");
+                RealtimeInstrumentation::reset();
+                continueAudio();
+                const auto violations = RealtimeInstrumentation::snapshot();
+                const std::array counters{violations.allocations, violations.deallocations,
+                    violations.blockingCalls, violations.diskIoCalls, violations.networkIoCalls,
+                    violations.ipcCalls};
+                expect(std::ranges::all_of(counters, [](auto count) { return count == 0; }),
+                       "pending finish and acknowledged drain never block or allocate in audio callbacks");
+                expect(!engine.recordingFinishPending() &&
+                           RecordingTestAccess::performanceSuspended(engine) &&
+                           !completed.load(std::memory_order_acquire),
+                       "render acknowledges the capture boundary while control still waits for its lease");
+                join.finish();
+                require(response.status == ControlStatus::Ok &&
+                            service.session().state() == SessionState::Running &&
+                            service.session().generationId() == generation,
+                        "normal recording finish keeps the original audio session running");
+                const auto result = service.recording().result();
+                if (pause) {
+                    expect(service.recording().state() == RecordingState::Paused && !result.finalized,
+                           "pausing preserves the open take while playback has already advanced");
+                    require(service.handleLine("1|ResumeRecording").status == ControlStatus::Ok,
+                            "the same take resumes after the captured tail is preserved");
+                } else {
+                    expect(result.durationFrames == cutoff && result.stopSessionFrame == SessionFrame{cutoff},
+                           "continuing playback cannot move the original recording cutoff");
+                }
+            }
+            for (std::uint32_t index = 0; index < AfterFinish; ++index) {
+                const auto frame = cutoff + (DuringFinish + index) * block;
+                capture(frame);
+                render(frame);
+            }
+            const auto before = engine.snapshot();
+            require(engine.sessionFrame() == SessionFrame{total} && before.captureOverruns == 0 &&
+                        before.micInsertedSilenceFrames == beforeMarker.micInsertedSilenceFrames,
+                    "recording control cannot add playback/microphone gaps: block=" + std::to_string(block) +
+                        " reference=" + std::to_string(reference) + " initial=" +
+                        std::to_string(beforeMarker.micInsertedSilenceFrames) + " final=" +
+                        std::to_string(before.micInsertedSilenceFrames));
+            service.session().stop();
+            const auto result = service.recording().result();
+            const auto frames = reference ? total : cutoff + (pause ? AfterFinish * block : 0U);
+            require(result.finalized && result.durationFrames == frames && result.overrunCount == 0,
+                    "only the intended recording intervals reach the finalized file");
+            if (pause && !reference)
+                expect(result.gaps.size() == 1 && result.gaps.front().startFrame == SessionFrame{cutoff} &&
+                           result.gaps.front().frameCount == DuringFinish * block &&
+                           result.stopSessionFrame == SessionFrame{total},
+                       "pause starts at the frozen cutoff and resume excludes every intervening frame");
+            const auto decode = [&](std::string_view suffix) {
+                WavDecoder decoder;
+                const auto format = decoder.open(path.string() + std::string(suffix));
+                require(format.sampleRateHz == Rate && format.channels == 2 && format.totalFrames == frames,
+                        "live finish preserves each output format and exact retained duration");
+                std::vector<float> pcm(static_cast<std::size_t>(frames) * 2);
+                require(decoder.read(pcm, frames) == frames, "the retained live-finish PCM is readable");
+                return pcm;
+            };
+            saved.dry = decode(".dry.wav");
+            saved.backing = decode(".backing.wav");
+            saved.performance = decode("");
+            return saved;
+        };
+        for (const auto pause : {false, true}) {
+            const auto reference = run(pause, true);
+            const auto finished = run(pause, false);
+            expect(finished.audible == reference.audible,
+                   "Stop/Pause and its file drain preserve every audible sample at 128 and 480 frames");
+            const auto retained = [&](const std::vector<float>& pcm) {
+                std::vector<float> selected(pcm.begin(), pcm.begin() + cutoff * 2);
+                if (pause)
+                    selected.insert(selected.end(), pcm.begin() + (cutoff + DuringFinish * block) * 2,
+                                    pcm.end());
+                return selected;
+            };
+            const auto dry = retained(reference.dry);
+            require(std::ranges::any_of(dry, [](float value) { return std::abs(value) > 0.01F; }),
+                    "the ordinary-callback reference contains the pending marker before cutoff");
+            const auto same = [](float a, float b) { return std::abs(a - b) < 0.000001F; };
+            expect(std::ranges::equal(finished.dry, dry, same) &&
+                       std::ranges::equal(finished.performance, retained(reference.performance), same) &&
+                       finished.backing == retained(reference.backing),
+                   "live Stop/Pause retains pending voice, excludes the pause, and resumes on the exact song PCM");
+        }
     }
 }
 
