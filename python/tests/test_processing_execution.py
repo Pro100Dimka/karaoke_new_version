@@ -19,8 +19,9 @@ from tests.test_resource_scheduler import FakeRuntimeProbe
 
 
 @pytest.mark.parametrize("failure", [None, "separation", "recognition"])
-def test_original_recognition_overlaps_separation_and_uses_the_catalogue_language(
-    tmp_path, monkeypatch, failure
+@pytest.mark.parametrize("cpu_count,expected_threads", [(1, 1), (2, 1), (4, 2), (8, 4)])
+def test_original_recognition_uses_the_catalogue_language_within_the_cpu_budget(
+    tmp_path, monkeypatch, failure, cpu_count, expected_threads
 ):
     import threading
     from dataclasses import replace
@@ -29,7 +30,8 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
     from tests.fakes import FakeLyricsProvider
     from backend.domain_errors import DependencyError
 
-    first = threading.Event()
+    recognition_started = threading.Event()
+    separation_finished = threading.Event()
 
     class StreamingProvider(FakeAiProvider):
         def __init__(self):
@@ -42,25 +44,42 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
 
         def separate(self, *args, execution, **options):
             self.executions["separate"] = execution
-            assert first.wait(2), "recognition must start before separation finishes"
+            if expected_threads > 1:
+                assert recognition_started.wait(2), "recognition must overlap separation"
+            else:
+                assert not recognition_started.is_set()
             if failure == "separation":
                 raise DependencyError("SeparationFailed", "separation failed")
-            return super().separate(*args, execution=execution, **options)
+            result = super().separate(*args, execution=execution, **options)
+            separation_finished.set()
+            return result
 
         def transcribe_stream(self, requests, count, language, cancel, *, execution):
+            assert expected_threads > 1, "A single-thread budget cannot overlap recognition"
             self.executions["recognition"] = execution
             assert language is Language.UKRAINIAN
             assert count == 4
             for audio, start in requests(threading.Event()):
                 assert audio.is_file()
                 self.requests.append((audio, start))
-                first.set()
+                recognition_started.set()
                 if failure == "recognition":
                     raise DependencyError("RecognitionFailed", "recognition failed")
             return ("Привіт світ",) * count
 
-        def transcribe(self, *args, **options):
-            raise AssertionError("Prepared recognition must not run again")
+        def transcribe(self, audio, language, cancel, *, execution, start_seconds=0.0):
+            assert expected_threads == 1, "Prepared recognition must not run again"
+            assert separation_finished.is_set(), (
+                "Single-thread recognition must wait for separation"
+            )
+            assert language is Language.UKRAINIAN
+            assert audio.is_file()
+            self.executions["recognition"] = execution
+            self.requests.append((audio, start_seconds))
+            recognition_started.set()
+            if failure == "recognition":
+                raise DependencyError("RecognitionFailed", "recognition failed")
+            return "Привіт світ"
 
     runtime = replace(
         FakeRuntimeProbe(
@@ -69,10 +88,13 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
             total_vram=8 * 1024**3,
             free_vram=7 * 1024**3,
         ).inspect(),
+        cpu_count=cpu_count,
         cpu_limit_supported=True,
         vram_is_current=True,
         total_ram_bytes=32 * 1024**3,
     )
+    # ResourceBudget and runtime diagnostics must describe the same machine.
+    monkeypatch.setattr("backend.cpu_info.os.cpu_count", lambda: cpu_count)
     monkeypatch.setattr(SystemRuntimeProbe, "inspect", lambda self: runtime)
     monkeypatch.setattr(SystemRuntimeProbe, "warm_up", lambda self: None)
     provider = StreamingProvider()
@@ -105,12 +127,24 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
             assert client.get(f"/songs/{song['songId']}").json()["activeRevision"] == 1
             return
         assert job["state"] == "Succeeded", job
+        assert set(provider.executions) == {"separate", "recognition"}
         assert len(provider.requests) == 4 and lyrics.outcomes == []
         assert [start for _, start in provider.requests] == [0, 0, 1, 1]
+        if expected_threads == 1:
+            assert provider.requests[2][0] == provider.requests[0][0]
+            assert provider.requests[3][0] == provider.requests[1][0]
+            for execution in provider.executions.values():
+                assert execution.cpu_threads == 1
+                assert execution.numeric_cpu_threads is None
+                assert execution.parallel_cpu_fraction is None
+                assert execution.cpu_fraction is None
+            return
         assert provider.requests[2][0] == provider.requests[1][0]
         assert provider.requests[3][0] == provider.requests[0][0]
-        assert {item.numeric_cpu_threads for item in provider.executions.values()} == {4}
-        assert sum(item.cpu_threads for item in provider.executions.values()) == 4
+        assert {item.numeric_cpu_threads for item in provider.executions.values()} == {
+            expected_threads
+        }
+        assert sum(item.cpu_threads for item in provider.executions.values()) == expected_threads
         assert sum(item.cpu_fraction for item in provider.executions.values()) == pytest.approx(0.5)
 
 
