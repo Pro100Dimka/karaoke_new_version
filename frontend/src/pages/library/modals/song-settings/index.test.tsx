@@ -1,17 +1,25 @@
 import { tr } from '@neo-ui-kit/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { SongDto } from '../../../../contracts/models';
 import { pythonClient } from '../../../../services/pythonClient';
 import { SongSettingsModal } from './index';
+import { refreshSongs } from '../../../../components/api-service';
 
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
   useRouter: () => ({ navigate: vi.fn() }),
 }));
 vi.mock('../../../../services/pythonClient', () => ({
-  pythonClient: { updateSong: vi.fn() },
+  pythonClient: { updateSong: vi.fn(), removeSongCover: vi.fn() },
 }));
 vi.mock('../../../../providers/notifications', () => ({
   useNotify: () => vi.fn(),
@@ -66,3 +74,94 @@ it.each(['', '   '])(
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
   },
 );
+
+it.each(['save', 'remove cover'] as const)(
+  'keeps the next song settings open when %s from the closed dialog finishes',
+  async (action) => {
+    let complete!: (saved: SongDto) => void;
+    const pending = new Promise<SongDto>((resolve) => {
+      complete = resolve;
+    });
+    const operation =
+      action === 'save'
+        ? pythonClient.updateSong
+        : pythonClient.removeSongCover;
+    vi.mocked(operation).mockReturnValueOnce(pending);
+    const firstSong: SongDto = { ...song, coverState: 'Custom' };
+    const nextSong = { ...song, id: 'next-song', title: 'Next song title' };
+    const Dialogs = () => {
+      const [current, setCurrent] = useState<SongDto | null>(firstSong);
+      return (
+        <>
+          <button onClick={() => setCurrent(nextSong)}>Open next song</button>
+          {current && (
+            <SongSettingsModal
+              key={current.id}
+              song={current}
+              onClose={() => setCurrent(null)}
+              onChange={setCurrent}
+            />
+          )}
+        </>
+      );
+    };
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <Dialogs />
+      </QueryClientProvider>,
+    );
+    if (action === 'save')
+      fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+    else {
+      fireEvent.click(
+        screen.getByRole('button', { name: tr('Другие действия') }),
+      );
+      fireEvent.click(
+        screen.getByRole('menuitem', { name: tr('removeCustomCover') }),
+      );
+    }
+    await waitFor(() => expect(operation).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: tr('closeDialog') }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open next song' }));
+    expect(screen.getByRole('textbox', { name: tr('title') })).toHaveValue(
+      nextSong.title,
+    );
+
+    await act(async () => {
+      complete(song);
+    });
+
+    expect(refreshSongs).toHaveBeenCalledOnce();
+    expect(screen.getByRole('textbox', { name: tr('title') })).toHaveValue(
+      nextSong.title,
+    );
+  },
+);
+
+it('updates the current song dialog when its cover removal finishes', async () => {
+  const onChange = vi.fn();
+  vi.mocked(pythonClient.removeSongCover).mockResolvedValueOnce(song);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <SongSettingsModal
+        song={{ ...song, coverState: 'Custom' }}
+        onClose={vi.fn()}
+        onChange={onChange}
+      />
+    </QueryClientProvider>,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: tr('Другие действия') }));
+  fireEvent.click(
+    screen.getByRole('menuitem', { name: tr('removeCustomCover') }),
+  );
+
+  await waitFor(() => expect(onChange).toHaveBeenCalledWith(song));
+  expect(refreshSongs).toHaveBeenCalledOnce();
+});

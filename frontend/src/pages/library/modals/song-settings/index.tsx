@@ -8,7 +8,7 @@ import {
   useRouter,
 } from '@neo-ui-kit/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { refreshSongs } from '../../../../components/api-service';
 import { desktopClient as files } from '../../../../services/desktopClient';
 import { pythonClient } from '../../../../services/pythonClient';
@@ -41,11 +41,21 @@ export const SongSettingsModal = ({
 }) => {
   const client = useQueryClient();
   const guarded = useGuardedAction();
-  const { confirmDelete } = useSongActions(onClose);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const close = () => {
+    if (active.current) onClose();
+  };
+  const { confirmDelete } = useSongActions(close);
   const onRemoveCover = (target: SongDto) =>
     guarded(async () => {
       const saved = await pythonClient.removeSongCover(target.id);
-      onChange(saved);
+      if (active.current) onChange(saved);
       await refreshSongs(client);
     });
   const { navigate } = useRouter();
@@ -90,7 +100,7 @@ export const SongSettingsModal = ({
           videoUrl: videoPath ? '' : local.videoUrl,
         });
         await refreshSongs(client);
-        onClose();
+        close();
       } catch (error) {
         setFailure(error instanceof Error ? error.message : String(error));
       }
@@ -122,7 +132,7 @@ export const SongSettingsModal = ({
     <Dialog
       open
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) close();
       }}
       className="songSettingsDialog"
       width="large"
@@ -144,7 +154,7 @@ export const SongSettingsModal = ({
             chooseMedia,
             failure,
             onEdit: () => {
-              onClose();
+              close();
               navigate(routes.editor(song.id));
             },
             onRemoveCover: () => void onRemoveCover(song),
