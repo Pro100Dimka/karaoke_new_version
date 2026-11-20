@@ -12,6 +12,7 @@ from backend.editor.save_document import SaveEditorDocument
 from backend.infrastructure.clock import SystemMonotonicClock
 from backend.infrastructure.ffmpeg_audio import FfmpegAudioNormalizer, FfmpegAudioValidator
 from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
+from backend.infrastructure.file_hash_cache import FileHashCache
 from backend.infrastructure.job_executor import ThreadConcurrentRunner
 from backend.infrastructure.processing_cache import LocalProcessingCache
 from backend.infrastructure.recording_files import LocalRecordingStorage
@@ -56,7 +57,8 @@ def build_song_cases(
     start, melody = _build_processing(runtime, project, processing, recognition, catalog_lookup)
     save_editor = _save_editor(runtime, project)
     importer = _import_song(runtime, project, recognition)
-    get_song = GetSong(runtime.database, project.projects, runtime.hasher)
+    clip_hashes = FileHashCache(runtime.config.roots.cache / "clip-hashes", runtime.hasher)
+    get_song = GetSong(runtime.database, project.projects, clip_hashes)
     return SongCases(
         importer,
         StartSongImport(processing.jobs, importer),

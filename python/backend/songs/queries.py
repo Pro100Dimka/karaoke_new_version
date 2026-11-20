@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 
 from backend.domain_errors import DomainError, NotFoundError
@@ -39,8 +38,7 @@ class GetSong:
         if video == LOCAL_CLIP:
             path = self.clip_path(song)
             try:
-                info = path.stat()
-                video = self._clip_hash(path, (info.st_size, info.st_mtime_ns, info.st_ctime_ns))
+                video = self._hasher(path)
             except OSError:
                 video = "missing:local:clip"
         try:
@@ -49,11 +47,6 @@ class GetSong:
             )
         except DomainError:
             return None
-
-    @lru_cache(maxsize=256)
-    def _clip_hash(self, path: Path, signature: tuple[int, int, int]) -> str:
-        """File size and timestamps invalidate the checksum after a clip changes."""
-        return self._hasher(path)
 
     def clip_path(self, song: Song) -> Path:
         return self._projects.video_path(
