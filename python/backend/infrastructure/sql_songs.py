@@ -272,14 +272,7 @@ class SqlSongRepository:
         order = desc(column) if descending else asc(column)
         query = select(SongRow)
         if search:
-            pattern = f"%{normalize_search(search)}%"
-            query = query.where(
-                or_(
-                    SongRow.title_normalized.like(pattern),
-                    SongRow.artist_normalized.like(pattern),
-                    SongRow.original_filename_normalized.like(pattern),
-                )
-            )
+            query = query.where(_text_match(search))
         if status:
             query = query.where(SongRow.status == status.value)
         query = query.order_by(order, asc(SongRow.song_id)).limit(limit).offset(offset)
@@ -288,14 +281,7 @@ class SqlSongRepository:
     def count(self, *, search: str | None, status: SongStatus | None) -> int:
         query = select(func.count()).select_from(SongRow)
         if search:
-            pattern = f"%{normalize_search(search)}%"
-            query = query.where(
-                or_(
-                    SongRow.title_normalized.like(pattern),
-                    SongRow.artist_normalized.like(pattern),
-                    SongRow.original_filename_normalized.like(pattern),
-                )
-            )
+            query = query.where(_text_match(search))
         if status:
             query = query.where(SongRow.status == status.value)
         return int(self._session.scalar(query) or 0)
