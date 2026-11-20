@@ -267,6 +267,11 @@ export const isEditorDirty = (
     if (!other) return true;
     const { id: _savedId, ...savedContent } = note;
     const { id: _currentId, ...currentContent } = other;
+    // Dragging changes these small fields. Avoid serializing the full pitch
+    // contour merely to discover that a boundary or pitch already differs.
+    const timing = ({ wordId, pitch, start, end }: typeof savedContent) =>
+      JSON.stringify([wordId, pitch, start, end]);
+    if (timing(savedContent) !== timing(currentContent)) return true;
     return JSON.stringify(savedContent) !== JSON.stringify(currentContent);
   });
 };
