@@ -202,11 +202,16 @@ export const EditorPage = () => {
     ['motion', 'editorFollow', follow, setFollow],
   ] as const;
 
+  const previewDrag = (next: EditorDocument) => {
+    // Cancellation sends its final preview and drag end in the same event.
+    latest.current = next;
+    session.replacePresent(next);
+  };
   const drag = (gesture: PianoRollGesture) => {
     const before = dragStart.current ?? document;
     dragStart.current = before;
     if (gesture.kind === 'move') {
-      session.replacePresent(
+      previewDrag(
         moveNotes(
           before,
           new Set(gesture.ids),
@@ -216,10 +221,14 @@ export const EditorPage = () => {
       );
       return;
     }
+    if (gesture.seconds === 0) {
+      previewDrag(before);
+      return;
+    }
     const note = before.notes.find((item) => item.id === gesture.id);
     if (!note) return;
     const origin = gesture.edge === 'start' ? note.start : note.end;
-    session.replacePresent(
+    previewDrag(
       resizeNote(
         before,
         gesture.id,

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 from backend.domain_errors import NotFoundError, ConflictError
 from backend.persistence import UnitOfWorkFactory
 from backend.recordings.domain import Recording, validate_recording_id
 from backend.recordings.ports import RecordingStorage
 from backend.recovery.domain import RecoveryOperation
 from backend.recovery.ports import RecoveryJournal
+
+logger = logging.getLogger(__name__)
 
 
 class DeleteRecording:
@@ -45,8 +50,16 @@ class DeleteRecording:
             if not committed:
                 self._storage.restore_quarantine(quarantine, recording.file_path)
                 self._journal.complete(entry.transaction_id)
-        self._storage.finalize_quarantine(quarantine)
-        self._journal.complete(entry.transaction_id)
+        self._finalize(quarantine, entry.transaction_id)
+
+    def _finalize(self, quarantine: Path, transaction_id: str) -> None:
+        try:
+            self._storage.finalize_quarantine(quarantine)
+        except OSError:
+            # The deletion is committed; leave its journal entry for startup retry.
+            logger.warning("Recording deletion cleanup deferred: %s", quarantine, exc_info=True)
+            return
+        self._journal.complete(transaction_id)
 
     def _load(self, recording_id: str) -> Recording | None:
         validate_recording_id(recording_id)

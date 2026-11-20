@@ -49,7 +49,7 @@ afterEach(() => client.clear());
 const RecordingsDialog = ({
   onRename,
 }: {
-  onRename(recording: RecordingDto, name: string): void;
+  onRename(recording: RecordingDto, name: string): Promise<boolean>;
 }) => {
   const [open, setOpen] = useState(true);
   return (
@@ -93,8 +93,8 @@ it('cancels an inline rename without allowing Escape to close the recordings dia
   expect(defaultAllowed).toBe(false);
 });
 
-it('still saves the edited take name from the inline save button', () => {
-  const rename = vi.fn();
+it('still saves the edited take name from the inline save button', async () => {
+  const rename = vi.fn(async () => true);
   render(<RecordingsDialog onRename={rename} />);
   fireEvent.click(screen.getByRole('button', { name: tr('renameTake') }));
   fireEvent.change(screen.getByRole('textbox', { name: tr('renameTake') }), {
@@ -104,6 +104,11 @@ it('still saves the edited take name from the inline save button', () => {
   fireEvent.click(screen.getByRole('button', { name: tr('save') }));
 
   expect(rename).toHaveBeenCalledExactlyOnceWith(recording, 'Saved name');
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('textbox', { name: tr('renameTake') }),
+    ).not.toBeInTheDocument(),
+  );
   expect(screen.getByRole('dialog', { name: tr('recordings') })).toBeVisible();
 });
 

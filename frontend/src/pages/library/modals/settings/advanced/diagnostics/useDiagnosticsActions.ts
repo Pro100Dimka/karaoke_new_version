@@ -44,7 +44,7 @@ export const useDiagnosticsActions = (health: SubsystemHealth) => {
         backend: health.backend,
         audio: health.audio,
         keyboardLighting: lighting.available,
-        jobs: await backend.listJobs(),
+        jobs: await backend.listJobs().catch(() => null),
       });
       if (destination === 'clipboard') await desktop.copyText(text);
       else if (!(await desktop.saveTextFile('ad-voice-diagnostics.json', text)))

@@ -29,10 +29,23 @@ const TakeName = ({
   onRename,
 }: {
   name: string;
-  onRename(name: string): void;
+  onRename(name: string): Promise<boolean>;
 }) => {
   useLocale();
   const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const pending = useRef(false);
+  const save = async () => {
+    if (draft === null || pending.current) return;
+    pending.current = true;
+    setSaving(true);
+    try {
+      if (await onRename(draft)) setDraft(null);
+    } finally {
+      pending.current = false;
+      setSaving(false);
+    }
+  };
   if (draft === null)
     return (
       <div className="recordingName">
@@ -51,10 +64,10 @@ const TakeName = ({
   return (
     <form
       noValidate
+      aria-busy={saving}
       onSubmit={(event) => {
         event.preventDefault();
-        onRename(draft);
-        setDraft(null);
+        void save();
       }}
     >
       <TextField
@@ -62,6 +75,7 @@ const TakeName = ({
         aria-label={tr('renameTake')}
         autoFocus
         value={draft}
+        disabled={saving}
         onValueChange={setDraft}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
@@ -76,6 +90,7 @@ const TakeName = ({
             variant="ghost"
             icon="check"
             label={tr('save')}
+            disabled={saving}
           />
         }
       />
@@ -102,7 +117,7 @@ const RecordingCardView = ({
   versions?: readonly RecordingDto[];
   name: string;
   index: number;
-  onRename(recording: RecordingDto, name: string): void;
+  onRename(recording: RecordingDto, name: string): Promise<boolean>;
   onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
   onDelete(recording: RecordingDto): void;
   progress?: Readonly<Record<string, RecordingAnalysisProgress>>;

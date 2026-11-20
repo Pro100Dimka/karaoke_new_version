@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from backend.domain_errors import ConflictError, NotFoundError
@@ -15,6 +16,8 @@ from backend.recordings.ports import RecordingStorage
 from backend.recordings.lifecycle import RecordingLifecycle
 from backend.processing.job_manager import ProcessingJobManager
 from backend.processing.domain import JobType
+
+logger = logging.getLogger(__name__)
 
 
 class DeleteSong:
@@ -84,11 +87,21 @@ class DeleteSong:
                 for source, target in reversed(moved):
                     self._recordings.restore_quarantine(source, target)
                 self._journal.complete(entry.transaction_id)
-        for source, _ in moved:
-            self._recordings.finalize_quarantine(source)
-        if quarantine:
-            self._storage.finalize_quarantine(quarantine)
-        self._journal.complete(entry.transaction_id)
+        self._finalize(entry.transaction_id, quarantine, moved)
+
+    def _finalize(
+        self, transaction_id: str, quarantine: Path | None, moved: list[tuple[Path, Path]]
+    ) -> None:
+        try:
+            for source, _ in moved:
+                self._recordings.finalize_quarantine(source)
+            if quarantine:
+                self._storage.finalize_quarantine(quarantine)
+        except OSError:
+            # Metadata is already deleted; retry remaining files through the journal.
+            logger.warning("Song deletion cleanup deferred: %s", transaction_id, exc_info=True)
+            return
+        self._journal.complete(transaction_id)
 
     def _recordings_for_song(self, song_id: str) -> dict[str, Path]:
         with self._uow.create() as transaction:

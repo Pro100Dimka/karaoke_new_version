@@ -208,3 +208,45 @@ it('updates the current song dialog when its cover removal finishes', async () =
   await waitFor(() => expect(onChange).toHaveBeenCalledWith(song));
   expect(refreshSongs).toHaveBeenCalledOnce();
 });
+
+it.each([
+  ['InvalidMedia', 'Select an MP4 video', 'errorInvalidMedia'],
+  ['ClipMissing', 'Selected video file was not found', null],
+] as const)(
+  'explains a rejected settings save (%s), retains edits and permits retry',
+  async (code, message, translation) => {
+    vi.mocked(pythonClient.updateSong).mockRejectedValueOnce({
+      code,
+      message,
+      source: 'python',
+    });
+    const onClose = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <SongSettingsModal song={song} onClose={onClose} onChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const title = screen.getByRole('textbox', { name: tr('title') });
+    fireEvent.change(title, { target: { value: 'Edited title' } });
+    fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(translation ? tr(translation) : message),
+      ).toBeVisible(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(title).toHaveValue('Edited title');
+
+    fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(pythonClient.updateSong).toHaveBeenLastCalledWith(
+      song.id,
+      expect.objectContaining({ title: 'Edited title' }),
+    );
+    client.clear();
+  },
+);

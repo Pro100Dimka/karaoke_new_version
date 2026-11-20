@@ -94,7 +94,7 @@ export const RecordingsModal = observer(
       actionRef.current = { onRename, onAnalyze, onDelete, onCancelAnalysis };
     });
     const renameTake = useCallback((recording: RecordingDto, name: string) => {
-      actionRef.current.onRename(recording, name);
+      return actionRef.current.onRename(recording, name);
     }, []);
     const analyzeTake = useCallback(
       (recording: RecordingDto, recalculate?: boolean) => {

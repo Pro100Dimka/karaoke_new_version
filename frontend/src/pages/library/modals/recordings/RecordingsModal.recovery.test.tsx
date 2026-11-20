@@ -99,6 +99,143 @@ const Archive = () => {
   );
 };
 
+it('keeps a failed rename editable and retries the same name through the recording API', async () => {
+  request
+    .mockResolvedValueOnce(page([recording]))
+    .mockRejectedValueOnce(new Error('Temporary write failure'))
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: { ...recording, displayName: 'Retried performance name' },
+    });
+  render(<Archive />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open archive' }));
+  fireEvent.click(
+    await screen.findByRole('button', { name: tr('renameTake') }),
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: tr('renameTake') }), {
+    target: { value: 'Retried performance name' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+  await waitFor(() => expect(notify).toHaveBeenCalledOnce());
+
+  expect(screen.getByRole('textbox', { name: tr('renameTake') })).toHaveValue(
+    'Retried performance name',
+  );
+  expect(screen.getByRole('button', { name: tr('save') })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('textbox', { name: tr('renameTake') }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByRole('button', { name: /Retried performance name/ }),
+  ).toBeVisible();
+  expect(
+    request.mock.calls.filter(([call]) => call.method === 'PATCH'),
+  ).toEqual([
+    [
+      {
+        method: 'PATCH',
+        path: '/recordings/take',
+        body: { displayName: 'Retried performance name' },
+      },
+    ],
+    [
+      {
+        method: 'PATCH',
+        path: '/recordings/take',
+        body: { displayName: 'Retried performance name' },
+      },
+    ],
+  ]);
+});
+
+it('keeps the name editor pending and sends a repeated submit only once', async () => {
+  let finish: (response: PythonBridgeResponse) => void = () => {};
+  request.mockResolvedValueOnce(page([recording])).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  render(<Archive />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open archive' }));
+  fireEvent.click(
+    await screen.findByRole('button', { name: tr('renameTake') }),
+  );
+  const input = screen.getByRole('textbox', { name: tr('renameTake') });
+  fireEvent.change(input, { target: { value: 'Confirmed name' } });
+  const form = input.closest('form');
+  if (!form) throw new Error('Rename form was not rendered');
+  act(() => {
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+  });
+
+  expect(
+    screen.getByRole('textbox', { name: tr('renameTake') }),
+  ).toBeDisabled();
+  expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
+  expect(
+    request.mock.calls.filter(([call]) => call.method === 'PATCH'),
+  ).toHaveLength(1);
+  await act(async () =>
+    finish({
+      ok: true,
+      status: 200,
+      body: { ...recording, displayName: 'Confirmed name' },
+    }),
+  );
+  expect(
+    screen.queryByRole('textbox', { name: tr('renameTake') }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Confirmed name/ })).toBeVisible();
+});
+
+it('keeps a new rename draft after reopening when the previous save finishes late', async () => {
+  let finish: (response: PythonBridgeResponse) => void = () => {};
+  request
+    .mockResolvedValueOnce(page([recording]))
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValueOnce(page([recording]));
+  render(<Archive />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open archive' }));
+  fireEvent.click(
+    await screen.findByRole('button', { name: tr('renameTake') }),
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: tr('renameTake') }), {
+    target: { value: 'Earlier saved name' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+  fireEvent.click(screen.getByRole('button', { name: tr('closeDialog') }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open archive' }));
+  fireEvent.click(
+    await screen.findByRole('button', { name: tr('renameTake') }),
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: tr('renameTake') }), {
+    target: { value: 'New unsaved name' },
+  });
+  await act(async () =>
+    finish({
+      ok: true,
+      status: 200,
+      body: { ...recording, displayName: 'Earlier saved name' },
+    }),
+  );
+
+  expect(screen.getByRole('textbox', { name: tr('renameTake') })).toHaveValue(
+    'New unsaved name',
+  );
+  expect(screen.getByRole('button', { name: tr('save') })).toBeEnabled();
+});
+
 it('does not describe a failed archive request as an empty recording collection', async () => {
   // BackendEndpoint.request rejects with this message while its process is stopped/starting.
   request.mockRejectedValueOnce(

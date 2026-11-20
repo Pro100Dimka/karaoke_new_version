@@ -21,6 +21,7 @@ import {
 } from '../../../../application/library/songPreferences';
 import type { SongDto } from '../../../../contracts/models';
 import '../../../../providers/localization';
+import { errorstring, toAppError } from '../../../../shared/errors';
 import { routes } from '../../../../shared/routes';
 import { editorApi } from '../../../editor/editorApi';
 import { getRows } from './rows';
@@ -102,7 +103,9 @@ export const SongSettingsModal = ({
         await refreshSongs(client);
         close();
       } catch (error) {
-        setFailure(error instanceof Error ? error.message : String(error));
+        const failure = toAppError(error);
+        const key = errorstring(failure);
+        setFailure(key ? tr(key) : failure.message);
       }
     },
   });

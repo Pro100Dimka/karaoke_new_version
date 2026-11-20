@@ -299,13 +299,17 @@ export const useSongRecordings = (
       if (request === requests.current.analysis) setAnalysis(result);
     });
 
-  const rename = (recording: RecordingDto, displayName: string) =>
-    guarded(async () => {
+  const rename = async (recording: RecordingDto, displayName: string) => {
+    let succeeded = false;
+    await guarded(async () => {
       const saved = await catalog.renameRecording(recording.id, displayName);
       setRecordings((items) =>
         items.map((item) => (item.id === saved.id ? saved : item)),
       );
+      succeeded = true;
     });
+    return succeeded;
+  };
 
   const remove = (recording: RecordingDto) =>
     guarded(async () => {

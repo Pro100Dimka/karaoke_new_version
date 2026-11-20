@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from backend.persistence import UnitOfWorkFactory
@@ -8,6 +9,8 @@ from backend.recovery.domain import RecoveryEntry, RecoveryOperation
 from backend.recovery.ports import RecoveryJournal
 from backend.recordings.ports import RecordingStorage
 from backend.songs.ports import SongStorage
+
+logger = logging.getLogger(__name__)
 
 
 class RecoverTransactions:
@@ -53,7 +56,13 @@ class RecoverTransactions:
             recording = transaction.recordings.get(recording_id)
         if quarantine.parent.exists():
             if recording is None:
-                self._recordings.finalize_quarantine(quarantine)
+                try:
+                    self._recordings.finalize_quarantine(quarantine)
+                except OSError:
+                    logger.warning(
+                        "Recording deletion cleanup deferred: %s", quarantine, exc_info=True
+                    )
+                    return False
             else:
                 self._recordings.restore_quarantine(quarantine, path)
         return True
@@ -84,11 +93,21 @@ class RecoverTransactions:
         quarantine = self._songs.quarantine_path(song_id)
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
-        if song is None:
-            if quarantine.exists():
-                self._songs.finalize_quarantine(quarantine)
-        elif quarantine.exists():
-            self._songs.restore_quarantine(song_id, quarantine)
+        try:
+            if song is None:
+                if quarantine.exists():
+                    self._songs.finalize_quarantine(quarantine)
+            elif quarantine.exists():
+                self._songs.restore_quarantine(song_id, quarantine)
+            self._song_recordings(entry, deleted=song is None)
+        except OSError:
+            if song is not None:
+                raise
+            logger.warning("Song deletion cleanup deferred: %s", song_id, exc_info=True)
+            return False
+        return True
+
+    def _song_recordings(self, entry: RecoveryEntry, *, deleted: bool) -> None:
         recordings = entry.data.get("recordings", [])
         if not isinstance(recordings, list):
             raise ValueError("Recovery recordings must be a list")
@@ -101,11 +120,10 @@ class RecoverTransactions:
             path = Path(file_path)
             pending = self._recordings.quarantine_path(recording_id, path)
             if pending.parent.exists():
-                if song is None:
+                if deleted:
                     self._recordings.finalize_quarantine(pending)
                 else:
                     self._recordings.restore_quarantine(pending, path)
-        return True
 
     def _recording_import(self, entry: RecoveryEntry) -> bool:
         recording_id = _text(entry, "recordingId")
