@@ -18,6 +18,7 @@ from backend.domain_errors import ConflictError
 from backend.infrastructure.database import Database
 from backend.infrastructure.atomic_files import atomic_write_text
 from backend.infrastructure.hashing import sha256_file
+from backend.infrastructure.library_snapshot import copy_snapshot_files
 from backend.infrastructure.orm import (
     AnalysisRow,
     HistoryRow,
@@ -143,12 +144,12 @@ class SqlLibraryStorage:
             return tuple(connection.scalars(select(SongRow.song_id).order_by(SongRow.song_id)))
 
     def snapshot(
-        self, song_ids: Sequence[str]
+        self, song_ids: Sequence[str], destination: Path, progress: Callable[[float], None]
     ) -> tuple[dict[str, object], dict[PurePosixPath, Path]]:
         rows = self._snapshot_rows(song_ids)
         files = self._snapshot_files(rows, song_ids)
         self._portable_rows(rows)
-        return dict(rows), files
+        return dict(rows), copy_snapshot_files(files, destination, self.require_free, progress)
 
     def _snapshot_rows(self, song_ids: Sequence[str]) -> LibraryRows:
         with self._database.engine.connect() as connection:

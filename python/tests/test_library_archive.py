@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import zipfile
 from dataclasses import replace
 from pathlib import Path
@@ -98,6 +99,57 @@ def test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing(tm
         assert transfer(client, "import", archive) == {"imported": 0, "skipped": 2}
         assert len(client.get("/songs").json()["items"]) == 3
         assert client.get("/recordings").json()["total"] == 1
+
+
+def test_library_export_snapshots_a_clip_before_manual_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    original_clip = tmp_path / "original.mp4"
+    original_clip.write_bytes(b"\x00\x00\x00\x18ftyporiginal-video")
+    replacement = tmp_path / "replacement.mp4"
+    replacement.write_bytes(b"\x00\x00\x00\x18ftypreplacement-video")
+    with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        selected = client.patch(f"/songs/{song['songId']}", json={"videoPath": str(original_clip)})
+        assert selected.status_code == 200, selected.text
+        package = _export_while_replacing_clip(client, song["songId"], replacement, monkeypatch)
+        assert client.get(f"/songs/{song['songId']}/clip").content == replacement.read_bytes()
+        assert client.get(f"/songs/{song['songId']}").json()["title"] == "Changed during export"
+        assert not tuple(client.app.state.container.roots.temp.glob("library-*"))
+
+    with app_client(tmp_path / "target-runtime", ai_providers=(FakeAiProvider(),)) as client:
+        assert transfer(client, "import", package) == {"imported": 1, "skipped": 0}
+        assert client.get(f"/songs/{song['songId']}/clip").content == original_clip.read_bytes()
+        assert client.get(f"/songs/{song['songId']}").json()["title"] == song["title"]
+
+
+def _export_while_replacing_clip(client, song_id, replacement, monkeypatch):
+    archive = client.app.state.container.packages.library._archive
+    build = archive.build
+    entered, release = threading.Event(), threading.Event()
+
+    def blocked_build(*args, **kwargs):
+        entered.set()
+        assert release.wait(10), "Manual clip replacement did not finish"
+        return build(*args, **kwargs)
+
+    monkeypatch.setattr(archive, "build", blocked_build)
+    started = client.post("/packages/library/export")
+    assert started.status_code == 202, started.text
+    try:
+        assert entered.wait(10), "Library export did not reach archive construction"
+        changed = client.patch(
+            f"/songs/{song_id}",
+            json={"videoPath": str(replacement), "title": "Changed during export"},
+        )
+        assert changed.status_code == 200, changed.text
+    finally:
+        release.set()
+    exported = wait_for_job(client, started.json()["jobId"])
+    assert exported["state"] == "Succeeded", exported
+    return Path(exported["report"]["path"])
 
 
 @pytest.mark.parametrize("damage", ["traversal", "checksum", "invalid_manifest"])

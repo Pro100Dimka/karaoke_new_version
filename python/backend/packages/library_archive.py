@@ -42,24 +42,26 @@ class LibraryArchive:
         workspace = self._workspaces.allocate("library")
         try:
             if action == "export":
-                return self._export(context)
+                return self._export(context, workspace)
             assert path is not None
             return self._import(path, workspace, context)
         finally:
             self._workspaces.cleanup(workspace)
 
-    def _export(self, context: JobContext) -> dict[str, object]:
+    def _export(self, context: JobContext, workspace: Path) -> dict[str, object]:
         with ExitStack() as locks:
             song_ids = self._library.song_ids()
             for song_id in song_ids:
                 locks.enter_context(self._operations.acquire(song_id, SongOperation.PACKAGE_EXPORT))
-            data, files = self._library.snapshot(song_ids)
-            self._library.require_free(sum(p.stat().st_size for p in files.values()))
-            checksums = {}
             progress = _progress(context, "Snapshot", 0, 0.15)
+            data, files = self._library.snapshot(
+                song_ids, workspace, lambda value: progress(value * 2 / 3)
+            )
+            checksums = {}
             for index, (name, source) in enumerate(files.items()):
                 checksums[name.as_posix()] = self._hasher(source)
-                progress((index + 1) / max(1, len(files)))
+                progress((2 + (index + 1) / len(files)) / 3)
+            progress(1.0)
             manifest = {
                 "version": 1,
                 "schemaVersion": DB_SCHEMA_VERSION,
