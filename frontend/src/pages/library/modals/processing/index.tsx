@@ -305,7 +305,8 @@ export const ProcessingModal = observer(
                           void reportProcessingError(job.songId, job),
                         onRetry: () => void retry(job),
                         reporting,
-                        retrying: Boolean(retrying),
+                        retrying:
+                          Boolean(retrying) || queue.isSongBusy(job.songId),
                         motionPaused,
                         onToggleMotion: () =>
                           setMotionPaused((value) => !value),
@@ -377,7 +378,10 @@ export const ProcessingModal = observer(
               ? () => void resetLyrics(failure)
               : undefined
           }
-          retrying={Boolean(retrying)}
+          retrying={
+            Boolean(retrying) ||
+            Boolean(failure && queue.isSongBusy(failure.songId))
+          }
           reporting={reporting}
         />
         <Dialog
