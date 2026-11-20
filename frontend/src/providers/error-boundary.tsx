@@ -5,6 +5,7 @@ import {
   Dialog,
   IconButton,
   KeyValueList,
+  MessageBar,
   Stack,
   tr,
   Typography,
@@ -19,6 +20,9 @@ import { routes } from '../shared/routes';
 const ErrorFallback = ({ error }: FallbackProps) => {
   const locale = useLocale();
   const [time] = useState(() => new Date());
+  const [copyState, setCopyState] = useState<'idle' | 'pending' | 'failed'>(
+    'idle',
+  );
   const text =
     (error instanceof Error && error.stack) ||
     getErrorMessage(error) ||
@@ -30,6 +34,13 @@ const ErrorFallback = ({ error }: FallbackProps) => {
     [tr('errorBoundary.userAgent')]: navigator.userAgent,
   };
   const report = `${text}\n${JSON.stringify(details, null, 2)}`;
+  const copyReport = () => {
+    setCopyState('pending');
+    void copyText(report).then(
+      (copied) => setCopyState(copied ? 'idle' : 'failed'),
+      () => setCopyState('failed'),
+    );
+  };
   return (
     <>
       <TitleBar />
@@ -58,7 +69,8 @@ const ErrorFallback = ({ error }: FallbackProps) => {
               <IconButton
                 icon="copy"
                 label={tr('errorBoundary.copy')}
-                onClick={() => copyText(report)}
+                loading={copyState === 'pending'}
+                onClick={copyReport}
               />
             }
           >
@@ -68,6 +80,9 @@ const ErrorFallback = ({ error }: FallbackProps) => {
               text={text}
               style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
             />
+            {copyState === 'failed' && (
+              <MessageBar tone="error">{tr('actionFailed')}</MessageBar>
+            )}
           </Card>
           <CollapsibleSection title={tr('errorBoundary.details')}>
             <KeyValueList items={Object.entries(details)} />

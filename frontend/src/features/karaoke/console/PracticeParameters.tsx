@@ -132,7 +132,8 @@ export const TempoField = ({
       return;
     if (draft === '') return setDraft(tempoBpm);
     const next = Math.max(minimum, Math.min(maximum, Math.round(draft)));
-    setDraft(next);
+    // The parent owns the applied tempo; a rejected command must not change its readout.
+    setDraft(tempoBpm);
     if (next !== tempoBpm) onChange(next / baseBpm);
   };
 

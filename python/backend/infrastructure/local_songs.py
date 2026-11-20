@@ -68,9 +68,9 @@ class LocalSongStorage:
         target = self._roots.songs / song_id / "media" / "clip.mp4"
         if source == target.resolve():
             return target
-        target.parent.mkdir(parents=True, exist_ok=True)
         temporary: Path | None = None
         try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             with NamedTemporaryFile(dir=target.parent, suffix=".tmp", delete=False) as output:
                 temporary = Path(output.name)
                 with source.open("rb") as input_file:
