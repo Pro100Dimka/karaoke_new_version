@@ -30,7 +30,15 @@ class JobRepository(Protocol):
 
 
 class JobExecutor(Protocol):
-    def submit(self, job_id: str, work: Callable[[threading.Event], None]) -> None: ...
+    def submit(
+        self,
+        job_id: str,
+        work: Callable[[threading.Event], None],
+        *,
+        admit: Callable[[threading.Event], bool] | None = None,
+    ) -> None:
+        """Wait for admission outside execution workers; False means the job already settled."""
+        ...
 
     def cancel(self, job_id: str) -> bool: ...
 

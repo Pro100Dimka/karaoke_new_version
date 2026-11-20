@@ -120,7 +120,7 @@ def test_startup_settles_interrupted_analysis_without_losing_history_or_retry(
                 container.recordings.start_analysis.execute(identity)
             job_id = None
         else:
-            monkeypatch.setattr(container.executor, "submit", lambda *_args: None)
+            monkeypatch.setattr(container.executor, "submit", lambda *_args, **_kwargs: None)
             response = client.post(f"/recordings/{identity}/analysis")
             assert response.status_code == 202, response.text
             job_id = response.json()["jobId"]

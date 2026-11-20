@@ -147,9 +147,15 @@ def test_analysis_cancelled_before_execution_does_not_remain_queued(tmp_path, mo
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         recording = register_recording(client, ready_song(client, source))
         pending = []
-        monkeypatch.setattr(
-            client.app.state.container.executor, "submit", lambda job_id, work: pending.append(work)
-        )
+
+        def submit(job_id, work, *, admit=None):
+            def execute(cancel):
+                if admit is None or admit(cancel):
+                    work(cancel)
+
+            pending.append(execute)
+
+        monkeypatch.setattr(client.app.state.container.executor, "submit", submit)
         started = client.post(f"/recordings/{recording['recordingId']}/analysis")
         job_id = started.json()["jobId"]
         client.app.state.container.system.jobs.cancel(job_id)

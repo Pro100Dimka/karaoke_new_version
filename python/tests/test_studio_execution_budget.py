@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from contextvars import ContextVar
 
 import pytest
 
@@ -41,6 +42,7 @@ def test_render_budget_honors_settings_and_releases_after_failure(tmp_path, fail
         )
 
     service = StartStudioMaster.__new__(StartStudioMaster)
+    service._admitted = ContextVar("test_master_resources", default=None)
     service._resources = SimpleNamespace(claim_cpu=claim)
     service._settings = lambda: SimpleNamespace(cpu_threads=3, compute_mode=ComputeMode.AUTO)
     try:

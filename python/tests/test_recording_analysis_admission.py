@@ -60,10 +60,15 @@ class _QueuedExecutor:
         self.work = {}
         self.rejection = None
 
-    def submit(self, job_id, work):
+    def submit(self, job_id, work, *, admit=None):
         if self.rejection is not None:
             raise self.rejection
-        self.work[job_id] = work
+
+        def execute(cancel):
+            if admit is None or admit(cancel):
+                work(cancel)
+
+        self.work[job_id] = execute
 
     def stats(self):
         return {"activeOrQueued": len(self.work)}

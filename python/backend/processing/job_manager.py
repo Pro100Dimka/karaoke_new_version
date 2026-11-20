@@ -93,10 +93,18 @@ class ProcessingJobManager:
             self._active_job_types[job.job_id] = job.job_type
             try:
                 self._publish(job)
-                self._executor.submit(
-                    job.job_id,
-                    lambda cancel: self._run(job.job_id, work, cancel, on_finally, admit),
-                )
+
+                def execute(cancel: threading.Event) -> None:
+                    self._run(job.job_id, work, cancel, on_finally)
+
+                if admit is None:
+                    self._executor.submit(job.job_id, execute)
+                else:
+                    self._executor.submit(
+                        job.job_id,
+                        execute,
+                        admit=lambda cancel: self._admit(job.job_id, admit, cancel, on_finally),
+                    )
                 submitted = True
             except DomainError as exc:
                 self._fail(job.job_id, exc)
@@ -198,36 +206,64 @@ class ProcessingJobManager:
             transaction.commit()
         return count
 
+    def _admit(
+        self,
+        job_id: str,
+        admit: Callable[[threading.Event], None],
+        cancel: threading.Event,
+        on_finally: Callable[[], None] | None,
+    ) -> bool:
+        admitted = False
+        try:
+            # Preserve the Queued state while waiting, without occupying an execution worker.
+            admit(cancel)
+            if cancel.is_set():
+                self._cancel_running(job_id)
+            else:
+                admitted = True
+            return admitted
+        except DomainError as exc:
+            self._settle_error(job_id, exc)
+        except Exception:
+            logger.exception("Unexpected job admission error", extra={"jobId": job_id})
+            self._fail(job_id, DomainError("InternalJobError", "Background job failed", 500))
+        finally:
+            if not admitted:
+                self._finish(job_id, on_finally)
+        return False
+
     def _run(
         self,
         job_id: str,
         work: JobWork,
         cancel: threading.Event,
         on_finally: Callable[[], None] | None,
-        admit: Callable[[threading.Event], None] | None,
     ) -> None:
         try:
-            if admit is not None:
-                # The job stays Queued while it waits for resources; a cancel during the wait ends the wait.
-                admit(cancel)
             self._execute(job_id, work, cancel)
         except DomainError as exc:
-            if exc.code == "JobCancelled":
-                self._cancel_running(job_id)
-            else:
-                self._fail(job_id, exc)
+            self._settle_error(job_id, exc)
         except Exception:
             logger.exception("Unexpected background job error", extra={"jobId": job_id})
             self._fail(job_id, DomainError("InternalJobError", "Background job failed", 500))
         finally:
-            try:
-                if on_finally:
-                    on_finally()
-            finally:
-                with self._state_lock:
-                    self._active_job_types.pop(job_id, None)
-                    self._pending_progress.pop(job_id, None)
-                    self._progress_saved_at.pop(job_id, None)
+            self._finish(job_id, on_finally)
+
+    def _settle_error(self, job_id: str, error: DomainError) -> None:
+        if error.code == "JobCancelled":
+            self._cancel_running(job_id)
+        else:
+            self._fail(job_id, error)
+
+    def _finish(self, job_id: str, on_finally: Callable[[], None] | None) -> None:
+        try:
+            if on_finally:
+                on_finally()
+        finally:
+            with self._state_lock:
+                self._active_job_types.pop(job_id, None)
+                self._pending_progress.pop(job_id, None)
+                self._progress_saved_at.pop(job_id, None)
 
     def _execute(self, job_id: str, work: JobWork, cancel: threading.Event) -> None:
         with self._state_lock:

@@ -366,6 +366,7 @@ def test_new_plan_reads_stems_without_modifying_them(tmp_path: Path, source_suff
 
 
 def test_studio_separation_does_not_select_kaggle(tmp_path: Path):
+    from contextvars import ContextVar
     from types import SimpleNamespace
     from unittest.mock import Mock
     from backend.recordings.start_studio_master import StartStudioMaster
@@ -373,6 +374,7 @@ def test_studio_separation_does_not_select_kaggle(tmp_path: Path):
     from backend.models.domain import ComputeMode
 
     master = StartStudioMaster.__new__(StartStudioMaster)
+    master._admitted = ContextVar("test_master_resources", default=None)
     master._settings = lambda: SimpleNamespace(
         selected_separation_provider="kaggle-p100", compute_mode=ComputeMode.CPU, cpu_threads=2
     )

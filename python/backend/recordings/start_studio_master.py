@@ -3,11 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 import logging
 from collections.abc import Callable, Iterator, Sequence, Mapping
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from functools import partial
-from threading import Lock
+from threading import Event, Lock
 
-from backend.ai.domain import AiCapability, PitchPoint
+from backend.ai.domain import PitchPoint
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.local_storage import LocalWorkStorage
@@ -23,6 +24,11 @@ from backend.recordings.domain import Recording, recording_adjustments
 from backend.recordings.ports import RecordingFileInspector, RecordingStorage
 from backend.recordings.register_recording import RegisterRecording, RegisterRecordingRequest
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
+from backend.recordings.studio_admission import (
+    StudioMasterResources,
+    admit_studio_master,
+    separation_provider,
+)
 from backend.recordings.studio_audio import StudioMasterBalance
 from backend.recordings.studio_pitch_analysis import analyze_pitch
 from backend.recordings.studio_pitch_prefetch import LocalPitchAnalyzer
@@ -30,7 +36,6 @@ from backend.runtime import Clock, IdGenerator
 from backend.settings.domain import ProcessingBackend
 from backend.settings.queries import SettingsReader
 
-_KAGGLE_PROVIDER = "kaggle-p100"
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +62,9 @@ class StartStudioMaster:
         self._renderer = renderer
         self._publisher = publisher
         self._submission_lock = Lock()
+        self._admitted: ContextVar[StudioMasterResources | None] = ContextVar(
+            "studio_master_resources", default=None
+        )
 
     def execute(self, recording_id: str) -> Job:
         with self._jobs.prepare_submission(), self._submission_lock:
@@ -82,6 +90,7 @@ class StartStudioMaster:
                 raise NotFoundError(
                     "StudioMasterUnavailable", "Original song stems are unavailable"
                 )
+        admission = ExitStack()
         return self._jobs.start(
             JobType.RECORDING_MASTERING,
             lambda context: self._run(recording, context),
@@ -89,7 +98,23 @@ class StartStudioMaster:
             initial_report={
                 "processingBackend": ProcessingBackend.LOCAL.value,
             },
+            admit=lambda cancel: admission.enter_context(
+                self._admit(recording.recording_id, cancel)
+            ),
+            on_finally=admission.close,
         )
+
+    @contextmanager
+    def _admit(self, recording_id: str, cancel: Event) -> Iterator[None]:
+        admitted = admit_studio_master(
+            self._recording(recording_id), cancel, self._resolver, self._settings(), self._resources
+        )
+        token = self._admitted.set(admitted)
+        try:
+            yield
+        finally:
+            self._admitted.reset(token)
+            admitted.lease.release()
 
     def _run(
         self,
@@ -150,6 +175,10 @@ class StartStudioMaster:
 
     @contextmanager
     def _render_budget(self, recording: Recording) -> Iterator[int]:
+        admitted = self._admitted.get()
+        if admitted is not None:
+            yield admitted.lease.execution.cpu_threads
+            return
         lease = self._resources.claim_cpu(
             recording.file_path.stat().st_size, cpu_threads=self._settings().cpu_threads
         )
@@ -194,19 +223,25 @@ class StartStudioMaster:
     ) -> tuple[Path, Path]:
         context.progress("SeparatingPerformance", 0.0, 0.1)
         settings = self._settings()
-        # Studio Master never starts Kaggle implicitly. Only an explicit
-        # user-initiated Kaggle action may activate the remote runtime.
-        provider = self._resolver.execute(
-            AiCapability.SEPARATION,
-            None
-            if settings.selected_separation_provider == _KAGGLE_PROVIDER
-            else settings.selected_separation_provider,
+        admitted = self._admitted.get()
+        provider = (
+            admitted.provider
+            if admitted is not None
+            else separation_provider(self._resolver, settings)
         )
-        lease = self._resources.claim_provider(
-            provider,
-            recording.file_path.stat().st_size,
-            settings.compute_mode,
-            cpu_threads=settings.cpu_threads,
+        if provider is None:
+            raise DomainError(
+                "StudioMasterUnavailable", "Recording stems are no longer available", 409
+            )
+        lease = (
+            admitted.lease
+            if admitted is not None
+            else self._resources.claim_provider(
+                provider,
+                recording.file_path.stat().st_size,
+                settings.compute_mode,
+                cpu_threads=settings.cpu_threads,
+            )
         )
         try:
             audio = self._separation_source(recording, workspace, context)
@@ -218,7 +253,10 @@ class StartStudioMaster:
             )
             return separated.reference_vocal, separated.instrumental
         finally:
-            lease.release()
+            if admitted is None:
+                lease.release()
+            else:
+                lease.retain_cpu()
 
     def _separation_source(
         self, recording: Recording, workspace: Path, context: JobContext

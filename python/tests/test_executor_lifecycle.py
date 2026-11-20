@@ -110,13 +110,16 @@ def test_executor_requires_positive_bounded_capacity(workers, capacity):
         BoundedJobExecutor(workers, capacity)
 
 
-def test_partial_worker_start_failure_is_cleaned_up_and_can_be_retried(monkeypatch):
+@pytest.mark.parametrize(
+    "failed_thread", ["backend-job-1", "backend-admission-0", "backend-admission-1"]
+)
+def test_partial_worker_start_failure_is_cleaned_up_and_can_be_retried(monkeypatch, failed_thread):
     executor = BoundedJobExecutor(workers=2, capacity=2)
     start = threading.Thread.start
     started = []
 
     def fail_second(thread):
-        if thread.name == "backend-job-1":
+        if thread.name == failed_thread:
             raise RuntimeError("No thread resources")
         started.append(thread)
         start(thread)

@@ -29,6 +29,8 @@ def mastering(tmp_path, monkeypatch):
         target = client.post("/recordings/target").json()
         audio = Path(target["filePath"])
         write_wav(audio, seconds=0.1)
+        for suffix in (".dry.wav", ".vocal.wav", ".backing.wav"):
+            copyfile(audio, Path(str(audio) + suffix))
         registered = client.post(
             "/recordings",
             json={
