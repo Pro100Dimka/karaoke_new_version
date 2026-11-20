@@ -25,6 +25,7 @@ from backend.api.system_routes import JobDto, _job
 router = APIRouter(prefix="/songs")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
 waveform_limit = anyio.CapacityLimiter(2)
+artwork_limit = anyio.CapacityLimiter(4)
 
 
 @router.post("", response_model=SongDto, status_code=201)
@@ -123,8 +124,17 @@ def get_song(song_id: str, request: Request, app: ContainerDep) -> SongDto:
 
 
 @router.get("/{song_id}/cover", name="song_cover")
-def get_song_cover(song_id: str, app: ContainerDep) -> FileResponse:
+async def get_song_cover(song_id: str, request: Request, app: ContainerDep) -> Response:
     """The user's own cover, otherwise the recognised one from the local cache (fetched once)."""
+    # Admission happens before taking a shared worker: an offline artwork CDN must not
+    # consume every worker needed by health checks, playback controls and cancellation.
+    async with artwork_limit:
+        if await request.is_disconnected():
+            return Response(status_code=499)
+        return await anyio.to_thread.run_sync(_song_cover, song_id, app)
+
+
+def _song_cover(song_id: str, app: ApplicationContainer) -> FileResponse:
     song = app.songs.get_song.execute(song_id)
     if (
         song.cover_state == CoverState.CUSTOM
