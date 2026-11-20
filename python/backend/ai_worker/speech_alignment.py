@@ -129,6 +129,8 @@ class _AlignmentPass:
                 voiced,
                 whole,
                 anchors={index: positions[index] for index in supported},
+                # Fuzzy character support cannot establish ownership of a repeated word run.
+                spans=_heard_timings(self.words, self.heard, whole, minimum_block=_MINIMUM_BLOCK),
             )
         )
         return guided, guide, voiced

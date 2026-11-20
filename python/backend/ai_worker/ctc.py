@@ -40,6 +40,7 @@ from backend.ai_worker.ctc_emission import (
     frame_stride_samples as frame_stride_samples,
 )
 from backend.ai_worker.ctc_guidance import confirmed_prefix_end, preserve_following_core
+from backend.ai_worker.ctc_occurrences import displaced_prefix, usable_prefix
 from backend.ai_worker.ctc_bounds import (
     _clamped_letters as _clamped_letters,
     _clips_letter_anchor as _clips_letter_anchor,
@@ -119,21 +120,21 @@ def align_guided(
     whole: Sequence[AlignedWord] | None = None,
     *,
     anchors: Mapping[int, float] = MappingProxyType({}),
+    spans: Mapping[int, tuple[float, float]] = MappingProxyType({}),
 ) -> list[AlignedWord]:
     """Choose guided or whole-song timing using recognition and voiced activity."""
     whole = align_words(scores, frame_seconds, words) if whole is None else whole
     result: list[AlignedWord] = []
     for window in windows:
-        chunk = list(words[window.first : window.last])
-        if not chunk:
+        if not (chunk := list(words[window.first : window.last])):
             continue
         entry, following = anchors.get(window.first), heard.get(window.last)
         reference = list(whole[window.first : window.last])
         window, entry = _guided_bounds(window, entry, following, reference, voiced)
         recovery_end = _recovery_end(following, whole, window, reference)
         guided = _guided_crop(scores, frame_seconds, chunk, window, result, recovery_end, voiced)
-        guided = _guided_prefix(
-            guided, reference, result, scores, frame_seconds, window, anchors, heard, voiced
+        guided = _guided_recovery(
+            guided, reference, result, scores, frame_seconds, window, anchors, heard, voiced, spans
         )
         candidates = _guided_candidates(
             guided, reference, result, whole, window, following, entry, voiced
@@ -402,5 +403,54 @@ def _guided_prefix(
     )
     candidate = [*reference[:first], *suffix]
     if any(word.score <= 0 for word in suffix) or not _follows_word(candidate, previous, voiced):
+        return guided
+    return _preferred(candidate, guided, window.first, heard, voiced)
+
+
+def _guided_recovery(
+    guided: list[AlignedWord],
+    reference: list[AlignedWord],
+    previous: Sequence[AlignedWord],
+    scores: torch.Tensor,
+    step: float,
+    window: Window,
+    anchors: Mapping[int, float],
+    heard: Mapping[int, float],
+    voiced: np.ndarray | None,
+    timings: Mapping[int, tuple[float, float]],
+) -> list[AlignedWord]:
+    guided = _guided_prefix(
+        guided, reference, previous, scores, step, window, anchors, heard, voiced
+    )
+    return _guided_occurrence(guided, previous, scores, step, window, heard, voiced, timings)
+
+
+def _guided_occurrence(
+    guided: list[AlignedWord],
+    previous: Sequence[AlignedWord],
+    scores: torch.Tensor,
+    step: float,
+    window: Window,
+    heard: Mapping[int, float],
+    voiced: np.ndarray | None,
+    timings: Mapping[int, tuple[float, float]],
+) -> list[AlignedWord]:
+    run = displaced_prefix(guided, window, timings)
+    if run is None:
+        return guided
+    target, size = run
+    entry = min(window.start, timings[window.first][0] - _HEARD_DISAGREEMENT_SECONDS)
+    start = max(0.0, entry, previous[-1].end if previous else 0.0)
+    if start >= guided[0].start:
+        return guided
+    bounds = replace(window, last=window.first + target, start=start, end=guided[0].start)
+    prefix = _align_window(scores, step, [word.text for word in guided[:target]], bounds)
+    if not usable_prefix(prefix, guided[:target], bounds, step):
+        return guided
+    cores = [replace(word, text=guided[target + i].text) for i, word in enumerate(guided[:size])]
+    candidate = [*prefix, *cores, *guided[target + size :]]
+    if not _follows_word(candidate, previous, voiced) or (
+        voiced is not None and _implausible(candidate, voiced) > _implausible(guided, voiced)
+    ):
         return guided
     return _preferred(candidate, guided, window.first, heard, voiced)
