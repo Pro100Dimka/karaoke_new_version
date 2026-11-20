@@ -33,6 +33,7 @@ import { keyBelongsToControl } from '../../shared/ui/keyOwnership';
 import { EditorHeader } from './EditorHeader';
 import { EditorTransport } from './EditorTransport';
 import { useEditorSession } from './useEditorSession';
+import { useEditorRollClock } from './useEditorRollClock';
 
 const zoomSteps = [0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
 const maxZoom = zoomSteps[zoomSteps.length - 1] ?? 1;
@@ -106,6 +107,14 @@ export const EditorPage = () => {
   latest.current = document;
   const page = useRef<HTMLElement>(null);
   const centeredSong = useRef('');
+  useEditorRollClock(
+    page,
+    document,
+    () => session.position,
+    duration,
+    zoom,
+    follow && session.playing,
+  );
 
   // The roll opens on the melody itself, not on its highest note: one stray high note used to
   // leave the visible part empty and the singing far below it.
@@ -352,38 +361,34 @@ export const EditorPage = () => {
         </Toolbar>
       </section>
 
-      <Observer>
-        {() => (
-          <PianoRoll
-            className="editorRoll"
-            label={tr('melodyEditor')}
-            notes={document.notes}
-            words={document.words}
-            duration={duration}
-            position={session.position}
-            selected={selection}
-            zoom={zoom}
-            onZoomChange={setZoom}
-            minPitch={lowest}
-            maxPitch={highest}
-            follow={follow && session.playing}
-            grid={grid}
-            nudgeSeconds={snapGridSeconds}
-            onSelect={session.select}
-            onSelectArea={(ids, additive) =>
-              session.setSelection(
-                (current) => new Set([...(additive ? current : []), ...ids]),
-              )
-            }
-            onSeek={(value) => void session.seek(value)}
-            onNoteDrag={drag}
-            onNoteDragEnd={dragEnd}
-            onNudge={(id, pitch, seconds) =>
-              session.move(new Set([id]), pitch, seconds)
-            }
-          />
-        )}
-      </Observer>
+      <PianoRoll
+        className="editorRoll"
+        label={tr('melodyEditor')}
+        notes={document.notes}
+        words={document.words}
+        duration={duration}
+        position={0}
+        selected={selection}
+        zoom={zoom}
+        onZoomChange={setZoom}
+        minPitch={lowest}
+        maxPitch={highest}
+        follow={false}
+        grid={grid}
+        nudgeSeconds={snapGridSeconds}
+        onSelect={session.select}
+        onSelectArea={(ids, additive) =>
+          session.setSelection(
+            (current) => new Set([...(additive ? current : []), ...ids]),
+          )
+        }
+        onSeek={(value) => void session.seek(value)}
+        onNoteDrag={drag}
+        onNoteDragEnd={dragEnd}
+        onNudge={(id, pitch, seconds) =>
+          session.move(new Set([id]), pitch, seconds)
+        }
+      />
     </main>
   );
 };

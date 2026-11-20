@@ -315,6 +315,52 @@ it('updates last-played sorting while the library stays open on the laptop', asy
   ]);
 });
 
+it('opens a large playlist without rescanning all membership IDs for each song', async () => {
+  client.setQueryDefaults(['song-imports'], { queryFn: async () => [] });
+  const songs = Array.from({ length: 500 }, (_, index) => ({
+    id: `song-${index}`,
+    title: `Song ${index}`,
+    artist: 'Singer',
+    language: 'English' as const,
+    status: 'ready' as const,
+    durationSeconds: 60,
+    createdAt: '2026-01-01',
+    coverState: 'Fallback' as const,
+    activeRevision: 1,
+    projectFormatVersion: 1,
+  }));
+  let membershipReads = 0;
+  const songIds = new Proxy(
+    songs.filter((_, i) => i % 2 === 0).map(({ id }) => id),
+    {
+      get(target, key, receiver) {
+        if (typeof key === 'string' && /^\d+$/.test(key)) membershipReads++;
+        return Reflect.get(target, key, receiver);
+      },
+    },
+  );
+  store.preferences.karaokePlaylists = [
+    { id: 'party', name: 'Party', songIds },
+  ];
+  vi.mocked(pythonClient.listSongs).mockResolvedValue(songs);
+  const { result } = renderHook(
+    () => useLibraryCatalog('', { ...filters, playlist: 'party' }, false),
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    },
+  );
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(result.current.visibleSongs).toHaveLength(250);
+  expect(
+    result.current.visibleSongs.every(
+      ({ id }) => Number(id.slice(5)) % 2 === 0,
+    ),
+  ).toBe(true);
+  expect(membershipReads).toBeLessThanOrEqual(songIds.length * 4);
+});
+
 it('reuses recent searches, invalidates changes and expires unused results', async () => {
   const { rerender, unmount } = renderHook(
     ({ query }) => useLibraryCatalog(query, filters, false),

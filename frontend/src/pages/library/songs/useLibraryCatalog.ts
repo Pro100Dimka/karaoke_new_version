@@ -131,14 +131,14 @@ export const useLibraryCatalog = (
     return stop;
   }, []);
   const visibleSongs = useMemo(() => {
-    if (completeCatalog)
+    if (completeCatalog) {
+      const membership = playlist ? new Set(playlist.songIds) : undefined;
       return selectLibrarySongs(
-        playlist
-          ? songs.filter((song) => playlist.songIds.includes(song.id))
-          : songs,
+        membership ? songs.filter((song) => membership.has(song.id)) : songs,
         serverFilter,
         played,
       );
+    }
     // Only pending imports need local filtering. Server pages own text matching
     // and cursor order, including the previous results kept during a new search.
     const hiddenImports = new Set(imports.map((song) => song.id));
