@@ -15,6 +15,7 @@ import warningUrl from '../assets/sounds/notice-warning.ogg';
 import errorUrl from '../assets/sounds/notice-error.ogg';
 import invitationUrl from '../assets/sounds/notice-invitation.ogg';
 import { operationFailures } from '../shared/errors';
+import { modalPlacementChanged } from '../shared/ui/modalPlacement';
 import { store } from './store';
 
 export type NotificationIntent = 'info' | 'success' | 'warning' | 'error';
@@ -92,7 +93,8 @@ export const NotificationsProvider = ({ children }: PropsWithChildren) => {
   const visible = !!toast || failures.length > 0;
   useLayoutEffect(() => {
     if (!visible) return;
-    const place = () => {
+    const place = (records: MutationRecord[] = []) => {
+      if (records.length && !modalPlacementChanged(records)) return;
       const target =
         [...document.querySelectorAll('dialog:modal')].at(-1) ??
         document.querySelector('.main-theme') ??

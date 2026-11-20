@@ -2,6 +2,7 @@ import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { desktopClient } from '../services/desktopClient';
+import { modalPlacementChanged } from '../shared/ui/modalPlacement';
 import { useWindowState } from './useWindowState';
 
 const windowActions = [
@@ -40,6 +41,7 @@ const useTopModal = () => {
     if (typeof HTMLDialogElement.prototype.showModal !== 'function') return;
     let stack: HTMLDialogElement[] = [];
     const update = (records: MutationRecord[] = []) => {
+      if (records.length && !modalPlacementChanged(records)) return;
       // Attribute records preserve opening order even when it differs from DOM order.
       for (const { target, attributeName } of records) {
         if (!(target instanceof HTMLDialogElement) || attributeName !== 'open')
