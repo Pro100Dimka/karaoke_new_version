@@ -92,7 +92,9 @@ class PrepareProcessingAudio:
         *,
         during_separation: Callable[[Path, SeparationOperation], SeparatedAudio] | None = None,
     ) -> PreparedAudio:
-        normalized, cache_hit = self._normalize_audio(song, workspace, context, reports)
+        normalized, cache_hit = self._normalize_audio(
+            song, workspace, context, reports, execution.cpu_threads
+        )
         music = self._analyze_music(normalized, context, reports)
 
         def separate(stage_execution: ExecutionContext) -> SeparatedAudio:
@@ -120,13 +122,14 @@ class PrepareProcessingAudio:
         workspace: Path,
         context: JobContext,
         reports: list[StageReport],
+        cpu_threads: int,
     ) -> tuple[Path, bool]:
         return self._stages.run(
             "DecodeNormalize",
             CancellationPolicy.INTERRUPTIBLE,
             reports,
             context,
-            lambda: self._normalize.run(song, workspace, context.cancel),
+            lambda: self._normalize.run(song, workspace, context.cancel, cpu_threads=cpu_threads),
             progress=0.10,
         )
 

@@ -41,6 +41,8 @@ class FfmpegMediaInspector:
                 self._ffmpeg,
                 "-v",
                 "error",
+                "-filter_threads",
+                "1",
                 "-i",
                 str(source),
                 "-vn",

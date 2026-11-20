@@ -132,6 +132,8 @@ class FfmpegAudioNormalizer:
                 "-v",
                 "error" if quiet else "info",
                 "-nostats",
+                "-filter_threads",
+                str(threads),
                 "-y",
                 "-i",
                 str(source),

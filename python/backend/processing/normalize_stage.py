@@ -22,7 +22,14 @@ class NormalizeStage:
         self._threads = cpu_threads
         self._algorithm_version = algorithm_version
 
-    def run(self, song: Song, workspace: Path, cancel: threading.Event) -> tuple[Path, bool]:
+    def run(
+        self,
+        song: Song,
+        workspace: Path,
+        cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
+    ) -> tuple[Path, bool]:
         if song.source_path is None:
             raise ValueError("Song has no managed source media")
         key = build_cache_key(
@@ -38,5 +45,6 @@ class NormalizeStage:
         if cached:
             return cached, True
         target = workspace / "normalized.wav"
-        self._normalizer.normalize(song.source_path, target, threads=self._threads, cancel=cancel)
+        threads = self._threads if cpu_threads is None else max(1, min(cpu_threads, self._threads))
+        self._normalizer.normalize(song.source_path, target, threads=threads, cancel=cancel)
         return self._cache.put(key, target), False
