@@ -1,61 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SongDto } from '../contracts/models';
-
-const song = { id: 'song', activeRevision: 1 } as SongDto;
-const native = {
-  sampleRate: 44100,
-  channels: 1,
-  durationFrames: 44100,
-  startSessionFrame: 88200,
-  stopSessionFrame: 132300,
-  startPlaybackPosition: 22050,
-  overrunCount: 1,
-  gapMetadataDropped: 0,
-  staleBlocks: 2,
-  gaps: [{ startFrame: 90000, frameCount: 128 }],
-};
-const responseText = (command: string): string => {
-  const responses: Record<string, string> = {
-    StopRecording: 'D:/take.wav',
-    GetRecordingState: JSON.stringify(native),
-  };
-  return responses[command] ?? 'Ok';
-};
-const deferred = () => {
-  let resolve: () => void = () => undefined;
-  const promise = new Promise<void>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-};
-const setup = async () => {
-  const inspectWave = vi.fn(async () => ({
-    durationSeconds: 1,
-    sampleRate: 44100,
-    channels: 1,
-  }));
-  const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
-    status: 0,
-    text: responseText(request.command),
-  }));
-  const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
-    ok: true,
-    status: 200,
-    body:
-      request.path === '/recordings/target'
-        ? { recordingId: 'take', filePath: 'D:/take.wav' }
-        : {},
-  }));
-  Object.assign(window, {
-    desktop: {
-      audioRequest,
-      pythonRequest,
-      inspectWave,
-    },
-  });
-  const { recordingCoordinator } = await import('./recordingCoordinator');
-  return { recordingCoordinator, audioRequest, pythonRequest, inspectWave };
-};
+import {
+  song,
+  native,
+  responseText,
+  deferred,
+  setup,
+} from '../../test-fixtures/recordingLifecycle';
 
 describe('recording lifecycle', () => {
   beforeEach(() => vi.resetModules());

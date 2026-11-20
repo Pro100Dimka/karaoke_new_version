@@ -14,7 +14,11 @@ it('keeps a delayed color update from turning the keyboard back on after Off', a
       await new Promise<void>((resolve) => {
         finishFirst = resolve;
       });
-    applied.push(args[args.indexOf('--color') + 1]!);
+    const index = args.indexOf('--color');
+    const color = args[index + 1];
+    if (index < 0 || color === undefined)
+      throw new Error('Missing color argument');
+    applied.push(color);
     return '';
   };
   const provider = new OpenRgbKeyboardLighting('OpenRGB.exe', run);
@@ -46,7 +50,11 @@ it('applies the latest pending color instead of accumulating obsolete animation 
       await new Promise<void>((resolve) => {
         finishFirst = resolve;
       });
-    applied.push(args[args.indexOf('--color') + 1]!);
+    const index = args.indexOf('--color');
+    const color = args[index + 1];
+    if (index < 0 || color === undefined)
+      throw new Error('Missing color argument');
+    applied.push(color);
     return '';
   };
   const provider = new OpenRgbKeyboardLighting('OpenRGB.exe', run);
