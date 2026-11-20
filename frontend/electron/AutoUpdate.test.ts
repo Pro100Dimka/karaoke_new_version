@@ -125,8 +125,10 @@ it('reconnects when the server stops before sending response headers', async () 
     });
   });
   const downloading = fetchInstaller(fetchImpl, release(), directory);
-  await vi.advanceTimersByTimeAsync(17_000);
-  expect(calls).toBe(2);
+  await vi.waitFor(() => expect(calls).toBe(1));
+  await vi.advanceTimersByTimeAsync(15_000);
+  // The reconnect checks the saved file asynchronously before scheduling its backoff.
+  await vi.waitFor(() => expect(calls).toBe(2), { timeout: 2000 });
   vi.useRealTimers();
   const file = await downloading;
   assert(file, 'Installer download must return a file');
@@ -216,16 +218,27 @@ it('stops after bounded retries and retains the partial download for a later att
   const partial = path.join(directory, 'AD-Voice-Setup-1.2.0.exe.part');
   await writeFile(partial, payload.subarray(0, 1234));
   vi.useFakeTimers();
+  const delays = vi.spyOn(globalThis, 'setTimeout');
   const fetchImpl = vi.fn(async () => {
     throw new Error('Offline');
   });
   const downloading = expect(
     fetchInstaller(fetchImpl, release(), directory),
   ).rejects.toThrow('Offline');
-  await vi.advanceTimersByTimeAsync(20_000);
-  await downloading;
-  expect(fetchImpl).toHaveBeenCalledTimes(5);
-  expect((await stat(partial)).size).toBe(1234);
+  try {
+    // Each retry inspects the partial file before starting its bounded backoff.
+    for (const delay of [1000, 2000, 4000, 8000]) {
+      await vi.waitFor(() =>
+        expect(delays).toHaveBeenCalledWith(expect.any(Function), delay),
+      );
+      await vi.advanceTimersByTimeAsync(delay);
+    }
+    await downloading;
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect((await stat(partial)).size).toBe(1234);
+  } finally {
+    delays.mockRestore();
+  }
 });
 
 it('downloads the installer with progress and reuses the verified file at the next start', async () => {

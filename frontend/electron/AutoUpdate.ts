@@ -2,6 +2,7 @@ import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -135,6 +136,15 @@ const latestInstaller = async (
     : undefined;
 };
 
+const fileSize = async (file: string): Promise<number | undefined> => {
+  try {
+    return (await stat(file)).size;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+};
+
 /**
  * The installer as a verified file in `directory`: one downloaded earlier is reused when its
  * actual SHA-256 and size still match the release, otherwise it is downloaded (older ones go).
@@ -151,7 +161,7 @@ export const fetchInstaller = async (
   if (!expected || !/^[0-9a-f]{64}$/.test(expected)) return null;
   const file = path.join(directory, `AD-Voice-Setup-${installer.version}.exe`);
   try {
-    if (fs.statSync(file).size === installer.size) {
+    if ((await stat(file)).size === installer.size) {
       const hash = createHash('sha256');
       for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
       if (hash.digest('hex') === expected) return file;
@@ -160,22 +170,22 @@ export const fetchInstaller = async (
     // Not downloaded yet.
   }
   if (!downloadMissing) return null;
-  fs.mkdirSync(directory, { recursive: true });
+  await mkdir(directory, { recursive: true });
   // Older installers go; one still held open (the antivirus scanning it) is simply left for later.
-  for (const name of fs.readdirSync(directory))
+  for (const name of await readdir(directory))
     if (!name.startsWith(path.basename(file)))
       try {
-        fs.rmSync(path.join(directory, name), { force: true });
+        await rm(path.join(directory, name), { force: true });
       } catch {
         // Removed at a later update.
       }
   const partial = `${file}.part`;
   let shown = -1;
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    let size = fs.existsSync(partial) ? fs.statSync(partial).size : 0;
+    let size = (await fileSize(partial)) ?? 0;
     if (size === installer.size) break;
     if (size > installer.size) {
-      fs.rmSync(partial);
+      await rm(partial);
       size = 0;
     }
     if (attempt)
@@ -245,15 +255,15 @@ export const fetchInstaller = async (
       controller.abort();
     }
   }
-  if (!fs.existsSync(partial) || fs.statSync(partial).size !== installer.size)
+  if ((await fileSize(partial)) !== installer.size)
     return null;
   const hash = createHash('sha256');
   for await (const chunk of fs.createReadStream(partial)) hash.update(chunk);
   if (hash.digest('hex') !== expected) {
-    fs.rmSync(partial, { force: true });
+    await rm(partial, { force: true });
     return null;
   }
-  fs.renameSync(partial, file);
+  await rename(partial, file);
   onPercent(100);
   return file;
 };

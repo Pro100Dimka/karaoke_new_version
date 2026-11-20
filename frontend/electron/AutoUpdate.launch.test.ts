@@ -93,7 +93,7 @@ it.each(['spawn', 'error'])('opens the application unless the cached installer s
   expect(mocks.spawn).not.toHaveBeenCalled();
   // A slow background download must not prevent the already running app from opening.
   await vi.advanceTimersByTimeAsync(31_000);
-  expect(fetchImpl).toHaveBeenCalledTimes(2);
+  await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
   finishDownload();
   await vi.waitFor(() => expect(ready).toHaveBeenCalledWith('1.1.5'));
   expect(updater.requiresLaunchCheck()).toBe(true);

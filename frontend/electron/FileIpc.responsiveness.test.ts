@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { registerDesktopIpc } from './DesktopIpc';
 import { registerProjectFileHandlers } from './ProjectFiles';
+import { fetchInstaller } from './AutoUpdate';
 import { ipcChannels } from './ipcChannels';
 import type { TrustedIpc } from './TrustedIpc';
 
@@ -171,6 +172,43 @@ it('keeps file metadata lookup asynchronous for slow external storage', async ()
     extension: 'flac',
     sizeBytes: 123,
   });
+});
+
+it('keeps window controls responsive while checking a cached update on a busy disk', async () => {
+  const lookup = deferred<{ size: number }>();
+  disk.stat.mockReturnValue(lookup.promise);
+  const { invoke, minimize } = setup();
+  const download = vi.fn();
+  let settled = false;
+  const result = fetchInstaller(
+    download,
+    {
+      version: '1.2.0',
+      url: 'https://github.com/example/installer.exe',
+      size: 1,
+      sha256: '0'.repeat(64),
+    },
+    root,
+    undefined,
+    false,
+  );
+  void result.then(() => {
+    settled = true;
+  });
+  try {
+    await setImmediate();
+    await invoke(ipcChannels.minimize);
+    expect(minimize).toHaveBeenCalledOnce();
+    expect(disk.statSync).not.toHaveBeenCalled();
+    expect(disk.stat).toHaveBeenCalledExactlyOnceWith(
+      path.join(root, 'AD-Voice-Setup-1.2.0.exe'),
+    );
+    expect(settled).toBe(false);
+    expect(download).not.toHaveBeenCalled();
+  } finally {
+    lookup.resolve({ size: 0 });
+  }
+  await expect(result).resolves.toBeNull();
 });
 
 it('waits for a text export to finish without blocking other window requests', async () => {
