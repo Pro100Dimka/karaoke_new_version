@@ -12,6 +12,7 @@ type Library =
       type: 'publishing';
       timer: ReturnType<typeof setInterval>;
       lastKey: string | undefined;
+      key: string;
       uploaded: Set<string>;
       uploadId?: string;
       songs?: readonly SongDto[];
@@ -47,6 +48,7 @@ export class RoomLibraryPublisher {
     const running: Extract<Library, { type: 'publishing' }> = {
       type: 'publishing',
       lastKey: undefined,
+      key: '',
       uploaded: new Set(),
       readAt: 0,
       revision: 0,
@@ -84,25 +86,27 @@ export class RoomLibraryPublisher {
             return;
           library.songs = songs.filter((song) => song.status === 'ready');
           library.readAt = Date.now();
+          // The one-second transfer check reuses this immutable catalog snapshot.
+          library.key = library.songs
+            .map((song) =>
+              JSON.stringify([
+                song.id,
+                song.activeRevision,
+                song.title,
+                song.artist,
+                song.album,
+                song.genre,
+                song.durationSeconds,
+                song.sourceHash,
+                song.projectHash,
+              ]),
+            )
+            .sort()
+            .join('|');
         }
         const songs = library.songs;
         if (this.library !== library || !this.scope.isCurrent()) return;
-        const key = songs
-          .map((song) =>
-            JSON.stringify([
-              song.id,
-              song.activeRevision,
-              song.title,
-              song.artist,
-              song.album,
-              song.genre,
-              song.durationSeconds,
-              song.sourceHash,
-              song.projectHash,
-            ]),
-          )
-          .sort()
-          .join('|');
+        const key = library.key;
         if (key !== library.lastKey) {
           const updated = await this.ports.room.publishLibrary(
             this.scope.code,

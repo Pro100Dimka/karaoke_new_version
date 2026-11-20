@@ -89,10 +89,13 @@ it('refreshes the library on changes without reading it every second', async () 
     id: 'song',
     activeRevision: 1,
     status: 'ready',
-    title: 'Old title',
+    get title() {
+      return 'Old title';
+    },
     artist: 'Old artist',
     projectHash: 'a'.repeat(64),
   } as SongDto;
+  const titleReads = vi.spyOn(publishedSong, 'title', 'get');
   services.python.listSongs.mockResolvedValue([publishedSong]);
   let changed: () => void = () => undefined;
   const unsubscribe = vi.fn();
@@ -111,6 +114,7 @@ it('refreshes the library on changes without reading it every second', async () 
     await vi.advanceTimersByTimeAsync(5000);
     expect(services.python.listSongs).toHaveBeenCalledTimes(1);
     expect(services.room.publishLibrary).toHaveBeenCalledTimes(1);
+    expect(titleReads).toHaveBeenCalledOnce();
     services.python.listSongs.mockResolvedValue([
       { ...publishedSong, title: 'New title', artist: 'New artist' },
     ]);
