@@ -767,6 +767,8 @@ constexpr std::array tests{
          Tests::leavingRemoteParticipantRevokesItsDirectDestination},
     Test{"directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement",
          Tests::directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement},
+    Test{"sequenceDuplicateHistoryAcceptsMaximumWireValue",
+         Tests::sequenceDuplicateHistoryAcceptsMaximumWireValue},
     Test{"performanceMixExcludesMelody", Tests::performanceMixExcludesMelody},
     Test{"disabledDspIsExactBypass", Tests::disabledDspIsExactBypass},
     Test{"loudnessWeightingFollowsHearing", Tests::loudnessWeightingFollowsHearing},

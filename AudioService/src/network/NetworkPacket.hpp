@@ -44,18 +44,21 @@ class RecentAudioSequenceWindow {
         reset();
     }
     void reset() noexcept {
-        sequences_.fill(UINT32_MAX);
+        occupied_.fill(false);
     }
     [[nodiscard]] bool isDuplicate(std::uint32_t sequence) noexcept {
-        auto& stored = sequences_[static_cast<std::size_t>(sequence) % Capacity];
-        if (stored == sequence)
+        const auto slot = static_cast<std::size_t>(sequence) % Capacity;
+        auto& stored = sequences_[slot];
+        if (occupied_[slot] && stored == sequence)
             return true;
         stored = sequence;
+        occupied_[slot] = true;
         return false;
     }
 
   private:
     std::array<std::uint32_t, Capacity> sequences_{};
+    std::array<bool, Capacity> occupied_{};
 };
 
 /** Stream ids are opaque boot identifiers. A retired id stays retired until the route resets. */

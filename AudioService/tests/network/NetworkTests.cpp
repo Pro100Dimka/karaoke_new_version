@@ -3605,6 +3605,30 @@ void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement() {
     expect(!epochs.accept(0), "even an early retired stream cannot return in a long session");
 }
 
+void sequenceDuplicateHistoryAcceptsMaximumWireValue() {
+    RecentAudioSequenceWindow seen;
+    expect(!seen.isDuplicate(UINT32_MAX),
+           "a newly constructed history admits the maximum wire sequence");
+    expect(seen.isDuplicate(UINT32_MAX),
+           "a newly constructed history remembers the first admitted sequence");
+    for (const auto initial : std::array{UINT32_MAX, 0U, 1U, UINT32_MAX - 1U}) {
+        seen.reset();
+        expect(!seen.isDuplicate(initial),
+               "every wire sequence, including UINT32_MAX, is new after a history reset");
+        expect(seen.isDuplicate(initial), "a repeated wire sequence is a duplicate");
+    }
+
+    seen.reset();
+    for (const auto sequence : std::array{UINT32_MAX - 1U, UINT32_MAX, 0U, 1U})
+        expect(!seen.isDuplicate(sequence), "sequence wraparound admits each new packet");
+    expect(seen.isDuplicate(UINT32_MAX),
+           "the maximum sequence remains remembered after wraparound");
+    expect(!seen.isDuplicate(UINT32_MAX - RecentAudioSequenceWindow::Capacity),
+           "a new sequence may replace the maximum value in its bounded history slot");
+    expect(!seen.isDuplicate(UINT32_MAX) && seen.isDuplicate(UINT32_MAX),
+           "a replaced maximum sequence is new once and then remembered again");
+}
+
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
     auto backend = std::make_unique<FakeAudioBackend>();
     AudioService service{std::move(backend)};

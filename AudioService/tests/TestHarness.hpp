@@ -488,6 +488,7 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive();
 void udpSocketShortPollingPreservesPacedDatagrams();
 void leavingRemoteParticipantRevokesItsDirectDestination();
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement();
+void sequenceDuplicateHistoryAcceptsMaximumWireValue();
 void wavDecoderReportsFormat();
 void flacDecoderRejectsTruncatedAudio();
 void flacDecoderReadsAndSeeksAtTheExactEnd();
