@@ -58,3 +58,23 @@ const analysisStages = {
 
 export const analysisStageLabel = (stage: string) =>
   analysisStages[stage as keyof typeof analysisStages] ?? 'analysisRunning';
+
+const studioMasterStages = {
+  Queued: 'analysisWaitingResources',
+  PreparingRecording: 'recordingPreparing',
+  SeparatingPerformance: 'analysisSeparating',
+  PreparingStudioSources: 'studioMasterPreparingSources',
+  AligningStudioVoice: 'studioMasterAligningVoice',
+  PreparingStudioVoice: 'studioMasterPreparingVoice',
+  PitchAnalysis: 'analysisPitchTracking',
+  ReferencePitchAnalysis: 'analysisReferenceTracking',
+  ProcessingStudioVoice: 'studioMasterProcessingVoice',
+  AnalyzingBalance: 'studioMasterMixing',
+  MixingStudioMaster: 'studioMasterMixing',
+  MasteringRecording: 'studioMasterMastering',
+  PublishingStudioMaster: 'studioMasterPublishing',
+} as const;
+
+export const studioMasterStageLabel = (stage: string) =>
+  studioMasterStages[stage as keyof typeof studioMasterStages] ??
+  'studioMasterTitle';

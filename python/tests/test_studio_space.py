@@ -225,39 +225,47 @@ def test_reference_matching_preserves_sources_and_creates_separate_output(tmp_pa
     "reference_db, varying_effect",
     [(-80, False), (-12, False), (-2, False), (6, False), (-2, True)],
 )
-def test_master_balance_uses_backing_independently_of_reference_level(
+def test_master_balance_uses_absolute_reference_before_space_sends(
     tmp_path: Path, monkeypatch, reference_db, varying_effect
 ):
     from backend.infrastructure.process_runner import ProcessRunner
     from backend.recordings.studio_master import FfmpegStudioMasterRenderer
-    import shutil
+    from backend.recordings import studio_adaptive_mix as adaptive_mix
 
-    def preserve_backing(backing, voice, target, active, cancel, **reference):
-        shutil.copyfile(backing, target)
-        return {}
+    before_space = []
+    sends = adaptive_mix.render_sends
 
-    # Isolate vocal balance so subtracting the backing recovers only the voice.
-    monkeypatch.setattr(
-        FfmpegStudioMasterRenderer, "_unmask_backing", staticmethod(preserve_backing)
-    )
-    if varying_effect:
-
-        def spatial_energy(
-            renderer, reference, recorded, voice, target, cancel, *, full_reference, recorded_is_dry
-        ):
-            assert full_reference == paths["reference"]
-            assert recorded_is_dry
-            samples, rate = sf.read(voice)
+    def observe_space(
+        voice,
+        music,
+        target,
+        cancel,
+        *,
+        reference,
+        recorded_is_dry,
+        arrangement=None,
+        backing_ready=None,
+    ):
+        assert recorded_is_dry
+        samples, rate = sf.read(voice)
+        before_space.append(samples.copy())
+        if varying_effect:
             wet = np.roll(samples, round(rate * 0.137))
             wet[: round(rate * 0.137)] = 0
-            samples += wet * 0.1
-            sf.write(target, samples, rate, subtype="FLOAT")
-            return {"status": "matched", "dryPreserved": True}
-
-        monkeypatch.setattr(
-            "backend.recordings.studio_render.apply_reference_space", spatial_energy
+            sf.write(target, samples + wet * 0.1, rate, subtype="FLOAT")
+            return {"status": "matched", "applied": True, "dryPreserved": True}
+        return sends(
+            voice,
+            music,
+            target,
+            cancel,
+            reference=reference,
+            recorded_is_dry=recorded_is_dry,
+            arrangement=arrangement,
+            backing_ready=backing_ready,
         )
 
+    monkeypatch.setattr(adaptive_mix, "render_sends", observe_space)
     rng = np.random.default_rng(12)
     voice = rng.normal(0, 0.05, 8000 * 6)
     backing = rng.normal(0, 0.05, len(voice))
@@ -269,6 +277,7 @@ def test_master_balance_uses_backing_independently_of_reference_level(
         "mix": voice + backing,
     }.items():
         sf.write(paths[name], samples, 8000, subtype="FLOAT")
+    untouched = [path.read_bytes() for path in paths.values()]
     result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
         paths["voice"],
         paths["backing"],
@@ -281,17 +290,26 @@ def test_master_balance_uses_backing_independently_of_reference_level(
         process_voice=True,
         adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
-    rendered, _ = sf.read(tmp_path / "master.wav")
-    delivery_gain = 10 ** (result.processing["delivery"]["gainDb"] / 20)
-    vocal = rendered / delivery_gain - backing
-    measured = 10 * np.log10(np.mean(vocal**2) / np.mean(backing**2))
-    # Equal broadband levels retain the requested vocal lift regardless of reference gain.
-    assert measured == pytest.approx(1.5, abs=1)
-    assert result.processing["gainPlan"]["method"] == "single-context-envelope"
-    if varying_effect:
-        for section in (slice(8000, 16000), slice(32000, 40000)):
-            level = 10 * np.log10(np.mean(vocal[section] ** 2) / np.mean(backing[section] ** 2))
-            assert level == pytest.approx(1.5, abs=1)
+    assert len(before_space) == 1  # Effects never become the input to another balance pass.
+    plan = result.processing["gainPlan"]
+    if reference_db == -80:
+        assert not plan["referenceUsed"]
+        assert plan["medianGainDb"] == 0
+        assert np.sqrt(np.mean(before_space[0] ** 2)) > 0.02
+    else:
+        assert plan["referenceUsed"]
+        assert plan["method"] == "section-full-level-with-bounded-word-residual"
+        expected = 10 * np.log10(np.mean(voice**2) / np.mean(backing**2)) + reference_db
+        measured = 10 * np.log10(np.mean(before_space[0] ** 2) / np.mean(backing**2))
+        assert measured == pytest.approx(expected, abs=1)
+        if varying_effect:
+            for section in (slice(8000, 16000), slice(32000, 40000)):
+                level = 10 * np.log10(
+                    np.mean(before_space[0][section] ** 2) / np.mean(backing[section] ** 2)
+                )
+                assert level == pytest.approx(expected, abs=1)
+    assert [path.read_bytes() for path in paths.values()] == untouched
+    assert result.processing["delivery"]["truePeakDbtp"] <= -1
 
 
 @pytest.mark.parametrize("dark,seconds", [(True, 4), (False, 4), (True, 1)])

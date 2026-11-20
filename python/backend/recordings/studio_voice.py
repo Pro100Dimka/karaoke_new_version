@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 import threading
 import numpy as np
 import soundfile as sf
@@ -133,14 +134,29 @@ def _equalize(
     if not bands:
         return voice
     filters = [f"equalizer=f={b['frequencyHz']:.6f}:t=q:w=0.7:g={b['gainDb']:.6f}" for b in bands]
+    render_voice_filters(renderer, voice, target, filters, cancel)
+    return target
+
+
+def render_voice_filters(
+    renderer: MasterRenderer,
+    source: Path,
+    target: Path,
+    filters: list[str],
+    cancel: threading.Event,
+) -> None:
+    """Render an ordered vocal filter graph, or preserve PCM for an empty plan."""
+    _check_cancel(cancel)
+    if not filters:
+        shutil.copyfile(source, target)
+        return
     renderer._mix(
-        voice,
-        backing,
+        source,
+        source,
         "[0:a]" + ",".join(filters) + "[out]",
         ["-c:a", "pcm_f32le", str(target)],
         cancel,
     )
-    return target
 
 
 def _blend_voice(

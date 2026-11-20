@@ -1,41 +1,53 @@
+"""Adaptive AD Master: one explicit edit → inserts → mix → delivery path."""
+
 from __future__ import annotations
-from backend.recordings.studio_delivery import MasterDelivery, measure_mix_loudness
-from backend.recordings.studio_quality import inspect_master
-from backend.recordings.studio_space import apply_reference_space
-from numpy.typing import NDArray
+
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
+import os
 import shutil
 import threading
 from tempfile import TemporaryDirectory
+from time import perf_counter
+
 import numpy as np
+from numpy.typing import NDArray
 import soundfile as sf
-from backend.analysis.scoring import reference_audio_start, parse_playback_adjustments
+
 from backend.domain_errors import DependencyError
-from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
 from backend.recordings.studio_audio import (
+    MasterRenderer,
     StudioMasterBalance,
-    _PROFILE_SECONDS,
+    _check_cancel,
     _profile,
-    _write_gain_envelope,
 )
-from dataclasses import dataclass, field
-from backend.recordings.studio_audio import MasterRenderer
-from backend.recordings.studio_reference import (
-    scope_reference,
-    mapped_reference_times,
-    verified_backing_gain,
+from backend.recordings.studio_adaptive_timing import align_voice
+from backend.recordings.studio_adaptive_voice import prepare_voice, process_voice
+from backend.recordings.studio_voice_analysis import VoiceAnalysisCache
+from backend.recordings.studio_adaptive_mix import mix_and_master
+from backend.recordings.studio_arrangement import ArrangementMap, analyze_arrangement
+from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
+from backend.recordings.studio_pitch_prefetch import LocalPitchAnalyzer
+from backend.recordings.studio_parallel import (
+    ScheduledMap,
+    ordered_map,
+    render_execution,
+    schedule_map,
 )
-from backend.recordings.studio_calibration import (
-    GainPlan,
-    build_gain_plan,
-    validate_gain_plan,
-    vocal_activity,
+from backend.recordings.studio_quality import inspect_master
+from backend.recordings.studio_sources import IDENTITY_TIMELINE, MasterSources, prepare_sources
+from backend.recordings.studio_reference_ambience import (
+    ReferenceAmbience,
+    prepare_reference_ambience,
 )
-from backend.recordings.studio_voice import shape_voice, integrate_voice
-from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
-from backend.recordings.studio_mix_audit import audit_mix
+
+
+def _timed_arrangement(action: Callable[[], ArrangementMap]) -> tuple[ArrangementMap, float]:
+    started = perf_counter()
+    result = action()
+    return result, perf_counter() - started
 
 
 @dataclass(slots=True)
@@ -54,447 +66,313 @@ class MasterRender:
     adjustments: Sequence[Mapping[str, object]]
     progress: Callable[[str, float, float], None] | None
     pitch: PitchAnalyzer | None = None
+    original_mix: Path | None = None
+    workers: int | None = None
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
+    sources: MasterSources = field(init=False)
+    arrangement: ArrangementMap = field(init=False)
     backing: Path = field(init=False)
+    vocal: Path = field(init=False)
+    balanced: Path = field(init=False)
     output_channels: int = field(init=False)
     processing: dict[str, object] = field(init=False)
-    vocal: Path = field(init=False)
     voice_db: NDArray[np.float64] = field(init=False)
     backing_db: NDArray[np.float64] = field(init=False)
     reference_db: NDArray[np.float64] = field(init=False)
     original_db: NDArray[np.float64] = field(init=False)
-    offset_result: tuple[float, float] | None = field(init=False)
-    times: NDArray[np.floating] = field(init=False)
-    source_times: NDArray[np.floating] = field(init=False)
-    timing_known: bool = field(init=False)
     gains: NDArray[np.float64] = field(init=False)
     reliable: NDArray[np.bool_] = field(init=False)
+    timing_known: bool = field(init=False)
     pitch_adjustments: Sequence[Mapping[str, object]] = field(init=False)
-    balanced: Path = field(init=False)
-    peak_bound: float = field(init=False)
-    voice_gain_db: float = field(default=0, init=False)
-    reference_origin: float = field(default=0, init=False)
-    space_reference: Path = field(init=False)
-    plan: GainPlan = field(init=False)
-    overlap: float = field(default=0.0, init=False)
-    spectral: SpectrumPlan = field(init=False)
-    reference_balance: tuple[np.ndarray, np.ndarray, np.ndarray] | None = field(
-        default=None, init=False
+    offset_result: tuple[float, float] | None = field(default=None, init=False)
+    reference_origin: float = field(default=0.0, init=False)
+    stage_seconds: dict[str, float] = field(default_factory=dict, init=False)
+    voice_analysis: VoiceAnalysisCache = field(default_factory=VoiceAnalysisCache, init=False)
+    _arrangement_work: (
+        ScheduledMap[Callable[[], ArrangementMap], tuple[ArrangementMap, float]] | None
+    ) = field(default=None, init=False, repr=False)
+    _ambience_work: ScheduledMap[Path | None, ReferenceAmbience | None] | None = field(
+        default=None, init=False, repr=False
     )
 
     def run(self) -> StudioMasterBalance:
+        self._validate_destination()
+        started = perf_counter()
+        with (
+            TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory,
+            render_execution(self.cancel, self.workers),
+        ):
+            self.work = Path(directory)
+            try:
+                self.processing = self._initial_report()
+                self._stage("sources", "PreparingStudioSources", 0.58, self._prepare_stems)
+                self._prefetch_reference_pitch()
+                self._stage("arrangement", "PreparingStudioSources", 0.60, self._arrange)
+                self._analyze()
+                self._stage("alignment", "AligningStudioVoice", 0.61, self._align)
+                self._stage("preparation", "PreparingStudioVoice", 0.64, self._prepare_voice)
+                before = perf_counter()
+                self.processing["pitchCorrection"] = apply_reference_pitch(self)
+                self.stage_seconds["pitch"] = perf_counter() - before
+                self._collect_arrangement()
+                self._stage("vocalInserts", "ProcessingStudioVoice", 0.73, self._finish_voice)
+                self._stage("mixAndMaster", "MixingStudioMaster", 0.82, self._deliver)
+                self.processing["stageSeconds"] = self.stage_seconds
+                self.processing["elapsedSeconds"] = perf_counter() - started
+                return self._balance_report()
+            finally:
+                self._close_arrangement()
+                self._close_ambience()
+
+    def _prefetch_reference_pitch(self) -> None:
+        if (
+            isinstance(self.pitch, LocalPitchAnalyzer)
+            and self.timing_known
+            and self.sources.reference_vocal is not None
+        ):
+            self.pitch.prefetch(self.sources.reference_vocal)
+
+    def _validate_destination(self) -> None:
+        _check_cancel(self.cancel)
+        inputs: tuple[Path, ...] = (
+            self.user_vocal,
+            self.performance_instrumental,
+            self.reference_vocal,
+            self.original_instrumental,
+            self.performance_mix,
+        )
+        if self.original_mix is not None:
+            inputs += (self.original_mix,)
+        if self.target.resolve() in [path.resolve() for path in inputs]:
+            raise DependencyError("StudioMasterInvalidTarget", "Master cannot overwrite a source")
         self.info = sf.info(self.performance_mix)
+        if not self.info.frames:
+            raise DependencyError("StudioMasterInvalidAudio", "Recording contains no audio")
         self.target.parent.mkdir(parents=True, exist_ok=True)
         if (
             shutil.disk_usage(self.target.parent).free
-            < self.info.frames * self.info.channels * 20 + 64 * 1024**2
+            < self.info.frames * self.info.channels * 64 + 64 * 1024**2
         ):
-            raise DependencyError(
-                "InsufficientDiskSpace", "Not enough space for recording stems and master"
-            )
-        with TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory:
-            self.work = Path(directory)
-            self._prepare_stems()
-            project_backing = self.original_instrumental
-            self._scope_reference()
-            self._recover_stems()
-            self._prepare_master_backing(project_backing)
-            bypass = self._analyze()
-            if bypass is not None:
-                return bypass
-            self._balance_performance()
-            self.processing["pitchCorrection"] = apply_reference_pitch(self)
-            self._shape_voice()
-            self._write_balanced()
-            self._finish_voice()
-            self._deliver()
-            self.processing["postMixAudit"] = audit_mix(
-                self.balanced, self.backing, self.target, vocal_gain_db=self.voice_gain_db
-            )
-            self.processing["qualityControl"] = inspect_master(
-                self.target,
-                expected_frames=self.info.frames,
-                expected_rate=self.info.samplerate,
-                expected_channels=self.output_channels,
-            )
-            return self._balance_report()
+            raise DependencyError("InsufficientDiskSpace", "Not enough space for studio processing")
 
-    def _prepare_stems(self) -> None:
-        self.backing = self.performance_instrumental
-        self.output_channels = self.info.channels
-        for path in (self.user_vocal, self.backing):
-            stem = sf.info(path)
-            if stem.samplerate != self.info.samplerate or stem.frames != self.info.frames:
-                raise DependencyError(
-                    "StudioMasterStemMismatch",
-                    "Recording and stems must have matching sample rate and duration",
-                )
-        if (
-            self.info.channels > 2
-            and self.renderer._repeated_output_channels(self.performance_mix, self.cancel)
-            and self.renderer._repeated_output_channels(self.user_vocal, self.cancel)
-            and self.renderer._repeated_output_channels(self.backing, self.cancel)
-        ):
-            self._stereo_stems()
-        if not self.exact_stems:
-            self.backing = self.work / "residual.wav"
-            self.renderer._mix(
-                self.performance_mix,
-                self.user_vocal,
-                "[1:a]volume=-1[v];[0:a][v]amix=inputs=2:duration=first:normalize=0[out]",
-                ["-ar", str(self.info.samplerate), "-c:a", "pcm_f32le", str(self.backing)],
-                self.cancel,
-            )
-        self.processing: dict[str, object] = {
-            "pipeline": "single-plan",
-            "gainApplications": 0,
-            "voiceShiftMs": 0.0,
-            "vocalSource": "dry" if self.process_voice else "existing-effects-preserved",
-            "effectsApplied": self.process_voice,
-            "outputChannels": self.output_channels,
+    def _initial_report(self) -> dict[str, object]:
+        return {
+            "pipeline": "adaptive-studio-v2",
+            "version": 2,
+            "vocalSource": "dry" if self.process_voice else "existing-effects",
+            "order": [
+                "timeline",
+                "arrangement",
+                "noiseAndClipGain",
+                "pitch",
+                "subtractiveEq",
+                "peakCompression",
+                "levelCompression",
+                "deEssing",
+                "toneEq",
+                "saturation",
+                "sectionBalance",
+                "dynamicBackingEq",
+                "parallelSpaceSends",
+                "masterGlue",
+                "truePeakLimiter",
+                "verification",
+            ],
         }
 
-    def _analyze(self) -> StudioMasterBalance | None:
-        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="master-analysis") as pool:
-            profile_tasks = [
-                pool.submit(_profile, path, self.cancel)
-                for path in (self.backing, self.reference_vocal, self.original_instrumental)
-            ]
-            origin = reference_audio_start(self.adjustments)
-            alignment = pool.submit(
-                self.renderer._reference_offset,
-                self.backing,
-                self.original_instrumental,
-                origin - self.reference_origin if origin is not None else None,
-                self.cancel,
-            )
-            bypass = self._prepare_voice(profile_tasks)
-            if bypass is not None:
-                return bypass
-            if self.progress:
-                self.progress("AnalyzingBalance", 0.3, 0.65)
-            self.voice_db = _profile(self.vocal, self.cancel)
-            self.backing_db, self.reference_db, self.original_db = (
-                future.result() for future in profile_tasks
-            )
-            self.offset_result = alignment.result() if alignment is not None else None
-        return None
+    def _stage(self, name: str, stage: str, value: float, action: Callable[[], None]) -> None:
+        _check_cancel(self.cancel)
+        if self.progress:
+            self.progress(stage, 0.0, value)
+        started = perf_counter()
+        action()
+        self.stage_seconds[name] = perf_counter() - started
 
-    def _recover_stems(self) -> None:
-        if self.exact_stems or self.processing.get("referenceScope") not in [
-            "continuous-performed-section",
-            "performed-seek-sections",
-        ]:
-            return
-        if any(
-            a.playback_rate != 1 or a.key_shift != 0
-            for a in parse_playback_adjustments(self.pitch_adjustments)
-        ):
-            return
-        match = verified_backing_gain(self.performance_mix, self.original_instrumental, self.cancel)
-        if match is None:
-            return
-        voice, music = self.work / "recovered-voice.wav", self.work / "recovered-backing.wav"
-        self.renderer._mix(
-            self.performance_mix,
-            self.original_instrumental,
-            f"[1:a]volume={match['gain']:.12f},asplit[b][music];"
-            "[b]volume=-1[n];[0:a][n]amix=inputs=2:duration=first:normalize=0[out]",
-            ["-c:a", "pcm_f32le", str(voice), "-map", "[music]", "-c:a", "pcm_f32le", str(music)],
-            self.cancel,
-        )
-        self.user_vocal, self.backing, self.exact_stems = voice, music, True
-        self.processing["stemRecovery"] = {"method": "verified-project-subtraction", **match}
-
-    def _scope_reference(self) -> None:
-        self.pitch_adjustments = self.adjustments
-        self.space_reference = self.reference_vocal
-        self.reference_vocal, self.original_instrumental, self.reference_origin, report = (
-            scope_reference(
-                self.reference_vocal,
-                self.original_instrumental,
-                self.adjustments,
-                self.info.duration,
-                self.work,
-                self.cancel,
-            )
-        )
-        self.processing.update(report)
-        if report.get("referenceTimelineRebuilt"):
-            self.adjustments = [
-                {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}
-            ]
-
-    def _prepare_master_backing(self, project: Path) -> None:
-        raw = self.pitch_adjustments or [
-            {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}
-        ]
-        points = parse_playback_adjustments(raw)
-        ends = [point.elapsed_seconds for point in points[1:]] + [self.info.duration]
-        if (
-            len(points) != len(raw)
-            or points[0].elapsed_seconds != 0
-            or any(end <= point.elapsed_seconds for point, end in zip(points, ends))
-        ):
-            raise DependencyError(
-                "StudioMasterTimelineUnavailable", "Recording timeline is invalid"
-            )
-        graph = f"[0:a]asplit={len(points)}" + "".join(f"[s{i}]" for i in range(len(points))) + ";"
-        for i, (point, end) in enumerate(zip(points, ends)):
-            duration = end - point.elapsed_seconds
-            transform = (
-                f"rubberband=tempo={point.playback_rate:.12f}:pitch={2 ** (point.key_shift / 12):.12f},"
-                if point.playback_rate != 1 or point.key_shift != 0
-                else ""
-            )
-            graph += (
-                f"[s{i}]atrim=start={point.source_seconds:.12f}:"
-                f"duration={duration * point.playback_rate:.12f},asetpts=PTS-STARTPTS,"
-                f"{transform}aresample={self.info.samplerate},apad,"
-                f"atrim=end_sample={round(duration * self.info.samplerate)}[p{i}];"
-            )
-        graph += "".join(f"[p{i}]" for i in range(len(points)))
-        graph += f"concat=n={len(points)}:v=0:a=1,apad,atrim=end_sample={self.info.frames}[out]"
-        self.backing = self.work / "master-backing.wav"
-        self.renderer._mix(
-            project,
-            project,
-            graph,
-            ["-ac", str(self.output_channels), "-c:a", "pcm_f32le", str(self.backing)],
-            self.cancel,
-        )
-        self.processing["backingSource"] = "project-timeline-without-monitor-gains"
-
-    def _balance_performance(self) -> None:
-        self.processing.update(
-            balanceSource="performance-and-backing",
-            levelingBand="broadband",
-        )
-        self._map_reference_time()
-        profiles = []
-        for levels, positions in (
-            (self.backing_db, self.times),
-            (self.reference_db, self.source_times),
-            (self.original_db, self.source_times),
-        ):
-            axis = (np.arange(len(levels)) + 0.5) * _PROFILE_SECONDS
-            profiles.append(np.interp(positions, axis, levels, left=-120, right=-120))
-        self.backing_db, self.reference_db, self.original_db = profiles
-        if self.timing_known:
-            vocal, music = measure_mix_loudness(
-                self.renderer, self.reference_vocal, self.original_instrumental, self.cancel
-            )
-            axis = (np.arange(len(vocal)) + 1) * 0.1 - 0.2
-            reference = [
-                np.interp(self.source_times, axis, values, left=-120, right=-120)
-                for values in (vocal, music)
-            ]
-            self.reference_balance = self.times, *reference
-        self.reliable = vocal_activity(self.voice_db)
-
-    def _shape_voice(self) -> None:
-        evidence = measure_mix_spectrum(self.vocal, self.backing, self.cancel)
-        self.overlap = evidence["overlap"]
-        self.plan = build_gain_plan(
+    def _prepare_stems(self) -> None:
+        self.sources = prepare_sources(
             self.renderer,
-            self.vocal,
-            self.backing,
-            self.overlap,
-            self.cancel,
-            reference_balance=self.reference_balance,
-        )
-        evidence["clarityBands"] = plan_presence_eq(
-            self.vocal, self.backing, self.plan, self.cancel
-        )
-        evidence["bands"].extend(evidence["clarityBands"])
-        self.vocal, evidence = shape_voice(
-            self.renderer,
-            self.vocal,
-            self.backing,
-            self.work / "shaped-voice.wav",
-            self.cancel,
-            plan=evidence,
-            automation=self.plan,
-        )
-        self.processing["spectralPlan"] = evidence
-        self.spectral = evidence
-
-    def _write_balanced(self) -> None:
-        if self.spectral["bands"]:
-            self.plan = build_gain_plan(
-                self.renderer,
-                self.vocal,
-                self.backing,
-                self.overlap,
-                self.cancel,
-                reference_balance=self.reference_balance,
-            )
-        self.balanced = self.work / "planned-voice.wav"
-        self.peak_bound = 0.0
-        _write_gain_envelope(
-            self.vocal, self.balanced, self.plan.times, self.plan.gains, self.cancel
-        )
-        self.processing["gainPlan"] = self.plan.report
-        self.processing["gainApplications"] = 1
-        self.processing["mixConstraints"] = validate_gain_plan(
-            self.balanced, self.plan, self.cancel
-        )
-        self.gains = np.interp(self.times, self.plan.times, self.plan.gains)
-        self.reliable = np.interp(self.times, self.plan.times, self.plan.active.astype(float)) > 0.5
-
-    def _finish_voice(self) -> None:
-        target = self.work / "spatial-voice.wav"
-        effects = apply_reference_space(
-            self.renderer,
-            self.reference_vocal,
             self.user_vocal,
-            self.balanced,
+            self.performance_instrumental,
+            self.reference_vocal,
+            self.original_instrumental,
+            self.performance_mix,
+            self.work,
+            self.cancel,
+            self.adjustments,
+            exact_stems=self.exact_stems,
+            original_mix=self.original_mix,
+        )
+        self.output_channels = self.sources.channels
+        self.user_vocal, self.vocal, self.backing = (
+            self.sources.vocal,
+            self.sources.vocal,
+            self.sources.backing,
+        )
+        self.timing_known = self.sources.reference_vocal is not None
+        if self.sources.reference_vocal is not None:
+            self.reference_vocal = self.sources.reference_vocal
+        if self.sources.reference_backing is not None:
+            self.original_instrumental = self.sources.reference_backing
+        self.processing.update(self.sources.report)
+        self.processing["playbackAdjustments"] = list(self.adjustments)
+        # The reference has already been mapped through seeks, tempo and key exactly
+        # once. Pitch analysis must not apply those changes for a second time.
+        self.adjustments = self.pitch_adjustments = IDENTITY_TIMELINE if self.timing_known else ()
+
+    def _arrange(self) -> None:
+        action = partial(
+            analyze_arrangement,
+            self.backing,
+            self.sources.reference_vocal,
+            self.cancel,
+            reference_intervals=self.sources.reference_intervals,
+        )
+        self._arrangement_work = schedule_map(_timed_arrangement, (action,), initial_tasks=1)
+
+    def _collect_arrangement(self) -> None:
+        if self._arrangement_work is None:
+            return
+        try:
+            self.arrangement, elapsed = next(self._arrangement_work)
+            self.processing["arrangement"] = self.arrangement.payload()
+            self.stage_seconds["arrangement"] = elapsed
+        finally:
+            self._close_arrangement()
+        self._prefetch_ambience()
+
+    def _prefetch_ambience(self) -> None:
+        action = partial(
+            prepare_reference_ambience,
+            arrangement=self.arrangement,
+            cancel=self.cancel,
+            channels=self.output_channels,
+        )
+        self._ambience_work = schedule_map(action, (self.sources.reference_vocal,), initial_tasks=1)
+
+    def _collect_ambience(self) -> ReferenceAmbience | None:
+        if self._ambience_work is None:
+            return None
+        try:
+            return next(self._ambience_work)
+        finally:
+            self._close_ambience()
+
+    def _close_ambience(self) -> None:
+        pending, self._ambience_work = self._ambience_work, None
+        if pending is not None:
+            pending.close()
+
+    def _close_arrangement(self) -> None:
+        pending, self._arrangement_work = self._arrangement_work, None
+        if pending is not None:
+            pending.close()
+
+    def _analyze(self) -> None:
+        paths = (
+            self.vocal,
+            self.backing,
+            self.sources.reference_vocal,
+            self.sources.reference_backing,
+        )
+        unique = tuple(dict.fromkeys(path for path in paths if path is not None))
+        profiles = dict(
+            zip(unique, ordered_map(partial(_profile, cancel=self.cancel), unique), strict=True)
+        )
+        self.voice_db = profiles[self.vocal]
+        self.backing_db = profiles[self.backing]
+        self.reference_db = (
+            profiles[self.sources.reference_vocal]
+            if self.sources.reference_vocal is not None
+            else np.full_like(self.voice_db, -120)
+        )
+        self.original_db = (
+            profiles[self.sources.reference_backing]
+            if self.sources.reference_backing is not None
+            else np.full_like(self.voice_db, -120)
+        )
+        self.gains = np.zeros_like(self.voice_db)
+        self.reliable = self.voice_db > max(-100, float(np.percentile(self.voice_db, 90)) - 45)
+        # No minimum phrase duration: a short take is still a performance.
+
+    def _align(self) -> None:
+        target = self.work / "aligned-vocal.wav"
+        result = align_voice(self.vocal, self.sources.reference_vocal, target, self.cancel)
+        self.processing["timing"] = result
+        self.processing["voiceShiftMs"] = result["shiftMs"]
+        self.vocal = target
+
+    def _prepare_voice(self) -> None:
+        target = self.work / "edited-vocal.wav"
+        self.processing["preparation"] = prepare_voice(
+            self.renderer,
+            self.vocal,
             target,
             self.cancel,
-            full_reference=self.space_reference,
-            recorded_is_dry=self.process_voice,
+            reference=self.sources.reference_vocal,
+            analysis=self.voice_analysis,
         )
-        self.processing["referenceEffects"] = effects
-        self.processing["space"] = effects["status"]
-        self.processing["effectsApplied"] = effects["status"] == "matched"
-        if target.is_file():
-            self.balanced = target
-        self.balanced, self.processing["mixIntegration"] = integrate_voice(
-            self.renderer,
-            self.balanced,
-            self.backing,
-            self.reference_vocal,
-            self.work / "integrated-voice.wav",
-            self.cancel,
-            reference_timing=(self.times, self.source_times) if self.timing_known else None,
-        )
-        self.processing["voiceOutputGainDb"] = 0.0
+        self.vocal = target
+        self.voice_db = _profile(target, self.cancel)
+        self.reliable = self.voice_db > max(-100, float(np.percentile(self.voice_db, 90)) - 45)
 
-    def _balance_report(self) -> StudioMasterBalance:
-        output_info = sf.info(self.target)
-        if (output_info.frames, output_info.samplerate, output_info.channels) != (
-            self.info.frames,
-            self.info.samplerate,
-            self.output_channels,
-        ):
-            raise DependencyError("StudioMasterInvalidAudio", "Master changed the recording length")
-        voice_level, backing_level, reference_level, original_level = (
-            float(np.median(values[self.reliable]))
-            if self.reliable.any()
-            else float(np.median(values))
-            for values in (self.voice_db, self.backing_db, self.reference_db, self.original_db)
+    def _finish_voice(self) -> None:
+        target = self.work / "processed-vocal.wav"
+        self.processing["vocalChain"] = process_voice(
+            self.renderer,
+            self.vocal,
+            target,
+            self.cancel,
+            reference=self.sources.reference_vocal,
+            arrangement=self.arrangement,
+            analysis=self.voice_analysis,
         )
-        return StudioMasterBalance(
-            float(np.median(self.gains[self.reliable])) if self.reliable.any() else 0,
-            voice_level,
-            backing_level,
-            reference_level,
-            original_level,
-            float(np.mean(self.reliable)),
-            self.processing,
-        )
+        self.vocal = self.balanced = target
 
     def _deliver(self) -> None:
-        MasterDelivery(
+        target = self.work / "verified-master.wav"
+        result = mix_and_master(
             self.renderer,
-            self.backing,
             self.balanced,
-            self.target,
-            self.cancel,
-            self.info,
-            self.output_channels,
-            self.process_voice,
-            self.match_recording_loudness,
-            None,
-            self.peak_bound,
-            self.reliable,
-            self.processing,
-            self.progress,
-            voice_gain_db=self.voice_gain_db,
-        ).run()
-
-    def _stereo_stems(self) -> None:
-        self.renderer._mix(
-            self.user_vocal,
             self.backing,
-            "[0:a]pan=stereo|c0=c0|c1=c1[out];[1:a]pan=stereo|c0=c0|c1=c1[music]",
-            [
-                "-c:a",
-                "pcm_f32le",
-                str(self.work / "dry-stereo.wav"),
-                "-map",
-                "[music]",
-                "-c:a",
-                "pcm_f32le",
-                str(self.work / "backing-stereo.wav"),
-            ],
+            target,
             self.cancel,
+            reference_vocal=self.sources.reference_vocal,
+            reference_backing=self.sources.reference_backing,
+            original_mix=self.sources.original_mix,
+            recorded_is_dry=self.process_voice,
+            arrangement=self.arrangement,
+            progress=self.progress,
+            ambience=self._collect_ambience(),
         )
-        self.user_vocal = self.work / "dry-stereo.wav"
-        self.backing = self.work / "backing-stereo.wav"
-        self.output_channels = 2
-        source = self.work / "source-stereo.wav"
-        self.renderer._mix(
-            self.performance_mix,
-            self.performance_mix,
-            "[0:a]pan=stereo|c0=c0|c1=c1[out]",
-            ["-c:a", "pcm_f32le", str(source)],
-            self.cancel,
+        self.processing.update(
+            mix=result,
+            delivery=result["delivery"],
+            gainPlan=result["balance"],
+            referenceEffects=result["space"],
+            backingEq=result["backingEq"],
         )
-        self.performance_mix = source
+        self.processing["qualityControl"] = inspect_master(
+            target,
+            expected_frames=self.sources.frames,
+            expected_rate=self.sources.rate,
+            expected_channels=self.sources.channels,
+        )
+        _check_cancel(self.cancel)
+        os.replace(target, self.target)
 
-    def _prepare_voice(
-        self, profile_tasks: list[Future[NDArray[np.float64]]]
-    ) -> StudioMasterBalance | None:
-        raw_profile = _profile(self.user_vocal, self.cancel)
-        confident = raw_profile > max(-80.0, float(np.percentile(raw_profile, 90)) - 25)
-        if np.count_nonzero(confident) * _PROFILE_SECONDS < 3:
-            shutil.copyfile(self.backing, self.target)
-            profiles = [raw_profile, *(future.result() for future in profile_tasks)]
-            voice_level, backing_level, reference_level, original_level = (
-                float(np.median(levels)) for levels in profiles
-            )
-            return StudioMasterBalance(
-                0,
-                voice_level,
-                backing_level,
-                reference_level,
-                original_level,
-                0,
-                processing={
-                    "effectsApplied": False,
-                    "bypassReason": "insufficient-vocal-evidence",
-                    "outputChannels": self.info.channels,
-                },
-            )
-        self.vocal = self.work / "processed-voice.wav"
-        self._clean_voice()
-        return None
-
-    def _clean_voice(self) -> None:
-        self.renderer._mix(
-            self.user_vocal,
-            self.backing,
-            f"[0:a]highpass=f=60,apad,atrim=end_sample={self.info.frames}[out]",
-            [
-                "-ar",
-                str(self.info.samplerate),
-                "-ac",
-                str(self.output_channels),
-                "-c:a",
-                "pcm_f32le",
-                str(self.vocal),
-            ],
-            self.cancel,
+    def _balance_report(self) -> StudioMasterBalance:
+        levels = [
+            float(np.median(values[values > -100])) if np.any(values > -100) else -120.0
+            for values in (self.voice_db, self.backing_db, self.reference_db, self.original_db)
+        ]
+        balance = self.processing.get("gainPlan", {})
+        gain = float(balance.get("medianGainDb", 0.0)) if isinstance(balance, dict) else 0.0
+        fraction = (
+            float(balance.get("referenceMatchedFraction", 0.0))
+            if isinstance(balance, dict)
+            else 0.0
         )
-
-    def _map_reference_time(self) -> None:
-        self.times = (np.arange(len(self.voice_db)) + 0.5) * _PROFILE_SECONDS
-        self.source_times, self.timing_known, report = mapped_reference_times(
-            self.times,
-            self.adjustments,
-            self.offset_result,
-            self.reference_origin,
+        return StudioMasterBalance(
+            gain, levels[0], levels[1], levels[2], levels[3], fraction, self.processing
         )
-        self.processing.update(report)

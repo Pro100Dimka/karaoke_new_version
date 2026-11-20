@@ -204,12 +204,19 @@ export const ruPerformance = {
   originalSong: 'Оригинальная песня',
   recordingVersion: 'Версия выступления',
   studioMasterDescription:
-    'Придаст голосу чистоту, глубину и объём, идеально сведёт вокал с музыкой для профессионального звучания.',
+    'Подбирает обработку голоса, пространство, баланс с музыкой и итоговую громкость по вашей записи и оригинальной песне.',
   studioMasterSourceTitle: 'Исходная запись',
   studioMasterReadyDescription:
     'Студийная версия готова — включайте записи по очереди и сравнивайте звучание.',
   studioMasterCreate: 'Создать Studio Master',
   studioMasterProgressValue: 'Студийное сведение · {progress}%',
+  studioMasterPreparingSources: 'Подготавливаем дорожки',
+  studioMasterAligningVoice: 'Проверяем синхронизацию вокала',
+  studioMasterPreparingVoice: 'Подготавливаем вокал',
+  studioMasterProcessingVoice: 'Обрабатываем голос',
+  studioMasterMixing: 'Настраиваем баланс и пространство',
+  studioMasterMastering: 'Обрабатываем готовый микс',
+  studioMasterPublishing: 'Сохраняем Studio Master',
   studioMasterReady: 'Studio Master готов',
   studioMasterFailed: 'Не удалось создать Studio Master',
   analysisPitchAdvice:

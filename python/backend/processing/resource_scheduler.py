@@ -107,6 +107,10 @@ class ProcessingResourceScheduler:
         descriptors = tuple(item.descriptor for item in (provider, *additional_providers))
         return self._claim(descriptors, source_bytes, compute_mode, cpu_threads)
 
+    def claim_cpu(self, source_bytes: int, *, cpu_threads: int | None = None) -> ResourceLease:
+        """Reserve local DSP work against the same budget as other processing jobs."""
+        return self._claim((), source_bytes, ComputeMode.CPU, cpu_threads)
+
     def _claim(
         self,
         descriptors: tuple[AiProviderDescriptor, ...],
