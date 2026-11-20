@@ -13,7 +13,13 @@ import { useNotify } from '../../providers/notifications';
 import type { ProjectCompatibility } from '../../contracts/clients';
 import type { SongDto } from '../../contracts/models';
 import { toAppError } from '../../shared/errors';
-import { clearDraft, loadDraft, saveDraft } from './editorDraft';
+import {
+  captureDraft,
+  clearDraft,
+  loadDraft,
+  restoreDraft,
+  saveDraft,
+} from './editorDraft';
 import {
   deleteNotes,
   isEditorDirty,
@@ -60,7 +66,7 @@ export const useEditorSession = (songId: string) => {
   const [saving, setSaving] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const generation = useRef(0);
-  const draftBeforeWrite = useRef<ReturnType<typeof loadDraft> | undefined>(
+  const draftBeforeWrite = useRef<ReturnType<typeof captureDraft> | undefined>(
     undefined,
   );
   const pendingSave = useRef<{
@@ -179,13 +185,13 @@ export const useEditorSession = (songId: string) => {
       )
         clearDraft(songId);
       else if (draftBeforeWrite.current)
-        saveDraft(songId, draftBeforeWrite.current);
+        restoreDraft(songId, draftBeforeWrite.current);
       draftBeforeWrite.current = undefined;
       return;
     }
     const timer = window.setTimeout(() => {
       if (draftBeforeWrite.current === undefined)
-        draftBeforeWrite.current = loadDraft(songId);
+        draftBeforeWrite.current = captureDraft(songId);
       saveDraft(songId, {
         baseRevision: saved.revision,
         document: history.present,
