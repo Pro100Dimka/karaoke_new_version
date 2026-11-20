@@ -157,7 +157,7 @@ it.each(['', '   '])(
     await waitFor(() =>
       expect(pythonClient.updateSong).toHaveBeenCalledWith(
         song.id,
-        expect.objectContaining({ title: song.title, artist: '' }),
+        expect.objectContaining({ title: undefined, artist: '' }),
       ),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());

@@ -126,7 +126,7 @@ export const useEditorSession = (songId: string) => {
           if (!active) return;
           if (choice === 'restore')
             setHistory(pushHistory(startHistory(document), draft.document));
-          else clearDraft(loaded.id);
+          else if (choice === 'discard') clearDraft(loaded.id);
         }
         await audioClient
           .prepareSong(loaded, () => active)

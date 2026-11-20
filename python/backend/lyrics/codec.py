@@ -18,11 +18,14 @@ def clean_lyric_line(line: str) -> str:
 def decode_lrc(synced: str) -> list[tuple[float, str]]:
     lines: list[tuple[float, str]] = []
     for row in synced.splitlines():
-        match = _TIMED_LINE.match(row)
-        text = clean_lyric_line(match[3]) if match else ""
-        if match and text:
-            lines.append((int(match[1]) * 60 + float(match[2]), text))
-    return lines
+        starts: list[float] = []
+        while match := _TIMED_LINE.match(row):
+            starts.append(int(match[1]) * 60 + float(match[2]))
+            row = match[3]
+        text = clean_lyric_line(row)
+        if text:
+            lines.extend((start, text) for start in starts)
+    return sorted(lines, key=lambda line: line[0])
 
 
 def decode_timing_hints(value: object, duration: float) -> tuple[LyricLineTiming, ...]:

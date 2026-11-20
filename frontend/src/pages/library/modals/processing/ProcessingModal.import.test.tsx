@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import { clearStorage } from '../../../../shared/storage/localStore';
+import {
+  clearStorage,
+  storageKey,
+  writeJson,
+} from '../../../../shared/storage/localStore';
 import { ProcessingModal } from './index';
 
 const fixture = vi.hoisted(() => ({
@@ -140,16 +144,24 @@ vi.mock('./ProcessingError', () => ({
     open,
     onRetry,
     onResetLyrics,
+    retrying,
   }: {
     open: boolean;
     onRetry?(): void;
     onResetLyrics?(): void;
+    retrying: boolean;
   }) =>
     open ? (
       <section>
-        {onRetry && <button onClick={onRetry}>Retry failed job</button>}
+        {onRetry && (
+          <button disabled={retrying} onClick={onRetry}>
+            Retry failed job
+          </button>
+        )}
         {onResetLyrics && (
-          <button onClick={onResetLyrics}>Reset lyrics after conflict</button>
+          <button disabled={retrying} onClick={onResetLyrics}>
+            Reset lyrics after conflict
+          </button>
         )}
       </section>
     ) : null,
@@ -290,4 +302,117 @@ it('connects a manual-lyrics conflict to the confirmed reset action', async () =
   expect(
     screen.queryByRole('button', { name: 'Reset lyrics after conflict' }),
   ).toBeNull();
+});
+
+it.each(['queued', 'processing', 'cancelling'] as const)(
+  'blocks retry of an old failure while the ready song has a %s refinement',
+  (state) => {
+    fixture.songs = [{ ...song, status: 'ready' }];
+    const failure: ProcessingJobDto = {
+      ...job,
+      id: 'old-failure',
+      type: 'SongProcessing',
+      songId: song.id,
+      state: 'failed',
+      timingOperation: 'lyrics',
+    };
+    const active: ProcessingJobDto = { ...failure, id: 'new-job', state };
+    fixture.jobs = [failure, active];
+    const props = { open: true, onClose: vi.fn(), onPlay: vi.fn() };
+    const view = render(<ProcessingModal {...props} />);
+    expect(
+      screen.getByRole('button', { name: 'processingRetry' }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'viewError' }));
+    expect(
+      screen.getByRole('button', { name: 'Retry failed job' }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry failed job' }));
+    expect(fixture.retryProcessing).not.toHaveBeenCalled();
+
+    fixture.jobs = [failure, { ...active, state: 'cancelled' }];
+    // The mocked job snapshot has no provider subscription; change a prop to render the observer.
+    view.rerender(<ProcessingModal {...props} onClose={vi.fn()} />);
+    expect(
+      screen.getByRole('button', { name: 'processingRetry' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Retry failed job' }),
+    ).toBeEnabled();
+  },
+);
+
+it('blocks manual-lyrics reset while a hidden refinement is active and releases it after cancellation', () => {
+  fixture.songs = [{ ...song, status: 'ready' }];
+  const failure: ProcessingJobDto = {
+    ...job,
+    id: 'old-conflict',
+    type: 'SongProcessing',
+    songId: song.id,
+    state: 'failed',
+    timingOperation: 'lyrics',
+    error: {
+      code: 'ManualLyricsConflict',
+      message: 'Manual timing exists',
+      source: 'python',
+    },
+  };
+  const active: ProcessingJobDto = {
+    ...failure,
+    id: 'hidden-refinement',
+    state: 'processing',
+    error: undefined,
+  };
+  fixture.jobs = [failure, active];
+  writeJson(storageKey('processingQueue.hidden'), [active.id]);
+  const props = { open: true, onClose: vi.fn(), onPlay: vi.fn() };
+  const view = render(<ProcessingModal {...props} />);
+  expect(
+    screen.queryByRole('button', { name: 'cancel' }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'viewError' }));
+  const reset = screen.getByRole('button', {
+    name: 'Reset lyrics after conflict',
+  });
+  expect(reset).toBeDisabled();
+  fireEvent.click(reset);
+  expect(fixture.resetLyricsAndReprocess).not.toHaveBeenCalled();
+
+  fixture.jobs = [failure, { ...active, state: 'cancelled' }];
+  // The mocked job snapshot has no provider subscription; change a prop to render the observer.
+  view.rerender(<ProcessingModal {...props} onClose={vi.fn()} />);
+  expect(reset).toBeEnabled();
+});
+
+it('keeps retry available when active jobs belong to another song or another task type', () => {
+  fixture.songs = [{ ...song, status: 'ready' }];
+  const failure: ProcessingJobDto = {
+    ...job,
+    id: 'old-failure',
+    type: 'SongProcessing',
+    songId: song.id,
+    state: 'failed',
+    timingOperation: 'lyrics',
+  };
+  fixture.jobs = [
+    failure,
+    {
+      ...failure,
+      id: 'other-song-job',
+      songId: 'other-song',
+      state: 'processing',
+    },
+    {
+      ...failure,
+      id: 'recording-job',
+      type: 'RecordingMastering',
+      state: 'processing',
+    },
+  ];
+  render(<ProcessingModal open onClose={vi.fn()} onPlay={vi.fn()} />);
+  expect(screen.getByRole('button', { name: 'processingRetry' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'viewError' }));
+  expect(
+    screen.getByRole('button', { name: 'Retry failed job' }),
+  ).toBeEnabled();
 });

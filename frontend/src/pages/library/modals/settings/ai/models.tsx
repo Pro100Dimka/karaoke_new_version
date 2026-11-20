@@ -20,6 +20,7 @@ import { ask } from '../../../../../providers/dialog';
 import { useNotify } from '../../../../../providers/notifications';
 import { backendPollInterval } from '../../../../../services/backendEvents';
 import { pythonClient } from '../../../../../services/pythonClient';
+import { errorstring, toAppError } from '../../../../../shared/errors';
 import ModelCard from './model-card';
 
 const Models = () => {
@@ -31,8 +32,11 @@ const Models = () => {
     queryFn: () => pythonClient.freeStorageBytes('models'),
     refetchInterval: backendPollInterval(5000),
   });
-  const onError = (error: unknown) =>
-    notify(error instanceof Error ? error.message : String(error), 'error');
+  const onError = (error: unknown) => {
+    const failure = toAppError(error);
+    const key = errorstring(failure);
+    notify(key ? tr(key) : failure.message, 'error');
+  };
   const { data: models, error, refetch } = useQuery(modelsQuery);
   const refresh = () =>
     Promise.all([

@@ -117,23 +117,25 @@ it('does not recheck every earlier hit on each unchanged animation frame', () =>
 it('stops retrying failed song and fallback videos while allowing a new source', async () => {
   vi.spyOn(desktopClient, 'sceneVideoUrl').mockResolvedValue('fallback.mp4');
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  const createElement = window.document.createElement.bind(window.document);
-  vi.spyOn(window.document, 'createElement').mockImplementation(
-    (tag, options) => {
-      const element = createElement(tag, options);
-      if (tag === 'video')
-        Object.assign(element, {
-          load() {},
-          getVideoPlaybackQuality: () => ({
-            totalVideoFrames: 0,
-            droppedVideoFrames: 0,
-          }),
-          requestVideoFrameCallback: () => 1,
-          cancelVideoFrameCallback() {},
-        });
-      return element;
-    },
-  );
+  // Electron's webview overload must not narrow this general DOM fixture.
+  const dom: {
+    createElement(tag: string, options?: ElementCreationOptions): HTMLElement;
+  } = window.document;
+  const createElement = dom.createElement.bind(dom);
+  vi.spyOn(dom, 'createElement').mockImplementation((tag, options) => {
+    const element = createElement(tag, options);
+    if (tag === 'video')
+      Object.assign(element, {
+        load() {},
+        getVideoPlaybackQuality: () => ({
+          totalVideoFrames: 0,
+          droppedVideoFrames: 0,
+        }),
+        requestVideoFrameCallback: () => 1,
+        cancelVideoFrameCallback() {},
+      });
+    return element;
+  });
   const backdrop = (videoUrl: string) => (
     <SceneBackdrop
       theme="dark"

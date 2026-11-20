@@ -14,6 +14,7 @@ import {
   modelKey,
 } from '../../../../../components/api-service';
 import { useNotify } from '../../../../../providers/notifications';
+import { backendPollInterval } from '../../../../../services/backendEvents';
 import { pythonClient } from '../../../../../services/pythonClient';
 import type { ModelCardProps } from '../../../../../utils/contracts';
 
@@ -58,9 +59,15 @@ const ModelDownload = (props: ModelCardProps) => {
     data: job,
     error,
     refetch,
+    isPending: loadingJob,
   } = useQuery({
     ...jobQuery('ModelDownload', modelKey(model)),
-    enabled: isModelBusy(model),
+    // Queued workers have not changed Missing/Failed to Downloading yet.
+    enabled: model.state !== 'Ready',
+    refetchInterval: (query) =>
+      isModelBusy(model) || isActiveJob(query.state.data)
+        ? backendPollInterval(1000)
+        : false,
   });
   const notify = useNotify();
   const cancel = useMutation({
@@ -70,7 +77,7 @@ const ModelDownload = (props: ModelCardProps) => {
   });
   const unavailable = progressError || !!error;
   const activeJob =
-    isModelBusy(model) && job && isActiveJob(job) ? job : undefined;
+    model.state !== 'Ready' && job && isActiveJob(job) ? job : undefined;
   const installed = model.state === 'Ready';
   const busy = !!activeJob || isModelBusy(model);
   const verifying =
@@ -148,26 +155,26 @@ const ModelDownload = (props: ModelCardProps) => {
               onClick={() => cancel.mutate(activeJob.jobId)}
             />
           )}
-          {error && (
-            <Button
-              size="sm"
-              variant="ghost"
-              icon="refresh"
-              label={tr('retry')}
-              onClick={() => void refetch()}
-            />
-          )}
         </Stack>
       ) : (
         <Button
           icon={installed ? 'trash' : 'download'}
           variant={installed ? 'ghost' : 'primary'}
           aria-label={`${actionLabel} ${model.modelId}`}
-          disabled={disabled}
+          disabled={disabled || (!installed && (loadingJob || !!error))}
           loading={pending}
           onClick={() => onAction(model)}
           style={{ marginTop: 'auto', width: '100%' }}
           label={actionLabel}
+        />
+      )}
+      {!installed && error && (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="refresh"
+          label={tr('retry')}
+          onClick={() => void refetch()}
         />
       )}
     </Stack>

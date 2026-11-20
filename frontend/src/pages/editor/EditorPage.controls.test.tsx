@@ -130,6 +130,34 @@ const selectNote = (world: Element, pitch: number, additive = false) => {
   pointer(world, 'pointerup');
 };
 
+it('can zoom out with the toolbar after Ctrl+wheel exceeds the largest toolbar step', async () => {
+  const world = await openEditor();
+  const scroller = world.closest('.ad-piano-roll-scroll')!;
+  for (let step = 0; step < 10; step += 1)
+    fireEvent.wheel(scroller, { ctrlKey: true, deltaY: -1 });
+
+  const zoom = screen.getByLabelText(tr('zoom'));
+  const zoomOut = screen.getByRole('button', { name: tr('zoomOut') });
+  const zoomIn = screen.getByRole('button', { name: tr('zoomIn') });
+  expect(zoom).toHaveTextContent('600%');
+  expect(zoomOut).toBeEnabled();
+  expect(zoomIn).toBeDisabled();
+
+  fireEvent.click(zoomOut);
+  expect(zoom).toHaveTextContent('400%');
+  fireEvent.click(zoomOut);
+  expect(zoom).toHaveTextContent('300%');
+  expect(zoomIn).toBeEnabled();
+  fireEvent.click(zoomIn);
+  expect(zoom).toHaveTextContent('400%');
+
+  for (let step = 0; step < 6; step += 1) fireEvent.click(zoomOut);
+  expect(zoom).toHaveTextContent('50%');
+  expect(zoomOut).toBeDisabled();
+  expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
+  expect(editorApi.save).not.toHaveBeenCalled();
+});
+
 it('does not publish unchanged revisions when Ctrl+S is repeated or edits are undone', async () => {
   const world = await openEditor();
   const save = async () =>

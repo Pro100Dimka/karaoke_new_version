@@ -14,6 +14,7 @@ const AppearancePanel = observer(() => {
   const me = inbox.type === 'inbox' ? inbox.me : undefined;
   const photo = usePersonPhoto(me?.accountId, me?.avatarVersion ?? 0);
   const [changingPhoto, setChangingPhoto] = useState(false);
+  const [photoResetKey, setPhotoResetKey] = useState(0);
   const notify = useNotify();
   const lighting = useKeyboardLighting();
   const changePhoto = async (file: File) => {
@@ -26,6 +27,8 @@ const AppearancePanel = observer(() => {
         profilePhoto: `data:${photo.mime};base64,${photo.data}`,
       });
     } catch (error) {
+      // Drop the picker's unsaved preview without resetting the other fields.
+      setPhotoResetKey((key) => key + 1);
       notify(
         error instanceof Error ? error.message : tr('social.photoUnreadable'),
         'error',
@@ -37,6 +40,7 @@ const AppearancePanel = observer(() => {
   return (
     <AppearanceFields
       photo={photo ?? store.profile.photo}
+      photoResetKey={photoResetKey}
       canChangePhoto={!!me && !changingPhoto}
       changePhoto={changePhoto}
       lighting={lighting}

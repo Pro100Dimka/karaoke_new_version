@@ -1,7 +1,7 @@
 import { useJobs } from '../../../../providers/application';
 import { useEffect, useMemo, useState } from 'react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import { orderProcessingJobs } from './processingModel';
+import { isInQueue, orderProcessingJobs } from './processingModel';
 import {
   readJson,
   storageKey,
@@ -28,6 +28,15 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
         ...imports.flatMap((song) => (song.jobId ? [song.jobId] : [])),
       ]),
     [jobs, imports],
+  );
+  const busySongs = useMemo(
+    () =>
+      new Set(
+        jobs
+          .filter((job) => job.type === 'SongProcessing' && isInQueue(job))
+          .map((job) => job.songId),
+      ),
+    [jobs],
   );
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => {
     const stored = readJson(hiddenJobsKey);
@@ -113,5 +122,6 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
     count,
     hide,
     canCancel: (id: string) => cancellable.has(id),
+    isSongBusy: (id: string) => busySongs.has(id),
   };
 };

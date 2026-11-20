@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { getErrorMessage, type FallbackProps } from 'react-error-boundary';
 import { version } from '../../package.json';
 import { TitleBar } from '../app/TitleBar';
+import { routes } from '../shared/routes';
 
 const ErrorFallback = ({ error }: FallbackProps) => {
   const locale = useLocale();
@@ -41,7 +42,10 @@ const ErrorFallback = ({ error }: FallbackProps) => {
         description={tr('errorBoundary.description')}
         confirmLabel={tr('errorBoundary.retry')}
         cancelLabel={tr('errorBoundary.home')}
-        onOpenChange={() => location.assign(import.meta.env.BASE_URL)}
+        onOpenChange={() => {
+          location.hash = routes.library;
+          location.reload();
+        }}
         onConfirm={() => {
           location.reload();
           return false;

@@ -209,7 +209,7 @@ export const EditorPage = () => {
 
   const song = session.load.song;
   const [lowest, highest] = range;
-  const zoomIndex = zoomSteps.findIndex((step) => step >= zoom);
+  const previousZoom = zoomSteps.filter((step) => step < zoom).at(-1);
   const toggles = [
     ['grid', 'editorGrid', grid, setGrid],
     ['target', 'editorSnap', snap, setSnap],
@@ -332,10 +332,8 @@ export const EditorPage = () => {
               size="sm"
               icon="minus"
               label={tr('zoomOut')}
-              disabled={zoomIndex <= 0}
-              onClick={() =>
-                setZoom(zoomSteps[Math.max(0, zoomIndex - 1)] ?? 1)
-              }
+              disabled={previousZoom === undefined}
+              onClick={() => setZoom(previousZoom ?? zoom)}
             />
             <Typography variant="mono" aria-label={tr('zoom')}>
               {Math.round(zoom * 100)}%

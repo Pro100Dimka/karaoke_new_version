@@ -97,6 +97,8 @@ class RecoverTransactions:
             if song is None:
                 if quarantine.exists():
                     self._songs.finalize_quarantine(quarantine)
+                    if quarantine.exists():
+                        raise OSError("Song quarantine cleanup is incomplete")
             elif quarantine.exists():
                 self._songs.restore_quarantine(song_id, quarantine)
             self._song_recordings(entry, deleted=song is None)
