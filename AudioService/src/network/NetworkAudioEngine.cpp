@@ -939,10 +939,9 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         const auto queueEpochBefore = slot.queue.epoch();
         // Admission cannot foresee a delayed output callback. Check the queued samples' actual
         // presentation positions again here instead of replaying an old queue after that stall.
-        const auto scheduled = sharedTimeline_.load(std::memory_order_acquire) &&
-                               roomPlayoutDelayFrames_.load(std::memory_order_acquire) != 0 &&
-                               timelineFrame > 0;
-        const auto expired = scheduled
+        const auto expired = sharedTimeline_.load(std::memory_order_acquire) &&
+                                     roomPlayoutDelayFrames_.load(std::memory_order_acquire) != 0 &&
+                                     timelineFrame > 0
                                  ? slot.queue.discardBefore(static_cast<MonotonicTicks>(timelineFrame - 1U))
                                  : 0U;
         slot.expiredPlayoutFrames.fetch_add(expired, std::memory_order_relaxed);
@@ -950,8 +949,7 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
             slot.effects->reset();
         auto read =
             slot.queue.pop(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames,
-                           std::span{remoteFrameTags_}.first(frames), fullTrace ? &transfer : nullptr,
-                           {}, scheduled ? static_cast<MonotonicTicks>(timelineFrame) : 0);
+                           std::span{remoteFrameTags_}.first(frames), fullTrace ? &transfer : nullptr);
         const auto queueEpoch = slot.queue.epoch();
         const auto resetContinuity =
             slot.resetPlayoutConcealer.exchange(false, std::memory_order_acq_rel);

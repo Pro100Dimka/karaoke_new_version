@@ -33,13 +33,10 @@ class PcmRingBuffer {
     [[nodiscard]] bool push(std::span<const float> interleaved, std::uint32_t frames,
                             std::uint8_t frameTag = 1, Transfer* transfer = nullptr,
                             std::span<const MonotonicTicks> frameTimes = {}) noexcept;
-    // A nonzero presentation frame schedules timestamped PCM, leaving gaps silent and future
-    // samples queued. Such gaps invalidate Transfer's contiguous span, but retain per-frame tags.
     [[nodiscard]] std::uint32_t pop(std::span<float> output, std::uint32_t frames,
                                     std::span<std::uint8_t> frameTags = {},
                                     Transfer* transfer = nullptr,
-                                    std::span<MonotonicTicks> frameTimes = {},
-                                    MonotonicTicks firstPresentationFrame = 0) noexcept;
+                                    std::span<MonotonicTicks> frameTimes = {}) noexcept;
     [[nodiscard]] std::uint32_t peek(std::span<float> output, std::uint32_t frames) const noexcept;
     std::uint32_t discard(std::uint32_t frames) noexcept;
     // Untimed frames (time zero) are retained. Uses the same publication lease as PCM reads.

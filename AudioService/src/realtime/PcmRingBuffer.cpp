@@ -195,55 +195,11 @@ std::uint32_t PcmRingBuffer::discardBefore(MonotonicTicks firstAllowedTime) noex
 
 std::uint32_t PcmRingBuffer::pop(std::span<float> output, std::uint32_t frames,
                                  std::span<std::uint8_t> frameTags, Transfer* transfer,
-                                 std::span<MonotonicTicks> frameTimes,
-                                 MonotonicTicks firstPresentationFrame) noexcept {
+                                 std::span<MonotonicTicks> frameTimes) noexcept {
     if (transfer)
         *transfer = {};
     if (!enter())
         return 0;
-    if (firstPresentationFrame != 0 && !frameTimes_.empty()) {
-        if (output.size() < static_cast<std::size_t>(frames) * channels_ ||
-            (!frameTags.empty() && frameTags.size() < frames) ||
-            (!frameTimes.empty() && frameTimes.size() < frames)) {
-            leave();
-            return 0;
-        }
-        const auto read = readFrame_.load(std::memory_order_relaxed);
-        const auto available = availableFrames();
-        std::uint32_t consumed = 0, produced = 0;
-        bool contiguous = true;
-        while (produced < frames && consumed < available) {
-            const auto source = (read + consumed) % capacityFrames_;
-            const auto time = frameTimes_[source];
-            const auto due = firstPresentationFrame + produced;
-            // Keep the same one-frame rounding tolerance as discardBefore at the block boundary.
-            if (time != 0 && time < due - 1) {
-                ++consumed;
-                contiguous = false;
-                continue;
-            }
-            const auto waiting = time != 0 && time > due + 1;
-            auto* destination = output.data() + static_cast<std::size_t>(produced) * channels_;
-            if (waiting) {
-                std::fill_n(destination, channels_, 0.0F);
-                contiguous = false;
-            } else {
-                std::copy_n(data_.data() + source * channels_, channels_, destination);
-                ++consumed;
-            }
-            if (!frameTags.empty())
-                frameTags[produced] = waiting ? 0 : frameTags_.empty() ? 1 : frameTags_[source];
-            if (!frameTimes.empty())
-                frameTimes[produced] = waiting ? 0 : time;
-            ++produced;
-        }
-        readFrame_.store(read + consumed, std::memory_order_release);
-        // A padded or discontinuous render cannot be described as one contiguous queue span.
-        if (transfer)
-            *transfer = {epoch_.load(std::memory_order_acquire), read, consumed, contiguous};
-        leave();
-        return produced;
-    }
     const auto count = peekAvailable(output, frames, frameTags, transfer, frameTimes);
     (void)discardAvailable(count);
     leave();
