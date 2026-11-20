@@ -309,3 +309,100 @@ it('allows a failed main document to close, but preserves guards for subframes a
   window.emit('close', close);
   expect(close.preventDefault).toHaveBeenCalledOnce();
 });
+
+it('allows native close after preload failure even when the document loads and responds', async () => {
+  const { createMainWindow } = await import('./MainWindow');
+  const log = vi.fn();
+  const window = createMainWindow({
+    rendererUrl: 'file:///app/index.html',
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: 'participant',
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
+    log,
+  });
+  window.webContents.emit(
+    'preload-error',
+    {},
+    '/app/preload.js',
+    new Error('Missing preload dependency'),
+  );
+  window.webContents.emit('did-finish-load');
+  window.emit('responsive');
+  window.close();
+
+  expect(window.isDestroyed()).toBe(true);
+  expect(window.webContents.send).not.toHaveBeenCalled();
+  expect(log).toHaveBeenCalledWith(
+    'renderer',
+    'error',
+    'Renderer preload failed (/app/preload.js): Missing preload dependency',
+  );
+});
+
+it.each([
+  ['subframe', false, false],
+  ['same document', true, true],
+  ['pending main document', true, false],
+] as const)(
+  'keeps native close available after preload failure during a %s navigation',
+  async (_kind, isMainFrame, isSameDocument) => {
+    const { createMainWindow } = await import('./MainWindow');
+    const window = createMainWindow({
+      rendererUrl: 'file:///app/index.html',
+      trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+      roomParticipant: 'participant',
+      closeConfirmed: () => false,
+      reveal: vi.fn(),
+    });
+    window.webContents.emit(
+      'preload-error',
+      {},
+      '/app/preload.js',
+      new Error('Missing preload dependency'),
+    );
+    window.webContents.emit('did-start-navigation', {
+      isMainFrame,
+      isSameDocument,
+    });
+    window.emit('responsive');
+    window.close();
+
+    expect(window.isDestroyed()).toBe(true);
+  },
+);
+
+it.each([false, true])(
+  'restores close guards only after a new main document loads with working preload: failed=%s',
+  async (preloadFailsAgain) => {
+    const { createMainWindow } = await import('./MainWindow');
+    const window = createMainWindow({
+      rendererUrl: 'file:///app/index.html',
+      trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+      roomParticipant: 'participant',
+      closeConfirmed: () => false,
+      reveal: vi.fn(),
+    });
+    const failPreload = () =>
+      window.webContents.emit(
+        'preload-error',
+        {},
+        '/app/preload.js',
+        new Error('Missing preload dependency'),
+      );
+    failPreload();
+    window.webContents.emit('did-finish-load');
+    window.webContents.emit('did-start-navigation', {
+      isMainFrame: true,
+      isSameDocument: false,
+    });
+    if (preloadFailsAgain) failPreload();
+    window.webContents.emit('did-finish-load');
+    window.close();
+
+    expect(window.isDestroyed()).toBe(preloadFailsAgain);
+    expect(window.webContents.send).toHaveBeenCalledTimes(
+      preloadFailsAgain ? 0 : 1,
+    );
+  },
+);

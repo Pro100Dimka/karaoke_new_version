@@ -54,7 +54,22 @@ const watchRenderer = (
   log?: (source: string, level: string, message: string) => void,
 ): (() => boolean) => {
   let unavailable = false;
+  let preloadFailed = false;
+  let preloadFailedThisLoad = false;
   let lastReload = 0;
+  window.webContents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame && !details.isSameDocument)
+      preloadFailedThisLoad = false;
+  });
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
+    preloadFailed = true;
+    preloadFailedThisLoad = true;
+    log?.(
+      'renderer',
+      'error',
+      `Renderer preload failed (${preloadPath}): ${error.message}`,
+    );
+  });
   window.webContents.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
     unavailable = true;
@@ -66,6 +81,8 @@ const watchRenderer = (
   });
   window.webContents.on('did-finish-load', () => {
     unavailable = false;
+    // A responsive page can still lack its bridge; only a new successful preload restores it.
+    preloadFailed = preloadFailedThisLoad;
   });
   window.webContents.on(
     'did-fail-load',
@@ -81,7 +98,7 @@ const watchRenderer = (
     unavailable = false;
     log?.('renderer', 'info', 'Renderer responsive');
   });
-  return () => unavailable;
+  return () => unavailable || preloadFailed;
 };
 
 /**
