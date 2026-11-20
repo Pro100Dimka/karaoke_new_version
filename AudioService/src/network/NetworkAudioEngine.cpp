@@ -1896,8 +1896,8 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                             room_audio_contract::ReturnCalibrationPackets) {
                         // The relay's collection wait follows the current deadline; advertising
                         // that wait as route latency would exclude otherwise eligible singers.
-                        requested = needFrames(participant.arrivalHistory.targetFrames() +
-                                               participant.returnHistory.targetFrames());
+                        requested = needFrames(participant.arrivalHistory.targetFrames(participant.arrivalRoute) +
+                                               participant.returnHistory.targetFrames(participant.returnRoute));
                     }
                     localDesired = std::max(localDesired, requested);
                 }
@@ -2315,11 +2315,11 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
             return static_cast<std::uint32_t>(
                 scaleFramePosition(transportFrames, VoiceTransportSampleRateHz, sampleRateHz_));
         };
-        participant.returnRequirementFrames = deviceFrames(slot.returnHistory.targetFrames());
+        participant.returnRequirementFrames = deviceFrames(slot.returnHistory.targetFrames(slot.returnRoute));
         participant.returnP95Frames = deviceFrames(slot.returnRoute.followFrames());
         participant.returnP50Frames = deviceFrames(slot.returnRoute.medianFrames());
         participant.returnSamples = slot.returnRoute.samples();
-        participant.arrivalRequirementFrames = deviceFrames(slot.arrivalHistory.targetFrames());
+        participant.arrivalRequirementFrames = deviceFrames(slot.arrivalHistory.targetFrames(slot.arrivalRoute));
         participant.arrivalSamples = slot.arrivalRoute.samples();
         participant.returnStages = slot.returnStages.snapshot();
         const auto lastPacketMicros = slot.lastPacketMicros.load(std::memory_order_relaxed);

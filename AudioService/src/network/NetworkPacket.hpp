@@ -582,6 +582,13 @@ class StableLatenessHistory {
         return baselineFrames() + marginFrames();
     }
 
+    /** A full recent window can retire startup latency before the long history expires. */
+    [[nodiscard]] std::uint32_t targetFrames(const VoiceLatenessTracker& recent) const noexcept {
+        return recent.samples() < VoiceLatenessTracker::WindowPackets
+                   ? targetFrames()
+                   : std::min(targetFrames(), recent.targetFrames() + MinimumMarginFrames);
+    }
+
   private:
     void noteBootstrap(std::uint32_t bin) noexcept {
         ++bootstrapCounts_[bin];
