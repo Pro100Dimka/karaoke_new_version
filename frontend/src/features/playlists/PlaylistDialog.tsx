@@ -1,6 +1,14 @@
-import { Button, Dialog, Select, TextField, tr } from '@neo-ui-kit/react';
+import {
+  Button,
+  Dialog,
+  Select,
+  TextField,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
-import { useState } from 'react';
+import { computed } from 'mobx';
+import { useCallback, useMemo, useState } from 'react';
 import type { SongDto } from '../../contracts/models';
 import { useNotify } from '../../providers/notifications';
 import { store } from '../../providers/store';
@@ -11,6 +19,67 @@ type PlaylistSong = Pick<
   SongDto,
   'id' | 'title' | 'artist' | 'status' | 'activeRevision'
 >;
+
+/** Name edits do not change the song controls; keep that large subtree stable. */
+const PlaylistSongs = observer(
+  ({
+    songIds,
+    catalog,
+    busy,
+    onMove,
+    onRemove,
+  }: {
+    songIds: readonly string[];
+    catalog: ReadonlyMap<string, PlaylistSong>;
+    busy: boolean;
+    onMove(index: number, direction: number): void;
+    onRemove(songId: string): void;
+  }) => {
+    useLocale();
+    return (
+      <ol className="playlistSongs">
+        {songIds.map((songId, index) => {
+          const song = catalog.get(songId);
+          return (
+            <li
+              key={songId}
+              className="playlistSong"
+              data-unavailable={!song || song.status !== 'ready' || undefined}
+            >
+              <span className="playlistNumber">{index + 1}</span>
+              <span className="playlistSongTitle">
+                <strong>{song?.title ?? tr('playlistUnavailable')}</strong>
+                <small>{song?.artist}</small>
+              </span>
+              <div className="playlistSongActions">
+                <Button
+                  aria-label={tr('playlistMoveUp')}
+                  disabled={busy || index === 0}
+                  onClick={() => onMove(index, -1)}
+                >
+                  ↑
+                </Button>
+                <Button
+                  aria-label={tr('playlistMoveDown')}
+                  disabled={busy || index === songIds.length - 1}
+                  onClick={() => onMove(index, 1)}
+                >
+                  ↓
+                </Button>
+                <Button
+                  icon="close"
+                  aria-label={tr('playlistRemove')}
+                  disabled={busy}
+                  onClick={() => onRemove(songId)}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  },
+);
 
 export const PlaylistDialog = observer(
   ({
@@ -33,8 +102,15 @@ export const PlaylistDialog = observer(
     const [songIds, setSongIds] = useState(saved[0]?.songIds ?? []);
     const [busy, setBusy] = useState(false);
     const notify = useNotify();
-    const catalog = new Map(songs.map((song) => [song.id, song]));
-    const ordered = songIds.map((songId) => catalog.get(songId));
+    // Keep observing collections that MobX can update without replacing them.
+    const catalog = useMemo(
+      () => computed(() => new Map(songs.map((song) => [song.id, song]))),
+      [songs],
+    ).get();
+    const ordered = useMemo(
+      () => computed(() => songIds.map((songId) => catalog.get(songId))),
+      [songIds, catalog],
+    ).get();
     const ready = ordered.flatMap((song) =>
       song?.status === 'ready' ? [song] : [],
     );
@@ -58,15 +134,20 @@ export const PlaylistDialog = observer(
       setId(playlist.id);
       return playlist;
     };
-    const move = (index: number, direction: number) => {
-      const next = [...songIds];
-      const current = next[index];
-      const adjacent = next[index + direction];
-      if (current === undefined || adjacent === undefined) return;
-      next[index] = adjacent;
-      next[index + direction] = current;
-      setSongIds(next);
-    };
+    const move = useCallback((index: number, direction: number) => {
+      setSongIds((ids) => {
+        const current = ids[index];
+        const adjacent = ids[index + direction];
+        if (current === undefined || adjacent === undefined) return ids;
+        const next = [...ids];
+        next[index] = adjacent;
+        next[index + direction] = current;
+        return next;
+      });
+    }, []);
+    const remove = useCallback((songId: string) => {
+      setSongIds((ids) => ids.filter((value) => value !== songId));
+    }, []);
     const play = async () => {
       setBusy(true);
       try {
@@ -133,54 +214,13 @@ export const PlaylistDialog = observer(
                 <h3>
                   {tr('playlistOrder')} · {songIds.length}
                 </h3>
-                <ol className="playlistSongs">
-                  {songIds.map((songId, index) => {
-                    const song = catalog.get(songId);
-                    return (
-                      <li
-                        key={songId}
-                        className="playlistSong"
-                        data-unavailable={
-                          !song || song.status !== 'ready' || undefined
-                        }
-                      >
-                        <span className="playlistNumber">{index + 1}</span>
-                        <span className="playlistSongTitle">
-                          <strong>
-                            {song?.title ?? tr('playlistUnavailable')}
-                          </strong>
-                          <small>{song?.artist}</small>
-                        </span>
-                        <div className="playlistSongActions">
-                          <Button
-                            aria-label={tr('playlistMoveUp')}
-                            disabled={busy || index === 0}
-                            onClick={() => move(index, -1)}
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            aria-label={tr('playlistMoveDown')}
-                            disabled={busy || index === songIds.length - 1}
-                            onClick={() => move(index, 1)}
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            icon="close"
-                            aria-label={tr('playlistRemove')}
-                            disabled={busy}
-                            onClick={() =>
-                              setSongIds(
-                                songIds.filter((value) => value !== songId),
-                              )
-                            }
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
+                <PlaylistSongs
+                  songIds={songIds}
+                  catalog={catalog}
+                  busy={busy}
+                  onMove={move}
+                  onRemove={remove}
+                />
                 {!songIds.length && (
                   <p className="playlistHint">{tr('playlistEmpty')}</p>
                 )}
