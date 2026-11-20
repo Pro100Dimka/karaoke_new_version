@@ -254,7 +254,13 @@ export const useSongRecordings = (
     setAnalysis(null);
     setAnalysisSong(null);
     setAnalysisRecordId(takeId);
-    if (song?.id !== songId) setRecordings([]);
+    if (song?.id !== songId) {
+      // The returned take now owns the shared list and its refresh subscription.
+      setSong(null);
+      setRecordings([]);
+      setLoadingRecordings(false);
+      setFailedRecordings(false);
+    }
     analysisTarget.current = { recordingId: takeId, songId };
     beginAnalysis(takeId, request);
     try {

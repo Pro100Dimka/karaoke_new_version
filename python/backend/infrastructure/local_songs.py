@@ -27,10 +27,10 @@ class LocalSongStorage:
 
     def copy_source(self, song_id: str, source: Path, expected_hash: str) -> Path:
         target_dir = self._roots.songs / song_id / "source"
-        target_dir.mkdir(parents=True, exist_ok=False)
         target = target_dir / f"original{source.suffix.lower()}"
         temporary = target.with_name(f".{target.name}.tmp")
         try:
+            target_dir.mkdir(parents=True, exist_ok=False)
             shutil.copyfile(source, temporary)
             _fsync_file(temporary)
             if sha256_file(temporary) != expected_hash:

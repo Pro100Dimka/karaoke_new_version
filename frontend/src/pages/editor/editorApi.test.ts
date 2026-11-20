@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SongDto } from '../../contracts/models';
+import { moveNotes } from '../../application/editor/editorModel';
 import { createEditorApi } from './editorApi';
 
 describe('editorApi music metadata', () => {
@@ -199,4 +200,101 @@ describe('editorApi music metadata', () => {
       },
     });
   });
+
+  it.each([
+    { label: 'emoji', text: 'la😊', letters: [12, 12.5, 13] },
+    { label: 'BMP text', text: 'ля', letters: [12, 13] },
+    { label: 'combining accent', text: 'a\u0301', letters: [12, 13] },
+  ])(
+    'preserves existing letter timings after a note edit in $label',
+    async ({ text, letters }) => {
+      const word = {
+        text,
+        start: 12,
+        end: 14,
+        letters,
+        notes: [{ note: 60, start: 12.25, end: 13.75 }],
+      };
+      const source = {
+        songId: 'song-1',
+        revision: 7,
+        document: {
+          title: 'Song',
+          artist: 'Artist',
+          duration: 20,
+          bpm: null,
+          key: null,
+          lyrics: text,
+          words: [word],
+        },
+      };
+      const request = vi.fn(async ({ method }: PythonBridgeRequest) =>
+        method === 'GET' ? source : { revision: 8 },
+      );
+      const api = createEditorApi(request);
+      const document = await api.load('song-1');
+      const edited = moveNotes(
+        document,
+        new Set(document.notes.map((note) => note.id)),
+        1,
+        0,
+      );
+      expect(edited.notes[0]?.pitch).toBe(61);
+      const song: SongDto = {
+        id: 'song-1',
+        title: 'Song',
+        artist: 'Artist',
+        durationSeconds: 20,
+        language: 'Auto',
+        status: 'ready',
+        createdAt: '2026-11-20',
+        coverState: 'Fallback',
+        activeRevision: 7,
+        projectFormatVersion: 1,
+      };
+
+      expect(await api.save(song, edited, 7)).toBe(8);
+
+      expect(request.mock.lastCall?.[0]).toEqual({
+        method: 'PUT',
+        path: '/songs/song-1/editor',
+        body: {
+          expectedRevision: 7,
+          document: {
+            ...source.document,
+            words: [
+              { ...word, notes: [{ note: 61, start: 12.25, end: 13.75 }] },
+            ],
+          },
+        },
+      });
+    },
+  );
+
+  it.each([
+    { label: 'zero', end: 12 },
+    { label: 'negative', end: 11 },
+  ])(
+    'omits relative letter timings for a $label word duration',
+    async ({ end }) => {
+      const api = createEditorApi(async () => ({
+        songId: 'song-1',
+        revision: 7,
+        document: {
+          title: 'Song',
+          artist: 'Artist',
+          duration: 20,
+          bpm: null,
+          key: null,
+          lyrics: 'la',
+          words: [{ text: 'la', start: 12, end, letters: [12, 12], notes: [] }],
+        },
+      }));
+
+      const document = await api.load('song-1');
+
+      expect(document.words).toHaveLength(1);
+      expect(document.words[0]?.letters).toBeUndefined();
+    },
+  );
 });

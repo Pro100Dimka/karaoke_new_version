@@ -40,7 +40,7 @@ interface BackendEditor {
 const letterFractions = (word: BackendWord): number[] | undefined => {
   const duration = word.end - word.start;
   const letters = word.letters ?? [];
-  return letters.length === word.text.length && duration > 0
+  return letters.length === [...word.text].length && duration > 0
     ? letters.map((moment) =>
         Math.min(1, Math.max(0, (moment - word.start) / duration)),
       )
