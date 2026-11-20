@@ -27,6 +27,12 @@ struct ClockBridgeSnapshot {
 
 class ClockBridge {
   public:
+    struct ReadPosition {
+        double firstFrame{0.0}, step{1.0};
+        std::uint32_t frames{0};
+        bool hasLastSample{false};
+        std::array<float, MaxAudioChannels * 2U> lastSample{};
+    };
     static std::uint32_t recommendedTargetFrames(std::uint32_t capacityFrames,
                                                  std::uint32_t inputSampleRateHz) noexcept;
     // targetFrames is the low-water reserve AFTER a render pull, in input-clock frames.
@@ -35,7 +41,11 @@ class ClockBridge {
     void reset() noexcept;
     [[nodiscard]] bool push(std::span<const float> samples, std::uint32_t frames) noexcept;
     [[nodiscard]] std::uint32_t pull(std::span<float> output, std::uint32_t outputFrames,
-                                     double correctionRatio) noexcept;
+                                     double correctionRatio, ReadPosition* position = nullptr,
+                                     std::uint64_t inputEnd = UINT64_MAX,
+                                     bool endOfInput = false) noexcept;
+    [[nodiscard]] std::uint64_t writeCursor() const noexcept { return ring_.writeCursor(); }
+    [[nodiscard]] std::uint64_t readCursor() const noexcept { return ring_.readCursor(); }
     [[nodiscard]] ClockBridgeSnapshot snapshot() const noexcept;
     [[nodiscard]] ClockBridgeSnapshot diagnosticSnapshot() const noexcept;
 

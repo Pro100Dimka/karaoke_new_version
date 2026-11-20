@@ -502,14 +502,20 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
                              ? realtime_.performanceLeadFrames()
                              : 0U);
         return ControlResponse{ControlStatus::Ok, "Recording"};
-    case ControlCommand::PauseRecording:
-        (void)realtime_.finishRecording(RecordingState::Paused);
+    case ControlCommand::PauseRecording: {
+        const auto result = session_.finishRecording(RecordingState::Paused,
+            [this] { (void)capturePendingBackendFailure(); });
+        if (recording_.state() != RecordingState::Paused)
+            return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
+                ? "Recording pause failed" : result.errorMessage};
         return ControlResponse{ControlStatus::Ok, "RecordingPaused"};
+    }
     case ControlCommand::ResumeRecording:
         recording_.resume(realtime_.sessionFrame());
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::StopRecording: {
-        const auto result = realtime_.finishRecording(RecordingState::Finished);
+        const auto result = session_.finishRecording(RecordingState::Finished,
+            [this] { (void)capturePendingBackendFailure(); });
         if (!result.finalized)
             return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
                                                               ? "Recording finalization failed"

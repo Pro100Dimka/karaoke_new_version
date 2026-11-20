@@ -25,7 +25,9 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <semaphore>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -213,7 +215,13 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] std::uint32_t performanceLeadFrames() const noexcept {
         return aligner_.leadFrames();
     }
-    // Control thread: drain the performance segment, then pause or finalize its writer.
+    // Control: request a render-owned boundary before finishing a running performance.
+    [[nodiscard]] bool requestRecordingFinish();
+    [[nodiscard]] bool waitForRecordingFinish(std::chrono::steady_clock::time_point deadline);
+    [[nodiscard]] bool recordingFinishPending() const noexcept;
+    void rejectCallbacks(GenerationId generation) noexcept;
+    [[nodiscard]] RecordingResult recordingResult() const { return recording_.result(); }
+    // Control: callbacks must be stopped, or the requested render boundary acknowledged.
     RecordingResult finishRecording(RecordingState nextState);
     [[nodiscard]] RecordingState recordingState() const noexcept { return recording_.state(); }
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
@@ -282,6 +290,12 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] std::uint32_t smoothVoiceLateFrames(MonotonicTicks presentationTicks,
                                                       MonotonicTicks sungAt) noexcept;
     void updateGraphSnapshot();
+    void freezeRecordingFinish() noexcept;
+    void acknowledgeRecordingFinish() noexcept;
+    [[nodiscard]] std::uint32_t retainedVoiceFrames(MonotonicTicks sungAt,
+                                                   std::uint32_t frames) const noexcept;
+    void addStoppedRecordingVoice(std::span<const float> bridge, std::uint32_t frames,
+                                   MonotonicTicks capturedAt, MonotonicTicks presentation) noexcept;
 
     MediaController& media_;
     RecordingEngine& recording_;
@@ -424,6 +438,15 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<bool> performanceSuspended_{false};
     std::atomic<std::uint32_t> performanceReaders_{0};
     std::atomic<SessionFrame> performanceFrame_{SessionFrame{0}};
+    std::atomic<MonotonicTicks> performancePresentationEnd_{0};
+    std::atomic<std::uint64_t> performanceAlignedInputCursor_{0};
+    enum class FinishPhase { Idle, Requested, Draining, Ready, Interrupted };
+    std::atomic<FinishPhase> finishPhase_{FinishPhase::Idle};
+    std::binary_semaphore finishWake_{0};
+    std::uint64_t finishInputEnd_{0}; // immutable after request publication
+    SessionFrame finishCutoff_{0};   // render owner, then acknowledged/stopped control owner
+    MonotonicTicks finishPresentationEnd_{0};
+    std::uint32_t finishExtraFrames_{0};
     AcousticLatencyMeter latencyMeter_;
     std::atomic<MonotonicTicks> observedMonitoringLatencyNs_{-1};
     std::atomic<bool> captureTimelineUsable_{false};

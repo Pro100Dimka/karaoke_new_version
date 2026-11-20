@@ -235,6 +235,8 @@ void RecordingEngine::appendPerformanceTail(SessionFrame cutoff, std::span<const
         frames -= count;
         frame += count;
     }
+    // Control owns the producer lease, including when extra render reads left a zero-size tail.
+    lastSessionFrame_.store(cutoff, std::memory_order_relaxed);
 }
 
 RecordingResult RecordingEngine::stop(SessionFrame sessionFrame) {

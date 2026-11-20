@@ -73,6 +73,12 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     if (!preserveRecording)
         sessionFrameValue_.store(0, std::memory_order_relaxed);
     performanceFrame_.store(sessionFrame(), std::memory_order_relaxed);
+    performancePresentationEnd_.store(0, std::memory_order_relaxed);
+    performanceAlignedInputCursor_.store(0, std::memory_order_relaxed);
+    finishPhase_.store(FinishPhase::Idle, std::memory_order_release);
+    while (finishWake_.try_acquire()) {}
+    performanceSuspended_.store(false);
+    finishExtraFrames_ = 0;
     buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
     captureBridgePcm_.assign(static_cast<std::size_t>(plan.maximumBlockFrames) *
                                 plan.outputChannels * 2U, 0.0F);
@@ -115,8 +121,12 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
                                                 plan.inputSampleRateHz, plan.internalSampleRateHz),
                  0, 0);
 }
-void RealtimeEngine::invalidate(GenerationId generation, bool preserveRecording) noexcept {
+void RealtimeEngine::rejectCallbacks(GenerationId generation) noexcept {
     generation_.store(generation, std::memory_order_release);
+}
+
+void RealtimeEngine::invalidate(GenerationId generation, bool preserveRecording) noexcept {
+    rejectCallbacks(generation);
     // Fence stale callbacks first, but preserve the recording generation until its pending
     // aligned PCM is saved. Device recovery/reset must not clear a live take's tail.
     const auto recordingState = recording_.state();
@@ -135,38 +145,169 @@ void RealtimeEngine::invalidate(GenerationId generation, bool preserveRecording)
     network_.setGeneration(generation);
 }
 
+bool RealtimeEngine::recordingFinishPending() const noexcept {
+    const auto phase = finishPhase_.load(std::memory_order_acquire);
+    return phase == FinishPhase::Requested || phase == FinishPhase::Draining;
+}
+
+void RealtimeEngine::freezeRecordingFinish() noexcept {
+    finishCutoff_ = performanceFrame_.load(std::memory_order_acquire);
+    finishPresentationEnd_ = performancePresentationEnd_.load(std::memory_order_acquire);
+    finishExtraFrames_ = 0;
+}
+
+bool RealtimeEngine::requestRecordingFinish() {
+    if (recording_.state() != RecordingState::Recording ||
+        recording_.selectedTap() != RecordingTap::PerformanceMix)
+        return true;
+    while (finishWake_.try_acquire()) {}
+    finishInputEnd_ = clockBridge_.writeCursor();
+    finishExtraFrames_ = 0;
+    finishCutoff_ = SessionFrame{0};
+    finishPresentationEnd_ = 0;
+    finishPhase_.store(FinishPhase::Requested, std::memory_order_release);
+    // A consumer may have taken the packet but not yet aligned it. Only the committed cursor
+    // permits this synchronous path; suspending an unaligned consumer would lose that packet.
+    if (plan_.inputChannels == 0 || !microphoneEnabled_.load(std::memory_order_relaxed) ||
+        performanceAlignedInputCursor_.load(std::memory_order_acquire) >= finishInputEnd_) {
+        auto expected = FinishPhase::Requested;
+        if (finishPhase_.compare_exchange_strong(expected, FinishPhase::Ready)) {
+            performanceSuspended_.store(true);
+            for (auto readers = performanceReaders_.load(); readers != 0;
+                 readers = performanceReaders_.load())
+                performanceReaders_.wait(readers);
+            freezeRecordingFinish();
+            return true;
+        }
+    }
+    return finishPhase_.load(std::memory_order_acquire) == FinishPhase::Ready;
+}
+
+bool RealtimeEngine::waitForRecordingFinish(std::chrono::steady_clock::time_point deadline) {
+    const auto phase = finishPhase_.load(std::memory_order_acquire);
+    if (phase == FinishPhase::Ready) return true;
+    if (phase == FinishPhase::Interrupted || pendingBackendEvent().sequence != 0) return false;
+    (void)finishWake_.try_acquire_until(deadline);
+    return finishPhase_.load(std::memory_order_acquire) == FinishPhase::Ready;
+}
+
+void RealtimeEngine::acknowledgeRecordingFinish() noexcept {
+    performanceSuspended_.store(true);
+    auto expected = FinishPhase::Draining;
+    if (finishPhase_.compare_exchange_strong(expected, FinishPhase::Ready,
+                                            std::memory_order_release))
+        finishWake_.release();
+}
+
+std::uint32_t RealtimeEngine::retainedVoiceFrames(MonotonicTicks sungAt,
+                                                  std::uint32_t frames) const noexcept {
+    if (finishPresentationEnd_ <= 0 || sungAt <= 0) return frames;
+    if (sungAt >= finishPresentationEnd_) return 0;
+    const auto remaining = static_cast<long double>(finishPresentationEnd_ - sungAt) *
+                           plan_.internalSampleRateHz / NanosecondsPerSecond;
+    return static_cast<std::uint32_t>(std::min<long double>(frames, std::ceil(remaining)));
+}
+
+void RealtimeEngine::addStoppedRecordingVoice(std::span<const float> bridge,
+                                               std::uint32_t frames,
+                                               MonotonicTicks capturedAt,
+                                               MonotonicTicks presentation) noexcept {
+    if (!microphoneEnabled_.load(std::memory_order_relaxed)) return;
+    auto mic = buffers_.buffer(1, frames);
+    auto dry = buffers_.buffer(5, frames);
+    for (std::uint32_t frame = 0; frame < frames; ++frame)
+        for (std::uint32_t channel = 0; channel < plan_.outputChannels; ++channel) {
+            mic[frame * plan_.outputChannels + channel] =
+                bridge[frame * 2U * plan_.outputChannels + channel];
+            dry[frame * plan_.outputChannels + channel] =
+                bridge[(frame * 2U + 1U) * plan_.outputChannels + channel];
+        }
+    const auto wetAt = voiceSungAt(capturedAt);
+    const auto wetFrames = retainedVoiceFrames(wetAt, frames);
+    const auto late = smoothVoiceLateFrames(presentation, wetAt);
+    const auto gain = mixer_.gains().microphone;
+    recording_.observeVoicePeak(pcmPeak(mic.first(static_cast<std::size_t>(wetFrames) *
+                                                  plan_.outputChannels)) * gain);
+    aligner_.addVoice(mic, wetFrames, gain, late);
+    if (recording_.backingEnabled()) {
+        const auto dryAt = capturedAt - acousticLatencyNs_.load(std::memory_order_relaxed);
+        const auto dryFrames = retainedVoiceFrames(dryAt, frames);
+        const auto dryLate = late > dspLatencyFrames() ? late - dspLatencyFrames() : 0U;
+        dryAligner_.addVoice(dry, dryFrames, 1.0F, dryLate);
+    }
+}
+
 RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
     if (nextState != RecordingState::Paused && nextState != RecordingState::Finished)
         throw std::invalid_argument("recording segment must pause or finish");
     auto cutoff = sessionFrame();
     const auto performance = recording_.state() == RecordingState::Recording &&
                              recording_.selectedTap() == RecordingTap::PerformanceMix;
-    // Render skips only file alignment while this control lease is held. Its audible output,
-    // capture and network path keep running without waiting for control or disk I/O.
     performanceSuspended_.store(performance);
     struct ResumePerformance {
-        std::atomic<bool>& suspended;
+        RealtimeEngine& engine;
         ~ResumePerformance() {
-            suspended.store(false);
+            engine.finishPhase_.store(FinishPhase::Idle, std::memory_order_release);
+            while (engine.finishWake_.try_acquire()) {}
+            engine.performanceSuspended_.store(false);
         }
-    } resume{performanceSuspended_};
+    } resume{*this};
     if (performance) {
         for (auto readers = performanceReaders_.load(); readers != 0;
              readers = performanceReaders_.load())
             performanceReaders_.wait(readers);
         try {
-            cutoff = performanceFrame_.load();
-            const auto frames = aligner_.leadFrames();
-            // Control owns this scratch. The audible render still uses the realtime buffer pool.
-            std::vector<float> tail(static_cast<std::size_t>(frames) * plan_.outputChannels);
-            aligner_.read(tail, frames);
-            std::vector<float> backing;
-            std::vector<float> dry;
+            const auto phase = finishPhase_.load(std::memory_order_acquire);
+            if (phase == FinishPhase::Idle) {
+                finishInputEnd_ = clockBridge_.writeCursor();
+                freezeRecordingFinish();
+            } else if (phase == FinishPhase::Requested ||
+                       (phase == FinishPhase::Interrupted && finishExtraFrames_ == 0)) {
+                freezeRecordingFinish();
+            }
+            cutoff = finishCutoff_;
+            const auto frames = aligner_.leadFrames() - finishExtraFrames_;
+            const auto count = static_cast<std::size_t>(frames) * plan_.outputChannels;
+            std::vector<float> tail(count), backing, dry;
             if (recording_.backingEnabled()) {
-                backing.resize(tail.size());
-                backingAligner_.read(backing, frames);
-                dry.resize(tail.size());
-                dryAligner_.read(dry, frames);
+                backing.resize(count);
+                dry.resize(count);
+            }
+            std::uint32_t offset = 0;
+            // Only a stopped callback owner reaches here with unread accepted capture. Reuse
+            // the bridge's phase and conversion, ending at the request's immutable watermark.
+            while (clockBridge_.readCursor() < finishInputEnd_ && offset < frames &&
+                   microphoneEnabled_.load(std::memory_order_relaxed)) {
+                const auto wanted = std::min(frames - offset, plan_.maximumBlockFrames);
+                const auto fill = clockBridge_.snapshot().fillFrames;
+                auto capturedAt = micCapturedAt(fill);
+                const auto firstInput = clockBridge_.readCursor();
+                ClockBridge::ReadPosition sourcePosition;
+                const auto presentation = finishPresentationEnd_ +
+                    static_cast<MonotonicTicks>(finishExtraFrames_ + offset) *
+                        NanosecondsPerSecond / plan_.internalSampleRateHz;
+                const auto ratio = static_cast<double>(plan_.inputSampleRateHz) /
+                                   plan_.internalSampleRateHz * clocks_.correctionRatio();
+                const auto read = clockBridge_.pull(renderBridgePcm_, wanted, ratio, &sourcePosition,
+                                                     finishInputEnd_, true);
+                if (read == 0) break;
+                capturedAt += static_cast<MonotonicTicks>(
+                    (sourcePosition.firstFrame - static_cast<double>(firstInput)) *
+                    static_cast<double>(NanosecondsPerSecond) / plan_.inputSampleRateHz);
+                addStoppedRecordingVoice(renderBridgePcm_, read, capturedAt, presentation);
+                const auto at = static_cast<std::size_t>(offset) * plan_.outputChannels;
+                aligner_.read(std::span{tail}.subspan(at), read);
+                if (!backing.empty()) {
+                    backingAligner_.read(std::span{backing}.subspan(at), read);
+                    dryAligner_.read(std::span{dry}.subspan(at), read);
+                }
+                offset += read;
+            }
+            const auto at = static_cast<std::size_t>(offset) * plan_.outputChannels;
+            aligner_.read(std::span{tail}.subspan(at), frames - offset);
+            if (!backing.empty()) {
+                backingAligner_.read(std::span{backing}.subspan(at), frames - offset);
+                dryAligner_.read(std::span{dry}.subspan(at), frames - offset);
             }
             recording_.appendPerformanceTail(cutoff, tail, frames, backing, dry);
         } catch (const std::exception& error) {
@@ -182,6 +323,10 @@ RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
 }
 
 void RealtimeEngine::reset(bool preserveRecording) noexcept {
+    finishPhase_.store(FinishPhase::Idle, std::memory_order_release);
+    while (finishWake_.try_acquire()) {}
+    performanceSuspended_.store(false);
+    finishExtraFrames_ = 0;
     diagnosticInputEnabled_.store(false, std::memory_order_release);
     diagnosticFilePcm_.clear();
     diagnosticFileRateHz_ = 0;
@@ -749,7 +894,27 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         return;
     RealtimeScope rtScope;
     performanceReaders_.fetch_add(1);
-    const auto performanceActive = !performanceSuspended_.load();
+    auto finishPhase = finishPhase_.load(std::memory_order_acquire);
+    if (finishPhase == FinishPhase::Requested &&
+        finishPhase_.compare_exchange_strong(finishPhase, FinishPhase::Draining)) {
+        freezeRecordingFinish();
+        finishPhase = FinishPhase::Draining;
+        if (performanceAlignedInputCursor_.load(std::memory_order_acquire) >= finishInputEnd_) {
+            acknowledgeRecordingFinish();
+            finishPhase = finishPhase_.load(std::memory_order_acquire);
+        }
+    }
+    if (finishPhase == FinishPhase::Interrupted) {
+        // A fatal backend event can precede its final callback. Leave accepted capture queued
+        // for the stopped owner instead of consuming it through a disabled recording path.
+        if (performanceReaders_.fetch_sub(1) == 1)
+            performanceReaders_.notify_all();
+        std::fill_n(buffer.output, static_cast<std::size_t>(buffer.frames) * buffer.channels, 0.0F);
+        return;
+    }
+    const auto finishDraining = finishPhase == FinishPhase::Draining;
+    const auto performanceActive = !performanceSuspended_.load() &&
+        finishPhase != FinishPhase::Ready && finishPhase != FinishPhase::Interrupted;
     const auto releasePerformance = [this] {
         if (performanceReaders_.fetch_sub(1) == 1 && performanceSuspended_.load())
             performanceReaders_.notify_all();
@@ -773,6 +938,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     auto mic = buffers_.buffer(1, buffer.frames);
     auto rawMic = buffers_.buffer(5, buffer.frames);
     const auto bridgeFillBeforePullFrames = clockBridge_.snapshot().fillFrames;
+    const auto bridgeReadBefore = clockBridge_.readCursor();
+    ClockBridge::ReadPosition bridgeRead;
     std::uint32_t micFrames = 0;
     if (plan_.inputChannels == 0) {
         std::fill(mic.begin(), mic.end(), 0.0F);
@@ -785,7 +952,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         const auto nominalRatio = static_cast<double>(plan_.inputSampleRateHz) /
                                   static_cast<double>(plan_.internalSampleRateHz);
         micFrames = clockBridge_.pull(renderBridgePcm_, buffer.frames,
-                                      nominalRatio * clocks_.correctionRatio());
+                                      nominalRatio * clocks_.correctionRatio(), &bridgeRead,
+                                      finishDraining ? finishInputEnd_ : UINT64_MAX);
         for (std::uint32_t frame = 0; frame < buffer.frames; ++frame)
             for (std::uint32_t channel = 0; channel < plan_.outputChannels; ++channel) {
                 mic[frame * plan_.outputChannels + channel] =
@@ -857,7 +1025,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         }
     }
     // Device-timeline origin of the microphone samples pulled from the clock bridge.
-    const auto micCaptured = micCapturedAt(bridgeFillBeforePullFrames);
+    auto micCaptured = micCapturedAt(bridgeFillBeforePullFrames);
+    if (finishDraining && micFrames != 0)
+        micCaptured += static_cast<MonotonicTicks>(
+            (bridgeRead.firstFrame - static_cast<double>(bridgeReadBefore)) *
+            static_cast<double>(NanosecondsPerSecond) / plan_.inputSampleRateHz);
     // Every downstream tap uses the negotiated internal clock after boundary conversion.
     recording_.push(generation, RecordingTap::RawInput, sessionFrame(), rawMic, buffer.frames);
     // Raw input has no DSP delay. Driver/bridge residence is already in micCaptured.
@@ -957,7 +1129,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                                       std::memory_order_relaxed);
         micMonitoringAgeCount_.store(index + 1, std::memory_order_release);
     }
-    const auto voiceLateFrames = smoothVoiceLateFrames(presentationTicks, sungAt);
+    const auto recordingPresentation = finishDraining
+        ? finishPresentationEnd_ + static_cast<MonotonicTicks>(finishExtraFrames_) *
+                                      NanosecondsPerSecond / plan_.internalSampleRateHz
+        : presentationTicks;
+    const auto voiceLateFrames = smoothVoiceLateFrames(recordingPresentation, sungAt);
     // Room transport never delays the performer's backing track or local monitoring. The network
     // engine applies its deadline only to the returned mix of the other singers.
     const auto musicSnapshot = media_.snapshot(MediaSlot::Music, false);
@@ -1034,11 +1210,32 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     std::span<const float> recordedBacking;
     const auto pairedPerformance =
         recording_.backingEnabled() && recording_.selectedTap() == RecordingTap::PerformanceMix;
+    auto recordedVoiceFrames = buffer.frames;
+    if (finishDraining) {
+        const auto remaining = static_cast<double>(finishInputEnd_) - bridgeRead.firstFrame;
+        recordedVoiceFrames = remaining <= 0.0 ? 0U : static_cast<std::uint32_t>(
+            std::min<double>(micFrames, std::ceil(remaining / bridgeRead.step)));
+        // The live conversion may interpolate with a packet captured after the request. Only
+        // the saved voice holds its final accepted sample; live monitoring stays untouched.
+        if (bridgeRead.hasLastSample)
+            for (std::uint32_t frame = 0; frame < recordedVoiceFrames; ++frame)
+                if (bridgeRead.firstFrame + frame * bridgeRead.step >
+                    static_cast<double>(finishInputEnd_ - 1U))
+                    for (std::uint32_t channel = 0; channel < plan_.outputChannels; ++channel) {
+                        mic[frame * plan_.outputChannels + channel] = bridgeRead.lastSample[channel];
+                        rawMic[frame * plan_.outputChannels + channel] =
+                            bridgeRead.lastSample[plan_.outputChannels + channel];
+                    }
+    }
+    const auto wetFrames = finishDraining ? retainedVoiceFrames(sungAt, recordedVoiceFrames)
+                                          : recordedVoiceFrames;
     if (performanceActive && pairedPerformance && microphoneEnabled) {
-        // Raw capture has no DSP delay. Retain its unity level, independently of monitor gains.
-        const auto dspFrames = dspLatencyFrames();
-        const auto dryLateFrames = voiceLateFrames > dspFrames ? voiceLateFrames - dspFrames : 0U;
-        dryAligner_.addVoice(rawMic, buffer.frames, 1.0F, dryLateFrames);
+        const auto dryLateFrames = voiceLateFrames > dspLatencyFrames()
+            ? voiceLateFrames - dspLatencyFrames() : 0U;
+        const auto dryFrames = finishDraining
+            ? retainedVoiceFrames(micCaptured - acousticLatencyNs_.load(std::memory_order_relaxed),
+                                   recordedVoiceFrames) : recordedVoiceFrames;
+        dryAligner_.addVoice(rawMic, dryFrames, 1.0F, dryLateFrames);
     }
     if (recording_.backingEnabled()) {
         // RawInput and analysis already copied buffer 5 above. Preserve the exact gained backing
@@ -1046,15 +1243,16 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         std::copy(performance.begin(), performance.end(), rawMic.begin());
         recordedBacking = rawMic;
     }
-    if (performanceActive)
+    if (performanceActive && !finishDraining)
         aligner_.add(performance, buffer.frames, 1.0F, 0);
-    if (performanceActive && pairedPerformance)
+    if (performanceActive && pairedPerformance && !finishDraining)
         backingAligner_.add(recordedBacking, buffer.frames, 1.0F, 0);
     // The user recording always gets the processed voice exactly once, with the same timeline
     // correction, whether local monitoring (and its safety limiter) is enabled or not.
     if (performanceActive && microphoneEnabled) {
-        recording_.observeVoicePeak(pcmPeak(mic) * gains.microphone);
-        aligner_.addVoice(mic, buffer.frames, gains.microphone, voiceLateFrames);
+        recording_.observeVoicePeak(pcmPeak(mic.first(
+            static_cast<std::size_t>(wetFrames) * plan_.outputChannels)) * gains.microphone);
+        aligner_.addVoice(mic, wetFrames, gains.microphone, voiceLateFrames);
     }
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
@@ -1073,22 +1271,41 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     mixer_.add(output, remote, gains.remote);
     // Headphones keep the practical local/remote split, but the file places the returned server
     // mix back on the musical position carried by its packets.
+    const auto performanceReadFrames = finishDraining
+        ? std::min(buffer.frames, aligner_.leadFrames() - finishExtraFrames_) : buffer.frames;
     if (performanceActive) {
         aligner_.add(remote, buffer.frames, gains.remote, network_.remoteRecordingDelayFrames());
-        aligner_.read(performance, buffer.frames);
+        aligner_.read(performance, performanceReadFrames);
         if (pairedPerformance)
-            backingAligner_.read(rawMic, buffer.frames);
+            backingAligner_.read(rawMic, performanceReadFrames);
     }
     // The tones belong to the accompaniment: when the song steps back under quiet voices, so do
     // they.
     renderTone(output, buffer.frames, accompaniment);
     auto dry = buffers_.buffer(4, buffer.frames);
     if (performanceActive && pairedPerformance)
-        dryAligner_.read(dry, buffer.frames);
+        dryAligner_.read(dry, performanceReadFrames);
     if (performanceActive) {
         recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
-                        buffer.frames, {}, recordedBacking, pairedPerformance ? dry : std::span<float>{});
-        performanceFrame_.store(sessionFrame() + buffer.frames);
+                        performanceReadFrames, {}, recordedBacking,
+                        pairedPerformance ? dry : std::span<float>{});
+        if (finishDraining) {
+            finishExtraFrames_ += performanceReadFrames;
+        } else {
+            performancePresentationEnd_.store(presentationTicks +
+                static_cast<MonotonicTicks>(buffer.frames) * NanosecondsPerSecond /
+                    plan_.internalSampleRateHz, std::memory_order_release);
+            performanceFrame_.store(sessionFrame() + buffer.frames, std::memory_order_release);
+        }
+        performanceAlignedInputCursor_.store(clockBridge_.readCursor(), std::memory_order_release);
+        auto requested = FinishPhase::Requested;
+        if (!finishDraining &&
+            finishPhase_.compare_exchange_strong(requested, FinishPhase::Draining))
+            freezeRecordingFinish();
+        if (finishPhase_.load(std::memory_order_acquire) == FinishPhase::Draining &&
+            (performanceAlignedInputCursor_.load(std::memory_order_acquire) >= finishInputEnd_ ||
+             finishExtraFrames_ == aligner_.leadFrames()))
+            acknowledgeRecordingFinish();
     }
     mixer_.clampToFullScale(output);
     const auto masterPeak = pcmPeak(output);
@@ -1153,6 +1370,12 @@ void RealtimeEngine::onBackendEvent(GenerationId generation, BackendEventType ev
     backendEventCode_.store(code, std::memory_order_relaxed);
     backendEventType_.store(static_cast<std::uint32_t>(event), std::memory_order_release);
     backendEventSequence_.fetch_add(1, std::memory_order_release);
+    auto phase = finishPhase_.load(std::memory_order_acquire);
+    while (phase == FinishPhase::Requested || phase == FinishPhase::Draining)
+        if (finishPhase_.compare_exchange_weak(phase, FinishPhase::Interrupted)) {
+            finishWake_.release();
+            break;
+        }
 }
 PendingBackendEvent RealtimeEngine::pendingBackendEvent() const noexcept {
     const auto sequence = backendEventSequence_.load(std::memory_order_acquire);
