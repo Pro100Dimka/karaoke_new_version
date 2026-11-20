@@ -236,7 +236,10 @@ def _validate(
     if definition.kind == "secret":
         return "unverified", "The key is saved; online verification is required"
     if definition.kind == "file":
-        return _validate_file(definition.key, value, values)
+        try:
+            return _validate_file(definition.key, value, values)
+        except OSError:
+            return "invalid", "File could not be read"
     if definition.kind == "url":
         parsed = urlparse(value)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
