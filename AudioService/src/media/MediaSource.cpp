@@ -82,10 +82,14 @@ void MediaSource::prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t 
     if (outputSampleRateHz == 0 || outputChannels == 0 || outputChannels > MaxAudioChannels ||
         bufferFrames == 0)
         throw std::invalid_argument("invalid media output configuration");
-    const auto previousState = state_.load(std::memory_order_acquire);
+    PlaybackState previousState;
+    std::uint64_t previousPosition;
+    MonotonicTicks previousStartAtTicks;
+    std::string previousPath;
     {
         std::lock_guard lock(mutex_);
         RenderPause renderPause(*this);
+        previousState = state_.load(std::memory_order_acquire);
         if (outputSampleRateHz_ == outputSampleRateHz && outputChannels_ >= outputChannels &&
             ring_.capacityFrames() == bufferFrames && previousState != PlaybackState::Failed) {
             // Keep decoded channels; the render path selects the active device's channels.
@@ -93,12 +97,15 @@ void MediaSource::prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t 
             clockScratch_.resize(ClockScratchFrames * outputChannels_);
             return;
         }
-    }
-    const auto previousPosition = snapshot().sourcePositionFrames;
-    std::string previousPath;
-    if (previousState != PlaybackState::Empty) {
-        std::lock_guard lock(mutex_);
-        previousPath = path_;
+        previousPosition = frameNumber(sourcePosition_.load(std::memory_order_relaxed));
+        previousStartAtTicks = startAtTicks_.load(std::memory_order_relaxed);
+        if (previousStartAtTicks != 0 &&
+            presentationGeneration_.load(std::memory_order_relaxed) ==
+                generation_.load(std::memory_order_relaxed))
+            previousStartAtTicks = std::max(
+                previousStartAtTicks, presentationEndTicks_.load(std::memory_order_relaxed));
+        if (previousState != PlaybackState::Empty)
+            previousPath = path_;
     }
     requestUnloadAndWait();
     {
@@ -119,9 +126,9 @@ void MediaSource::prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t 
     if (previousPosition != 0)
         seek(previousPosition);
     if (previousState == PlaybackState::Playing) {
-        play();
+        play(previousStartAtTicks);
     } else if (previousState == PlaybackState::Paused) {
-        play();
+        play(previousStartAtTicks);
         pause();
     }
 }
