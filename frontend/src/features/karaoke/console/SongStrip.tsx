@@ -11,6 +11,8 @@ import type { SongDto } from '../../../contracts/models';
 import { formatTime } from '../../../shared/utils/format';
 import { useWaveformPeaks } from '../../../shared/hooks/useWaveformPeaks';
 
+const noPeaks: readonly number[] = [];
+
 interface SongStripProps {
   song: SongDto;
   position: number;
@@ -42,7 +44,7 @@ export const SongStrip = memo(
           {formatTime(position)}
         </Typography>
         <Waveform
-          points={peaks ?? []}
+          points={peaks ?? noPeaks}
           position={position}
           duration={duration}
           disabled={locked}
