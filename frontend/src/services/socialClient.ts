@@ -29,6 +29,7 @@ const isInbox = (message: unknown): message is SocialInbox =>
 // Photos are fetched once per account and version; a new version (a changed photo) is fetched anew.
 const avatars = new Map<string, Promise<string>>();
 const requestedRoomsKey = 'ad-voice.requested-rooms';
+const pendingRoomRequests = new Map<string, Set<symbol>>();
 const requestedRooms = (): string[] => {
   const value = readJson(requestedRoomsKey);
   return Array.isArray(value)
@@ -95,16 +96,30 @@ export const socialClient = {
   invite: (accountId: string, roomId: string) =>
     request<void>('POST', '/invites', { accountId, roomId }),
   requestRoomJoin: async (accountId: string, roomId: string): Promise<void> => {
-    await request<void>('POST', '/join-requests', { accountId, roomId });
-    saveRequestedRooms([...requestedRooms(), roomId]);
+    const pending = pendingRoomRequests.get(roomId) ?? new Set<symbol>();
+    const attempt = Symbol();
+    pending.add(attempt);
+    pendingRoomRequests.set(roomId, pending);
+    try {
+      await request<void>('POST', '/join-requests', { accountId, roomId });
+      // An approval can arrive before this response and consume the intent.
+      if (pendingRoomRequests.get(roomId) === pending)
+        saveRequestedRooms([...requestedRooms(), roomId]);
+    } finally {
+      pending.delete(attempt);
+      if (!pending.size && pendingRoomRequests.get(roomId) === pending)
+        pendingRoomRequests.delete(roomId);
+    }
   },
   /** Host approval uses the existing authenticated invitation, but a requested invite is auto-accepted. */
   approveJoinRequest: (accountId: string, roomId: string) =>
     request<void>('POST', '/invites', { accountId, roomId }),
   isRequestedRoom: (roomId: string): boolean =>
-    requestedRooms().includes(roomId),
-  clearRequestedRoom: (roomId: string): void =>
-    saveRequestedRooms(requestedRooms().filter((id) => id !== roomId)),
+    pendingRoomRequests.has(roomId) || requestedRooms().includes(roomId),
+  clearRequestedRoom: (roomId: string): void => {
+    pendingRoomRequests.delete(roomId);
+    saveRequestedRooms(requestedRooms().filter((id) => id !== roomId));
+  },
   acceptInvite: (inviteId: string) =>
     request<{ roomId: string }>(
       'POST',
