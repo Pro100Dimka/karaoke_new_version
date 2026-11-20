@@ -70,7 +70,7 @@ def _cached_artwork(
         ) as file:
             temporary = Path(file.name)
         temporary.write_bytes(content)
-        os.replace(temporary, target)
+        _publish_artwork(temporary, target)
         return target
     except (httpx.HTTPError, httpx.InvalidURL, OSError):
         return None
@@ -78,6 +78,15 @@ def _cached_artwork(
         if temporary is not None:
             with suppress(OSError):
                 temporary.unlink(missing_ok=True)
+
+
+def _publish_artwork(temporary: Path, target: Path) -> None:
+    try:
+        os.replace(temporary, target)
+    except OSError:
+        # A completed concurrent publication is already a valid cache hit.
+        if not target.is_file():
+            raise
 
 
 def _download_artwork(
