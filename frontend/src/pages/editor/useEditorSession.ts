@@ -70,10 +70,16 @@ export const useEditorSession = (songId: string) => {
 
   const document = history?.present ?? null;
   useEffect(() => {
-    const ids = new Set(document?.notes.map((note) => note.id));
     setSelection((current) => {
-      const retained = [...current].filter((id) => ids.has(id));
-      return retained.length === current.size ? current : new Set(retained);
+      if (current.size === 0) return current;
+      // Most previews retain a small selection. Stop as soon as its IDs are
+      // found instead of rebuilding an index for every note on each drag.
+      const missing = new Set(current);
+      for (const note of document?.notes ?? []) {
+        missing.delete(note.id);
+        if (missing.size === 0) return current;
+      }
+      return new Set([...current].filter((id) => !missing.has(id)));
     });
   }, [document?.notes]);
   const dirty = useMemo(
