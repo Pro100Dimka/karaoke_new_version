@@ -199,13 +199,22 @@ void mediaFoundationOwnsComOnTheDecodingThread() {
     makeTestWav(path, 1024);
     bool initialized = false, cleaned = false;
     std::thread worker([&] {
+        const auto apartmentState = [](const char* stage) {
+            APTTYPE apartment{};
+            APTTYPEQUALIFIER qualifier{};
+            const auto result = CoGetApartmentType(&apartment, &qualifier);
+            std::cerr << "COM " << stage << " hr=0x" << std::hex
+                      << static_cast<unsigned long>(result) << std::dec
+                      << " apartment=" << static_cast<int>(apartment)
+                      << " qualifier=" << static_cast<int>(qualifier) << '\n';
+            return result;
+        };
+        (void)apartmentState("before");
         MediaFoundationDecoder decoder;
         decoder.open(path.string());
-        APTTYPE apartment;
-        APTTYPEQUALIFIER qualifier;
-        initialized = SUCCEEDED(CoGetApartmentType(&apartment, &qualifier));
+        initialized = SUCCEEDED(apartmentState("open"));
         decoder.close();
-        cleaned = CoGetApartmentType(&apartment, &qualifier) == CO_E_NOTINITIALIZED;
+        cleaned = apartmentState("close") == CO_E_NOTINITIALIZED;
     });
     worker.join();
     expect(initialized && cleaned, "decoder initializes and balances COM on its worker thread");
