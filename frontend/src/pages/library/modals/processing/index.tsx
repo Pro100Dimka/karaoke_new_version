@@ -190,13 +190,14 @@ export const ProcessingModal = observer(
         return;
       }
       const song = songOf(job);
-      const phase = phaseOf(job);
+      const phaseIndex = phaseOf(job);
+      const phase = phaseIndex === undefined ? undefined : phases[phaseIndex];
       setNotice({
         title: tr('processingJobDetails'),
         text: [
           processingTitle(job, song) ?? tr('processingSongUnavailable'),
           `${tr('processingDetailsState')}: ${tr(stateLabel[job.state])}`,
-          `${tr('processingDetailsStage')}: ${phase === undefined ? job.stage : tr(phases[phase])}`,
+          `${tr('processingDetailsStage')}: ${phase ? tr(phase) : job.stage}`,
           `${tr('processingDetailsProgress')}: ${job.progress}%`,
           `${tr('processingDetailsTime')}: ${processingDuration(job) ?? '0:00'}`,
           job.error?.message ?? '',
