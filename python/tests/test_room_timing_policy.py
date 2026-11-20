@@ -202,16 +202,40 @@ def test_the_relay_never_closes_before_the_measured_arrival_of_the_voices() -> N
     assert selected.playout_delay_ms == 47.5
 
 
-def test_e_a_route_beyond_the_live_limit_neither_stretches_the_room_nor_its_reserve() -> None:
+@pytest.mark.parametrize("song_selected", [False, True])
+def test_e_a_route_beyond_the_live_limit_neither_stretches_the_room_nor_its_reserve(
+    song_selected: bool,
+) -> None:
     good = Route(30.0, return_requirement_ms=4.0, arrival_requirement_ms=20.0)
     bad = Route(260.0, return_requirement_ms=90.0, arrival_requirement_ms=50.0)
 
-    selected = timing(good, bad)
+    selected = timing(good, bad, song_selected=song_selected)
 
     assert eligibility(bad) is EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
     assert eligibility(good) is EligibilityReason.ELIGIBLE
     assert selected.playout_delay_ms == 30.0
     assert selected.return_reserve_ms == reserve_for(4.0)
+
+
+def test_idle_return_spike_does_not_remove_healthy_singers_collection_time() -> None:
+    healthy = Route(60.0, return_requirement_ms=31.5, arrival_requirement_ms=22.5)
+    unsupported = Route(285.0, return_requirement_ms=261.8, arrival_requirement_ms=20.0)
+
+    selected = timing(healthy, unsupported, song_selected=False)
+
+    assert selected == timing(healthy, song_selected=False)
+    assert close_of(selected) >= healthy.arrival_requirement_ms
+    assert selected.return_reserve_ms >= healthy.return_requirement_ms
+    recovered = Route(65.0, return_requirement_ms=35.0, arrival_requirement_ms=25.0)
+    assert timing(healthy, recovered, song_selected=False).return_reserve_ms == reserve_for(35.0)
+
+
+def test_idle_without_eligible_routes_preserves_calibration_headroom() -> None:
+    selected = timing(Route(285.0, 261.8, 20.0), song_selected=False)
+
+    assert selected.source is TimingSource.IDLE_CONVERSATION
+    assert selected.playout_delay_ms == ROOM_TIMING.maximum_idle_delay_ms
+    assert selected.return_reserve_ms == ROOM_TIMING.idle_return_reserve_floor_ms
 
 
 def test_f_the_selected_deadline_is_not_an_input_of_the_return_reserve() -> None:

@@ -219,7 +219,8 @@ struct NetworkTestAccess {
                     : std::pair{0U, 0U};
     }
     static void seedMeasuredServerMixRoute(NetworkAudioEngine& engine,
-                                           std::uint32_t collectionFrames) {
+                                           std::uint32_t collectionFrames,
+                                           std::uint32_t advertisedMilliseconds = 80) {
         auto* slot = engine.slotForId("__room_server_mix__");
         Tests::expect(slot != nullptr, "the measured server-mix slot exists");
         if (!slot)
@@ -235,7 +236,9 @@ struct NetworkTestAccess {
             slot->arrivalRoute.note(IngressFrames);
         }
         slot->remoteStreamEpoch.reset(7);
-        engine.advertisedTargetDelayFrames_.store(80U * 48U, std::memory_order_release);
+        engine.advertisedTargetDelayFrames_.store(advertisedMilliseconds * 48U,
+                                                  std::memory_order_release);
+        engine.audibleRoutesChanged_ = false;
     }
     static void seedDirectReadyVoice(NetworkAudioEngine& engine, std::string_view participant) {
         auto* slot = engine.slotForId(participant);
@@ -1939,7 +1942,8 @@ void serverMixStageReportPreservesIngressAndCollectionFrames() {
 void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
     constexpr std::uint32_t Rate = 48'000, PacketFrames = 120;
     constexpr std::uint64_t Token = 77, Timeline = 10U * Rate;
-    const auto requestedAfterWait = [](std::uint32_t collectionMilliseconds, bool muted = false) {
+    const auto requestedAfterWait = [](std::uint32_t collectionMilliseconds, bool muted = false,
+                                       std::uint32_t advertisedMilliseconds = 80) {
         NetworkAudioEngine network;
         network.prepare(Rate, 1, Rate / 2U, PacketFrames, GenerationId{1});
         network.setSharedTimeline(true);
@@ -1949,7 +1953,8 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
                "the diagnosed listener registers the server mix");
         expect(network.setRemoteMute("__room_server_mix__", muted), "select audible route");
         const auto collectionFrames = collectionMilliseconds * Rate / 1'000U;
-        NetworkTestAccess::seedMeasuredServerMixRoute(network, collectionFrames);
+        NetworkTestAccess::seedMeasuredServerMixRoute(network, collectionFrames,
+                                                      advertisedMilliseconds);
         network.startReceive(0);
         std::vector<float> render(PacketFrames);
         (void)network.renderRemote(GenerationId{1}, render, PacketFrames, Timeline - PacketFrames);
@@ -1993,6 +1998,8 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
         expect(diagnostics.packetsReceived >= 4 &&
                    diagnostics.participants.front().returnSamples >= CalibratedSamples,
                "server-mix packets update the calibrated route");
+        expect(diagnostics.roomPlayoutDelayFrames == 80U * Rate / 1'000U,
+               "publishing route measurements must not move the server's fixed playout deadline");
         return diagnostics.advertisedTargetDelayFrames;
     };
 
@@ -2003,6 +2010,8 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
            "relay collection time must not make an otherwise eligible route exceed 80 ms");
     expect(requestedAfterWait(70, true) < immediate,
            "an inaudible backup route must not set the active direct route's deadline");
+    expect(requestedAfterWait(0, false, 250) == immediate,
+           "a recovered route publishes its measured need without slowly draining a stale request");
 }
 
 void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor() {
