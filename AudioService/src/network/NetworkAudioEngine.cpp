@@ -1901,12 +1901,15 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                     }
                     localDesired = std::max(localDesired, requested);
                 }
-                const auto localAdvertised = audibleRoutesChanged_ ? localDesired : adaptSharedCompensationFrames(
-                    advertisedTargetDelayFrames_.load(std::memory_order_acquire), localDesired,
-                    playoutDelayFrames_, maximumDelayFrames, packetFrames_);
+                const auto fixedRoomTarget = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
+                // The server owns playout: publish the measured need without the queue's slow release.
+                const auto localAdvertised = audibleRoutesChanged_ || (serverMix && fixedRoomTarget != 0)
+                    ? localDesired
+                    : adaptSharedCompensationFrames(
+                          advertisedTargetDelayFrames_.load(std::memory_order_acquire), localDesired,
+                          playoutDelayFrames_, maximumDelayFrames, packetFrames_);
                 audibleRoutesChanged_ = false;
                 advertisedTargetDelayFrames_.store(localAdvertised, std::memory_order_release);
-                const auto fixedRoomTarget = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
                 if (fixedRoomTarget != 0) {
                     targetFrames = fixedRoomTarget;
                     sharedTargetDelayFrames_.store(fixedRoomTarget, std::memory_order_release);
