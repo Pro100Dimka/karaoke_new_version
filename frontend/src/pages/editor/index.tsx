@@ -103,6 +103,9 @@ export const EditorPage = () => {
   keyboard.current = { session, selection };
   // A drag shows live previews; the document it started from makes the whole drag one undo step.
   const dragStart = useRef<EditorDocument | null>(null);
+  const dragPreview = useRef<
+    (PianoRollGesture & { document: EditorDocument }) | null
+  >(null);
   const latest = useRef(document);
   latest.current = document;
   const page = useRef<HTMLElement>(null);
@@ -214,6 +217,7 @@ export const EditorPage = () => {
   ] as const;
 
   const previewDrag = (next: EditorDocument) => {
+    if (latest.current === next) return;
     // Cancellation sends its final preview and drag end in the same event.
     latest.current = next;
     session.replacePresent(next);
@@ -225,38 +229,59 @@ export const EditorPage = () => {
       // Pointer-down selects one note; an actual group drag retains its original selection.
       if (
         gesture.ids.length > 1 &&
-        (gesture.pitch !== 0 || gesture.seconds !== 0)
+        (gesture.pitch !== 0 || gesture.seconds !== 0) &&
+        (selection.size !== gesture.ids.length ||
+          gesture.ids.some((id) => !selection.has(id)))
       )
         session.setSelection(new Set(gesture.ids));
-      previewDrag(
-        moveNotes(
-          before,
-          new Set(gesture.ids),
-          gesture.pitch,
-          snapTime(gesture.seconds, snap),
-        ),
+      const seconds = snapTime(gesture.seconds, snap);
+      const previous = dragPreview.current;
+      if (
+        previous?.kind === 'move' &&
+        previous.ids === gesture.ids &&
+        previous.pitch === gesture.pitch &&
+        previous.seconds === seconds
+      ) {
+        previewDrag(previous.document);
+        return;
+      }
+      const next = moveNotes(
+        before,
+        new Set(gesture.ids),
+        gesture.pitch,
+        seconds,
       );
+      dragPreview.current = { ...gesture, seconds, document: next };
+      previewDrag(next);
       return;
     }
     if (gesture.seconds === 0) {
+      dragPreview.current = null;
       previewDrag(before);
       return;
     }
     const note = before.notes.find((item) => item.id === gesture.id);
     if (!note) return;
     const origin = gesture.edge === 'start' ? note.start : note.end;
-    previewDrag(
-      resizeNote(
-        before,
-        gesture.id,
-        gesture.edge,
-        snapTime(origin + gesture.seconds, snap),
-      ),
-    );
+    const seconds = snapTime(origin + gesture.seconds, snap);
+    const previous = dragPreview.current;
+    if (
+      previous?.kind === 'resize' &&
+      previous.id === gesture.id &&
+      previous.edge === gesture.edge &&
+      previous.seconds === seconds
+    ) {
+      previewDrag(previous.document);
+      return;
+    }
+    const next = resizeNote(before, gesture.id, gesture.edge, seconds);
+    dragPreview.current = { ...gesture, seconds, document: next };
+    previewDrag(next);
   };
   const dragEnd = () => {
     const before = dragStart.current;
     dragStart.current = null;
+    dragPreview.current = null;
     if (before && latest.current && latest.current !== before)
       session.commit(before, latest.current);
   };

@@ -1,4 +1,4 @@
-import { setLocale, tr } from '@neo-ui-kit/react';
+import { setLocale, tr, type PianoRollProps } from '@neo-ui-kit/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { EditorDocument } from '../../application/editor/editorModel';
@@ -10,10 +10,18 @@ import '../../providers/localization';
 import { editorApi } from './editorApi';
 import { EditorPage } from './index';
 
-vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
-  useRouter: () => ({ params: { songId: 'song' }, navigate: vi.fn() }),
-}));
+const probe = vi.hoisted(() => ({ rollRenders: 0 }));
+vi.mock('@neo-ui-kit/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@neo-ui-kit/react')>();
+  return {
+    ...actual,
+    useRouter: () => ({ params: { songId: 'song' }, navigate: vi.fn() }),
+    PianoRoll: (props: PianoRollProps) => {
+      probe.rollRenders++;
+      return <actual.PianoRoll {...props} />;
+    },
+  };
+});
 vi.mock('../../app/TitleBar', () => ({
   titleBarLeadingId: 'editor-test-header',
 }));
@@ -63,6 +71,7 @@ const readySnapshot: PlaybackSnapshot = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  probe.rollRenders = 0;
   clearStorage();
   setLocale('ru');
   vi.mocked(pythonClient.getSong).mockResolvedValue(song);
@@ -85,7 +94,7 @@ const pointer = (target: Element, type: string, x: number, y: number) => {
   fireEvent(target, event);
 };
 
-const beginDrag = async (kind: 'move' | 'resize') => {
+const beginDrag = async (kind: 'move' | 'resize', width = 1000) => {
   const view = render(<EditorPage />);
   const body = await screen.findByRole('button', {
     name: tr('Нота {pitch}', { pitch: 60 }),
@@ -96,7 +105,7 @@ const beginDrag = async (kind: 'move' | 'resize') => {
     '.ad-piano-roll-world',
   )!;
   vi.spyOn(world, 'getBoundingClientRect').mockReturnValue(
-    new DOMRect(0, 0, 1000, 300),
+    new DOMRect(0, 0, width, 300),
   );
   const geometry = note.getAttribute('style');
   const handle =
@@ -131,6 +140,63 @@ it.each(
 );
 
 it.each(['move', 'resize'] as const)(
+  'does not rebuild a large roll for repeated %s samples inside one snap cell',
+  async (kind) => {
+    const count = 500;
+    vi.mocked(editorApi.load).mockResolvedValue({
+      ...document,
+      words: [
+        ...document.words,
+        ...Array.from({ length: count }, (_, index) => ({
+          id: `w-${index}`,
+          text: `Word ${index}`,
+          start: 10 + index * 2,
+          end: 11 + index * 2,
+        })),
+      ],
+      notes: [
+        ...document.notes,
+        ...Array.from({ length: count }, (_, index) => ({
+          id: `n-${index}`,
+          wordId: `w-${index}`,
+          pitch: 65,
+          start: 10 + index * 2,
+          end: 11 + index * 2,
+        })),
+      ],
+    });
+    const { world, note, geometry, body } = await beginDrag(
+      kind,
+      (11 + (count - 1) * 2) * 100,
+    );
+    const changed = note.getAttribute('style');
+    const renders = probe.rollRenders;
+    for (let sample = 0; sample < 30; sample++)
+      pointer(
+        world,
+        'pointermove',
+        130 + (sample % 4) / 10,
+        kind === 'move' ? 80 : 100,
+      );
+    expect(note.getAttribute('style')).toBe(changed);
+    expect(probe.rollRenders - renders).toBe(0);
+    pointer(world, 'pointerup', 130, 80);
+    fireEvent.click(screen.getByRole('button', { name: tr('undo') }));
+    expect(note.getAttribute('style')).toBe(geometry);
+    pointer(
+      kind === 'move' ? body : note.querySelector('[data-edge="end"]')!,
+      'pointerdown',
+      100,
+      100,
+    );
+    pointer(world, 'pointermove', 130, kind === 'move' ? 80 : 100);
+    expect(note.getAttribute('style')).toBe(changed);
+    pointer(world, 'pointercancel', 130, 80);
+    expect(note.getAttribute('style')).toBe(geometry);
+  },
+);
+
+it.each(['move', 'resize'] as const)(
   'commits a completed %s as one reversible history step',
   async (kind) => {
     const { world, note, geometry } = await beginDrag(kind);
@@ -143,5 +209,20 @@ it.each(['move', 'resize'] as const)(
     fireEvent.click(screen.getByRole('button', { name: tr('redo') }));
     expect(note.getAttribute('style')).toBe(changed);
     expect(screen.getByRole('button', { name: tr('save') })).toBeEnabled();
+  },
+);
+
+it.each(['move', 'resize'] as const)(
+  'keeps %s responsive to fine movement when snapping is disabled',
+  async (kind) => {
+    const { world, note, geometry } = await beginDrag(kind);
+    fireEvent.click(screen.getByRole('button', { name: tr('editorSnap') }));
+    pointer(world, 'pointermove', 130, kind === 'move' ? 80 : 100);
+    const first = note.getAttribute('style');
+    pointer(world, 'pointermove', 130.2, kind === 'move' ? 80 : 100);
+    expect(note.getAttribute('style')).not.toBe(first);
+    pointer(world, 'pointercancel', 130.2, 80);
+    expect(note.getAttribute('style')).toBe(geometry);
+    expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
   },
 );
