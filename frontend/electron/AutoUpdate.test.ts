@@ -64,14 +64,20 @@ it('resumes a real HTTP transfer after its socket is interrupted', async () => {
     const address = server.address();
     if (!address || typeof address === 'string')
       throw new Error('Missing HTTP listener');
-    const file = await fetchInstaller(
+    const downloading = fetchInstaller(
       fetch,
       { ...release(), url: `http://127.0.0.1:${address.port}/installer` },
       directory,
-      (percent) => {
-        if (percent >= 33) interrupted?.destroy();
-      },
     );
+    // Progress reports received bytes before the pipeline writes them to the partial file.
+    await vi.waitFor(async () =>
+      expect(
+        await readFile(path.join(directory, 'AD-Voice-Setup-1.2.0.exe.part')),
+      ).toEqual(payload.subarray(0, 100_000)),
+    );
+    assert(interrupted, 'The first HTTP response must still be open');
+    interrupted.destroy();
+    const file = await downloading;
     expect(ranges).toEqual(['', 'bytes=100000-']);
     assert(file, 'Installer download must return a file');
     expect(await readFile(file)).toEqual(payload);
