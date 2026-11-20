@@ -28,6 +28,9 @@ const LibraryStats = observer(
       enabled: false,
     });
     const activeJobs = jobs.filter(isInQueue);
+    const queueSize = activeJobs.filter(({ type }) =>
+      ['SongImport', 'SongProcessing'].includes(type),
+    ).length;
     let total: number | string = summary?.total ?? '—';
     let ready: number | string = summary?.ready ?? '—';
     if (room && library) {
@@ -67,7 +70,7 @@ const LibraryStats = observer(
           label={tr('readyForKaraoke')}
           aria-label={`${tr('readyForKaraoke')} · ${tr('processingQueue')}`}
           aria-haspopup="dialog"
-          badge={activeJobs.length || undefined}
+          badge={queueSize || undefined}
           badgeLabel={tr('processingQueue')}
           onClick={onOpenProcessing}
           tilt={false}

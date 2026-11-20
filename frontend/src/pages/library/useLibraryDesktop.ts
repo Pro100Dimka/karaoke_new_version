@@ -45,13 +45,12 @@ export const useLibraryDesktop = (onInvitation: (code?: string) => void) => {
   const onDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     setDragging(false);
-    if (!backendReady) return;
 
     const paths = Array.from(event.dataTransfer.files)
       .map((file) => desktopClient.pathForFile(file))
       .filter((path): path is string => Boolean(path));
 
-    void importFiles(paths);
+    if (paths.length) libraryCommands.push({ type: 'importFiles', paths });
   };
 
   return {
