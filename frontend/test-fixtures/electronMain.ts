@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   quit: vi.fn(),
   relaunch: vi.fn(),
   gpuSwitch: vi.fn(),
+  beforeLaunch: vi.fn(async () => false),
   prepareUpdateQuit: vi.fn(async () => true),
   updateQuit: { run: () => undefined as void },
   scene: vi.fn<(request: Request) => Response>(),
@@ -87,7 +88,7 @@ vi.mock('../electron/AutoUpdate', () => ({
     mocks.updateQuit.run = quit;
     return {
       requiresLaunchCheck: () => false,
-      beforeLaunch: async () => false,
+      beforeLaunch: mocks.beforeLaunch,
       install: () => false,
       prepareQuit: mocks.prepareUpdateQuit,
       cancelInstall: vi.fn(),
@@ -114,6 +115,7 @@ vi.mock('electron', () => ({
     commandLine: { appendSwitch: mocks.gpuSwitch },
     quit: mocks.quit,
     relaunch: mocks.relaunch,
+    setUserTasks: vi.fn(),
     on: (
       name: string,
       callback: (event: { preventDefault(): void }, argv?: string[]) => void,
@@ -145,7 +147,19 @@ vi.mock('electron', () => ({
   },
   dialog: {},
   shell: {},
+  globalShortcut: { register: vi.fn(() => true), unregister: vi.fn() },
+  screen: { getAllDisplays: () => [{}], on: vi.fn() },
+  powerMonitor: { isOnBatteryPower: () => false, on: vi.fn() },
 }));
+// Main-process tests keep network subscriptions at their service boundaries.
+vi.mock('../electron/SocialSocket', () => ({
+  createSocialSocket: () => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+    setPresence: vi.fn(async () => undefined),
+  }),
+}));
+vi.mock('../electron/BackendEvents', () => ({ streamBackendEvents: vi.fn() }));
 vi.mock('node:fs', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs')>();
   return {

@@ -219,6 +219,7 @@ const updater = startAutoUpdate({
 });
 trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
 let desktopLaunch: ReturnType<typeof startDesktopLaunch> | null = null;
+const pendingLaunches: (readonly string[])[] = [];
 let discord: ReturnType<typeof startDiscordPresence> | null = null;
 const radioNowPlaying = startRadioNowPlaying(shell);
 
@@ -323,7 +324,8 @@ app.on('second-instance', (_event, argv) => {
     return;
   }
   // A second launch hands over what it was started for: an invitation link, a task, opened files.
-  desktopLaunch?.secondLaunch(argv);
+  if (desktopLaunch) desktopLaunch.secondLaunch(argv);
+  else pendingLaunches.push([...argv]);
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   // The window may be hidden in the tray while the radio plays.
@@ -379,6 +381,8 @@ app
       backendEventsStop.signal,
     );
     desktopLaunch = startDesktopLaunch(shell, notify);
+    for (const argv of pendingLaunches.splice(0))
+      desktopLaunch.secondLaunch(argv);
     discord = startDiscordPresence(shell, () => shell.status().discordPresence);
     const roomParticipant = await roomParticipantId();
     openMainWindow(roomParticipant);
