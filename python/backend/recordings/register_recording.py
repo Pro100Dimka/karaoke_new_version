@@ -70,7 +70,9 @@ class RegisterRecording:
             if existing.file_status not in {"Preparing", "PreparationFailed"}:
                 self._storage.remove_recovery_descriptor(request.recording_id)
             return existing
-        path = self._storage.validate_owned_file(request.file_path)
+        path = self._storage.validate_owned_file(
+            request.file_path, recording_id=request.recording_id
+        )
         metadata = self._inspector.inspect(path)
         self._validate_metadata(request, metadata.duration, metadata.sample_rate, metadata.channels)
         self._validate_song_revision(request)

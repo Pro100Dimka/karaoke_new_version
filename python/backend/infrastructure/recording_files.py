@@ -108,8 +108,12 @@ class LocalRecordingStorage:
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Empty recording cleanup failed") from exc
 
-    def validate_owned_file(self, path: Path) -> Path:
+    def validate_owned_file(self, path: Path, *, recording_id: str | None = None) -> Path:
         resolved = ensure_within(path, self._root)
+        if recording_id is not None and resolved.parent != _recording_directory(
+            self._root, recording_id
+        ):
+            raise DomainError("InvalidRecording", "Recording belongs to another directory", 400)
         if not resolved.is_file():
             raise DomainError("RecordingNotFound", "Finalized recording file does not exist", 404)
         return resolved
