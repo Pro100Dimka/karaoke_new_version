@@ -593,6 +593,7 @@ void realtimeCallbackHasNoHardRtViolations();
 void deviceLossRecoversWithNewGeneration();
 void deviceLossCapturesFailureSnapshot();
 void stopInvalidatesGeneration();
+void staleRenderCallbacksCannotReplayPreviousPcm();
 void sessionLifecycleIsExposedThroughIpc();
 void acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath();
 void suspendingAnIdleSessionIsANoOp();

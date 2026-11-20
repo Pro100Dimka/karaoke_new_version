@@ -863,6 +863,7 @@ constexpr std::array tests{
     Test{"deviceLossRecoversWithNewGeneration", Tests::deviceLossRecoversWithNewGeneration},
     Test{"deviceLossCapturesFailureSnapshot", Tests::deviceLossCapturesFailureSnapshot},
     Test{"stopInvalidatesGeneration", Tests::stopInvalidatesGeneration},
+    Test{"staleRenderCallbacksCannotReplayPreviousPcm", Tests::staleRenderCallbacksCannotReplayPreviousPcm},
     Test{"sessionLifecycleIsExposedThroughIpc", Tests::sessionLifecycleIsExposedThroughIpc},
     Test{"acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath",
          Tests::acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath},
