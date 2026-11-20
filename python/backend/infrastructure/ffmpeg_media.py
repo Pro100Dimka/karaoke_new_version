@@ -84,8 +84,31 @@ class FfmpegMediaInspector:
             metadata = self._metadata(payload, source)
         except (UnicodeDecodeError, ValueError, TypeError) as exc:
             raise DomainError("InvalidMedia", "Media metadata is malformed", 400) from exc
+        if metadata.duration is None or metadata.duration <= 0:
+            self._require_audio_samples(source)
         lyrics = self._sidecar.read(source) if self._sidecar is not None else None
         return replace(metadata, embedded_lyrics=lyrics) if lyrics else metadata
+
+    def _require_audio_samples(self, source: Path) -> None:
+        result = self._runner.run(
+            [
+                self._ffmpeg,
+                "-v",
+                "error",
+                "-i",
+                str(source),
+                "-map",
+                "0:a:0",
+                "-frames:a",
+                "1",
+                "-f",
+                "f32le",
+                "pipe:1",
+            ],
+            timeout_seconds=15,
+        )
+        if result.exit_code != 0 or not result.stdout:
+            raise DomainError("InvalidMedia", "Selected file has no readable audio samples", 400)
 
     def extract_artwork(self, source: Path, target: Path) -> bool:
         target.parent.mkdir(parents=True, exist_ok=True)
