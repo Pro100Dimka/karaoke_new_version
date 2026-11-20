@@ -54,5 +54,7 @@ class ProcessingWiring:
     runtime: RuntimeProbe
     storage: StorageSystem
     resources: ProcessingResourceScheduler
-    # The same facts for start-up and the diagnostics page, without waiting for the PyTorch probe.
+    # Diagnostics may refresh memory without waiting for the PyTorch probe.
     runtime_now: RuntimeProbe | None = None
+    # Capability flags and CPU admission do not need a fresh NVIDIA memory subprocess.
+    runtime_capabilities: RuntimeProbe | None = None

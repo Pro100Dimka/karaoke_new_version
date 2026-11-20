@@ -108,15 +108,17 @@ class SystemRuntimeProbe:
 
         run_in_background("torch-probe", probe)
 
-    def without_waiting(self) -> RuntimeProbe:
-        return _ProbeWithoutWaiting(self)
+    def without_waiting(self, *, refresh_gpu_memory: bool = True) -> RuntimeProbe:
+        return _ProbeWithoutWaiting(self, refresh_gpu_memory=refresh_gpu_memory)
 
-    def _diagnostics(self, torch: _TorchFacts | None) -> RuntimeDiagnostics:
+    def _diagnostics(
+        self, torch: _TorchFacts | None, *, refresh_gpu_memory: bool = True
+    ) -> RuntimeDiagnostics:
         total_vram, free_vram = (None, None)
         current_memory = None
         if torch and torch.cuda:
             # Free VRAM changes between jobs, so it is read fresh, without a CUDA context here.
-            current_memory = _gpu_memory(self._processes, torch.gpu)
+            current_memory = _gpu_memory(self._processes, torch.gpu) if refresh_gpu_memory else None
             total_vram, free_vram = current_memory or (
                 torch.total_vram,
                 torch.free_vram,
@@ -173,12 +175,13 @@ class _ProbeWithoutWaiting:
     """What is known about PyTorch right now (nothing until the background probe has answered):
     the backend reports ready at once, and the GPU appears a moment later."""
 
-    def __init__(self, probe: SystemRuntimeProbe) -> None:
+    def __init__(self, probe: SystemRuntimeProbe, *, refresh_gpu_memory: bool = True) -> None:
         self._probe = probe
+        self._refresh_gpu_memory = refresh_gpu_memory
 
     def inspect(self) -> RuntimeDiagnostics:
         self._probe.warm_up()
-        return self._probe._diagnostics(_torch_cache)
+        return self._probe._diagnostics(_torch_cache, refresh_gpu_memory=self._refresh_gpu_memory)
 
 
 def _torch_facts(processes: ProcessRunner) -> _TorchFacts | None:

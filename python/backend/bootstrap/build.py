@@ -108,6 +108,7 @@ def _processing_wiring(
     database: Database | None = None,
 ) -> ProcessingWiring:
     runtime_probe = SystemRuntimeProbe(processes)
+    capabilities_runtime = runtime_probe.without_waiting(refresh_gpu_memory=False)
     # Providers injected by the caller replace the configured/built-in ones, so tests and embedders stay in control.
     providers = ai_providers
     if not providers:
@@ -127,9 +128,10 @@ def _processing_wiring(
             storage,
             config.roots.temp,
             config.resources,
-            cpu_runtime=runtime_probe.without_waiting(),
+            cpu_runtime=capabilities_runtime,
         ),
         runtime_probe.without_waiting(),
+        capabilities_runtime,
     )
 
 

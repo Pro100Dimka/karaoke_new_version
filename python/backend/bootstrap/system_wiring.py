@@ -31,7 +31,7 @@ def build_system_cases(
     capabilities = GetCapabilities(
         runtime.database,
         processing.registry,
-        current,
+        processing.runtime_capabilities or current,
         online_lyrics_available=bool(processing.lyrics_providers),
     )
     diagnostics = GetDiagnostics(
