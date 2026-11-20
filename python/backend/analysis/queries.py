@@ -4,21 +4,23 @@ from dataclasses import replace
 import math
 from typing import Mapping, Sequence
 
-from backend.analysis.domain import AnalysisResult, AnalysisState
+from backend.analysis.domain import AnalysisResult, AnalysisState, AnalysisSummary
 from backend.persistence import UnitOfWorkFactory
 from backend.recordings.domain import Recording
 from backend.version import ANALYSIS_ALGORITHM_VERSION
 
 
-def _current(result: AnalysisResult, reference: tuple[str, int] | None) -> AnalysisResult:
+def _current_state(
+    result: AnalysisResult | AnalysisSummary, reference: tuple[str, int] | None
+) -> AnalysisState:
     """A take is assessed against its recorded reference, even after editing the song."""
     outdated = (
         reference != (result.song_id, result.song_revision)
         or result.algorithm_version != ANALYSIS_ALGORITHM_VERSION
     )
     if outdated and result.state is AnalysisState.SUCCEEDED:
-        return replace(result, state=AnalysisState.STALE)
-    return result
+        return AnalysisState.STALE
+    return result.state
 
 
 class ListRecordingAnalyses:
@@ -40,7 +42,33 @@ class ListRecordingAnalyses:
                 and transaction.songs.get(recording.song_id) is not None
             ):
                 reference = (recording.song_id, recording.song_revision)
-        return [_current(result, reference) for result in results]
+        return [replace(result, state=_current_state(result, reference)) for result in results]
+
+    def statuses(self, recordings: Sequence[Recording]) -> dict[str, str]:
+        """Only the latest result's metadata is needed to render each recording card."""
+        if not recordings:
+            return {}
+        with self._uow.create() as transaction:
+            summaries = transaction.analyses.latest_summaries(
+                [recording.recording_id for recording in recordings]
+            )
+            songs = transaction.songs.existing_ids(
+                list({recording.song_id for recording in recordings if recording.song_id})
+            )
+        statuses = {}
+        for recording in recordings:
+            result = summaries.get(recording.recording_id) or live_result(recording)
+            reference = (
+                (recording.song_id, recording.song_revision)
+                if recording.song_id is not None
+                and recording.song_id in songs
+                and recording.song_revision is not None
+                else None
+            )
+            statuses[recording.recording_id] = (
+                _current_state(result, reference).value if result is not None else "NotAnalyzed"
+            )
+        return statuses
 
 
 def live_result(recording: Recording) -> AnalysisResult | None:

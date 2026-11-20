@@ -16,6 +16,14 @@ class AnalysisState(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class AnalysisSummary:
+    song_id: str
+    song_revision: int
+    algorithm_version: str
+    state: AnalysisState
+
+
+@dataclass(frozen=True, slots=True)
 class SectionResult:
     start: float
     end: float

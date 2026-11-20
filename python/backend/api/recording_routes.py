@@ -140,8 +140,21 @@ def list_recordings(
     offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
 ) -> RecordingPageDto:
     page = app.recordings.list.execute(song_id=song_id, limit=limit, offset=offset)
+    statuses = app.recordings.list_analyses.statuses(page.items)
+    sources = app.recordings.get.many(
+        list(
+            {
+                source_id
+                for item in page.items
+                if (source_id := _source_recording_id(item)) and _room_performance(item) is not None
+            }
+        )
+    )
     return RecordingPageDto(
-        items=[_recording(app, item) for item in page.items],
+        items=[
+            _recording(app, item, analysis_status=statuses[item.recording_id], sources=sources)
+            for item in page.items
+        ],
         total=page.total,
         limit=page.limit,
         offset=page.offset,
@@ -202,23 +215,39 @@ def list_analyses(recording_id: str, app: ContainerDep) -> list[AnalysisDto]:
     return [_analysis(item) for item in app.recordings.list_analyses.execute(recording_id)]
 
 
-def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
-    analyses = app.recordings.list_analyses.execute(recording.recording_id)
-    analysis_status = analyses[0].state.value if analyses else "NotAnalyzed"
+def _source_recording_id(recording: Recording) -> str | None:
     studio_master = (recording.session_metadata or {}).get("studioMaster", {})
-    source_recording_id = (
-        studio_master.get("sourceRecordingId")
-        if isinstance(studio_master, Mapping)
-        and isinstance(studio_master.get("sourceRecordingId"), str)
-        else None
-    )
-    room_performance = _room_performance(recording)
-    if source_recording_id and room_performance:
+    source = studio_master.get("sourceRecordingId") if isinstance(studio_master, Mapping) else None
+    return source if isinstance(source, str) else None
+
+
+def _current_room_performance(
+    app: ApplicationContainer, recording: Recording, sources: Mapping[str, Recording] | None
+) -> RoomPerformanceDto | None:
+    performance = _room_performance(recording)
+    source_id = _source_recording_id(recording)
+    if source_id and performance:
         try:
-            source = app.recordings.get.execute(source_recording_id)
-            room_performance = _room_performance(source) or room_performance
+            source = (
+                app.recordings.get.execute(source_id) if sources is None else sources.get(source_id)
+            )
+            if source is not None:
+                return _room_performance(source) or performance
         except NotFoundError:
             pass  # A preserved master remains readable after deleting its original take.
+    return performance
+
+
+def _recording(
+    app: ApplicationContainer,
+    recording: Recording,
+    *,
+    analysis_status: str | None = None,
+    sources: Mapping[str, Recording] | None = None,
+) -> RecordingDto:
+    if analysis_status is None:
+        analysis_status = app.recordings.list_analyses.statuses([recording])[recording.recording_id]
+    source_recording_id = _source_recording_id(recording)
     try:
         size_bytes = recording.file_path.stat().st_size
     except OSError:
@@ -237,7 +266,7 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         analysis_status=analysis_status,
         source_recording_id=source_recording_id,
         size_bytes=size_bytes,
-        room_performance=room_performance,
+        room_performance=_current_room_performance(app, recording, sources),
     )
 
 

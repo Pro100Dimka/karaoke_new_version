@@ -45,6 +45,12 @@ class SqlRecordingRepository:
         )
         return _to_domain(row) if row else None
 
+    def get_many(self, recording_ids: Sequence[str]) -> dict[str, Recording]:
+        if not recording_ids:
+            return {}
+        query = select(RecordingRow).where(RecordingRow.recording_id.in_(recording_ids))
+        return {row.recording_id: _to_domain(row) for row in self._session.scalars(query)}
+
     def add(self, recording: Recording) -> None:
         self.changed.add(recording.recording_id)
         self._session.add(

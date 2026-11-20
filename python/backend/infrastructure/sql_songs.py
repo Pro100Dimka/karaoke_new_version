@@ -120,6 +120,13 @@ class SqlSongRepository:
         row = self._session.scalar(select(SongRow).where(SongRow.song_id == song_id))
         return _to_domain(row) if row else None
 
+    def existing_ids(self, song_ids: Sequence[str]) -> frozenset[str]:
+        if not song_ids:
+            return frozenset()
+        return frozenset(
+            self._session.scalars(select(SongRow.song_id).where(SongRow.song_id.in_(song_ids)))
+        )
+
     def get_by_source_identity(self, identity: str) -> Song | None:
         row = self._session.scalar(select(SongRow).where(SongRow.source_identity == identity))
         return _to_domain(row) if row else None

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from backend.recordings.domain import Recording
 
@@ -20,6 +20,8 @@ class RecordingFileInspector(Protocol):
 
 class RecordingRepository(Protocol):
     def get(self, recording_id: str) -> Recording | None: ...
+
+    def get_many(self, recording_ids: Sequence[str]) -> Mapping[str, Recording]: ...
 
     def add(self, recording: Recording) -> None: ...
 

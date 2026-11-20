@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from contextlib import AbstractContextManager
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Mapping, Protocol, Sequence
 import threading
 
 from backend.ai.domain import PitchPoint
-from backend.analysis.domain import AnalysisResult
+from backend.analysis.domain import AnalysisResult, AnalysisSummary
 
 
 class AnalysisRepository(Protocol):
@@ -17,6 +17,8 @@ class AnalysisRepository(Protocol):
     def update(self, result: AnalysisResult) -> None: ...
 
     def list_for_recording(self, recording_id: str) -> Sequence[AnalysisResult]: ...
+
+    def latest_summaries(self, recording_ids: Sequence[str]) -> Mapping[str, AnalysisSummary]: ...
 
     def list_unfinished(self) -> Sequence[AnalysisResult]: ...
 

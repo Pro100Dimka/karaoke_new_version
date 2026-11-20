@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from backend.domain_errors import NotFoundError
 from backend.persistence import UnitOfWorkFactory
@@ -28,6 +28,10 @@ class GetRecording:
                 "RecordingNotFound", "Recording was not found", recordingId=recording_id
             )
         return recording
+
+    def many(self, recording_ids: Sequence[str]) -> Mapping[str, Recording]:
+        with self._uow.create() as transaction:
+            return transaction.recordings.get_many(recording_ids)
 
 
 class ListRecordings:

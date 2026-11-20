@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.analysis.domain import AnalysisResult, AnalysisState, SectionResult
+from backend.analysis.domain import AnalysisResult, AnalysisState, AnalysisSummary, SectionResult
 from backend.infrastructure.sql_time import as_utc
 from backend.infrastructure.orm import AnalysisRow
 from backend.serialization import dumps, loads_list, loads_object
@@ -100,3 +100,30 @@ class SqlAnalysisRepository:
             AnalysisRow.state.in_((AnalysisState.QUEUED.value, AnalysisState.RUNNING.value))
         )
         return [_to_domain(row) for row in self._session.scalars(query).all()]
+
+    def latest_summaries(self, recording_ids: Sequence[str]) -> dict[str, AnalysisSummary]:
+        if not recording_ids:
+            return {}
+        latest = (
+            select(
+                AnalysisRow.recording_id,
+                AnalysisRow.song_id,
+                AnalysisRow.song_revision,
+                AnalysisRow.algorithm_version,
+                AnalysisRow.state,
+                func.row_number()
+                .over(
+                    partition_by=AnalysisRow.recording_id,
+                    order_by=(AnalysisRow.created_at.desc(), AnalysisRow.analysis_id),
+                )
+                .label("position"),
+            )
+            .where(AnalysisRow.recording_id.in_(recording_ids))
+            .subquery()
+        )
+        return {
+            row.recording_id: AnalysisSummary(
+                row.song_id, row.song_revision, row.algorithm_version, AnalysisState(row.state)
+            )
+            for row in self._session.execute(select(latest).where(latest.c.position == 1))
+        }
