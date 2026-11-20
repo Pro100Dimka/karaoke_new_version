@@ -1,5 +1,6 @@
 import { app, protocol } from 'electron';
 import * as fs from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { Readable } from 'node:stream';
 
@@ -73,7 +74,7 @@ const streamResponse = (
  * parsed and streamed by hand instead.
  */
 export const registerSceneProtocol = (projectRoot: string): void => {
-  protocol.handle('scene', (request) => {
+  protocol.handle('scene', async (request) => {
     const name = decodeURIComponent(
       new URL(request.url).pathname.replace(/^\/+/, ''),
     );
@@ -87,7 +88,7 @@ export const registerSceneProtocol = (projectRoot: string): void => {
     const filePath = path.join(sceneDirectory(projectRoot), name);
     let size: number;
     try {
-      size = fs.statSync(filePath).size;
+      size = (await stat(filePath)).size;
     } catch {
       return new Response(null, { status: 404 });
     }
@@ -96,11 +97,13 @@ export const registerSceneProtocol = (projectRoot: string): void => {
 };
 
 // Several short clips, not one long file too heavy to seek within; one picked at random for variety.
-export const pickSceneClip = (projectRoot: string): string | null => {
+export const pickSceneClip = async (projectRoot: string): Promise<string | null> => {
   const directory = sceneDirectory(projectRoot);
-  const clips = fs.existsSync(directory)
-    ? fs.readdirSync(directory).filter((name) => name.endsWith('.webm'))
-    : [];
+  const names = await readdir(directory).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
+  const clips = names.filter((name) => name.endsWith('.webm'));
   const chosen = clips[Math.floor(Math.random() * clips.length)];
   if (!chosen) return null;
   return `scene://local/${encodeURIComponent(chosen)}`;

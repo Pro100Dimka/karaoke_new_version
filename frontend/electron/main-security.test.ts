@@ -29,7 +29,7 @@ it.each([
         './SceneProtocol',
       );
     registerSceneProtocol(root);
-    const response = mocks.scene(
+    const response = await mocks.scene(
       new Request('scene://local/test.webm', {
         headers: range ? { Range: range } : {},
       }),

@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
   beforeLaunch: vi.fn(async () => false),
   prepareUpdateQuit: vi.fn(async () => true),
   updateQuit: { run: () => undefined as void },
-  scene: vi.fn<(request: Request) => Response>(),
+  scene: vi.fn<(request: Request) => Response | Promise<Response>>(),
   pythonObserver: {} as {
     started?(): void;
     stdout?(data: Buffer): void;
