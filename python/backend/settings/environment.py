@@ -256,9 +256,10 @@ def _validate_file(key: str, value: str, values: dict[str, str]) -> tuple[Enviro
 
 
 def _validate_scalar(definition: EnvironmentDefinition, value: str) -> tuple[EnvironmentState, str]:
+    invalid_port = definition.kind == "port" and not _valid_port(value)
     invalid = {
-        "AD_VOICE_ROOM_SERVER_PORT": not value.isdigit() or not 1 <= int(value) <= 65535,
-        "AD_VOICE_ROOM_SERVER_RELAY_PORT": not value.isdigit() or not 1 <= int(value) <= 65535,
+        "AD_VOICE_ROOM_SERVER_PORT": invalid_port,
+        "AD_VOICE_ROOM_SERVER_RELAY_PORT": invalid_port,
         "AD_VOICE_ROOM_SERVER_HOST": any(character.isspace() for character in value)
         or "://" in value,
         "AD_VOICE_ROOM_SERVER_SSH_USER": not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", value),
@@ -270,6 +271,13 @@ def _validate_scalar(definition: EnvironmentDefinition, value: str) -> tuple[Env
         "AD_VOICE_ROOM_SERVER_SSH_USER": "Enter a valid SSH user name",
     }
     return ("invalid", messages[definition.key]) if invalid else ("valid", "Value is valid")
+
+
+def _valid_port(value: str) -> bool:
+    try:
+        return value.isdigit() and 1 <= int(value) <= 65535
+    except ValueError:
+        return False
 
 
 def _definition(key: str) -> EnvironmentDefinition:
