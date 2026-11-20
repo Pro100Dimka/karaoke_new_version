@@ -1,6 +1,8 @@
 import { observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -12,11 +14,8 @@ import { useRouter } from '@neo-ui-kit/react';
 
 import { karaokeOnTv, useDisplayCount } from '../../app/desktop/shellBus';
 import { routes } from '../../shared/routes';
-import {
-  KaraokeScreen,
-  KaraokeSlotContext,
-  type KaraokeScreenControls,
-} from './KaraokePage';
+import type { KaraokeScreenControls } from './KaraokePage';
+import { KaraokeSlotContext } from './karaokeSlot';
 import {
   KaraokeTvContext,
   queueWith,
@@ -25,6 +24,10 @@ import {
 } from './tv/karaokeTv';
 import { useTvWindow } from './tv/useTvWindow';
 import type { KaraokeOpenMode } from './useKaraokeSession';
+
+const KaraokeScreen = lazy(() =>
+  import('./KaraokePage').then((module) => ({ default: module.KaraokeScreen })),
+);
 
 interface TvPlayback {
   songId: string;
@@ -205,17 +208,19 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
           <div className="sceneCurtain" data-phase="closing" aria-hidden />
         )}
         {shown && (
-          <KaraokeScreen
-            key={shown.songId}
-            songId={shown.songId}
-            mode={shown.mode}
-            target={tv ? (screen?.container ?? null) : slot}
-            host={screen?.window ?? window}
-            onTv={active}
-            controls={controls}
-            onLeave={leave}
-            onFinished={finished}
-          />
+          <Suspense fallback={null}>
+            <KaraokeScreen
+              key={shown.songId}
+              songId={shown.songId}
+              mode={shown.mode}
+              target={tv ? (screen?.container ?? null) : slot}
+              host={screen?.window ?? window}
+              onTv={active}
+              controls={controls}
+              onLeave={leave}
+              onFinished={finished}
+            />
+          </Suspense>
         )}
       </KaraokeSlotContext.Provider>
     </KaraokeTvContext.Provider>

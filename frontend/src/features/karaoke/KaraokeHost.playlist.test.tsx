@@ -1,5 +1,4 @@
 import { act, render, screen } from '@testing-library/react';
-import { createContext } from 'react';
 import { runInAction } from 'mobx';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { store } from '../../providers/store';
@@ -23,7 +22,6 @@ vi.mock('../../app/desktop/shellBus', async (importOriginal) => ({
   useDisplayCount: () => 2,
 }));
 vi.mock('./KaraokePage', () => ({
-  KaraokeSlotContext: createContext(() => {}),
   KaraokeScreen: ({
     songId,
     onFinished,
@@ -62,12 +60,13 @@ beforeEach(() => {
   });
 });
 
-it('continues the local playlist on the TV and finishes it after the last song', () => {
+it('continues the local playlist on the TV and finishes it after the last song', async () => {
   render(
     <KaraokeHost>
       <Controls />
     </KaraokeHost>,
   );
+  await screen.findByTestId('playing-song');
   act(() => tv.send());
   expect(tv.active).toBe(true);
   expect(screen.getByTestId('playing-song')).toHaveTextContent('first');
@@ -84,12 +83,13 @@ it('continues the local playlist on the TV and finishes it after the last song',
   expect(store.playback.returned?.analysisFor).toBe('second-take');
 });
 
-it('honours an explicit TV queue and clears the displaced automatic playlist', () => {
+it('honours an explicit TV queue and clears the displaced automatic playlist', async () => {
   render(
     <KaraokeHost>
       <Controls />
     </KaraokeHost>,
   );
+  await screen.findByTestId('playing-song');
   act(() => tv.send());
   act(() => tv.play({ id: 'manual', title: 'Manual' }, 'next'));
   act(() => finish('first'));

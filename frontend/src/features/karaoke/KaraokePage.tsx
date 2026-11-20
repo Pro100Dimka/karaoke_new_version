@@ -9,7 +9,6 @@ import {
 } from '@neo-ui-kit/react';
 import { Observer, observer } from 'mobx-react-lite';
 import {
-  createContext,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -38,6 +37,7 @@ import { KaraokeHeader } from './KaraokeHeader';
 import { KaraokeIntro } from './KaraokeIntro';
 import { opensWithFullIntroduction } from './karaokeOpenMode';
 import { KaraokeStage } from './KaraokeStage';
+import { KaraokeSlotContext } from './karaokeSlot';
 import { SceneBackdrop } from './SceneBackdrop';
 import { useKaraokeTv } from './tv/karaokeTv';
 import { useKaraokeSession, type KaraokeOpenMode } from './useKaraokeSession';
@@ -78,11 +78,6 @@ const StateScreen = ({
     />
   </main>
 );
-
-/** Registers where the Karaoke route shows Karaoke (KaraokeHost renders it there). */
-export const KaraokeSlotContext = createContext<
-  (slot: HTMLElement | null) => void
->(() => undefined);
 
 /**
  * The Karaoke route only marks its place: KaraokeHost renders Karaoke into it, or into the TV, so
