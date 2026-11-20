@@ -44,6 +44,7 @@ export const useSongRecordings = (
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(false);
+  const [failedRecordings, setFailedRecordings] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
   const [analysisSong, setAnalysisSong] = useState<SongDto | null>(null);
   const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(null);
@@ -177,6 +178,7 @@ export const useSongRecordings = (
           if (active && request === requests.current.recordings) {
             clearOperationFailure('errors.recordings');
             setRecordings(items);
+            setFailedRecordings(false);
           }
         })
         .catch((error: unknown) => {
@@ -196,7 +198,7 @@ export const useSongRecordings = (
       stop();
       window.clearInterval(timer);
     };
-  }, [recordingsTargetId, preparingRecordings]);
+  }, [recordingsTargetId, preparingRecordings, loadingRecordings]);
 
   const open = (target: SongDto) =>
     guarded(async () => {
@@ -205,9 +207,14 @@ export const useSongRecordings = (
       setSong(target);
       setRecordings([]);
       setLoadingRecordings(true);
+      setFailedRecordings(false);
       try {
         const items = await catalog.listRecordings(target.id);
         if (request === requests.current.recordings) setRecordings(items);
+      } catch (error) {
+        if (request !== requests.current.recordings) return;
+        setFailedRecordings(true);
+        throw error;
       } finally {
         if (request === requests.current.recordings) setLoadingRecordings(false);
       }
@@ -363,6 +370,10 @@ export const useSongRecordings = (
     song,
     recordings,
     loadingRecordings,
+    failedRecordings,
+    reloadRecordings: () => {
+      if (song) void open(song);
+    },
     analysis,
     analysisSong,
     analysisRecordId,
@@ -377,6 +388,7 @@ export const useSongRecordings = (
     close: () => {
       requests.current.recordings += 1;
       setLoadingRecordings(false);
+      setFailedRecordings(false);
       setSong(null);
     },
     closeAnalysis: () => {

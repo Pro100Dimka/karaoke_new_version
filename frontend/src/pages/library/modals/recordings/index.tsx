@@ -1,8 +1,10 @@
 import {
+  Button,
   Dialog,
   EmptyState,
   Icon,
   Loader,
+  MessageBar,
   Planet,
   SegmentedControl,
   Typography,
@@ -66,6 +68,8 @@ export const RecordingsModal = observer(
       song,
       recordings,
       loadingRecordings,
+      failedRecordings,
+      reloadRecordings,
       close: onClose,
       analyze: onAnalyze,
       remove: onDelete,
@@ -189,6 +193,15 @@ export const RecordingsModal = observer(
         <div className="recordingsEmpty" role="status">
           <Loader size="md" label={tr('library.loading')} />
         </div>
+      );
+    } else if (failedRecordings) {
+      recordingsContent = (
+        <MessageBar
+          tone="error"
+          action={<Button onClick={reloadRecordings} label={tr('retry')} />}
+        >
+          {tr('errors.recordings')}
+        </MessageBar>
       );
     } else if (recordings.length > 0) {
       recordingsContent = (
