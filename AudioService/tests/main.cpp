@@ -707,6 +707,8 @@ constexpr std::array tests{
     Test{"nativeRelayTestHelpersRejectMissingData", Tests::nativeRelayTestHelpersRejectMissingData},
 #ifdef _WIN32
     Test{"asioSystemVolumeFollowsTheNewWindowsDefault", Tests::asioSystemVolumeFollowsTheNewWindowsDefault},
+    Test{"recordingFinishRecoveryPreservesDeviceNotifications",
+         Tests::recordingFinishRecoveryPreservesDeviceNotifications},
     Test{"asioLatencyChangeRefreshesRuntimeWithoutRestarting", Tests::asioLatencyChangeRefreshesRuntimeWithoutRestarting},
 #endif
     Test{"mediaRejectsNonFiniteProcessingParameters",

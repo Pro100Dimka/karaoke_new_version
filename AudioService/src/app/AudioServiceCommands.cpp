@@ -505,6 +505,7 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
     case ControlCommand::PauseRecording: {
         const auto result = session_.finishRecording(RecordingState::Paused,
             [this] { (void)capturePendingBackendFailure(); });
+        syncDeviceGeneration();
         if (recording_.state() != RecordingState::Paused)
             return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
                 ? "Recording pause failed" : result.errorMessage};
@@ -516,6 +517,7 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
     case ControlCommand::StopRecording: {
         const auto result = session_.finishRecording(RecordingState::Finished,
             [this] { (void)capturePendingBackendFailure(); });
+        syncDeviceGeneration();
         if (!result.finalized)
             return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
                                                               ? "Recording finalization failed"

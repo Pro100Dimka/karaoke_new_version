@@ -24,6 +24,7 @@ void backgroundSuspendKeepsUnfinishedRecordingsOpen();
 void nativePreconditionsStopBeforeDependentAccess();
 void nativeRelayTestHelpersRejectMissingData();
 void asioSystemVolumeFollowsTheNewWindowsDefault();
+void recordingFinishRecoveryPreservesDeviceNotifications();
 void asioLatencyChangeRefreshesRuntimeWithoutRestarting();
 void controlledReconfigurePreservesOnePerformanceFile();
 void rejectedPcmPacketsCannotSeedReceiveLossConcealment();
