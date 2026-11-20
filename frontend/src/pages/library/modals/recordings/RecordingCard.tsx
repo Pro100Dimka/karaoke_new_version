@@ -17,6 +17,7 @@ import { desktopClient as files } from '../../../../services/desktopClient';
 import { pythonClient as catalog } from '../../../../services/pythonClient';
 import { toAppError } from '../../../../shared/errors';
 import { useNearView } from '../../../../shared/hooks/useNearView';
+import { useGuardedAction } from '../../songs/useGuardedAction';
 import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
 import { analysisStageLabel } from '../analysis/analysisPresentation';
 import performanceArtUrl from '../analysis/performance-art.svg';
@@ -106,6 +107,7 @@ const RecordingCardView = ({
   onCancelAnalysis?(jobId: string): void;
 }) => {
   useLocale();
+  const guarded = useGuardedAction();
   const [versionId, setVersionId] = useState(recording.id);
   const selected = versions.find((item) => item.id === versionId) ?? recording;
   const preparing = ['Preparing', 'PreparationFailed'].includes(
@@ -242,10 +244,12 @@ const RecordingCardView = ({
           <IconButton
             icon="folder"
             label={tr('openFolder')}
-            onClick={async () => {
-              const current = await catalog.getRecording(selected.id);
-              await files.revealInExplorer(current.filePath);
-            }}
+            onClick={() =>
+              void guarded(async () => {
+                const current = await catalog.getRecording(selected.id);
+                await files.revealInExplorer(current.filePath);
+              })
+            }
           />
           <IconButton
             icon="trash"
