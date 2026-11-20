@@ -110,9 +110,12 @@ export const PerformanceAnalysisModal = ({
   const practice = analysis ? weakestMetric(analysis) : null;
   const mastering =
     studioMaster?.recordingId === viewed?.id ? studioMaster : null;
-  const master = recordings.find(
-    (recording) => recording.sourceRecordingId === viewed?.id,
-  );
+  const master =
+    analyzed?.sourceRecordingId === viewed?.id
+      ? analyzed
+      : recordings.find(
+          (recording) => recording.sourceRecordingId === viewed?.id,
+        );
   const fileActions = (recording: RecordingDto) => (
     <Stack direction="row" gap={2}>
       {[

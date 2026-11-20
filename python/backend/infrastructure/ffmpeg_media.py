@@ -157,12 +157,12 @@ class FfmpegMediaInspector:
             album=_tag(tags, "album"),
             duration=duration,
             media_format=str(format_name) if format_name else source.suffix.lstrip("."),
-            embedded_lyrics=_tag(tags, "lyrics", "unsyncedlyrics"),
+            embedded_lyrics=_tag(tags, "lyrics", "unsyncedlyrics", prefix="lyrics-"),
             has_embedded_artwork=has_artwork,
         )
 
 
-def _tag(sources: list[object], *keys: str) -> str | None:
+def _tag(sources: list[object], *keys: str, prefix: str | None = None) -> str | None:
     # Container tags take precedence; Ogg/Opus store theirs on the audio stream.
     for tags in sources:
         if not isinstance(tags, dict):
@@ -176,6 +176,17 @@ def _tag(sources: list[object], *keys: str) -> str | None:
             )
             for value in values:
                 if isinstance(value, str) and value.strip():
+                    return value.strip()
+        # ID3 USLT keys can include a language and a content descriptor.
+        if prefix:
+            for name, value in tags.items():
+                if (
+                    isinstance(name, str)
+                    and len(name) > len(prefix)
+                    and name.casefold().startswith(prefix)
+                    and isinstance(value, str)
+                    and value.strip()
+                ):
                     return value.strip()
     return None
 

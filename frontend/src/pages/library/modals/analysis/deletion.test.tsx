@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useState, type ReactNode } from 'react';
 import { expect, it, vi } from 'vitest';
 import type { RecordingDto } from '../../../../contracts/models';
@@ -81,6 +81,46 @@ const score = {
   stability: 80,
   summary: '',
 };
+
+it.each(['take', 'older-master'])(
+  'keeps the master player and delete action consistent with analysis of %s',
+  (recordingId) => {
+    const newest = {
+      ...take,
+      id: 'newest-master',
+      filePath: '/newest.mp3',
+      sourceRecordingId: take.id,
+    };
+    const older = {
+      ...newest,
+      id: 'older-master',
+      filePath: '/older.mp3',
+    };
+    const expected = recordingId === take.id ? newest : older;
+    const onDelete = vi.fn();
+    render(
+      <PerformanceAnalysisModal
+        analysis={{ ...score, recordingId }}
+        recordings={[newest, older, take]}
+        studioMaster={null}
+        onDelete={onDelete}
+        onCreateStudioMaster={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('player:take')).toBeVisible();
+    const player = screen.getByTestId(`player:${expected.id}`);
+    expect(player).toHaveAttribute('data-file', expected.filePath);
+    expect(screen.getAllByTestId(/^player:/)).toHaveLength(2);
+    const card = player.closest('section');
+    if (!card) throw new Error('The master player card is missing');
+    fireEvent.click(
+      within(card).getByRole('button', { name: 'recordingDelete' }),
+    );
+    expect(onDelete).toHaveBeenCalledExactlyOnceWith(expected);
+  },
+);
 
 it('removes playback and mastering actions after the analyzed take is deleted', () => {
   function Archive() {

@@ -18,6 +18,7 @@ import {
 } from '../../../../providers/notifications';
 
 import type { OnlineInbox } from '../../../../contracts/social';
+import { errorstring, toAppError } from '../../../../shared/errors';
 type FriendRequestAction = 'accept' | 'decline' | 'cancel';
 import FriendsList from './list';
 
@@ -37,7 +38,11 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
     mutationKey,
     mutationFn: (operation: () => Promise<string | void>) => operation(),
     onSuccess: (message) => message && notify(message),
-    onError,
+    onError: (error) => {
+      const key = errorstring(toAppError(error));
+      if (key) notify(tr(key), 'error');
+      else onError(error);
+    },
   });
   const busy = useIsMutating({ mutationKey }) > 0;
   const [code, setCode] = useState('');
