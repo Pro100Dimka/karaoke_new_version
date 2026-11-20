@@ -755,6 +755,7 @@ constexpr std::array tests{
     Test{"controlledReconfigurePreservesOnePerformanceFile", Tests::controlledReconfigurePreservesOnePerformanceFile},
     Test{"performanceTeardownRetainsCapturedVoiceBeforeCutoff", Tests::performanceTeardownRetainsCapturedVoiceBeforeCutoff},
     Test{"performanceFinishKeepsLiveAudioAndFrozenCutoff", Tests::performanceFinishKeepsLiveAudioAndFrozenCutoff},
+    Test{"performanceFinishRecoversAfterFatalCallback", Tests::performanceFinishRecoversAfterFatalCallback},
     Test{"performancePendingCaptureRespectsPhysicalCutoff", Tests::performancePendingCaptureRespectsPhysicalCutoff},
     Test{"performancePendingCaptureRetainsFractionalTail", Tests::performancePendingCaptureRetainsFractionalTail},
     Test{"recordingWritesWav", Tests::recordingWritesWav},

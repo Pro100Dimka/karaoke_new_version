@@ -177,6 +177,7 @@ void performanceDrainNeverSuspendsTheAudibleRender();
 void performanceRecordingDrainsBeforeDeviceGenerationChanges();
 void performanceTeardownRetainsCapturedVoiceBeforeCutoff();
 void performanceFinishKeepsLiveAudioAndFrozenCutoff();
+void performanceFinishRecoversAfterFatalCallback();
 void performancePendingCaptureRespectsPhysicalCutoff();
 void performancePendingCaptureRetainsFractionalTail();
 void performanceDrainFailureNeverClaimsFinalization();
