@@ -244,7 +244,7 @@ class MasterRender:
         for i, (point, end) in enumerate(zip(points, ends)):
             duration = end - point.elapsed_seconds
             transform = (
-                f"rubberband=tempo={point.playback_rate:.12f}:pitch={2 ** (point.key_shift / 12):.12f},"
+                f"rubberband=transients=mixed:tempo={point.playback_rate:.12f}:pitch={2 ** (point.key_shift / 12):.12f},"
                 if point.playback_rate != 1 or point.key_shift != 0
                 else ""
             )
