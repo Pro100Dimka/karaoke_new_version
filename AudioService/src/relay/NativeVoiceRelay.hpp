@@ -162,7 +162,6 @@ class NativeVoiceRelay {
         std::set<Position> mixed;
         std::map<std::pair<std::uint32_t, std::uint32_t>, float> gains;
         std::map<std::pair<std::uint32_t, std::uint32_t>, std::unique_ptr<VoiceEffects>> effects;
-        std::unordered_map<std::uint32_t, std::uint32_t> sequences;
         std::unordered_map<std::uint32_t, RelayRecipientMetrics> recipientMetrics;
         std::set<std::uint32_t> started;
         std::set<std::uint32_t> excluded;

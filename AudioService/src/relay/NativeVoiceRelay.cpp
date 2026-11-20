@@ -249,7 +249,6 @@ void NativeVoiceRelay::setGeneration(std::string_view room, std::uint32_t genera
         return;
     state.generation = generation;
     resetTimeline(state, false);
-    state.sequences.clear();
 }
 
 void NativeVoiceRelay::resetTimeline(Room& room, bool newGeneration) {
@@ -262,7 +261,6 @@ void NativeVoiceRelay::resetTimeline(Room& room, bool newGeneration) {
         room.generation = room.generation == std::numeric_limits<std::uint32_t>::max()
                               ? 1U
                               : room.generation + 1U;
-        room.sequences.clear();
     }
     room.pending.clear();
     room.sourcePlayout.clear();
@@ -617,7 +615,9 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         metrics.recipientNonzeroPackets += static_cast<std::uint64_t>(recipientPeak != 0);
         metrics.recipientPeak = std::max(metrics.recipientPeak, recipientPeak);
         AudioPacketHeader header{};
-        header.sequence = room.sequences[recipientKey]++;
+        // Preserve skipped musical positions for the receiver's existing loss handling.
+        header.sequence = static_cast<std::uint32_t>(
+            (position.timestamp & ~SharedAudioTimelineFlag) / SharedRoomPacketFrames);
         header.participantKey = participantKey(ServerMixParticipant);
         header.sessionToken = recipient->token;
         header.timestampFrame = position.timestamp;
