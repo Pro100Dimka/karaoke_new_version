@@ -10,6 +10,7 @@ from scipy.optimize import nnls
 from scipy.signal import butter, find_peaks, resample_poly, sosfilt
 from backend.recordings.studio_audio import _check_cancel, _temporary_wave
 from backend.domain_errors import DependencyError
+from backend.recordings.studio_cepstra import sample_cepstra
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,15 +160,19 @@ def _missing_field(reference: SpaceProfile, existing: SpaceProfile) -> StereoFie
     return StereoField(ratio, field.lag, field.spread, field.low_hz, field.support)
 
 
-def _field_envelopes(path: Path, cancel: threading.Event) -> np.ndarray:
+def _field_envelopes(
+    path: Path, cancel: threading.Event, *, band_index: int | None = None
+) -> np.ndarray:
+    edges = ((150, 500), (500, 3500))
+    selected = edges if band_index is None else (edges[band_index],)
     rows = []
     with sf.SoundFile(path) as source:
         if source.channels < 2 or source.samplerate <= 7000:
-            return np.empty((0, 2, 2))
+            return np.empty((0, len(selected), 2))
         step = max(1, round(source.samplerate * 0.02))
         bands = [
             butter(2, edges, fs=source.samplerate, btype="bandpass", output="sos")
-            for edges in ((150, 500), (500, 3500))
+            for edges in selected
         ]
         states = [np.zeros((len(band), 2, 2)) for band in bands]
         for block in source.blocks(blocksize=step * 150, always_2d=True):
@@ -185,7 +190,7 @@ def _field_envelopes(path: Path, cancel: threading.Event) -> np.ndarray:
                     np.mean(mid_side[: count * step].reshape(count, step, 2) ** 2, axis=1)
                 )
             rows.append(np.stack(powers, axis=1))
-    return np.concatenate(rows) if rows else np.empty((0, 2, 2))
+    return np.concatenate(rows) if rows else np.empty((0, len(selected), 2))
 
 
 def _field_lags(envelopes: np.ndarray) -> list[float]:
@@ -326,30 +331,7 @@ def _read_evidence(
 def _sample_cepstra(
     source: sf.SoundFile, cancel: threading.Event
 ) -> tuple[list[float], list[np.ndarray], np.ndarray]:
-    energies: list[float] = []
-    cepstra: list[np.ndarray] = []
-    rate, block = source.samplerate, source.samplerate * 2
-    # One-second hops give independent placements of the same vocal phrase
-    # inside the two-second analysis window. Limit cost on long songs.
-    positions = np.arange(0, source.frames - block + 1, rate, dtype=np.int64)
-    if len(positions) > 128:
-        positions = positions[np.linspace(0, len(positions) - 1, 128).astype(int)]
-    previous = np.empty((0, min(source.channels, 2)), dtype="float32")
-    for position in positions:
-        _check_cancel(cancel)
-        if len(previous) == block and source.tell() == position + rate:
-            tail = source.read(rate, dtype="float32", always_2d=True)[:, :2]
-            samples = np.concatenate((previous[rate:], tail))
-        else:
-            source.seek(int(position))
-            samples = source.read(block, dtype="float32", always_2d=True)[:, :2]
-        if len(samples) != block:
-            continue
-        previous = samples
-        energy = float(np.mean(samples.astype(np.float64) ** 2))
-        energies.append(energy)
-        cepstra.append(_cepstrum(samples, rate))
-    return energies, cepstra, positions / rate
+    return sample_cepstra(source, cancel, _cepstrum)
 
 
 def _cepstrum(samples: np.ndarray, rate: int) -> np.ndarray:

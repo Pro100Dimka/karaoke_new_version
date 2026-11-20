@@ -6,9 +6,10 @@ import math
 import threading
 import numpy as np
 import soundfile as sf
+from scipy.fft import irfft, next_fast_len, rfft
 from scipy.optimize import nnls
 from scipy.signal import butter, sosfilt
-from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_audio import _check_cancel, _temporary_wave
 from backend.recordings.studio_space_analysis import _field_envelopes
 
 
@@ -141,3 +142,47 @@ def calibrate_diffuse_field(
         "peakLimited": gain < desired,
         "centerPreserved": True,
     }
+
+
+def _write_diffuse_send(
+    voice: Path, target: Path, plan: DiffuseFieldPlan, cancel: threading.Event
+) -> tuple[float, float]:
+    info = sf.info(voice)
+    size = next_fast_len(32768 + len(plan.response) - 1, real=True)
+    response = rfft(plan.response, n=size)
+    overlap = np.zeros(len(plan.response) - 1)
+    dry_peak = wet_peak = dry_energy = 0.0
+    with (
+        sf.SoundFile(voice) as source,
+        _temporary_wave(target, samplerate=info.samplerate, channels=2) as output,
+    ):
+        for block in source.blocks(blocksize=32768, always_2d=True):
+            _check_cancel(cancel)
+            mono = block.mean(axis=1)
+            wet = irfft(rfft(mono, n=size) * response, n=size)
+            wet = wet[: len(block) + len(plan.response) - 1]
+            wet[: len(overlap)] += overlap
+            overlap = wet[len(block) :].copy()
+            wet = wet[: len(block)]
+            output.write(np.column_stack((wet, -wet)))
+            dry_peak = max(dry_peak, float(np.max(abs(block))))
+            wet_peak = max(wet_peak, float(np.max(abs(wet))))
+            dry_energy += float(np.sum(block**2))
+    return dry_energy, 0.5 * dry_peak / max(wet_peak, 1e-12)
+
+
+def render_diffuse_send(
+    voice: Path,
+    target: Path,
+    plan: DiffuseFieldPlan,
+    paths: Mapping[str, Path],
+    gains: Mapping[str, float],
+    cancel: threading.Event,
+) -> tuple[float, float, dict[str, object]]:
+    """A delayed side-only return, calibrated after accounting for existing buses."""
+    dry_energy, peak_limit = _write_diffuse_send(voice, target, plan, cancel)
+    gain, report = calibrate_diffuse_field(
+        voice, {**paths, "diffuse-field": target}, gains, plan, peak_limit, cancel
+    )
+    report["calibrationStage"] = "before-wet-ducking"
+    return gain, dry_energy, report

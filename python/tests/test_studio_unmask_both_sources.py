@@ -4,7 +4,7 @@ import pytest
 import soundfile as sf
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
-from backend.recordings.studio_render import MasterRender
+from backend.recordings import studio_adaptive_mix as adaptive_mix
 
 
 @pytest.mark.parametrize("dry", [False, True])
@@ -17,14 +17,25 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
         sf.write(path, samples, 8000, subtype="FLOAT")
     original = paths[1].read_bytes()
     stems = []
-    deliver = MasterRender._deliver
+    deliver = adaptive_mix.deliver_master
+    sends = adaptive_mix.render_sends
 
-    def capture(render):
-        np.testing.assert_allclose(sf.read(render.backing)[0], music, atol=1e-7)
-        stems.append(sf.read(render.balanced)[0])
-        deliver(render)
+    def capture_sends(voice, backing, target, cancel, **kwargs):
+        if kwargs.get("backing_ready") is not None:
+            kwargs["backing_ready"]()
+        np.testing.assert_allclose(sf.read(backing)[0], music, atol=1e-7)
+        result = sends(voice, backing, target, cancel, **kwargs)
+        stems.append(sf.read(target)[0])
+        return result
 
-    monkeypatch.setattr(MasterRender, "_deliver", capture)
+    def capture_mix(renderer, source, target, cancel, **kwargs):
+        # The bus must contain one processed voice plus one project backing.
+        # Its later limiter/resampler is not a linear gain operation.
+        np.testing.assert_allclose(sf.read(source)[0], stems[-1] + music, atol=1e-7)
+        return deliver(renderer, source, target, cancel, **kwargs)
+
+    monkeypatch.setattr(adaptive_mix, "render_sends", capture_sends)
+    monkeypatch.setattr(adaptive_mix, "deliver_master", capture_mix)
     target = tmp_path / "master.wav"
     result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
         paths[0],
@@ -39,11 +50,10 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
         adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
     actual, _ = sf.read(target)
-    gain = 10 ** (result.processing["delivery"]["globalGainDb"] / 20)
-    assert gain > 1
-    np.testing.assert_allclose(actual, (stems[0] + music) * gain, atol=2e-6)
+    assert actual.shape == music.shape
+    assert result.processing["delivery"]["truePeakDbtp"] <= -1
     assert paths[1].read_bytes() == original
-    assert result.processing["mixIntegration"]["method"] == "local-tone-and-placement"
+    assert result.processing["gainPlan"]["gainApplications"] == 1
     reference = tmp_path / "reference.wav"
     sf.write(reference, voice, 8000, subtype="FLOAT")
     levels = [(0.25, 0.1), (4, 4), (1, 0), (1, np.where(time < 2, 0, 4))]
@@ -63,7 +73,7 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
         sf.write(project, music, 8000, subtype="FLOAT")
         inputs = [*paths, reference, project]
         untouched = [path.read_bytes() for path in inputs]
-        FfmpegStudioMasterRenderer(ProcessRunner()).render(
+        report = FfmpegStudioMasterRenderer(ProcessRunner()).render(
             paths[0],
             paths[1],
             reference,
@@ -79,4 +89,5 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
         )
         changed, _ = sf.read(target)
         np.testing.assert_allclose(changed, actual, atol=1e-4)
+        assert report.processing["gainPlan"]["referenceUsed"]
         assert [path.read_bytes() for path in inputs] == untouched

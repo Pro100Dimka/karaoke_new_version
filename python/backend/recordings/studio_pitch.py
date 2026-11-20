@@ -8,13 +8,14 @@ import math
 import numpy as np
 import soundfile as sf
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter1d, median_filter, minimum_filter1d
+from scipy.ndimage import distance_transform_edt, gaussian_filter1d, median_filter, minimum_filter1d
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.scoring import parse_playback_adjustments
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _profile, _temporary_wave
 from backend.recordings.studio_reference import mapped_reference_times
 from backend.recordings.studio_quality import inspect_master
+from backend.recordings.studio_pitch_quality import inspect_pitch_timbre
 
 PitchAnalyzer = Callable[[Path], Sequence[PitchPoint]]
 _PITCH_DEADBAND_SEMITONES = 0.35
@@ -96,6 +97,11 @@ def _pitch_curve(
         0.0,
     )
     correction = gaussian_filter1d(median_filter(correction, size=31), sigma=8)
+    # Smoothing must not turn a short consonant or an uncertain reference note
+    # back into voiced material. Fade entirely inside the trusted interval;
+    # reapplying a hard mask alone would jump straight from a full shift to zero.
+    fade = np.clip((distance_transform_edt(eligible) - 1) / 8, 0, 1)
+    correction *= fade * fade * (3 - 2 * fade)
     return times, correction, voice, target, eligible
 
 
@@ -237,6 +243,39 @@ def _normalize_pitch(render: PitchRender, candidate: Path) -> float:
     return gain
 
 
+def _verify_correction(
+    render: PitchRender,
+    candidate: Path,
+    times: np.ndarray,
+    correction: np.ndarray,
+    voice: np.ndarray,
+    target: np.ndarray,
+    eligible: np.ndarray,
+) -> dict[str, object]:
+    dynamics = _pitch_dynamics_quality(render, candidate)
+    if not dynamics["accepted"] or render.pitch is None:
+        return {"accepted": False, "reason": "pitch-render-changed-dynamics", "dynamics": dynamics}
+    measured = render.pitch(candidate)
+    verification = _pitch_improvement(measured, times, voice, target, eligible)
+    verification["dynamics"] = dynamics
+    if verification["accepted"]:
+        notes, confident = _sample_notes(measured, times)
+        timbre = inspect_pitch_timbre(
+            render.vocal,
+            candidate,
+            times,
+            voice,
+            notes,
+            eligible & confident & (abs(correction) > 0.1),
+            render.cancel,
+        )
+        verification["timbre"] = timbre
+        verification["accepted"] = timbre["accepted"]
+        if not timbre["accepted"]:
+            verification["reason"] = "pitch-render-changed-timbre"
+    return verification
+
+
 def apply_reference_pitch(render: PitchRender) -> dict[str, object]:
     if render.pitch is None or not render.timing_known or not render.reliable.any():
         return {"applied": False, "method": "unavailable-or-unconfirmed-pitch-timeline"}
@@ -253,13 +292,9 @@ def apply_reference_pitch(render: PitchRender) -> dict[str, object]:
         return {"applied": False, "method": "no-confident-pitch-correction"}
     candidate = _render_correction(render, times, correction)
     try:
-        dynamics = _pitch_dynamics_quality(render, candidate)
-        verification = (
-            _pitch_improvement(render.pitch(candidate), times, voice, target, eligible)
-            if dynamics["accepted"]
-            else {"accepted": False, "reason": "pitch-render-changed-dynamics"}
+        verification = _verify_correction(
+            render, candidate, times, correction, voice, target, eligible
         )
-        verification["dynamics"] = dynamics
         accepted = bool(verification["accepted"])
         gain = _normalize_pitch(render, candidate) if accepted else 0.0
         return {

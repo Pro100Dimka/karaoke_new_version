@@ -1143,6 +1143,11 @@ def test_speech_checkpoint_materializes_contiguous_weights_on_requested_device(t
         pytest.skip("CUDA is unavailable")
     dims = speech.whisper.ModelDimensions(4, 2, 4, 1, 1, 8, 4, 4, 1, 2)
     reference = speech.whisper.Whisper(dims)
+    # Whisper leaves its text positional embedding uninitialized until loading.
+    # Give this synthetic checkpoint finite data; allocator NaNs are never equal.
+    with torch.no_grad():
+        for parameter in reference.parameters():
+            parameter.copy_(torch.linspace(-0.2, 0.2, parameter.numel()).reshape(parameter.shape))
     weights = {
         key: value.half().T.contiguous().T if value.ndim == 2 else value.half()
         for key, value in reference.state_dict().items()
