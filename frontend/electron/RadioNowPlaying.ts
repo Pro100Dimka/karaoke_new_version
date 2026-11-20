@@ -2,8 +2,6 @@ import type { DesktopShell, ShellStatus } from './DesktopShell';
 
 /** How often the playing station is asked what it plays. */
 const pollMilliseconds = 20_000;
-/** The ICY title block is at most 255 × 16 bytes after `icy-metaint` bytes of audio. */
-const maxMetadataBytes = 255 * 16;
 
 interface RadioTrack {
   title: string;
@@ -34,10 +32,13 @@ export const radioTrackFrom = (metadata: string): RadioTrack | null => {
 export const readStreamTitle = async (
   url: string,
   fetchImpl: typeof fetch = fetch,
+  stop?: AbortSignal,
 ): Promise<RadioTrack | null> => {
   const response = await fetchImpl(url, {
     headers: { 'Icy-MetaData': '1', 'User-Agent': 'AD-Voice' },
-    signal: AbortSignal.timeout(15_000),
+    signal: stop
+      ? AbortSignal.any([stop, AbortSignal.timeout(15_000)])
+      : AbortSignal.timeout(15_000),
   });
   const metaint = Number(response.headers.get('icy-metaint'));
   if (
@@ -50,20 +51,29 @@ export const readStreamTitle = async (
     return null;
   }
   const reader = response.body.getReader();
-  let buffer = Buffer.alloc(0);
+  let audioRemaining = metaint;
+  let metadata: Buffer | undefined;
+  let written = 0;
   try {
-    while (buffer.length < metaint + 1 + maxMetadataBytes) {
+    while (true) {
       const { value, done } = await reader.read();
       if (done) return null;
-      buffer = Buffer.concat([buffer, Buffer.from(value)]);
-      if (buffer.length <= metaint) continue;
-      const length = buffer[metaint]! * 16;
-      if (buffer.length < metaint + 1 + length) continue;
-      return radioTrackFrom(
-        buffer.subarray(metaint + 1, metaint + 1 + length).toString('utf8'),
-      );
+      // The audio is played elsewhere. Discard its prefix without retaining or recopying it.
+      let offset = Math.min(audioRemaining, value.length);
+      audioRemaining -= offset;
+      if (audioRemaining || offset === value.length) continue;
+      if (!metadata) {
+        // One length byte bounds this allocation to 255 × 16 bytes, regardless of the prefix.
+        const length = value[offset++]! * 16;
+        if (!length) return null;
+        metadata = Buffer.allocUnsafe(length);
+      }
+      const count = Math.min(metadata.length - written, value.length - offset);
+      metadata.set(value.subarray(offset, offset + count), written);
+      written += count;
+      if (written === metadata.length)
+        return radioTrackFrom(metadata.toString('utf8'));
     }
-    return null;
   } finally {
     await reader.cancel().catch(() => undefined);
   }
@@ -86,6 +96,7 @@ export const startRadioNowPlaying = (
   let timer: NodeJS.Timeout | undefined;
   let last = '';
   let generation = 0;
+  let inFlight: AbortController | undefined;
 
   const announce = (track: RadioTrack | null) => {
     const key = JSON.stringify(track);
@@ -97,11 +108,20 @@ export const startRadioNowPlaying = (
   };
 
   const poll = async (current: number, station: string) => {
+    if (current !== generation || inFlight) return;
+    const controller = new AbortController();
+    inFlight = controller;
     try {
-      const track = await readStreamTitle(station, fetchImpl);
-      if (current === generation) announce(track);
+      const track = await readStreamTitle(
+        station,
+        fetchImpl,
+        controller.signal,
+      );
+      if (current === generation && !controller.signal.aborted) announce(track);
     } catch {
       // Offline or the station does not answer: the title stays as it was until the next ask.
+    } finally {
+      if (inFlight === controller) inFlight = undefined;
     }
   };
 
@@ -110,6 +130,8 @@ export const startRadioNowPlaying = (
     if (next === url) return;
     url = next;
     generation += 1;
+    inFlight?.abort();
+    inFlight = undefined;
     clearInterval(timer);
     timer = undefined;
     announce(null);
@@ -124,6 +146,9 @@ export const startRadioNowPlaying = (
   return {
     stop(): void {
       unsubscribe();
+      generation += 1;
+      inFlight?.abort();
+      inFlight = undefined;
       clearInterval(timer);
     },
   };
