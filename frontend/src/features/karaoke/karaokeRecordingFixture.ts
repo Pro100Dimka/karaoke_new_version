@@ -52,6 +52,7 @@ vi.mock('../../services/audioClient', () => ({
     setMonitoring: vi.fn(async (enabled: boolean) => ({ monitoring: enabled })),
     setDspEnabled: vi.fn(async () => undefined),
     setMixer: vi.fn(async () => undefined),
+    setPitchShift: vi.fn(async () => undefined),
   },
 }));
 vi.mock('../../services/recordingCoordinator', () => ({
@@ -62,6 +63,7 @@ vi.mock('../../services/recordingCoordinator', () => ({
     pause: vi.fn(async () => ({ recording: true })),
     resume: vi.fn(async () => ({ recording: true })),
     observePosition: vi.fn(),
+    updatePlaybackAdjustment: vi.fn(),
     interrupt: vi.fn(),
     hasPendingTake: () => true,
   },
@@ -120,6 +122,7 @@ vi.mock('../../providers/store', () => ({
         referenceGain: 0.64,
         melodyGain: 0.75,
         masterGain: 0.86,
+        karaokeEffects: { echo: 0, reverb: 0, delay: 0, autoTune: 0 },
         karaokeMonitoring: monitoringPreference.enabled,
         keyboardLighting: false,
         theme: 'dark',

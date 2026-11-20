@@ -128,28 +128,53 @@ export const useKaraokeControls = ({
     [key, position, publishPracticeParameters, room, setSpeed, speed],
   );
 
-  const changeKey = useCallback(
-    async (delta: number) => {
-      const next = Math.max(-12, Math.min(12, key.current + delta));
-      if (room && !(await publishPracticeParameters(speed.current, next)))
-        return;
-      const applied = await observeOperation(
-        'errors.pitch',
-        audioClient.setPitchShift(next),
-      ).then(
-        () => true,
-        () => false,
-      );
-      if (!applied) return;
-      key.current = next;
-      setKeyShift(next);
-      recordingCoordinator.updatePlaybackAdjustment({
-        sourceSeconds: position.current,
-        playbackRate: speed.current,
-        keyShift: next,
-      });
+  const keyChanges = useRef({ generation: 0, tail: Promise.resolve() });
+  const keyContext = useRef({ room, publishPracticeParameters });
+  keyContext.current = { room, publishPracticeParameters };
+  const canPractise = !room || (canControlRoom(room) && !room.playbackLocked);
+  useEffect(
+    () => () => {
+      keyChanges.current.generation += 1;
+      keyChanges.current.tail = Promise.resolve();
     },
-    [key, position, publishPracticeParameters, room, setKeyShift, speed],
+    [ready, room?.code, canPractise],
+  );
+
+  const changeKey = useCallback(
+    (delta: number) => {
+      const generation = keyChanges.current.generation;
+      const isCurrent = () => generation === keyChanges.current.generation;
+      // Relative clicks accumulate from acknowledged changes, including after a failed change.
+      const pending = keyChanges.current.tail.then(async () => {
+        if (!isCurrent()) return;
+        const next = Math.max(-12, Math.min(12, key.current + delta));
+        const context = keyContext.current;
+        if (
+          context.room &&
+          !(await context.publishPracticeParameters(speed.current, next))
+        )
+          return;
+        if (!isCurrent()) return;
+        const applied = await observeOperation(
+          'errors.pitch',
+          audioClient.setPitchShift(next, isCurrent),
+        ).then(
+          () => true,
+          () => false,
+        );
+        if (!applied || !isCurrent()) return;
+        key.current = next;
+        setKeyShift(next);
+        recordingCoordinator.updatePlaybackAdjustment({
+          sourceSeconds: position.current,
+          playbackRate: speed.current,
+          keyShift: next,
+        });
+      });
+      keyChanges.current.tail = pending.catch(() => undefined);
+      return pending;
+    },
+    [key, position, setKeyShift, speed],
   );
 
   const changeGain = useCallback(
