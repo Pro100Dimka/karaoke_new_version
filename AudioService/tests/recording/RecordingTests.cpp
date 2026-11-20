@@ -1736,13 +1736,18 @@ FollowRun runRoomSong(bool delayed, std::int64_t delayAtBlock = -1) {
     service.session().start();
     service.network().setSharedTimeline(true);
     service.network().setRoomPlayoutDelay(delayed && delayAtBlock < 0 ? 160.0F : 0.0F);
+    // The decoder refills at half capacity; preload the whole accelerated run before callbacks.
+    service.media().prepare(rate, 2, 2U * blocks * block);
     service.media().load(MediaSlot::Music, musicPath.string());
-    (void)service.media().waitUntilReady(MediaSlot::Music);
+    require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+            "the scheduled room song is ready before callbacks");
     // The whole run must come from decoded PCM: a busy machine must not turn into an underrun.
     const auto filledBy = std::chrono::steady_clock::now() + std::chrono::seconds(3);
     while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < blocks * block &&
            std::chrono::steady_clock::now() < filledBy)
         std::this_thread::yield();
+    require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= blocks * block,
+            "the whole simulated room run is buffered before callbacks");
     const auto base = monotonicTicksNow() + 1'000'000'000;
     const auto ticksAt = [&](std::int64_t frame) { return base + frame * 1'000'000'000LL / rate; };
     service.media().play(MediaContext::Karaoke, ticksAt(startBlock * block));
