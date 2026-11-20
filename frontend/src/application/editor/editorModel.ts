@@ -165,6 +165,8 @@ export const resizeNote = (
       ),
     };
   }
+  // A boundary held in place by snapping or clamping must not discard the redo history.
+  if (next.start === note.start && next.end === note.end) return document;
   return withNotes(
     document,
     document.notes.map((item) => (item.id === noteId ? next : item)),

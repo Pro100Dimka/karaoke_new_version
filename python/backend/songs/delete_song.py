@@ -97,6 +97,8 @@ class DeleteSong:
                 self._recordings.finalize_quarantine(source)
             if quarantine:
                 self._storage.finalize_quarantine(quarantine)
+                if quarantine.exists():
+                    raise OSError("Song quarantine cleanup is incomplete")
         except OSError:
             # Metadata is already deleted; retry remaining files through the journal.
             logger.warning("Song deletion cleanup deferred: %s", transaction_id, exc_info=True)

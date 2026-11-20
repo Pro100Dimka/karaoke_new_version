@@ -145,3 +145,48 @@ it.each(['move', 'resize'] as const)(
     expect(screen.getByRole('button', { name: tr('save') })).toBeEnabled();
   },
 );
+
+it.each([
+  { constraint: 'snap grid', end: 2.15, pointerX: 101 },
+  { constraint: 'word boundary', end: 5, pointerX: 130 },
+])(
+  'keeps Redo when the $constraint prevents a resize from changing the note',
+  async ({ end, pointerX }) => {
+    vi.mocked(editorApi.load).mockResolvedValue({
+      ...document,
+      notes: [{ ...document.notes[0]!, end }, ...document.notes.slice(1)],
+    });
+    const view = render(<EditorPage />);
+    const body = await screen.findByRole('button', {
+      name: tr('Нота {pitch}', { pitch: 60 }),
+    });
+    await waitFor(() => expect(audioClient.prepareSong).toHaveBeenCalledOnce());
+    const world = view.container.querySelector<HTMLElement>(
+      '.ad-piano-roll-world',
+    )!;
+    vi.spyOn(world, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 0, 1000, 300),
+    );
+    fireEvent.keyDown(body, { key: 'ArrowUp' });
+    fireEvent.click(screen.getByRole('button', { name: tr('undo') }));
+    const redo = screen.getByRole('button', { name: tr('redo') });
+    expect(redo).toBeEnabled();
+
+    const note = body.closest('.ad-piano-roll-note')!;
+    const geometry = note.getAttribute('style');
+    pointer(note.querySelector('[data-edge="end"]')!, 'pointerdown', 100, 100);
+    pointer(world, 'pointermove', pointerX, 100);
+    pointer(world, 'pointerup', pointerX, 100);
+
+    expect(note.getAttribute('style')).toBe(geometry);
+    expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
+    expect(redo).toBeEnabled();
+    expect(screen.getByRole('button', { name: tr('undo') })).toBeDisabled();
+    fireEvent.click(redo);
+    expect(
+      screen.getByRole('button', { name: tr('Нота {pitch}', { pitch: 61 }) }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('save') })).toBeEnabled();
+    expect(editorApi.save).not.toHaveBeenCalled();
+  },
+);

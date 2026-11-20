@@ -31,11 +31,13 @@ import type { useKeyboardLighting } from './keyboardlighting/useKeyboardLighting
 export const AppearanceFields = observer(
   ({
     photo,
+    photoResetKey,
     canChangePhoto,
     changePhoto,
     lighting,
   }: {
     photo: string;
+    photoResetKey: number;
     canChangePhoto: boolean;
     changePhoto(file: File): Promise<void>;
     lighting: ReturnType<typeof useKeyboardLighting>;
@@ -123,6 +125,7 @@ export const AppearanceFields = observer(
                     data-custom=""
                   >
                     <FilePicker
+                      key={photoResetKey}
                       variant="avatar"
                       accept="image/*"
                       disabled={!canChangePhoto}
