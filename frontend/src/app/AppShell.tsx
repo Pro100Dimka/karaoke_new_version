@@ -85,7 +85,8 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
   const reducedMotion = useReducedMotion();
   const { localProcessing } = store.application;
   const onScreen = useAppOnScreen();
-  const karaoke = isKaraoke(pathname) || onTv;
+  const karaokeRoute = isKaraoke(pathname);
+  const karaoke = karaokeRoute || onTv;
   useSpectrumFeed(
     onScreen && !reducedMotion && !localProcessing,
     publishSpectrum,
@@ -102,7 +103,7 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
   }, [karaoke]);
 
   useEffect(() => {
-    if (!isKaraoke(pathname)) return;
+    if (!karaokeRoute) return;
     let enteredByF11 = false;
     const handler = (event: KeyboardEvent) => {
       if (event.key !== 'F11') return;
@@ -119,7 +120,7 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
         .isFullscreen()
         .then((active) => active && desktopClient.toggleFullscreen());
     };
-  }, [pathname]);
+  }, [karaokeRoute]);
 
   return (
     <div className="app">
