@@ -1060,6 +1060,133 @@ void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
     }
 }
 
+void performanceTeardownRetainsCapturedVoiceBeforeCutoff() {
+    constexpr std::uint32_t Rate = 48'000, Block = 480, Cutoff = 24'000, Late = 1'440;
+    constexpr double Pi = 3.14159265358979323846;
+    const auto source = tempRoot / "pending-capture-source.wav";
+    makeTestWav(source, Cutoff + Block, Rate);
+    enum class Transition { Stop, Recover, Reconfigure };
+    enum class Marker { AlreadyRendered, Pending, RenderPending };
+    struct Saved {
+        std::vector<float> dry, backing, performance;
+        double energy{0}, centroid{0};
+    };
+    const auto run = [&](Transition transition, Marker marker) {
+        FakeBackendSettings settings;
+        settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = Block;
+        settings.runtime.inputEndpointBufferFrames = settings.runtime.outputEndpointBufferFrames =
+            Block * 2;
+        settings.runtime.clockRelationship = ClockRelationship::Independent;
+        AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+        service.start();
+        (void)service.session().prepare({});
+        service.session().start();
+        auto& engine = service.realtime();
+        engine.setDspEnabled(false);
+        engine.setMonitoring(false);
+        engine.setSystemGain(1);
+        const auto generation = service.session().generationId();
+        service.media().load(MediaSlot::Music, source.string());
+        require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                "pending-capture fixture needs decoded accompaniment");
+        const auto path = tempRoot / ("pending-capture-" + std::to_string(static_cast<int>(transition)) +
+                                     "-" + std::to_string(static_cast<int>(marker)) + ".wav");
+        require(service.handleLine("1|PrepareRecording|id=pending-capture|tap=performance|backing=true|path=" +
+                                    path.string()).status == ControlStatus::Ok &&
+                    service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                "the paired performance starts before capture/render sequencing");
+        service.media().play(MediaContext::Karaoke);
+        const auto origin = monotonicTicksNow() - 5'000'000'000LL;
+        std::vector<float> input(Block), output(Block * 2);
+        const auto capture = [&](std::uint32_t frame, bool hasMarker) {
+            std::fill(input.begin(), input.end(), 0.0F);
+            if (hasMarker)
+                for (std::uint32_t index = 0; index < Block / 2; ++index)
+                    input[Block / 4 + index] = static_cast<float>(
+                        0.1 * (1.0 - std::cos(2.0 * Pi * index / (Block / 2 - 1))) *
+                        std::sin(2.0 * Pi * 1'000.0 * index / Rate));
+            const auto ticks = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / Rate;
+            engine.onCapture(generation, {input.data(), nullptr, Block, 1, frame,
+                                           ticks / 100, 0, 0, ticks});
+        };
+        const auto render = [&](std::uint32_t frame) {
+            const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < Block &&
+                   std::chrono::steady_clock::now() < ready)
+                std::this_thread::yield();
+            require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= Block,
+                    "the causal render control cannot underrun its media source");
+            const auto presentation =
+                origin + static_cast<MonotonicTicks>(frame + Late) * 1'000'000'000LL / Rate;
+            const auto clock =
+                origin + static_cast<MonotonicTicks>(frame + Block) * 1'000'000'000LL / Rate;
+            engine.onRender(generation, {nullptr, output.data(), Block, 2, frame,
+                                          clock / 100, 0, presentation});
+        };
+        for (std::uint32_t frame = 0; frame < Cutoff; frame += Block) {
+            capture(frame, marker == Marker::AlreadyRendered && frame + Block == Cutoff);
+            render(frame);
+        }
+        if (marker != Marker::AlreadyRendered) {
+            capture(Cutoff, true);
+            require(engine.snapshot().clockBridge.fillFrames == Block,
+                    "the final capture packet is accepted after the last ordinary render");
+        }
+        if (marker == Marker::RenderPending)
+            render(Cutoff);
+        const auto frames = Cutoff + (marker == Marker::RenderPending ? Block : 0U);
+        const auto before = engine.snapshot();
+        require(engine.sessionFrame() == SessionFrame{frames} && before.captureOverruns == 0 &&
+                    before.micInsertedSilenceFrames == 0,
+                "the original cutoff has no capture loss or artificial render silence");
+        if (transition == Transition::Stop)
+            service.session().stop();
+        else if (transition == Transition::Recover)
+            require(service.session().recover(), "the device recovery control succeeds");
+        else
+            (void)service.session().reconfigure({});
+        const auto result = service.recording().result();
+        require(result.finalized && result.durationFrames == frames && result.overrunCount == 0 &&
+                    result.stopSessionFrame == SessionFrame{frames},
+                "teardown retains the original recording cutoff and finalizes without overruns");
+        const auto decode = [&](std::string_view suffix) {
+            WavDecoder decoder;
+            const auto format = decoder.open(path.string() + std::string(suffix));
+            require(format.sampleRateHz == Rate && format.channels == 2 && format.totalFrames == frames,
+                    "each paired output keeps the original format and cutoff");
+            std::vector<float> pcm(static_cast<std::size_t>(frames) * 2);
+            require(decoder.read(pcm, frames) == frames, "the finalized paired output is complete");
+            return pcm;
+        };
+        Saved saved{decode(".dry.wav"), decode(".backing.wav"), decode("")};
+        for (std::uint32_t frame = 0; frame < Cutoff; ++frame) {
+            const auto value = static_cast<double>(saved.dry[frame * 2]);
+            saved.energy += value * value;
+            saved.centroid += frame * value * value;
+        }
+        if (saved.energy != 0)
+            saved.centroid /= saved.energy;
+        return saved;
+    };
+    for (const auto transition : {Transition::Stop, Transition::Recover, Transition::Reconfigure}) {
+        const auto ordinary = run(transition, Marker::AlreadyRendered);
+        const auto pending = run(transition, Marker::Pending);
+        const auto rendered = run(transition, Marker::RenderPending);
+        const auto same = [](float a, float b) { return std::abs(a - b) < 0.000001F; };
+        require(ordinary.energy > 0.1 && rendered.energy > 0.1 &&
+                    std::abs(rendered.centroid - (Cutoff + Block / 2.0 - Late - 0.5)) < 1.0 &&
+                    std::equal(ordinary.dry.begin(), ordinary.dry.end() - Block * 2,
+                               rendered.dry.begin() + Block * 2, same),
+                "an ordinary extra render places the accepted marker wholly before the original cutoff");
+        expect(std::equal(pending.backing.begin(), pending.backing.end(), rendered.backing.begin()),
+               "captured-voice draining cannot consume or rewrite the original accompaniment");
+        expect(std::equal(pending.dry.begin(), pending.dry.end(), rendered.dry.begin(), same) &&
+                   std::equal(pending.performance.begin(), pending.performance.end(),
+                              rendered.performance.begin(), same),
+               "teardown must retain accepted capture PCM that aligns before the original cutoff");
+    }
+}
+
 void performanceDrainFailureNeverClaimsFinalization() {
     for (const auto writerFailure : {false, true}) {
         for (const auto generationChange : {false, true}) {

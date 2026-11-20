@@ -753,6 +753,7 @@ constexpr std::array tests{
     Test{"recordingPauseCreatesGapMetadata", Tests::recordingPauseCreatesGapMetadata},
     Test{"loadingProgressReportsRealScannedFramesWithoutMovingPlayback", Tests::loadingProgressReportsRealScannedFramesWithoutMovingPlayback},
     Test{"controlledReconfigurePreservesOnePerformanceFile", Tests::controlledReconfigurePreservesOnePerformanceFile},
+    Test{"performanceTeardownRetainsCapturedVoiceBeforeCutoff", Tests::performanceTeardownRetainsCapturedVoiceBeforeCutoff},
     Test{"recordingWritesWav", Tests::recordingWritesWav},
     Test{"recordingRejectsStaleGeneration", Tests::recordingRejectsStaleGeneration},
     Test{"prepareRecordingSelectsMasterMixTap", Tests::prepareRecordingSelectsMasterMixTap},

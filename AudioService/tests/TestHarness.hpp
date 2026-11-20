@@ -175,6 +175,7 @@ void performanceRecordingDrainsStopAndPauseWithoutCapturingThePause();
 void performanceTailWaitsForSmallQueuesAndReportsWriterFailure();
 void performanceDrainNeverSuspendsTheAudibleRender();
 void performanceRecordingDrainsBeforeDeviceGenerationChanges();
+void performanceTeardownRetainsCapturedVoiceBeforeCutoff();
 void performanceDrainFailureNeverClaimsFinalization();
 void stoppingFailedMediaPreservesTheFailureUntilReload();
 void recordingPrepareFailureReleasesFileAndCanRetry();
