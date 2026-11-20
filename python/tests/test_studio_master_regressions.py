@@ -385,19 +385,22 @@ def test_compression_is_bypassed_without_reference_transitions():
 
 
 @pytest.mark.parametrize("speed,key", [(1, 0), (1.25, 2), (0.75, -3)])
-def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key):
+@pytest.mark.parametrize("rate", [8000, 44100, 48000])
+def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key, rate):
     from backend.recordings.studio_reference import scope_reference
 
     path = tmp_path / "reference.wav"
-    samples = np.arange(16000, dtype=np.float32) / 16000
-    sf.write(path, samples, 8000, subtype="FLOAT")
+    samples = np.arange(2 * rate, dtype=np.float32) / (2 * rate)
+    sf.write(path, samples, rate, subtype="FLOAT")
     adjustments = [
         {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
         {"elapsedSeconds": 0.25, "sourceSeconds": 1, "playbackRate": 1, "keyShift": 0},
     ]
     vocal, _, _, report = scope_reference(path, path, adjustments, 0.5, tmp_path, threading.Event())
     actual, _ = sf.read(vocal)
-    np.testing.assert_array_equal(actual, np.r_[samples[:2000], samples[8000:10000]])
+    np.testing.assert_array_equal(
+        actual, np.r_[samples[: round(0.25 * rate)], samples[rate : round(1.25 * rate)]]
+    )
     assert report["referenceTimelineRebuilt"]
 
     render = MasterRender.__new__(MasterRender)
@@ -408,15 +411,15 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, 
     render._prepare_master_backing(path)
     np.testing.assert_array_equal(sf.read(render.backing)[0], actual)
 
-    time = np.arange(8000) / 8000
+    time = np.arange(rate) / rate
     tones = np.sin(2 * np.pi * np.where(time < 0.5, 400, 800) * time) * 0.1
-    sf.write(path, tones, 8000, subtype="FLOAT")
+    sf.write(path, tones, rate, subtype="FLOAT")
     render.pitch_adjustments = [
         {"elapsedSeconds": 0, "sourceSeconds": 0.2, "playbackRate": speed, "keyShift": key}
     ]
     render._prepare_master_backing(path)
-    changed, rate = sf.read(render.backing)
-    assert rate == 8000 and changed.shape == actual.shape
+    changed, actual_rate = sf.read(render.backing)
+    assert actual_rate == rate and changed.shape == actual.shape
     for start, end, frequency in [(0.03, 0.13, 400), (0.43, 0.49, 800)]:
         block = changed[round(start * rate) : round(end * rate)]
         spectrum = abs(np.fft.rfft(block * np.hanning(len(block)), n=16384))
