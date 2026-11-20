@@ -246,6 +246,37 @@ const sendWithRetry = async (
 
 let queue: Promise<unknown> = Promise.resolve();
 let pendingRequests = 0;
+let tail:
+  | {
+      key: string | undefined;
+      frame: string;
+      deadline: number;
+      result: Promise<AudioResponse>;
+    }
+  | undefined;
+
+// A dragged knob may produce values faster than the pipe can apply them. Only adjacent,
+// not-yet-started updates to the same continuous control can supersede each other.
+// Any read or lifecycle command is an ordering barrier (including Play and Stop).
+const continuousControlKey = ({
+  command,
+  args,
+}: AudioRequest): string | undefined => {
+  const field =
+    command === 'SetGain'
+      ? 'target'
+      : command === 'SetDspParameter'
+        ? 'name'
+        : undefined;
+  if (
+    !args ||
+    typeof args.value !== 'number' ||
+    (field ? typeof args[field] !== 'string' : command !== 'SetRadioGain') ||
+    Object.keys(args).some((key) => key !== 'value' && key !== field)
+  )
+    return undefined;
+  return `${command}:${field ? args[field] : ''}`;
+};
 
 export const sendAudioRequest = async (
   request: AudioRequest,
@@ -254,15 +285,33 @@ export const sendAudioRequest = async (
   const frame = encode(request);
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
     throw new TypeError('Invalid AudioService timeout');
+  const deadline = performance.now() + timeoutMs;
+  const key = continuousControlKey(request);
+  if (key && tail?.key === key && tail.deadline > performance.now()) {
+    tail.frame = frame;
+    // A newer slider event must never extend an already accepted request's deadline.
+    tail.deadline = Math.min(tail.deadline, deadline);
+    return tail.result;
+  }
   if (pendingRequests >= maxPendingRequests)
     throw new Error('AudioService request queue is full');
-  const deadline = performance.now() + timeoutMs;
   pendingRequests++;
+  const pending = {
+    key,
+    frame,
+    deadline,
+    result: undefined as unknown as Promise<AudioResponse>,
+  };
   const result = queue
-    .then(() => sendWithRetry(frame, request.command, deadline))
+    .then(() => {
+      if (tail === pending) tail = undefined;
+      return sendWithRetry(pending.frame, request.command, pending.deadline);
+    })
     .finally(() => {
       pendingRequests--;
     });
+  pending.result = result;
+  tail = pending;
   queue = result.catch(() => undefined);
   return result;
 };

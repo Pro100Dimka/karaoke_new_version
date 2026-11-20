@@ -223,3 +223,87 @@ it('snapshots accepted arguments before they wait in the queue', async () => {
   await Promise.all([first, next]);
   expect(sockets[1]?.write).toHaveBeenCalledWith('1|SetGain|value=0.5\n');
 });
+
+it('keeps the latest slider value without filling the queue or delaying Stop behind obsolete values', async () => {
+  reply = () => {};
+  const { sendAudioRequest } = await import('./AudioServiceTransport');
+  const busy = sendAudioRequest({ command: 'GetDiagnostics' });
+  await vi.advanceTimersByTimeAsync(0);
+  const changes = Array.from({ length: 1000 }, (_, index) =>
+    sendAudioRequest({
+      command: 'SetGain',
+      args: { target: 'music', value: index / 1000 },
+    }),
+  );
+  const stop = sendAudioRequest({ command: 'Stop' });
+  const completed = Promise.allSettled([busy, ...changes, stop]);
+  reply = (connection) => {
+    connection.emit('data', Buffer.from('0|Ok\n'));
+    connection.emit('end');
+  };
+  reply(sockets[0]!, '');
+  expect(
+    (await completed).every((result) => result.status === 'fulfilled'),
+  ).toBe(true);
+  expect(
+    sockets.flatMap((connection) => connection.write.mock.calls.flat()),
+  ).toEqual([
+    '1|GetDiagnostics\n',
+    '1|SetGain|target=music|value=0.999\n',
+    '1|Stop\n',
+  ]);
+});
+
+it.each([
+  ['SetGain', 'target', 'voice'],
+  ['SetDspParameter', 'name', 'reverb'],
+  ['SetRadioGain', undefined, undefined],
+] as const)(
+  'coalesces %s only within its ordered run of control changes',
+  async (command, field, value) => {
+    const { sendAudioRequest } = await import('./AudioServiceTransport');
+    const args = (level: number) => ({
+      ...(field ? { [field]: value } : {}),
+      value: level,
+    });
+    const requests = [
+      sendAudioRequest({ command, args: args(0.2) }),
+      sendAudioRequest({ command, args: args(0.4) }),
+      sendAudioRequest({ command: 'Play' }),
+      sendAudioRequest({ command, args: args(0.6) }),
+      sendAudioRequest({ command, args: args(0.8) }),
+    ];
+    await Promise.all(requests);
+    const identity = field ? `|${field}=${value}` : '';
+    expect(
+      sockets.flatMap((connection) => connection.write.mock.calls.flat()),
+    ).toEqual([
+      `1|${command}${identity}|value=0.4\n`,
+      '1|Play\n',
+      `1|${command}${identity}|value=0.8\n`,
+    ]);
+  },
+);
+
+it('retains independent mixer channels and DSP parameter changes', async () => {
+  const { sendAudioRequest } = await import('./AudioServiceTransport');
+  await Promise.all([
+    sendAudioRequest({
+      command: 'SetGain',
+      args: { target: 'music', value: 0.2 },
+    }),
+    sendAudioRequest({
+      command: 'SetGain',
+      args: { target: 'voice', value: 0.4 },
+    }),
+    sendAudioRequest({
+      command: 'SetDspParameter',
+      args: { name: 'echo', value: 0.3 },
+    }),
+    sendAudioRequest({
+      command: 'SetDspParameter',
+      args: { name: 'reverb', value: 0.5 },
+    }),
+  ]);
+  expect(sockets).toHaveLength(4);
+});
