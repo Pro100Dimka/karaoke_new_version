@@ -140,6 +140,26 @@ describe('performance tracker', () => {
     expect(hit.has('held')).toBe(true);
   });
 
+  it('reuses the completed score through an instrumental gap and invalidates it for new voice', () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: 'held', start: 0, end: 1, pitch: 60 }], []);
+    sing(tracker, 0, 1.1, () => hz(60));
+    tracker.update(1.2, undefined);
+    const completed = tracker.noteScore;
+    for (let position = 1.3; position < 3; position += 0.1) {
+      tracker.update(position, undefined);
+      expect(tracker.noteScore).toBe(completed);
+    }
+    tracker.update(3.1, hz(60));
+    expect(tracker.noteScore).not.toBe(completed);
+    expect(tracker.noteScore.rhythmAccuracyPercent).toBeLessThan(
+      completed.rhythmAccuracyPercent,
+    );
+    const extraVoice = tracker.noteScore;
+    tracker.update(0.2, hz(60));
+    expect(tracker.noteScore).not.toBe(extraVoice);
+  });
+
   it('limits live scoring reads to nearby notes while retaining an earlier overlapping hold', () => {
     let reads = 0,
       ids = 0;
@@ -386,28 +406,34 @@ describe('performance tracker', () => {
     expect(scores[1]).toBe(0);
   });
 
-  it.each([false, true])('grows energy from a fresh performance state after reload=%s', (reload) => {
-    const tracker = new PerformanceTracker();
-    const { notes, phrases } = song(60);
-    if (reload) {
+  it.each([false, true])(
+    'grows energy from a fresh performance state after reload=%s',
+    (reload) => {
+      const tracker = new PerformanceTracker();
+      const { notes, phrases } = song(60);
+      if (reload) {
+        tracker.load(notes, phrases);
+        sing(tracker, 0, 25, () => hz(60));
+      }
       tracker.load(notes, phrases);
-      sing(tracker, 0, 25, () => hz(60));
-    }
-    tracker.load(notes, phrases);
-    const fresh = new PerformanceTracker();
-    fresh.load(notes, phrases);
-    for (let position = 0; position <= 10; position += frame) {
-      const voice = hz(position < 2 ? 65 : 60);
-      tracker.update(position, voice);
-      fresh.update(position, voice);
-      expect(tracker.energy, `energy at ${position}`).toBeCloseTo(fresh.energy, 10);
-    }
-    const afterTen = tracker.energy;
-    sing(tracker, 10 + frame, 25, () => hz(60));
-    expect(afterTen).toBeGreaterThan(20);
-    expect(tracker.energy).toBeGreaterThan(afterTen);
-    expect(energyLevel(tracker.energy)).toMatch(/onFire|headliner/);
-  });
+      const fresh = new PerformanceTracker();
+      fresh.load(notes, phrases);
+      for (let position = 0; position <= 10; position += frame) {
+        const voice = hz(position < 2 ? 65 : 60);
+        tracker.update(position, voice);
+        fresh.update(position, voice);
+        expect(tracker.energy, `energy at ${position}`).toBeCloseTo(
+          fresh.energy,
+          10,
+        );
+      }
+      const afterTen = tracker.energy;
+      sing(tracker, 10 + frame, 25, () => hz(60));
+      expect(afterTen).toBeGreaterThan(20);
+      expect(tracker.energy).toBeGreaterThan(afterTen);
+      expect(energyLevel(tracker.energy)).toMatch(/onFire|headliner/);
+    },
+  );
 
   it('forgives a single miss: the energy settles gradually instead of collapsing', () => {
     const tracker = new PerformanceTracker();

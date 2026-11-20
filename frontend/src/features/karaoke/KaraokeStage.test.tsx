@@ -10,7 +10,7 @@ import { store } from '../../providers/store';
 
 const probe = vi.hoisted(() => {
   const props: MelodyRollProps[] = [];
-  return { props, mounts: 0, playing: false };
+  return { props, mounts: 0, playing: false, hitNoteIds: new Set<string>() };
 });
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
@@ -47,7 +47,12 @@ vi.mock('../../shared/ui/DetachedPanel', () => ({
   DetachButton: () => null,
 }));
 vi.mock('./show/ShowLayers', () => {
-  const engine = { hitNoteIds: new Set<string>(), noteScore: undefined };
+  const engine = {
+    get hitNoteIds() {
+      return probe.hitNoteIds;
+    },
+    noteScore: undefined,
+  };
   return {
     useShowEngine: () => engine,
     StageFx: () => null,
@@ -93,8 +98,21 @@ beforeEach(() => {
   });
   probe.props.length = 0;
   probe.mounts = 0;
+  probe.hitNoteIds = new Set();
 });
 afterEach(() => vi.restoreAllMocks());
+
+it('does not recheck every earlier hit on each unchanged animation frame', () => {
+  probe.hitNoteIds = new Set(Array.from({ length: 2000 }, (_, i) => `n${i}`));
+  const has = vi.spyOn(probe.hitNoteIds, 'has');
+  const { rerender } = render(view(20.1));
+  has.mockClear();
+  for (let frame = 1; frame <= 60; frame++) rerender(view(20.1 + frame / 60));
+  expect(has.mock.calls.length).toBe(0);
+  probe.hitNoteIds = new Set([...probe.hitNoteIds, 'new-hit']);
+  rerender(view(21.2));
+  expect(probe.props.at(-1)?.hitIds?.has('new-hit')).toBe(true);
+});
 
 it('stops retrying failed song and fallback videos while allowing a new source', async () => {
   vi.spyOn(desktopClient, 'sceneVideoUrl').mockResolvedValue('fallback.mp4');

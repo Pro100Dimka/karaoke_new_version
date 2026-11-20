@@ -444,7 +444,8 @@ export const KaraokeStage = observer(
       onNoteScoreChange?.(show.noteScore);
       const hits = show.hitNoteIds;
       setHitNoteIds((current) =>
-        current.size === hits.size && [...hits].every((id) => current.has(id))
+        current === hits ||
+        (current.size === hits.size && [...hits].every((id) => current.has(id)))
           ? current
           : hits,
       );

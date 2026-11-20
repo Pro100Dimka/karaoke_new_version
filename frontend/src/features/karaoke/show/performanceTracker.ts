@@ -176,7 +176,6 @@ export class PerformanceTracker {
     const elapsed = position - previous;
     this.lastPosition = position;
     if (elapsed <= 0) return [];
-    this.cachedScore = undefined;
     const events: PerformanceEvent[] = [];
 
     const end = position + (sampleDuration ?? 0) / 2;
@@ -190,6 +189,8 @@ export class PerformanceTracker {
       .flatMap((block) =>
         block.notes.filter((note) => note.start < end && note.end > start),
       );
+    // An instrumental clock tick adds no evidence; retain the full-history score.
+    if (covered.length > 0) this.cachedScore = undefined;
     let requiredVoice = 0,
       uncertain = 0;
     this.live = undefined;
@@ -282,6 +283,7 @@ export class PerformanceTracker {
     requiredVoice = Math.min(assessable, requiredVoice);
     const sung = audioActive ? assessable : 0;
     if (!this.ignoreSilence || audioActive) {
+      if (requiredVoice > 0 || sung > 0) this.cachedScore = undefined;
       this.rhythmUnion += Math.max(requiredVoice, sung);
       this.rhythmIntersection += Math.min(requiredVoice, sung);
     }

@@ -85,7 +85,7 @@ const snapshot: PlaybackSnapshot = {
   inputLevel: 0,
 };
 let publish: (value: PlaybackSnapshot) => void;
-let unsubscribe: ReturnType<typeof vi.fn>;
+let unsubscribe = vi.fn(() => undefined);
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -97,7 +97,7 @@ beforeEach(() => {
   vi.mocked(editorApi.load).mockResolvedValue(document);
   for (const operation of ['prepareSong', 'stop', 'play', 'pause'] as const)
     vi.mocked(audioClient[operation]).mockResolvedValue(snapshot);
-  unsubscribe = vi.fn();
+  unsubscribe = vi.fn(() => undefined);
   vi.mocked(audioClient.observeSnapshots).mockImplementation((listener) => {
     publish = listener;
     return unsubscribe;
