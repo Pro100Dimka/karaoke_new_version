@@ -13,6 +13,8 @@
 #include <vector>
 
 namespace Tests {
+void invalidCaptureTimingPreservesWaveform();
+void captureTimingRecoveryPreservesRealDiscontinuities();
 void networkDiagnosticsRetainSignedPeerAlignment();
 void loadingProgressReportsRealScannedFramesWithoutMovingPlayback();
 void transportSnapshotDoesNotWaitForDiagnosticText();

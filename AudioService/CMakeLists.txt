@@ -177,6 +177,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/backend/AsioSampleConversionTests.cpp
         tests/backend/AsioBackendTests.cpp
         tests/realtime/PcmRingBufferTests.cpp
+        tests/realtime/CaptureTimingTests.cpp
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
         tests/network/NetworkTests.cpp

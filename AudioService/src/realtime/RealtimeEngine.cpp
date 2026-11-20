@@ -107,6 +107,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     // Acoustic correlation is optional diagnostics, not a worker started for normal singing.
     observedMonitoringLatencyNs_.store(-1, std::memory_order_relaxed);
     captureTimelineUsable_.store(false, std::memory_order_relaxed);
+    nextCaptureTicks_.store(0, std::memory_order_relaxed);
     observedLatencySettled_.store(false, std::memory_order_relaxed);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
@@ -217,6 +218,7 @@ void RealtimeEngine::reset(bool preserveRecording) noexcept {
     micMonitoringAgeCount_.store(0, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
     capturePushedAt_.store(0, std::memory_order_relaxed);
+    nextCaptureTicks_.store(0, std::memory_order_relaxed);
     capturedEndTicks_.store(0, std::memory_order_relaxed);
     for (auto* aligner : {&aligner_, &backingAligner_, &dryAligner_})
         aligner->reset();
@@ -397,9 +399,9 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     RealtimeScope rtScope;
     const auto engineProcessingStarted = monotonicTicksNow();
     const auto expectedFrame = lastCaptureEndFrame_.exchange(
-        static_cast<std::int64_t>(buffer.devicePosition + buffer.frames),
+        buffer.captureTimestampValid ? buffer.devicePosition + buffer.frames : -1,
         std::memory_order_relaxed);
-    if (expectedFrame >= 0) {
+    if (buffer.captureTimestampValid && expectedFrame >= 0) {
         const auto difference = static_cast<std::int64_t>(buffer.devicePosition) - expectedFrame;
         if (difference > 0)
             micCaptureSkippedFrames_.fetch_add(static_cast<std::uint64_t>(difference),
@@ -416,8 +418,15 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     // drivers stamp the packet's end instead of its start (WASAPI documents the start); taken at
     // face value that made every voice one capture period late and inflated the measured hidden
     // latency by the same period. The stamp is held to the latest physically possible moment.
-    const auto captureStart =
-        buffer.captureTicks == 0 ? 0 : std::min(buffer.captureTicks, deliveredAt - duration);
+    // Timestamp errors do not invalidate the PCM. Continue from the previous source frame
+    // instead of feeding an unreliable clock into resampling or moving the recorded voice.
+    const auto captureStart = buffer.captureTimestampValid
+                                  ? (buffer.captureTicks == 0
+                                         ? 0
+                                         : std::min(buffer.captureTicks, deliveredAt - duration))
+                                  : nextCaptureTicks_.load(std::memory_order_relaxed);
+    nextCaptureTicks_.store(captureStart == 0 ? 0 : captureStart + duration,
+                             std::memory_order_relaxed);
     captureTimelineUsable_.store(buffer.captureTimestampValid && captureStart > 0,
                                   std::memory_order_relaxed);
     captureStampCorrectionNs_.store(buffer.captureTicks - captureStart, std::memory_order_relaxed);
@@ -560,8 +569,10 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     }
     latencyMeter_.capture(captureInput, buffer.frames, buffer.channels, captureStart,
                           buffer.devicePosition, buffer.captureTicks, deliveredAt);
-    lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
-    lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
+    lastCapturePosition_.store(buffer.captureTimestampValid ? buffer.devicePosition : -1,
+                                std::memory_order_relaxed);
+    lastCaptureTimestamp_.store(buffer.captureTimestampValid ? buffer.timestamp : -1,
+                                 std::memory_order_relaxed);
 }
 std::uint32_t RealtimeEngine::addMedia(MediaSlot slot, std::span<float> output,
                                        std::uint32_t frames, float gain,
@@ -1123,6 +1134,8 @@ void RealtimeEngine::onBackendEvent(GenerationId generation, BackendEventType ev
         captureTimelineUsable_.store(false, std::memory_order_relaxed);
         latencyMeter_.invalidateTiming();
     }
+    if (event == BackendEventType::DataDiscontinuity)
+        nextCaptureTicks_.store(0, std::memory_order_relaxed);
     trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceBackendEvent,
                  static_cast<std::uint32_t>(event)});
     constexpr std::array fatalEvents{

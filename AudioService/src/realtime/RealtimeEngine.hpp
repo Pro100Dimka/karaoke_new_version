@@ -392,6 +392,9 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::int64_t> lastCaptureTimestamp_{-1};
     // Steady-clock nanoseconds of the latest bridge push; written by capture, read by render.
     std::atomic<MonotonicTicks> capturePushedAt_{0};
+    // Source time after the last capture packet, including packets rejected by the bridge.
+    // Keeps continuous PCM timed when a backend marks its next timestamp as unreliable.
+    std::atomic<MonotonicTicks> nextCaptureTicks_{0};
     // Device capture time just after the newest sample in the clock bridge; 0 when the backend
     // cannot report capture times. Written by capture, read by render.
     std::atomic<MonotonicTicks> capturedEndTicks_{0};

@@ -40,6 +40,9 @@ class TestDirectory {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"invalidCaptureTimingPreservesWaveform", Tests::invalidCaptureTimingPreservesWaveform},
+    Test{"captureTimingRecoveryPreservesRealDiscontinuities",
+         Tests::captureTimingRecoveryPreservesRealDiscontinuities},
     Test{"networkDiagnosticsRetainSignedPeerAlignment", Tests::networkDiagnosticsRetainSignedPeerAlignment},
     Test{"rejectedPcmPacketsCannotSeedReceiveLossConcealment", Tests::rejectedPcmPacketsCannotSeedReceiveLossConcealment},
     Test{"traceRejectsAnOldTakeTokenAfterImmediateRearm", Tests::traceRejectsAnOldTakeTokenAfterImmediateRearm},
