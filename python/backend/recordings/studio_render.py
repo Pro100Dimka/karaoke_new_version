@@ -450,7 +450,13 @@ class MasterRender:
         raw_profile = _profile(self.user_vocal, self.cancel)
         confident = raw_profile > max(-80.0, float(np.percentile(raw_profile, 90)) - 25)
         if np.count_nonzero(confident) * _PROFILE_SECONDS < 3:
-            shutil.copyfile(self.backing, self.target)
+            self.renderer._mix(
+                self.performance_mix,
+                self.performance_mix,
+                "[0:a]anull[out]",
+                ["-c:a", "pcm_f32le", str(self.target)],
+                self.cancel,
+            )
             profiles = [raw_profile, *(future.result() for future in profile_tasks)]
             voice_level, backing_level, reference_level, original_level = (
                 float(np.median(levels)) for levels in profiles
@@ -465,7 +471,7 @@ class MasterRender:
                 processing={
                     "effectsApplied": False,
                     "bypassReason": "insufficient-vocal-evidence",
-                    "outputChannels": self.info.channels,
+                    "outputChannels": self.output_channels,
                 },
             )
         self.vocal = self.work / "processed-voice.wav"
