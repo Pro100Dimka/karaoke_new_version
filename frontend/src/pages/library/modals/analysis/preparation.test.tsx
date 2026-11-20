@@ -31,6 +31,7 @@ vi.mock('@neo-ui-kit/react', () => {
     ProgressBar: () => null,
     Loader: ({ label }: { label: string }) => <div role="status">{label}</div>,
     tr: (key: string) => key,
+    setLocale: vi.fn(),
     useLocale: () => 'ru',
   };
 });
