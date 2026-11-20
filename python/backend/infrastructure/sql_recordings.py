@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from backend.infrastructure.sql_time import as_utc
@@ -63,16 +63,24 @@ class SqlRecordingRepository:
             )
         )
 
-    def update(self, recording: Recording) -> None:
+    def update(self, recording: Recording, fields: frozenset[str]) -> Recording:
+        columns: dict[str, dict[str, str | None]] = {
+            "display_name": {"display_name": recording.display_name},
+            "file_status": {"file_status": recording.file_status},
+            "session_metadata": {"session_json": dumps(recording.session_metadata)},
+        }
+        values = {name: value for field in fields for name, value in columns[field].items()}
         row = self._session.scalar(
-            select(RecordingRow).where(RecordingRow.recording_id == recording.recording_id)
+            update(RecordingRow)
+            .where(RecordingRow.recording_id == recording.recording_id)
+            .values(**values)
+            .returning(RecordingRow),
+            execution_options={"populate_existing": True},
         )
         if row is None:
             raise KeyError(recording.recording_id)
-        row.display_name = recording.display_name
-        row.file_status = recording.file_status
-        row.session_json = dumps(recording.session_metadata)
         self.changed.add(recording.recording_id)
+        return _to_domain(row)
 
     def update_file(self, recording_id: str, path: Path, metadata: RecordingFileMetadata) -> None:
         row = self._session.scalar(

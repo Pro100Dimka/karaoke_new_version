@@ -153,7 +153,8 @@ class RegisterRecording:
                     recording = transaction.recordings.get(recording_id)
                     if recording is not None and recording.file_status == "Preparing":
                         transaction.recordings.update(
-                            replace(recording, file_status="PreparationFailed")
+                            replace(recording, file_status="PreparationFailed"),
+                            frozenset({"file_status"}),
                         )
                         transaction.commit()
             finally:
@@ -163,7 +164,9 @@ class RegisterRecording:
         with self._uow.create() as transaction:
             current = transaction.recordings.get(recording_id)
             if current is not None:
-                transaction.recordings.update(replace(current, file_status=status))
+                transaction.recordings.update(
+                    replace(current, file_status=status), frozenset({"file_status"})
+                )
                 transaction.commit()
 
     def _prepare(self, recording: Recording, context: JobContext) -> dict[str, object]:

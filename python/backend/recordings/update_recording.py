@@ -21,7 +21,7 @@ class UpdateRecording:
                     "RecordingNotFound", "Recording was not found", recordingId=recording_id
                 )
             updated = replace(recording, display_name=normalized or None)
-            transaction.recordings.update(updated)
+            updated = transaction.recordings.update(updated, frozenset({"display_name"}))
             transaction.commit()
         return updated
 
@@ -40,6 +40,6 @@ class UpdateRecording:
                 )
             metadata["roomPerformance"] = dict(result)
             updated = replace(recording, session_metadata=metadata)
-            transaction.recordings.update(updated)
+            updated = transaction.recordings.update(updated, frozenset({"session_metadata"}))
             transaction.commit()
         return updated
