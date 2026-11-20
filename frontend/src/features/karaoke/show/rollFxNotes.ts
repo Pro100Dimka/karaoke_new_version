@@ -94,7 +94,7 @@ export class RollNotePainter {
   ): void {
     const size = `${this.layout.lane.width}:${this.layout.lane.height}:${view.span}:${view.low}:${view.high}`;
     if (this.contourView?.notes !== view.notes || this.contourSize !== size) {
-      this.contourTextures.clear();
+      this.clearContourTextures();
       this.contourView = view;
       this.contourSize = size;
     }
@@ -106,8 +106,10 @@ export class RollNotePainter {
       const left = geometry.x(note.start) - 2;
       const width =
         ((note.end - note.start) * this.layout.lane.width) / view.span + 4;
-      if (left > this.layout.lane.width + margin || left + width < margin)
+      if (left > this.layout.lane.width + margin || left + width < margin) {
+        this.releaseContourTexture(note);
         continue;
+      }
       let textures = this.contourTextures.get(note);
       let texture = textures?.get(scale);
       if (!texture) {
@@ -173,6 +175,18 @@ export class RollNotePainter {
       started = true;
     }
     context.stroke();
+  }
+  private releaseContourTexture(note: ShowNote): void {
+    const textures = this.contourTextures.get(note);
+    if (!textures) return;
+    // Offscreen contours are recreated on seek. Release their pixel buffers now
+    // instead of retaining every note's two-scale bitmap until the song ends.
+    for (const { canvas } of textures.values()) canvas.width = 0;
+    this.contourTextures.delete(note);
+  }
+  private clearContourTextures(): void {
+    for (const note of this.contourTextures.keys())
+      this.releaseContourTexture(note);
   }
   expire(now: number): void {
     this.sparkles = this.sparkles.filter((m) => now - m.start < sparkleMs);
@@ -367,6 +381,6 @@ export class RollNotePainter {
     }
   }
   dispose(): void {
-    this.contourTextures.clear();
+    this.clearContourTextures();
   }
 }
