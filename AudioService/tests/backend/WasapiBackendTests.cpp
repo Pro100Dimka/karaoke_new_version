@@ -1126,11 +1126,14 @@ void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
     // One engine period spans the whole endpoint buffer so it is split into bounded blocks.
     constexpr UINT32 BufferPeriodFrames = MaxBlockFrames + 64;
     Fixture fixture;
+    // Use one explicit wake so separate client starts cannot submit a second packet.
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
     fixture.input.client.maximum = fixture.output.client.maximum = BufferPeriodFrames;
     (void)fixture.backend.open(fixture.request(BufferPeriodFrames));
     fixture.input.client.capture.frames = MaxBlockFrames + 64;
     fixture.output.client.pad = 20;
     fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
     expect(fixture.input.client.state.attempted.wait(), "capture packet must be consumed");
     expect(fixture.output.client.state.attempted.wait(), "render packet must be filled");
     fixture.backend.stop();
@@ -1150,7 +1153,10 @@ void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
     expect(fixture.callback.renderCount == 2 &&
                fixture.callback.renders[0].devicePosition == 1020 &&
                fixture.callback.renders[1].devicePosition == 1020 + MaxBlockFrames,
-           "render clock positions must include padding and processed frames");
+           "render clock positions must include padding and processed frames: count=" +
+               std::to_string(fixture.callback.renderCount) + " positions=" +
+               std::to_string(fixture.callback.renders[0].devicePosition) + "," +
+               std::to_string(fixture.callback.renders[1].devicePosition));
 }
 
 void Tests::wasapiFailedStartRollsBackTheRunningSession() {
