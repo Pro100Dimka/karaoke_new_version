@@ -217,10 +217,18 @@ void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
         std::memcpy(output, input, samples * sizeof(float));
         return;
     }
+    std::uint32_t sampleMask = UINT32_MAX;
+    if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE && type != AudioSampleFormat::Unknown) {
+        const auto validBits =
+            reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(format)->Samples.wValidBitsPerSample;
+        if (validBits != 0 && validBits < format->wBitsPerSample)
+            sampleMask <<= format->wBitsPerSample - validBits;
+    }
     if (type == AudioSampleFormat::Int16) {
         for (std::size_t i = 0; i < samples; ++i) {
             const auto x = std::clamp(input[i], -1.0F, 1.0F);
-            const auto v = static_cast<std::int16_t>(std::lrint(x * 32767.0F));
+            const auto v = static_cast<std::int16_t>(
+                static_cast<std::uint32_t>(std::lrint(x * 32767.0F)) & sampleMask);
             std::memcpy(output + i * 2U, &v, 2U);
         }
         return;
@@ -228,7 +236,8 @@ void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
     if (type == AudioSampleFormat::Int24) {
         for (std::size_t i = 0; i < samples; ++i) {
             const auto x = std::clamp(input[i], -1.0F, 1.0F);
-            const auto v = static_cast<std::int32_t>(std::lrint(x * 8388607.0F));
+            const auto v = static_cast<std::int32_t>(
+                static_cast<std::uint32_t>(std::lrint(x * 8388607.0F)) & sampleMask);
             const auto o = i * 3U;
             output[o] = static_cast<BYTE>(v & 0xff);
             output[o + 1U] = static_cast<BYTE>((v >> 8) & 0xff);
@@ -239,7 +248,8 @@ void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
     if (type == AudioSampleFormat::Int32) {
         for (std::size_t i = 0; i < samples; ++i) {
             const auto x = std::clamp(static_cast<double>(input[i]), -1.0, 1.0);
-            const auto v = static_cast<std::int32_t>(std::llround(x * 2147483647.0));
+            const auto v = static_cast<std::int32_t>(
+                static_cast<std::uint32_t>(std::llround(x * 2147483647.0)) & sampleMask);
             std::memcpy(output + i * 4U, &v, 4U);
         }
         return;
