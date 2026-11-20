@@ -234,7 +234,7 @@ export class DesktopShell {
   private current: ShellStatus = idleShellStatus;
   private readonly listeners = new Set<StatusListener>();
   private readonly pending: ShellCommand[] = [];
-  private readonly updateState = new Map<ShellCommand['type'], ShellCommand>();
+  private readonly replayState = new Map<ShellCommand['type'], ShellCommand>();
   private deliver: ((command: ShellCommand) => void) | null = null;
 
   status(): ShellStatus {
@@ -266,7 +266,7 @@ export class DesktopShell {
   /** The interface is listening; queued commands go out now, in order. */
   connect(deliver: (command: ShellCommand) => void): void {
     this.deliver = deliver;
-    for (const command of this.updateState.values()) deliver(command);
+    for (const command of this.replayState.values()) deliver(command);
     for (const command of this.pending.splice(0)) deliver(command);
   }
 
@@ -279,6 +279,8 @@ export class DesktopShell {
     const clears: Partial<
       Record<ShellCommand['type'], ShellCommand['type'][]>
     > = {
+      // A replacement renderer needs the current monitors without waiting for a hardware event.
+      displays: [],
       updateAvailable: ['updateReady', 'updateProgress', 'updateFailed'],
       updateProgress: ['updateFailed'],
       updateReady: ['updateAvailable', 'updateProgress', 'updateFailed'],
@@ -286,8 +288,8 @@ export class DesktopShell {
     };
     const obsolete = clears[command.type];
     if (obsolete) {
-      for (const type of obsolete) this.updateState.delete(type);
-      this.updateState.set(command.type, command);
+      for (const type of obsolete) this.replayState.delete(type);
+      this.replayState.set(command.type, command);
     }
     if (this.deliver) this.deliver(command);
     else if (!obsolete) this.pending.push(command);
