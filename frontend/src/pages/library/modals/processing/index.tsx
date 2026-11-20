@@ -31,6 +31,8 @@ import { ProcessingErrorDialog } from './ProcessingError';
 import './processing.css';
 import { ProcessingJobCard } from './ProcessingJobCard';
 import {
+  phaseOf,
+  phases,
   processingDuration,
   processingTitle,
   stateLabel,
@@ -188,12 +190,13 @@ export const ProcessingModal = observer(
         return;
       }
       const song = songOf(job);
+      const phase = phaseOf(job);
       setNotice({
         title: tr('processingJobDetails'),
         text: [
           processingTitle(job, song) ?? tr('processingSongUnavailable'),
           `${tr('processingDetailsState')}: ${tr(stateLabel[job.state])}`,
-          `${tr('processingDetailsStage')}: ${job.stage}`,
+          `${tr('processingDetailsStage')}: ${phase === undefined ? job.stage : tr(phases[phase])}`,
           `${tr('processingDetailsProgress')}: ${job.progress}%`,
           `${tr('processingDetailsTime')}: ${processingDuration(job) ?? '0:00'}`,
           job.error?.message ?? '',
