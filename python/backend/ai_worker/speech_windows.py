@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 import numpy as np
 from backend.lyrics.discovery import performed_phrases
+from backend.ai_worker.catalog_occurrences import recognized_occurrences
 from backend.ai_worker.ctc import (
     AlignedWord,
     Window,
@@ -144,6 +145,7 @@ def _shifted_hints(
     """Correct stale cues using independent recognition or a well-supported adjacent CTC path."""
     lines = _line_first_words(words, hints)
     shift = _catalog_shift(lines, whole)
+    spans = recognized_occurrences(lines, heard, shift, _MARGIN_SECONDS)
     supported = _heard_timings(words, list(heard), whole, minimum_block=_MINIMUM_BLOCK)
     result: list[dict[str, object]] = []
     previous_entry: float | None = None
@@ -170,7 +172,7 @@ def _shifted_hints(
                 whole,
             ):
                 entry = whole[first].start
-        entry = _bounded_entry(lines, line_index, previous_entry, entry, shift)
+        entry = _bounded_entry(lines, line_index, previous_entry, entry, shift, spans)
         result.append({"start": entry, "text": text})
         previous_entry = entry
     return result
@@ -447,12 +449,15 @@ def _bounded_entry(
     previous_entry: float | None,
     entry: float,
     shift: float,
+    spans: Mapping[int, tuple[float, float]],
 ) -> float:
     # A repeated phrase must not borrow the timestamp of a neighbouring occurrence.
     lower = previous_entry if previous_entry is not None else float("-inf")
     if line_index:
         lower = max(lower, lines[line_index - 1][1] + shift)
     upper = lines[line_index + 1][1] + shift if line_index + 1 < len(lines) else float("inf")
-    if not lower < entry < upper:
+    if not lower < entry < upper or any(
+        other != line_index and start <= entry < end for other, (start, end) in spans.items()
+    ):
         entry = lines[line_index][1] + shift
     return entry
