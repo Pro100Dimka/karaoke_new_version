@@ -86,7 +86,9 @@ def test_media_update_cannot_recreate_a_song_directory_during_deletion(
     assert source.is_file()
 
 
-@pytest.mark.parametrize("field,copy_method", [("coverPath", "copy_cover"), ("videoPath", "copy_clip")])
+@pytest.mark.parametrize(
+    "field,copy_method", [("coverPath", "copy_cover"), ("videoPath", "copy_clip")]
+)
 def test_deletion_waits_for_an_in_progress_media_update(
     client: TestClient,
     tmp_path: Path,
