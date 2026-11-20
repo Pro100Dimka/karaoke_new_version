@@ -328,15 +328,20 @@ sudo() { "$@"; }
 sleep() { :; }
 chown() { :; }
 install() {
-    local target="${@: -1}" args=()
+    local target="${@: -1}" args=() directory=0
     printf '%s\n' "$@" >> "$RC_SANDBOX/install-arguments"
     while (( $# )); do
         case "$1" in
             -o|-g) shift 2 ;;
+            -d) directory=1; args+=("$1"); shift ;;
             *) args+=("$1"); shift ;;
         esac
     done
-    command install "${args[@]}" || return $?
+    if [[ "$RC_WINDOWS_SANDBOX" == 1 && "$directory" == 1 ]]; then
+        command mkdir -p -- "$target" || return $?
+    else
+        command install "${args[@]}" || return $?
+    fi
     fail_once "install-$target"
 }
 cp() {
@@ -368,7 +373,12 @@ curl() {
     )
     for name in ["active", "enabled"]:
         (tmp_path / name).write_text("1", encoding="utf-8")
-    environment = {**os.environ, "BASH_ENV": _bash_path(mocks), "RC_SANDBOX": _bash_path(tmp_path)}
+    environment = {
+        **os.environ,
+        "BASH_ENV": _bash_path(mocks),
+        "RC_SANDBOX": _bash_path(tmp_path),
+        "RC_WINDOWS_SANDBOX": "1" if os.name == "nt" else "0",
+    }
     return bash_interpreter, script, stage, environment, original
 
 
@@ -505,3 +515,40 @@ def test_processing_deployment_sandbox_creates_data_without_changing_host_owners
             0o644,
             0o644,
         ]
+
+
+@pytest.mark.parametrize("failure", ["", "obstructed", "injected"])
+def test_windows_directory_install_sandbox_keeps_real_creation_and_failures(
+    processing_deployment_sandbox, failure
+):
+    bash, _script, stage, environment, _original = processing_deployment_sandbox
+    target = stage.parents[1] / "install-probe" / "data"
+    if failure == "obstructed":
+        target.parent.mkdir()
+        target.write_text("keep", encoding="utf-8")
+    result = subprocess.run(
+        [
+            str(bash),
+            "-c",
+            'install -d -m 700 -o ubuntu -g ubuntu "$1"',
+            "probe",
+            _bash_path(target),
+        ],
+        env={
+            **environment,
+            "RC_WINDOWS_SANDBOX": "1",
+            "FAIL_AT": "install-" + _bash_path(target) if failure == "injected" else "",
+        },
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    assert (result.returncode == 0) == (not failure), result.stdout + result.stderr
+    if failure == "obstructed":
+        assert target.read_text(encoding="utf-8") == "keep"
+    else:
+        assert target.is_dir()
+    assert (stage.parents[1] / "failed-once").is_file() == (failure == "injected")
+    arguments = (stage.parents[1] / "install-arguments").read_text(encoding="utf-8").splitlines()
+    assert arguments == ["-d", "-m", "700", "-o", "ubuntu", "-g", "ubuntu", _bash_path(target)]
