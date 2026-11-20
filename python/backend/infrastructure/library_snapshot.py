@@ -6,6 +6,20 @@ from pathlib import Path, PurePosixPath
 from backend.domain_errors import DependencyError
 
 
+def require_recording_file(source: Path, recording_id: str) -> None:
+    """Every exported recording row needs its main media, even if only sidecars remain."""
+    try:
+        with source.open("rb"):
+            pass
+    except OSError as exc:
+        raise DependencyError(
+            "StorageUnavailable",
+            "Recording file is unavailable; restore or remove this recording before exporting",
+            recordingId=recording_id,
+            path=str(source),
+        ) from exc
+
+
 def copy_snapshot_files(
     files: Mapping[PurePosixPath, Path],
     destination: Path,

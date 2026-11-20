@@ -18,7 +18,7 @@ from backend.domain_errors import ConflictError
 from backend.infrastructure.database import Database
 from backend.infrastructure.atomic_files import atomic_write_text
 from backend.infrastructure.hashing import sha256_file
-from backend.infrastructure.library_snapshot import copy_snapshot_files
+from backend.infrastructure.library_snapshot import copy_snapshot_files, require_recording_file
 from backend.infrastructure.orm import (
     AnalysisRow,
     HistoryRow,
@@ -186,6 +186,8 @@ class SqlLibraryStorage:
                     self._file(files, source)
         for recording in rows["recordings"]:
             source = ensure_within(Path(str(recording["file_path"])), self._roots.recordings)
+            require_recording_file(source, str(recording["recording_id"]))
+            self._file(files, source)
             for companion in source.parent.glob(f"{source.stem}*"):
                 if companion.is_file():
                     self._file(files, companion)
