@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import socket
 import threading
 import urllib.error
@@ -14,7 +13,7 @@ from backend.lyrics.codec import clean_lyric_line as _clean_line, decode_lrc as 
 from backend.serialization import loads_list
 from backend.songs.domain import Language, Song
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
-from backend.text_normalization import strip_annotations
+from backend.text_normalization import split_artist_credit, strip_annotations
 
 Fetch = Callable[[str, float], str]
 
@@ -86,15 +85,12 @@ class LrclibLyricsProvider:
         return tuple(item for row in rows if (item := _candidate(row)) is not None)
 
 
-_ARTIST_SEPARATORS = re.compile(r"\s*(?:,|;|&|/|\bvs\.?|\bfeat\.?|\bft\.?|\bx\b)\s*", re.IGNORECASE)
-
-
 def _artist_variants(artist: str) -> list[str]:
     """The artist as written and, for a collaboration, its first name: catalogs list a duet under one of the artists."""
     full = strip_annotations(artist).strip()
     if not full or full == UNKNOWN_ARTIST:
         return []
-    first = _ARTIST_SEPARATORS.split(full)[0].strip()
+    first = split_artist_credit(full)[0].strip()
     return [full] if not first or first == full else [full, first]
 
 

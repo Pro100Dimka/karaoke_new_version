@@ -162,6 +162,23 @@ class LyricsDiscovery:
         found = self._recognized_catalogue(
             song, source, transcripts, cancel, warnings, online_enabled
         )
+        if found:
+            # Reconcile while every catalogue cue is still available, before repeat recovery
+            # drops ambiguous cues or stores the catalogue as its verification baseline.
+            reconciled = reconcile_timed_overlaps(
+                LyricsCandidate(
+                    found.lyrics,
+                    song.title,
+                    song.artist,
+                    song.duration,
+                    found.source,
+                    found.timing_hints,
+                ),
+                found.alternatives,
+                transcripts,
+                _lyrics_key,
+            )
+            found = replace(found, lyrics=reconciled.lyrics, timing_hints=reconciled.timing_hints)
         for lyrics in transcripts:
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
@@ -170,23 +187,9 @@ class LyricsDiscovery:
         if found is None:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
         found = self._ending(song, sources, asr, cancel, found, execution, ending)
-        reconciled = reconcile_timed_overlaps(
-            LyricsCandidate(
-                found.lyrics,
-                song.title,
-                song.artist,
-                song.duration,
-                found.source,
-                found.timing_hints,
-            ),
-            found.alternatives,
-            transcripts,
-            _lyrics_key,
-        )
         return replace(
             found,
-            lyrics=reconciled.lyrics,
-            timing_hints=reconcile_timing_hints(reconciled.lyrics, reconciled.timing_hints),
+            timing_hints=reconcile_timing_hints(found.lyrics, found.timing_hints),
             repeat_baseline_hints=reconcile_timing_hints(
                 found.repeat_baseline or found.lyrics, found.repeat_baseline_hints
             ),

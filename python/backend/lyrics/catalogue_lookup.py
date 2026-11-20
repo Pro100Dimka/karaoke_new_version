@@ -15,7 +15,12 @@ from backend.lyrics.phrases import (
 from backend.lyrics.ports import LyricsCandidate, OnlineLyricsProvider
 from backend.songs.domain import Song
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
-from backend.text_normalization import clean_lyrics, normalize_catalog_identity, strip_annotations
+from backend.text_normalization import (
+    clean_lyrics,
+    normalize_catalog_identity,
+    split_artist_credit,
+    strip_annotations,
+)
 
 type CatalogueCache = dict[int, tuple[LyricsCandidate, ...]]
 
@@ -56,6 +61,34 @@ def select_catalogue(
             and _catalog_matches_performance(item.lyrics, transcripts)
         )
         matched = next((item for item in eligible if matches_metadata(song, item, policy)), None)
+        if matched is None:
+            # A solo lead credit needs an equivalent catalogue entry crediting the guests.
+            artists = tuple(map(normalize_catalog_identity, split_artist_credit(song.artist)))
+            title = normalize_catalog_identity(strip_annotations(song.title))
+            matched = next(
+                (
+                    item
+                    for item in eligible
+                    if len(artists) > 1
+                    and all(artists)
+                    and song.duration is not None
+                    and item.duration is not None
+                    and len(split_artist_credit(item.artist)) == 1
+                    and normalize_catalog_identity(strip_annotations(item.artist)) == artists[0]
+                    and normalize_catalog_identity(strip_annotations(item.title)) == title
+                    and any(
+                        other != item
+                        and other.duration is not None
+                        and normalize_catalog_identity(strip_annotations(other.title)) == title
+                        and _words(other.lyrics) == _words(item.lyrics)
+                        and set(artists[1:]).issubset(
+                            map(normalize_catalog_identity, split_artist_credit(other.artist))
+                        )
+                        for other in eligible
+                    )
+                ),
+                None,
+            )
         if matched:
             if transcripts:
                 eligible = tuple(

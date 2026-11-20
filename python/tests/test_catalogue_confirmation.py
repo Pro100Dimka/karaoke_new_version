@@ -72,6 +72,62 @@ def _discovery(*providers: _Provider) -> LyricsDiscovery:
     return LyricsDiscovery(LocalSidecarLyricsReader(), providers, LyricsMatchPolicy())
 
 
+@pytest.mark.parametrize("separator", [" & ", ", ", " feat. "])
+def test_corroborated_collaboration_catalogue_can_credit_only_the_lead_artist(separator) -> None:
+    song = replace(_song(), artist=f"{ARTIST}{separator}River Lights")
+    candidate = _candidate(artist=ARTIST)
+
+    duet = _candidate(artist="N.W., River Lights")
+    prepared = _discovery(_Provider([candidate, duet])).lookup(song, threading.Event(), True)
+
+    assert prepared.found is not None
+    assert (prepared.found.lyrics, prepared.found.source) == (LYRICS, "catalogue")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"artist": "River Lights"},
+        {"artist": f"{ARTIST} & Other Guest"},
+        {"artist": ARTIST, "title": "Other Song"},
+        {"artist": ARTIST, "duration": 240.0},
+        {"artist": ARTIST, "duration": None},
+    ],
+    ids=["guest-only", "different-collaborator", "other-title", "other-duration", "no-duration"],
+)
+def test_lead_artist_matching_still_rejects_other_performances(changes) -> None:
+    song = replace(_song(), artist=f"{ARTIST} & River Lights")
+
+    prepared = _discovery(
+        _Provider([_candidate(**changes), _candidate(artist="N.W., River Lights")])
+    ).lookup(
+        song, threading.Event(), True
+    )
+
+    assert prepared.found is None
+
+
+@pytest.mark.parametrize(
+    "artist, lead, corroboration",
+    [
+        (f"{ARTIST} & River Lights", ARTIST, []),
+        ("AC/DC", "AC", []),
+        (f"{ARTIST} & River Lights", ARTIST, [_candidate(artist="N.W. & Other Guest")]),
+    ],
+    ids=["solo-only", "band-with-separator", "different-guest"],
+)
+def test_lead_credit_needs_the_same_text_attributed_to_the_requested_guest(
+    artist, lead, corroboration
+) -> None:
+    song = replace(_song(), artist=artist)
+
+    prepared = _discovery(_Provider([_candidate(artist=lead), *corroboration])).lookup(
+        song, threading.Event(), True
+    )
+
+    assert prepared.found is None
+
+
 def test_alias_is_selected_only_after_raw_recognition_without_repeating_http() -> None:
     provider = _Provider([_candidate()])
     discovery = _discovery(provider)

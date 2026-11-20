@@ -100,6 +100,75 @@ def test_corroborated_overlapping_cue_keeps_the_prefix_and_other_version_outro()
     assert [hint.text for hint in actual.timing_hints] == expected
 
 
+@pytest.mark.parametrize("surplus_supported", [False, True])
+def test_repeat_verification_preserves_the_reconciled_catalogue_floor(surplus_supported):
+    from backend.ai.domain import WordTiming
+    from backend.processing.document_pipeline import _verified_repeats
+
+    original, alternate, heard = _case()
+    # Recognition suggests surplus repetitions, so completion drops their ambiguous cues.
+    found = _select(original, [alternate], [" ".join([heard, *([_FULL] * 4)])])
+    baseline = original.lyrics.splitlines()
+    baseline[3] = _PREFIX
+    assert found.repeat_baseline.splitlines() == baseline
+    assert [hint.text for hint in found.repeat_baseline_hints] == baseline
+    assert found.lyrics.splitlines()[3] == _PREFIX
+    words = tuple(
+        WordTiming(text, index, index + 0.5, 0.8 if surplus_supported else 0.02)
+        for index, text in enumerate(found.lyrics.split())
+    )
+
+    verified = _verified_repeats(found, words)
+
+    assert verified.lyrics == (found.lyrics if surplus_supported else "\n".join(baseline))
+    if not surplus_supported:
+        assert verified.timing_hints == found.repeat_baseline_hints
+
+
+@pytest.mark.parametrize(
+    "catalogue,performed,expected",
+    [
+        ([0, 0, 0, 1, 2], [0, 1, 0, 1, 2], [0, 0, 0, 1, 2]),
+        ([0, 0, 0, 1, 2], [0, 0, 0, 1, 1, 2], [0, 0, 0, 1, 1, 2]),
+        ([0, 0, 0, 1, 2], [0, 1, 0, 1, 1, 2], [0, 0, 0, 1, 1, 2]),
+        ([0, 0, 0, 1, 2], [0, 1, 1, 0, 1, 2], [0, 0, 1, 0, 1, 2]),
+        ([0, 0, 1, 2, 0], [0, 1, 0, 1, 2], [0, 1, 0, 1, 2, 0]),
+    ],
+)
+def test_a_partial_catalogue_occurrence_does_not_invent_or_consume_an_extra_prefix(
+    catalogue, performed, expected
+):
+    from backend.lyrics.phrases import _complete_repeats
+
+    phrases = [
+        "We hold the light while distant rivers slowly return home",
+        "We hold the light",
+        "Silver mountains carry every fading memory home",
+    ]
+    actual = _complete_repeats(
+        "\n".join(phrases[i] for i in catalogue),
+        " ".join(phrases[i] for i in performed),
+        threading.Event(),
+    )
+
+    assert actual.splitlines() == [phrases[i] for i in expected]
+
+
+@pytest.mark.parametrize("short", ["We hold", "We hold the light"])
+def test_ambiguous_or_incomplete_word_prefix_does_not_absorb_an_extra_occurrence(short):
+    from backend.lyrics.phrases import _complete_repeats
+
+    full = "We hold the lighthouse while distant rivers slowly return home"
+    verse = "Silver mountains carry every fading memory home"
+    catalogue = [full, full, full, short, verse]
+    performed = [full, short, full, short, verse]
+
+    actual = _complete_repeats("\n".join(catalogue), " ".join(performed), threading.Event())
+
+    assert actual.splitlines().count(full) == 3
+    assert actual.splitlines().count(short) == 2
+
+
 @pytest.mark.parametrize("missing", ["recognition", "alternate", "prefix", "next_verse"])
 def test_overlap_requires_the_exact_supported_catalogue_counterpart(missing):
     original, alternate, heard = _case()

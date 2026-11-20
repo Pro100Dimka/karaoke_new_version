@@ -81,6 +81,14 @@ def strip_annotations(value: str) -> str:
     return " ".join(re.sub(r"[\(\[].*?[\)\]]", " ", value).split())
 
 
+def split_artist_credit(value: str) -> list[str]:
+    return re.split(
+        r"\s*(?:,|;|&|/|\bvs\.?|\bfeat\.?|\bft\.?|\bx\b)\s*",
+        strip_annotations(value).strip(),
+        flags=re.IGNORECASE,
+    )
+
+
 def spell_lyric_percentages(text: str, language: str) -> str:
     """Give the aligner letters to pronounce when a catalogue writes a sung percentage as digits."""
     locale, forms = {

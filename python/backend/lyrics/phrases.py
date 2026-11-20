@@ -46,8 +46,15 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
     if stop < len(matches) and _repeat_ending(lyrics, heard[after:], cancel) != lyrics:
         matches = matches[:stop]
     performed = tuple(index for index, _, _ in matches)
-    merged = _merge_lines(original, performed, keys)
     written = {_lyrics_key(line): line for line in reversed(lines)}
+    parts = [[_lyrics_key(word) for word in written[key].split()] for key in keys]
+    prefixes = {
+        (a, b)
+        for a, full in enumerate(parts)
+        for b, short in enumerate(parts)
+        if 3 <= len(short) < len(full) and full[: len(short)] == short
+    }
+    merged = _merge_lines(original, performed, keys, prefixes=prefixes)
     completed = (
         lyrics
         if len(merged) == len(original)
@@ -221,11 +228,20 @@ def _line_matches(key: str, heard: list[str], start: int) -> Iterator[tuple[int,
             yield end + 1, support
 
 
-def _merge_lines(original: list[int], performed: tuple[int, ...], keys: list[str]) -> list[int]:
+def _merge_lines(
+    original: list[int],
+    performed: tuple[int, ...],
+    keys: list[str],
+    *,
+    prefixes: set[tuple[int, int]] | None = None,
+) -> list[int]:
     extra = Counter(performed) - Counter(original)
     merged: list[int] = []
     first = heard_first = 0
-    for i, j in (*_line_anchors(original, performed, keys), (len(original), len(performed))):
+    for i, j in (
+        *_line_anchors(original, performed, keys, prefixes),
+        (len(original), len(performed)),
+    ):
         added = []
         for index in performed[heard_first:j]:
             if extra[index] > 0:
@@ -243,22 +259,40 @@ def _merge_lines(original: list[int], performed: tuple[int, ...], keys: list[str
 
 
 def _line_anchors(
-    original: list[int], performed: tuple[int, ...], keys: list[str]
+    original: list[int],
+    performed: tuple[int, ...],
+    keys: list[str],
+    prefixes: set[tuple[int, int]] | None = None,
 ) -> list[tuple[int, int]]:
     counts = Counter(original)
     equivalent = _line_variants(keys)
-    lengths = [[0.0] * (len(performed) + 1) for _ in range(len(original) + 1)]
+    prefixes = (prefixes or set()) - equivalent
+    pairs = equivalent | prefixes
+    lengths = [[(0.0, 0)] * (len(performed) + 1) for _ in range(len(original) + 1)]
+
+    def matched(i: int, j: int) -> tuple[float, int]:
+        pair = (original[i], performed[j])
+        if pair not in pairs:
+            return -math.inf, 0
+        score, exact = lengths[i + 1][j + 1]
+        return score + 1 / counts[original[i]], exact + int(bool(prefixes) and pair in equivalent)
+
     for i in range(len(original) - 1, -1, -1):
         for j in range(len(performed) - 1, -1, -1):
+            match = matched(i, j)
+            # A partial cue can explain a missed full line, but cannot consume a later
+            # complete occurrence and hide a genuine surplus prefix between them.
             lengths[i][j] = (
-                lengths[i + 1][j + 1] + 1 / counts[original[i]]
-                if (original[i], performed[j]) in equivalent
-                else max(lengths[i + 1][j], lengths[i][j + 1])
+                max(match, lengths[i + 1][j], lengths[i][j + 1])
+                if prefixes or match[0] == -math.inf
+                else match
             )
     anchors: list[tuple[int, int]] = []
     i = j = 0
     while i < len(original) and j < len(performed):
-        if (original[i], performed[j]) in equivalent:
+        if (original[i], performed[j]) in pairs and (
+            not prefixes or lengths[i][j] == matched(i, j)
+        ):
             anchors.append((i, j))
             i, j = i + 1, j + 1
         elif lengths[i + 1][j] > lengths[i][j + 1]:
