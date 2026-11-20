@@ -1392,24 +1392,51 @@ struct WasapiBackend::Impl {
         }
         renderQueueFramesNow.store(queueFrames, std::memory_order_relaxed);
         const auto renderStartedAt = monotonicTicksNow();
-        const auto available = queueFrames - pad;
         BYTE* data = nullptr;
-        if (!streamSucceeded(render->GetBuffer(available, &data)))
+        if (mode == WasapiMode::Exclusive &&
+            !streamSucceeded(render->GetBuffer(queueFrames, &data)))
             return;
         UINT64 position = 0, qpc = 0;
         std::uint64_t confirmedSkip = 0;
         auto presentation = nextRenderPresentationNs != 0 ? nextRenderPresentationNs :
             monotonicTicksNow() + static_cast<MonotonicTicks>(runtime.outputLatencyFrames) *
                                       1'000'000'000LL / outputFormat->nSamplesPerSec;
-        auto clockResult = renderClock ? renderClock->GetPosition(&position, &qpc) : E_NOINTERFACE;
-        // S_FALSE is inaccurate. Retry once, never infer a device stall from an uncertain sample.
-        if (clockResult == S_FALSE) {
-            renderClockInaccurateReads.fetch_add(1, std::memory_order_relaxed);
-            clockResult = renderClock->GetPosition(&position, &qpc);
-            if (clockResult == S_FALSE)
+        auto clockResult = E_NOINTERFACE;
+        auto paddingStable = mode != WasapiMode::Shared;
+        // This thread is the sole producer. Equal padding around a clock read proves that
+        // no queued PCM drained between those observations. Retry an overlapping pass once;
+        // mixing an old padding count with a newer clock invents skips and grows the queue.
+        for (unsigned attempt = 0; attempt < 2; ++attempt) {
+            clockResult = renderClock ? renderClock->GetPosition(&position, &qpc) : E_NOINTERFACE;
+            // S_FALSE is inaccurate. Retry once without inferring a stall from that sample.
+            if (clockResult == S_FALSE) {
                 renderClockInaccurateReads.fetch_add(1, std::memory_order_relaxed);
+                clockResult = renderClock->GetPosition(&position, &qpc);
+                if (clockResult == S_FALSE)
+                    renderClockInaccurateReads.fetch_add(1, std::memory_order_relaxed);
+            }
+            if (mode != WasapiMode::Shared)
+                break;
+            UINT32 observedPadding = 0;
+            if (!streamSucceeded(outputClient->GetCurrentPadding(&observedPadding)))
+                return;
+            paddingStable = observedPadding == pad;
+            pad = observedPadding;
+            padding.store(pad, std::memory_order_relaxed);
+            if (paddingStable || clockResult != S_OK || renderClockFrequency == 0)
+                break;
         }
-        const auto clockAccurate = clockResult == S_OK && renderClockFrequency != 0;
+        if (pad > bufferFrames) {
+            (void)streamSucceeded(E_UNEXPECTED);
+            return;
+        }
+        if (pad >= queueFrames)
+            return;
+        const auto available = queueFrames - pad;
+        if (mode == WasapiMode::Shared &&
+            !streamSucceeded(render->GetBuffer(available, &data)))
+            return;
+        const auto clockAccurate = clockResult == S_OK && renderClockFrequency != 0 && paddingStable;
         if (!clockAccurate) {
             starveWindowQpc = 0;
             stalledRenderWindows = 0;

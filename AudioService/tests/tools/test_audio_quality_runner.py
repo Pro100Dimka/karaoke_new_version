@@ -63,7 +63,7 @@ class AudioQualityRunnerTests(unittest.TestCase):
                                         dtype="<i2").reshape(-1, 2)[:, 0] / 32768
             self.assertLess(np.max(np.abs(np.diff(samples))), 0.06)
 
-    def test_room_command_runs_existing_ui_gate_and_keeps_quality_inconclusive(self):
+    def test_room_command_requires_windows_and_keeps_quality_inconclusive(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             gate = root / "gate.mjs"
@@ -73,6 +73,11 @@ class AudioQualityRunnerTests(unittest.TestCase):
             run = subprocess.run(["node", str(RUNNER), "--room", "--scenario", "normal",
                                   "--out", str(root / "out")], env=env,
                                  capture_output=True, text=True, check=False)
+            if os.name != "nt":
+                self.assertEqual(run.returncode, 1, run.stderr)
+                self.assertIn("The production backend quality gate requires Windows", run.stderr)
+                self.assertFalse((root / "out").exists())
+                return
             self.assertEqual(run.returncode, 3, run.stderr)
             report = json.loads((root / "out" / "room" / "normal" /
                                  "report.json").read_text(encoding="utf-8"))

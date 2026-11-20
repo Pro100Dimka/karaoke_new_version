@@ -136,6 +136,9 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
 
     with monkeypatch.context() as setup:
         setup.setattr(os, "environ", dict(os.environ))
+        setup.setattr(
+            remote_worker, "__file__", str(tmp_path / "python" / "backend" / "remote_worker.py")
+        )
         root = tmp_path / "worker" / "ProcessingWorker"
         models = root.parent / "AD Voice" / "backend-data" / "models"
         for spec in remote_worker.CATALOG:

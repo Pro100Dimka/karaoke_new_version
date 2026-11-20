@@ -9,11 +9,14 @@
 #include "recording/RecordingEngine.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cfenv>
 #include <chrono>
+#include <exception>
 #include <filesystem>
 #include <limits>
 #include <ranges>
+#include <semaphore>
 #include <thread>
 #include <vector>
 
@@ -989,25 +992,34 @@ void performanceDrainNeverSuspendsTheAudibleRender() {
 }
 
 void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
-    using Transition = void (*)(AudioService&, FakeAudioBackend&);
-    const std::array<Transition, 4> transitions{
-        [](AudioService& service, FakeAudioBackend& fake) {
+    struct Transition {
+        void (*run)(AudioService&, FakeAudioBackend&);
+        bool invalidatesGeneration{true};
+    };
+    const std::array<Transition, 5> transitions{{
+        {[](AudioService& service, FakeAudioBackend& fake) {
             fake.inject(BackendEventType::DeviceLost, -17);
             expect(service.handleLine("1|GetDiagnostics").status == ControlStatus::Ok,
                    "device loss is handled through the normal command dispatcher");
-        },
-        [](AudioService& service, FakeAudioBackend&) {
+        }},
+        {[](AudioService& service, FakeAudioBackend&) {
             RequestedConfiguration requested;
             requested.sampleRateHz = 44100;
             service.session().reconfigure(requested);
-        },
-        [](AudioService& service, FakeAudioBackend&) { service.session().stop(); },
-        [](AudioService& service, FakeAudioBackend&) {
+        }},
+        {[](AudioService& service, FakeAudioBackend&) { service.session().stop(); }},
+        {[](AudioService& service, FakeAudioBackend&) {
             expect(service.handleLine("1|RecoverSession").status == ControlStatus::Ok,
                    "explicit recovery is handled through the normal command dispatcher");
-        },
-    };
-    for (const auto transition : transitions) {
+        }},
+        {[](AudioService& service, FakeAudioBackend&) {
+             expect(!service.session().suspend() &&
+                        service.session().state() == SessionState::Running &&
+                        service.recording().state() == RecordingState::Recording,
+                    "suspension is rejected while the performance recording remains active");
+         }, false},
+    }};
+    for (const auto& transition : transitions) {
         auto backend = std::make_unique<FakeAudioBackend>();
         auto* fake = backend.get();
         AudioService service{std::move(backend)};
@@ -1038,9 +1050,10 @@ void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
                    service.session().state() == SessionState::Running &&
                    service.recording().state() == RecordingState::Recording,
                "background suspension preserves the active take and pending performance tail");
-        transition(service, *fake);
-        expect(service.session().generationId() > generation,
-               "the transition invalidates the old device generation");
+        transition.run(service, *fake);
+        expect(transition.invalidatesGeneration ? service.session().generationId() > generation
+                                               : service.session().generationId() == generation,
+               "accepted transitions invalidate the generation; rejected suspension preserves it");
         expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
                "the retained take remains available after the transition");
         const auto result = service.recording().result();
@@ -1056,6 +1069,478 @@ void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
                    std::ranges::equal(actual, expected,
                                       [](float a, float b) { return std::abs(a - b) < 0.0001F; }),
                "device recovery never clears the pending audible performance before saving it");
+    }
+}
+
+void performanceTeardownRetainsCapturedVoiceBeforeCutoff() {
+    constexpr std::uint32_t Rate = 48'000, Block = 480, Cutoff = 24'000, Late = 1'440;
+    constexpr double Pi = 3.14159265358979323846;
+    const auto source = tempRoot / "pending-capture-source.wav";
+    makeTestWav(source, Cutoff + Block, Rate);
+    enum class Transition { Stop, Recover, Reconfigure };
+    enum class Marker { AlreadyRendered, Pending, RenderPending };
+    struct Saved {
+        std::vector<float> dry, backing, performance;
+        double energy{0}, centroid{0};
+    };
+    const auto run = [&](Transition transition, Marker marker) {
+        FakeBackendSettings settings;
+        settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = Block;
+        settings.runtime.inputEndpointBufferFrames = settings.runtime.outputEndpointBufferFrames =
+            Block * 2;
+        settings.runtime.clockRelationship = ClockRelationship::Independent;
+        AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+        service.start();
+        (void)service.session().prepare({});
+        service.session().start();
+        auto& engine = service.realtime();
+        engine.setDspEnabled(false);
+        engine.setMonitoring(false);
+        engine.setSystemGain(1);
+        const auto generation = service.session().generationId();
+        service.media().load(MediaSlot::Music, source.string());
+        require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                "pending-capture fixture needs decoded accompaniment");
+        const auto path = tempRoot / ("pending-capture-" + std::to_string(static_cast<int>(transition)) +
+                                     "-" + std::to_string(static_cast<int>(marker)) + ".wav");
+        require(service.handleLine("1|PrepareRecording|id=pending-capture|tap=performance|backing=true|path=" +
+                                    path.string()).status == ControlStatus::Ok &&
+                    service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                "the paired performance starts before capture/render sequencing");
+        service.media().play(MediaContext::Karaoke);
+        const auto origin = monotonicTicksNow() - 5'000'000'000LL;
+        std::vector<float> input(Block), output(Block * 2);
+        const auto capture = [&](std::uint32_t frame, bool hasMarker) {
+            std::fill(input.begin(), input.end(), 0.0F);
+            if (hasMarker)
+                for (std::uint32_t index = 0; index < Block / 2; ++index)
+                    input[Block / 4 + index] = static_cast<float>(
+                        0.1 * (1.0 - std::cos(2.0 * Pi * index / (Block / 2 - 1))) *
+                        std::sin(2.0 * Pi * 1'000.0 * index / Rate));
+            const auto ticks = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / Rate;
+            engine.onCapture(generation, {input.data(), nullptr, Block, 1, frame,
+                                           ticks / 100, 0, 0, ticks});
+        };
+        const auto render = [&](std::uint32_t frame) {
+            const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < Block &&
+                   std::chrono::steady_clock::now() < ready)
+                std::this_thread::yield();
+            require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= Block,
+                    "the causal render control cannot underrun its media source");
+            const auto presentation =
+                origin + static_cast<MonotonicTicks>(frame + Late) * 1'000'000'000LL / Rate;
+            const auto clock =
+                origin + static_cast<MonotonicTicks>(frame + Block) * 1'000'000'000LL / Rate;
+            engine.onRender(generation, {nullptr, output.data(), Block, 2, frame,
+                                          clock / 100, 0, presentation});
+        };
+        for (std::uint32_t frame = 0; frame < Cutoff; frame += Block) {
+            capture(frame, marker == Marker::AlreadyRendered && frame + Block == Cutoff);
+            render(frame);
+        }
+        if (marker != Marker::AlreadyRendered) {
+            capture(Cutoff, true);
+            require(engine.snapshot().clockBridge.fillFrames == Block,
+                    "the final capture packet is accepted after the last ordinary render");
+        }
+        if (marker == Marker::RenderPending)
+            render(Cutoff);
+        const auto frames = Cutoff + (marker == Marker::RenderPending ? Block : 0U);
+        const auto before = engine.snapshot();
+        require(engine.sessionFrame() == SessionFrame{frames} && before.captureOverruns == 0 &&
+                    before.micInsertedSilenceFrames == 0,
+                "the original cutoff has no capture loss or artificial render silence");
+        if (transition == Transition::Stop)
+            service.session().stop();
+        else if (transition == Transition::Recover)
+            require(service.session().recover(), "the device recovery control succeeds");
+        else
+            (void)service.session().reconfigure({});
+        const auto result = service.recording().result();
+        require(result.finalized && result.durationFrames == frames && result.overrunCount == 0 &&
+                    result.stopSessionFrame == SessionFrame{frames},
+                "teardown retains the original recording cutoff and finalizes without overruns");
+        const auto decode = [&](std::string_view suffix) {
+            WavDecoder decoder;
+            const auto format = decoder.open(path.string() + std::string(suffix));
+            require(format.sampleRateHz == Rate && format.channels == 2 && format.totalFrames == frames,
+                    "each paired output keeps the original format and cutoff");
+            std::vector<float> pcm(static_cast<std::size_t>(frames) * 2);
+            require(decoder.read(pcm, frames) == frames, "the finalized paired output is complete");
+            return pcm;
+        };
+        Saved saved{decode(".dry.wav"), decode(".backing.wav"), decode("")};
+        for (std::uint32_t frame = 0; frame < Cutoff; ++frame) {
+            const auto value = static_cast<double>(saved.dry[frame * 2]);
+            saved.energy += value * value;
+            saved.centroid += frame * value * value;
+        }
+        if (saved.energy != 0)
+            saved.centroid /= saved.energy;
+        return saved;
+    };
+    for (const auto transition : {Transition::Stop, Transition::Recover, Transition::Reconfigure}) {
+        const auto ordinary = run(transition, Marker::AlreadyRendered);
+        const auto pending = run(transition, Marker::Pending);
+        const auto rendered = run(transition, Marker::RenderPending);
+        const auto same = [](float a, float b) { return std::abs(a - b) < 0.000001F; };
+        require(ordinary.energy > 0.1 && rendered.energy > 0.1 &&
+                    std::abs(rendered.centroid - (Cutoff + Block / 2.0 - Late - 0.5)) < 1.0 &&
+                    std::equal(ordinary.dry.begin(), ordinary.dry.end() - Block * 2,
+                               rendered.dry.begin() + Block * 2, same),
+                "an ordinary extra render places the accepted marker wholly before the original cutoff");
+        expect(std::equal(pending.backing.begin(), pending.backing.end(), rendered.backing.begin()),
+               "captured-voice draining cannot consume or rewrite the original accompaniment");
+        expect(std::equal(pending.dry.begin(), pending.dry.end(), rendered.dry.begin(), same) &&
+                   std::equal(pending.performance.begin(), pending.performance.end(),
+                              rendered.performance.begin(), same),
+               "teardown must retain accepted capture PCM that aligns before the original cutoff");
+    }
+}
+
+void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
+    constexpr std::uint32_t Rate = 48'000, Late = 1'440, DuringFinish = 16, AfterFinish = 8;
+    constexpr double Pi = 3.14159265358979323846;
+    struct Saved {
+        std::vector<float> audible, dry, backing, performance;
+    };
+    for (const auto block : {128U, 480U}) {
+        const auto cutoff = block * 64;
+        const auto total = cutoff + (DuringFinish + AfterFinish) * block;
+        const auto source = tempRoot / ("live-finish-source-" + std::to_string(block) + ".wav");
+        makeTestWav(source, total + block, Rate);
+        const auto run = [&](bool pause, bool reference) {
+            FakeBackendSettings settings;
+            settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = block;
+            settings.runtime.inputEndpointBufferFrames = settings.runtime.outputEndpointBufferFrames =
+                block * 2;
+            settings.runtime.clockRelationship = ClockRelationship::Independent;
+            AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+            service.start();
+            (void)service.session().prepare({});
+            service.session().start();
+            auto& engine = service.realtime();
+            engine.setDspEnabled(false);
+            engine.setMonitoring(true);
+            engine.setSystemGain(1);
+            const auto generation = service.session().generationId();
+            service.media().load(MediaSlot::Music, source.string());
+            require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                    "the live-finish fixture needs decoded accompaniment");
+            const auto path = tempRoot / ("live-finish-" + std::to_string(block) + "-" +
+                                         std::to_string(pause) + "-" + std::to_string(reference) + ".wav");
+            require(service.handleLine("1|PrepareRecording|id=live-finish|tap=performance|backing=true|path=" +
+                                        path.string()).status == ControlStatus::Ok &&
+                        service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                    "the live paired performance starts before the pending marker");
+            service.media().play(MediaContext::Karaoke);
+            // The paired traces use the same 100-ns rounding phase at fractional periods.
+            const auto origin = monotonicTicksNow() / 100 * 100 - 5'000'000'000LL;
+            std::vector<float> input(block), output(block * 2);
+            Saved saved;
+            const auto capture = [&](std::uint32_t frame, bool marker = false) {
+                std::fill(input.begin(), input.end(), 0.0F);
+                if (marker)
+                    for (std::uint32_t index = 0; index < block / 2; ++index)
+                        input[block / 4 + index] = static_cast<float>(
+                            0.1 * (1.0 - std::cos(2.0 * Pi * index / (block / 2 - 1))) *
+                            std::sin(2.0 * Pi * 1'000.0 * index / Rate));
+                const auto ticks = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / Rate;
+                engine.onCapture(generation, {input.data(), nullptr, block, 1, frame,
+                                               ticks / 100, 0, 0, ticks});
+            };
+            const auto render = [&](std::uint32_t frame) {
+                const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+                while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < block &&
+                       std::chrono::steady_clock::now() < ready)
+                    std::this_thread::yield();
+                require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= block,
+                        "a live-finish callback has decoded PCM available");
+                const auto presentation = origin + static_cast<MonotonicTicks>(frame + Late) *
+                                                       1'000'000'000LL / Rate;
+                const auto clock = origin + static_cast<MonotonicTicks>(frame + block) *
+                                                1'000'000'000LL / Rate;
+                engine.onRender(generation, {nullptr, output.data(), block, 2, frame,
+                                              clock / 100, 0, presentation});
+                saved.audible.insert(saved.audible.end(), output.begin(), output.end());
+            };
+            for (std::uint32_t frame = 0; frame < cutoff; frame += block) {
+                capture(frame);
+                render(frame);
+            }
+            const auto beforeMarker = engine.snapshot();
+            const auto retainedBeforeMarker = beforeMarker.clockBridge.fillFrames;
+            capture(cutoff, true);
+            require(engine.snapshot().clockBridge.fillFrames == retainedBeforeMarker + block,
+                    "the marker is accepted before requesting the fixed recording boundary");
+            const auto continueAudio = [&] {
+                for (std::uint32_t index = 0; index < DuringFinish; ++index) {
+                    const auto frame = cutoff + index * block;
+                    if (index != 0)
+                        capture(frame);
+                    render(frame);
+                }
+            };
+            if (reference) {
+                continueAudio();
+            } else {
+                RecordingTestAccess::holdPerformanceReader(engine);
+                std::atomic<bool> completed{false};
+                ControlResponse response;
+                std::thread control([&] {
+                    response = service.handleLine(pause ? "1|PauseRecording" : "1|StopRecording");
+                    completed.store(true, std::memory_order_release);
+                });
+                struct JoinControl {
+                    RealtimeEngine& engine;
+                    std::thread& thread;
+                    bool held{true};
+                    void finish() {
+                        if (held) {
+                            RecordingTestAccess::releasePerformanceReader(engine);
+                            held = false;
+                        }
+                        if (thread.joinable()) thread.join();
+                    }
+                    ~JoinControl() { finish(); }
+                } join{engine, control};
+                const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+                while (!engine.recordingFinishPending() && !completed.load(std::memory_order_acquire) &&
+                       std::chrono::steady_clock::now() < ready)
+                    std::this_thread::yield();
+                require(engine.recordingFinishPending(),
+                        "the live command publishes its capture boundary before the next render");
+                RealtimeInstrumentation::reset();
+                continueAudio();
+                const auto violations = RealtimeInstrumentation::snapshot();
+                const std::array counters{violations.allocations, violations.deallocations,
+                    violations.blockingCalls, violations.diskIoCalls, violations.networkIoCalls,
+                    violations.ipcCalls};
+                expect(std::ranges::all_of(counters, [](auto count) { return count == 0; }),
+                       "pending finish and acknowledged drain never block or allocate in audio callbacks");
+                expect(!engine.recordingFinishPending() &&
+                           RecordingTestAccess::performanceSuspended(engine) &&
+                           !completed.load(std::memory_order_acquire),
+                       "render acknowledges the capture boundary while control still waits for its lease");
+                join.finish();
+                require(response.status == ControlStatus::Ok &&
+                            service.session().state() == SessionState::Running &&
+                            service.session().generationId() == generation,
+                        "normal recording finish keeps the original audio session running");
+                const auto result = service.recording().result();
+                if (pause) {
+                    expect(service.recording().state() == RecordingState::Paused && !result.finalized,
+                           "pausing preserves the open take while playback has already advanced");
+                    require(service.handleLine("1|ResumeRecording").status == ControlStatus::Ok,
+                            "the same take resumes after the captured tail is preserved");
+                } else {
+                    expect(result.durationFrames == cutoff && result.stopSessionFrame == SessionFrame{cutoff},
+                           "continuing playback cannot move the original recording cutoff");
+                }
+            }
+            for (std::uint32_t index = 0; index < AfterFinish; ++index) {
+                const auto frame = cutoff + (DuringFinish + index) * block;
+                capture(frame);
+                render(frame);
+            }
+            const auto before = engine.snapshot();
+            require(engine.sessionFrame() == SessionFrame{total} && before.captureOverruns == 0 &&
+                        before.micInsertedSilenceFrames == beforeMarker.micInsertedSilenceFrames,
+                    "recording control cannot add playback/microphone gaps: block=" + std::to_string(block) +
+                        " reference=" + std::to_string(reference) + " initial=" +
+                        std::to_string(beforeMarker.micInsertedSilenceFrames) + " final=" +
+                        std::to_string(before.micInsertedSilenceFrames));
+            service.session().stop();
+            const auto result = service.recording().result();
+            const auto frames = reference ? total : cutoff + (pause ? AfterFinish * block : 0U);
+            require(result.finalized && result.durationFrames == frames && result.overrunCount == 0,
+                    "only the intended recording intervals reach the finalized file");
+            if (pause && !reference)
+                expect(result.gaps.size() == 1 && result.gaps.front().startFrame == SessionFrame{cutoff} &&
+                           result.gaps.front().frameCount == DuringFinish * block &&
+                           result.stopSessionFrame == SessionFrame{total},
+                       "pause starts at the frozen cutoff and resume excludes every intervening frame");
+            const auto decode = [&](std::string_view suffix) {
+                WavDecoder decoder;
+                const auto format = decoder.open(path.string() + std::string(suffix));
+                require(format.sampleRateHz == Rate && format.channels == 2 && format.totalFrames == frames,
+                        "live finish preserves each output format and exact retained duration");
+                std::vector<float> pcm(static_cast<std::size_t>(frames) * 2);
+                require(decoder.read(pcm, frames) == frames, "the retained live-finish PCM is readable");
+                return pcm;
+            };
+            saved.dry = decode(".dry.wav");
+            saved.backing = decode(".backing.wav");
+            saved.performance = decode("");
+            return saved;
+        };
+        for (const auto pause : {false, true}) {
+            const auto reference = run(pause, true);
+            const auto finished = run(pause, false);
+            expect(finished.audible == reference.audible,
+                   "Stop/Pause and its file drain preserve every audible sample at 128 and 480 frames");
+            const auto retained = [&](const std::vector<float>& pcm) {
+                std::vector<float> selected(pcm.begin(), pcm.begin() + cutoff * 2);
+                if (pause)
+                    selected.insert(selected.end(), pcm.begin() + (cutoff + DuringFinish * block) * 2,
+                                    pcm.end());
+                return selected;
+            };
+            const auto dry = retained(reference.dry);
+            require(std::ranges::any_of(dry, [](float value) { return std::abs(value) > 0.01F; }),
+                    "the ordinary-callback reference contains the pending marker before cutoff");
+            const auto same = [](float a, float b) { return std::abs(a - b) < 0.000001F; };
+            expect(std::ranges::equal(finished.dry, dry, same) &&
+                       std::ranges::equal(finished.performance, retained(reference.performance), same) &&
+                       finished.backing == retained(reference.backing),
+                   "live Stop/Pause retains pending voice, excludes the pause, and resumes on the exact song PCM");
+        }
+    }
+}
+
+void performanceFinishRecoversAfterFatalCallback() {
+    constexpr std::uint32_t Rate = 48'000, Block = 480, Cutoff = 24'000, Late = 1'440;
+    constexpr double Pi = 3.14159265358979323846;
+    const auto source = tempRoot / "fatal-finish-source.wav";
+    makeTestWav(source, Cutoff + Block, Rate);
+    for (const auto pause : {false, true}) {
+        FakeBackendSettings settings;
+        settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = Block;
+        settings.runtime.inputEndpointBufferFrames = settings.runtime.outputEndpointBufferFrames = Block * 2;
+        settings.runtime.clockRelationship = ClockRelationship::Independent;
+        auto backend = std::make_unique<FakeAudioBackend>(settings);
+        auto* fake = backend.get();
+        AudioService service{std::move(backend)};
+        service.start();
+        (void)service.session().prepare({});
+        service.session().start();
+        auto& engine = service.realtime();
+        engine.setDspEnabled(false);
+        engine.setMonitoring(false);
+        engine.setSystemGain(1);
+        const auto generation = service.session().generationId();
+        service.media().load(MediaSlot::Music, source.string());
+        require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                "fatal-finish fixture needs decoded accompaniment");
+        const auto path = tempRoot / ("fatal-finish-" + std::to_string(pause) + ".wav");
+        require(service.handleLine("1|PrepareRecording|id=fatal-finish|tap=performance|backing=true|path=" +
+                                    path.string()).status == ControlStatus::Ok &&
+                    service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                "the paired take starts before the fatal finish race");
+        service.media().play(MediaContext::Karaoke);
+        const auto origin = monotonicTicksNow() / 100 * 100 - 5'000'000'000LL;
+        std::vector<float> input(Block), output(Block * 2), expectedBacking;
+        for (std::uint32_t frame = 0; frame < Cutoff; frame += Block) {
+            const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < Block &&
+                   std::chrono::steady_clock::now() < ready)
+                std::this_thread::yield();
+            require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= Block,
+                    "the pre-failure playback has decoded PCM available");
+            const auto capturedAt = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / Rate;
+            const auto clock = capturedAt + static_cast<MonotonicTicks>(Block) * 1'000'000'000LL / Rate;
+            const auto presentation = capturedAt + static_cast<MonotonicTicks>(Late) * 1'000'000'000LL / Rate;
+            engine.onCapture(generation, {input.data(), nullptr, Block, 1, frame,
+                                           capturedAt / 100, 0, 0, capturedAt});
+            engine.onRender(generation, {nullptr, output.data(), Block, 2, frame,
+                                          clock / 100, 0, presentation});
+            expectedBacking.insert(expectedBacking.end(), output.begin(), output.end());
+        }
+        for (std::uint32_t index = 0; index < Block / 2; ++index)
+            input[Block / 4 + index] = static_cast<float>(
+                0.1 * (1.0 - std::cos(2.0 * Pi * index / (Block / 2 - 1))) *
+                std::sin(2.0 * Pi * 1'000.0 * index / Rate));
+        const auto capturedAt = origin + static_cast<MonotonicTicks>(Cutoff) * 1'000'000'000LL / Rate;
+        engine.onCapture(generation, {input.data(), nullptr, Block, 1, Cutoff,
+                                       capturedAt / 100, 0, 0, capturedAt});
+        require(engine.snapshot().clockBridge.fillFrames == Block && engine.sessionFrame() == SessionFrame{Cutoff},
+                "the pending marker is accepted without moving the original cutoff");
+        std::binary_semaphore fallbackEntered{0}, allowFallback{0};
+        std::atomic<bool> hookEntered{false}, completed{false};
+        std::exception_ptr error;
+        std::thread control([&] {
+            try {
+                (void)service.session().finishRecording(
+                    pause ? RecordingState::Paused : RecordingState::Finished, [&] {
+                        const auto event = engine.pendingBackendEvent();
+                        hookEntered.store(true, std::memory_order_release);
+                        fallbackEntered.release();
+                        allowFallback.acquire();
+                        engine.acknowledgeBackendEvent(event.sequence);
+                    });
+            } catch (...) {
+                error = std::current_exception();
+            }
+            completed.store(true, std::memory_order_release);
+        });
+        struct JoinFallback {
+            std::binary_semaphore& allow;
+            std::thread& thread;
+            bool released{false};
+            void finish() {
+                if (!released) {
+                    allow.release();
+                    released = true;
+                }
+                if (thread.joinable()) thread.join();
+            }
+            ~JoinFallback() { finish(); }
+        } join{allowFallback, control};
+        const auto requested = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (!engine.recordingFinishPending() && !completed.load(std::memory_order_acquire) &&
+               std::chrono::steady_clock::now() < requested)
+            std::this_thread::yield();
+        require(engine.recordingFinishPending() && !hookEntered.load(std::memory_order_acquire),
+                "fatal injection follows a live finish request, before any timeout fallback");
+        fake->inject(BackendEventType::DeviceLost, -17);
+        require(fallbackEntered.try_acquire_for(std::chrono::seconds(2)),
+                "DeviceLost wakes the actual finish coordinator before backend shutdown");
+        const auto event = engine.pendingBackendEvent();
+        const auto before = engine.snapshot();
+        const auto mediaBefore = service.media().snapshot(MediaSlot::Music).sourcePositionFrames;
+        require(event.type == BackendEventType::DeviceLost && event.code == -17 &&
+                    event.generation == generation && service.session().generationId() == generation,
+                "the fatal hook holds the old generation before stop and invalidation");
+        std::fill(output.begin(), output.end(), 0.25F);
+        engine.onRender(generation, {nullptr, output.data(), Block, 2, Cutoff,
+                                      capturedAt / 100, 0, capturedAt + 30'000'000});
+        expect(std::ranges::all_of(output, [](float sample) { return sample == 0.0F; }) &&
+                   engine.snapshot().clockBridge.fillFrames == before.clockBridge.fillFrames &&
+                   engine.snapshot().staleCallbacks == before.staleCallbacks &&
+                   engine.sessionFrame() == SessionFrame{Cutoff} &&
+                   service.media().snapshot(MediaSlot::Music).sourcePositionFrames == mediaBefore,
+               "an interrupted old-generation callback is silent and leaves accepted capture for the stopped owner");
+        join.finish();
+        if (error) std::rethrow_exception(error);
+        require(service.session().state() == SessionState::Running &&
+                    service.session().generationId() > generation,
+                "fatal recording finish reopens the backend in a new running generation");
+        expect(pause ? service.recording().state() == RecordingState::Paused &&
+                           RecordingTestAccess::fileOpen(service.recording())
+                     : service.recording().state() == RecordingState::Finished,
+               "fallback honors Pause versus Stop without discarding the existing writer");
+        service.session().stop();
+        const auto result = service.recording().result();
+        require(result.finalized && result.durationFrames == Cutoff &&
+                    result.stopSessionFrame == SessionFrame{Cutoff} && result.overrunCount == 0,
+                "fatal fallback finalizes the exact old cutoff without padding or overruns");
+        std::vector<float> expectedVoice(Cutoff * 2);
+        for (std::uint32_t frame = 0; frame < Block; ++frame)
+            for (std::uint32_t channel = 0; channel < 2; ++channel)
+                expectedVoice[(Cutoff - Late + frame) * 2 + channel] = input[frame];
+        for (const auto suffix : {".dry.wav", ".vocal.wav", ".backing.wav"}) {
+            WavDecoder decoder;
+            const auto format = decoder.open(path.string() + suffix);
+            require(format.sampleRateHz == Rate && format.channels == 2 && format.totalFrames == Cutoff,
+                    "each retained fatal-finish stem has the original format and duration");
+            std::vector<float> actual(Cutoff * 2);
+            require(decoder.read(actual, Cutoff) == Cutoff, "the retained fatal-finish stem is complete");
+            const auto& expected = std::string_view(suffix) == ".backing.wav" ? expectedBacking : expectedVoice;
+            expect(std::ranges::equal(actual, expected,
+                                     [](float a, float b) { return std::abs(a - b) < 0.000001F; }),
+                   "fatal fallback preserves the accepted voice marker and unchanged accompaniment before cutoff");
+        }
     }
 }
 
@@ -1735,13 +2220,18 @@ FollowRun runRoomSong(bool delayed, std::int64_t delayAtBlock = -1) {
     service.session().start();
     service.network().setSharedTimeline(true);
     service.network().setRoomPlayoutDelay(delayed && delayAtBlock < 0 ? 160.0F : 0.0F);
+    // The decoder refills at half capacity; preload the whole accelerated run before callbacks.
+    service.media().prepare(rate, 2, 2U * blocks * block);
     service.media().load(MediaSlot::Music, musicPath.string());
-    (void)service.media().waitUntilReady(MediaSlot::Music);
+    require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+            "the scheduled room song is ready before callbacks");
     // The whole run must come from decoded PCM: a busy machine must not turn into an underrun.
     const auto filledBy = std::chrono::steady_clock::now() + std::chrono::seconds(3);
     while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < blocks * block &&
            std::chrono::steady_clock::now() < filledBy)
         std::this_thread::yield();
+    require(service.media().snapshot(MediaSlot::Music).bufferFillFrames >= blocks * block,
+            "the whole simulated room run is buffered before callbacks");
     const auto base = monotonicTicksNow() + 1'000'000'000;
     const auto ticksAt = [&](std::int64_t frame) { return base + frame * 1'000'000'000LL / rate; };
     service.media().play(MediaContext::Karaoke, ticksAt(startBlock * block));

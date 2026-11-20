@@ -96,6 +96,19 @@ it('coalesces a burst behind a busy command queue to its most recent snapshot', 
   stop();
 });
 
+it('reports an asynchronous snapshot consumer failure through the subscription', async () => {
+  const context = await setup();
+  const failure = new Error('Monitoring reconciliation failed');
+  const failed = vi.fn();
+  const stop = context.session.observeSnapshots(async () => {
+    throw failure;
+  }, failed);
+  context.emit(48000);
+  await context.flush();
+  expect(failed).toHaveBeenCalledExactlyOnceWith(failure);
+  stop();
+});
+
 it('rejects pre-seek frames delivered after the reply while mixer changes retain live updates', async () => {
   const context = await setup();
   await context.session.diagnostics(true);

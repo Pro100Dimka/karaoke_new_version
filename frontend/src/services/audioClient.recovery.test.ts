@@ -224,7 +224,9 @@ describe('audioClient contract', () => {
 
     await audioClient.setMonitoring(true);
 
-    expect(requests.slice(0, 3)).toEqual([
+    expect(
+      requests.filter(({ command }) => command !== 'GetDiagnostics').slice(0, 3),
+    ).toEqual([
       { command: 'SetDspParameter', args: { name: 'reverb.mix', value: 0.42 } },
       { command: 'SetDspEnabled', args: { enabled: true } },
       { command: 'SetMonitoring', args: { enabled: true } },

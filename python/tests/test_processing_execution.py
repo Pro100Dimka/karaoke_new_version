@@ -94,7 +94,7 @@ def test_original_recognition_uses_the_catalogue_language_within_the_cpu_budget(
         total_ram_bytes=32 * 1024**3,
     )
     # ResourceBudget and runtime diagnostics must describe the same machine.
-    monkeypatch.setattr("backend.cpu_info.os.cpu_count", lambda: cpu_count)
+    monkeypatch.setattr("os.cpu_count", lambda: runtime.cpu_count)
     monkeypatch.setattr(SystemRuntimeProbe, "inspect", lambda self: runtime)
     monkeypatch.setattr(SystemRuntimeProbe, "warm_up", lambda self: None)
     provider = StreamingProvider()

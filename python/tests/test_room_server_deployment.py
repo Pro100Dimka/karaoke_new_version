@@ -305,9 +305,12 @@ def processing_deployment_sandbox(tmp_path: Path, bash_interpreter):
     original = {target: target.read_text(encoding="utf-8") for target in targets}
     source = (ROOT / "scripts/deploy-processing-server.sh").read_text(encoding="utf-8")
     replacements = {
-        "/opt/karaoke-processing-server": _bash_path(root),
-        "/etc": _bash_path(config),
-        "/tmp": _bash_path(stage.parent),
+        original_path: _bash_path(sandbox)
+        for original_path, sandbox in (
+            ("/opt/karaoke-processing-server", root),
+            ("/etc", config),
+            ("/tmp", stage.parent),
+        )
     }
     source = re.sub(
         "|".join(re.escape(path) for path in replacements),

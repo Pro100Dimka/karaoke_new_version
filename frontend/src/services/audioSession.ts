@@ -355,16 +355,14 @@ const snapshotFromValues = (
 };
 
 export const observeSnapshots = (
-  onValue: (value: PlaybackSnapshot) => void,
+  onValue: (value: PlaybackSnapshot) => void | Promise<void>,
   onError: (error: unknown) => void,
   intervalMs = 16,
 ): (() => void) => {
   return observeAudioTelemetry(
     'GetPlaybackSnapshot',
     intervalMs,
-    (text) => {
-      onValue(snapshotFromValues(parseKeyValues(text)));
-    },
+    (text) => onValue(snapshotFromValues(parseKeyValues(text))),
     onError,
   );
 };

@@ -1139,6 +1139,82 @@ void stopInvalidatesGeneration() {
            "stop invalidates generation");
 }
 
+void staleRenderCallbacksCannotReplayPreviousPcm() {
+    const auto path = tempRoot / "stale-render.wav";
+    makeTestWav(path);
+    enum class Transition { Stop, Recover, Reconfigure };
+    constexpr std::array contexts{MediaContext::Radio, MediaContext::Karaoke,
+                                   MediaContext::RecordingPreview};
+    constexpr std::array transitions{Transition::Stop, Transition::Recover,
+                                      Transition::Reconfigure};
+    for (const auto context : contexts) {
+        for (const auto transition : transitions) {
+            RunningService fixture;
+            auto& engine = fixture.service.realtime();
+            const auto generation = fixture.service.session().generationId();
+            const auto slot = context == MediaContext::Radio ? MediaSlot::Radio
+                              : context == MediaContext::Karaoke ? MediaSlot::Music
+                                                                : MediaSlot::RecordingPreview;
+            fixture.service.media().load(slot, path.string());
+            require(fixture.service.media().waitUntilReady(slot) == PlaybackState::Ready,
+                    "stale-render fixture needs decoded PCM");
+            fixture.service.media().play(context);
+            std::array<float, 258> output{};
+            output.front() = 0.75F;
+            output.back() = -0.75F;
+            const BackendAudioBuffer buffer{nullptr, output.data() + 1, 128, 2};
+            engine.onRender(generation, buffer);
+            const auto first = output;
+            engine.onRender(generation, buffer);
+            require(output != first &&
+                        fixture.service.media().snapshot(slot).sourcePositionFrames == 256 &&
+                        std::any_of(output.begin() + 1, output.end() - 1,
+                                    [](float sample) { return sample != 0.0F; }),
+                    "valid callbacks must consume consecutive audible PCM before invalidation");
+            if (transition == Transition::Stop) {
+                fixture.service.session().stop();
+            } else if (transition == Transition::Recover) {
+                require(fixture.service.session().recover(), "the recovery control must restart");
+            } else {
+                FakeBackendSettings mono;
+                mono.runtime.outputChannels = 1;
+                (void)fixture.service.session().reconfigure(
+                    {}, false, std::make_unique<FakeAudioBackend>(mono));
+            }
+            const auto staleBefore = engine.snapshot().staleCallbacks;
+            const auto frameBefore = engine.sessionFrame();
+            const auto sourceBefore = fixture.service.media().snapshot(slot).sourcePositionFrames;
+            // Native backends reuse this output storage even when an old callback is rejected.
+            engine.onRender(generation, buffer);
+            expect(std::all_of(output.begin() + 1, output.end() - 1,
+                               [](float sample) { return sample == 0.0F; }),
+                   "rejected old render must silence its supplied buffer, not replay prior PCM");
+            expect(output.front() == 0.75F && output.back() == -0.75F,
+                   "rejected stereo callback clears only its old supplied shape after mono reconfigure");
+            expect(engine.snapshot().staleCallbacks == staleBefore + 1 &&
+                       engine.sessionFrame() == frameBefore &&
+                       fixture.service.media().snapshot(slot).sourcePositionFrames == sourceBefore,
+                   "stale rendering cannot consume new-session media or advance its frame counter");
+        }
+    }
+
+    RunningService fixture;
+    const auto generation = fixture.service.session().generationId();
+    fixture.service.session().stop();
+    std::array<float, 2> untouched{0.25F, -0.25F};
+    const std::array invalidBuffers{
+        BackendAudioBuffer{nullptr, nullptr, 128, 2},
+        BackendAudioBuffer{nullptr, untouched.data(), 0, 2},
+        BackendAudioBuffer{nullptr, untouched.data(), 128, 0},
+        BackendAudioBuffer{nullptr, untouched.data(), MaxBlockFrames + 1, 2},
+        BackendAudioBuffer{nullptr, untouched.data(), 128, MaxAudioChannels + 1}};
+    for (const auto& buffer : invalidBuffers) {
+        fixture.service.realtime().onRender(generation, buffer);
+        expect(untouched == std::array<float, 2>{0.25F, -0.25F},
+               "rejected invalid buffer dimensions cannot authorize any output write");
+    }
+}
+
 void restartedSessionWaitsForItsOwnCaptureClock() {
     RunningService fixture;
     constexpr std::uint32_t Frames = 480;

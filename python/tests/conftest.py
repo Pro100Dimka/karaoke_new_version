@@ -20,6 +20,11 @@ from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
 from tests.fakes import FakeRecognizer
 
 
+def pytest_configure() -> None:
+    # Disable the telemetry uploader before optional ONNX imports during collection.
+    os.environ["ORT_DISABLE_TELEMETRY"] = "1"
+
+
 @pytest.fixture(autouse=True)
 def isolate_private_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))

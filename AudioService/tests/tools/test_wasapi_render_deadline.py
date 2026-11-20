@@ -1,6 +1,6 @@
 """Deterministic control-flow regression, NOT a Windows/device/audio test.
 
-Compile the actual waitForSharedEnginePass() body and actual JIT target policy with
+Compile the actual scheduleSharedRender() body and actual JIT target policy with
 fake wait-any/QPC/capture operations. This detects deadline starvation without
 copying a second implementation of the production loop into the test.
 
@@ -52,7 +52,7 @@ using DWORD = std::uint32_t;
 constexpr bool FALSE = false;
 constexpr DWORD WAIT_OBJECT_0=0, WAIT_FAILED=0xffffffffU, INFINITE=0xffffffffU;
 struct LARGE_INTEGER { LONGLONG QuadPart{}; };
-constexpr MonotonicTicks Ms=1'000'000, Start=100*Ms;
+constexpr MonotonicTicks Ms=1'000'000, Start=100*Ms, Target=Start+17*Ms/2;
 struct Simulation {
     MonotonicTicks now{Start}, due{0}, captureCost{Ms/4}, dispatchDelay{0};
     MonotonicTicks renderAt{0}, stopAt{0};
@@ -112,10 +112,14 @@ struct Subject {
     WasapiMode mode{WasapiMode::Shared};
     bool renderImmediate{false};
     HANDLE captureDeadline{3}, stopEvent{1}, captureEvent{2}, renderEvent{4};
-    struct { std::uint32_t outputPeriodFrames{480}, outputSampleRateHz{48000}; } runtime;
+    struct {
+        std::uint32_t outputPeriodFrames{480}, outputSampleRateHz{48000};
+        std::uint32_t inputPeriodFrames{96}, inputSampleRateHz{48000};
+    } runtime;
     struct { std::uint32_t periods{1}; } sharedQueue;
     MonotonicTicks lastRenderEventAt{Start}, renderWorkPeakNs{0};
     MonotonicTicks lastCaptureEventObservedAt{0}, lastWakeObservedAt{0};
+    MonotonicTicks lastCaptureAt{0}, renderedCaptureAt{0};
     std::uint32_t lastRenderEventGapUs{10000};
     WasapiPcm::RecentMeasurements renderJitWaitSamples, renderJitWaitOnlySamples,
         renderJitDeadlineOvershootSamples;
@@ -125,6 +129,7 @@ struct Subject {
         if(sim.nextCapture>=sim.captureTimes.size())
             throw std::runtime_error("no PCM to capture");
         ++sim.captures; ++sim.nextCapture; sim.now+=sim.captureCost;
+        lastCaptureAt=sim.now;
     }
     // Actual production wait-loop body follows.
     __WAIT_LOOP__
@@ -137,77 +142,107 @@ void check(bool ok, const char* message) {
 int main() {
     {
         sim={}; sim.captureTimes={102*Ms,104*Ms}; Subject s;
-        check(s.waitForSharedEnginePass() && sim.captures==2 && sim.now==107*Ms,
-              "ordinary timely capture is served before the unchanged target");
+        check(s.scheduleSharedRender(true) && sim.captures==2 && sim.now==Target,
+              "short input periods are served before the current target");
         check(!sim.armed, "timer is cancelled after normal completion");
     }
     {
         sim={}; sim.captureTimes={106*Ms,108*Ms,110*Ms,112*Ms,114*Ms,116*Ms};
-        sim.captureCost=4*Ms; Subject s; s.waitForSharedEnginePass();
+        sim.captureCost=4*Ms; Subject s; s.scheduleSharedRender(true);
         std::cout<<"overrun_exit_us="<<(sim.now-Start)/1000
                  <<" capture_batches="<<sim.captures<<"\n";
         check(sim.captures==1 && sim.now==110*Ms,
               "a capture batch crossing the target cannot start another batch");
         check(sim.nextCapture<sim.captureTimes.size(),
               "unserved capture remains available for the next outer pass");
-        if(!s.renderJitWaitOnlySamples.samples.empty()) {
-            check(s.renderJitWaitOnlySamples.samples.back()==6000 &&
-                  s.renderJitWaitSamples.samples.back()==10000 &&
-                  s.renderJitDeadlineOvershootSamples.samples.back()==3000,
-                  "wait time excludes 4ms capture work; target overshoot stays visible");
-        }
+        check(s.renderJitWaitOnlySamples.samples==std::vector<std::uint32_t>{6000} &&
+              s.renderJitWaitSamples.samples==std::vector<std::uint32_t>{10000} &&
+              s.renderJitDeadlineOvershootSamples.samples==std::vector<std::uint32_t>{1500},
+              "wait time excludes 4ms capture work; target overshoot stays visible");
     }
     {
-        sim={}; sim.captureTimes={107*Ms}; Subject s; s.waitForSharedEnginePass();
-        check(sim.captures==0 && sim.now==107*Ms,
+        sim={}; sim.captureTimes={Target}; Subject s; s.scheduleSharedRender(true);
+        check(sim.captures==0 && sim.now==Target,
               "an already-ready deadline beats simultaneous capture");
     }
     {
         sim={}; sim.captureTimes={103*Ms}; sim.renderAt=103*Ms;
-        Subject s; s.waitForSharedEnginePass();
+        Subject s; s.scheduleSharedRender(true);
         check(sim.captures==1 && sim.now==103*Ms+Ms/4 && s.renderJitLateEvents.load()==1,
               "before the target coalesced capture supplies fresh PCM before render");
     }
     {
         sim={}; sim.captureTimes={102*Ms}; sim.dispatchDelay=10*Ms;
-        Subject s; s.waitForSharedEnginePass();
-        check(sim.captures==0 && sim.now==112*Ms && sim.resignal,
+        Subject s; s.scheduleSharedRender(true);
+        check(sim.captures==0 && sim.now==112*Ms && sim.resignal &&
+              s.renderJitDeferredCaptures.load()==1,
               "late dispatch re-signals auto-reset capture and renders first");
         check(!sim.armed, "late dispatch cancels its timer");
     }
     {
         sim={}; sim.captureTimes={103*Ms}; sim.stopAt=103*Ms;
-        Subject s; s.waitForSharedEnginePass();
+        Subject s; s.scheduleSharedRender(true);
         check(sim.captures==0 && !sim.armed, "stop wins and cancels the wait");
     }
     {
-        sim={}; sim.waitFailure=true; Subject s; s.waitForSharedEnginePass();
+        sim={}; sim.waitFailure=true; Subject s; s.scheduleSharedRender(true);
         check(s.observer.lost==1 && !sim.armed, "wait failure reports device loss");
     }
     {
         sim={}; sim.timerFailure=true; Subject s;
-        check(!s.waitForSharedEnginePass() && sim.calls==0,
+        check(!s.scheduleSharedRender(true) && sim.calls==0,
               "failed timer does not delay render");
     }
     {
         sim={}; Subject s; s.sharedQueue.periods=2;
-        check(!s.waitForSharedEnginePass() && sim.calls==0 && s.sharedQueue.periods==2,
+        check(s.scheduleSharedRender(true) && sim.calls==0 && s.sharedQueue.periods==2,
               "deeper safety queue is unchanged and still renders immediately");
     }
     {
         sim={}; Subject s; s.mode=WasapiMode::Exclusive;
-        check(!s.waitForSharedEnginePass() && sim.calls==0,
+        check(!s.scheduleSharedRender(true) && sim.calls==0,
               "Exclusive is unchanged");
     }
     {
         sim={}; Subject s; s.renderImmediate=true;
-        check(!s.waitForSharedEnginePass() && sim.calls==0,
+        check(!s.scheduleSharedRender(true) && sim.calls==0,
               "existing immediate diagnostic policy is unchanged");
     }
     {
         sim={}; Subject s; s.captureDeadline=0;
-        check(!s.waitForSharedEnginePass() && sim.calls==0,
+        check(!s.scheduleSharedRender(true) && sim.calls==0,
               "systems without the precise timer are unchanged");
+    }
+    {
+        sim={}; Subject s;
+        check(!s.scheduleSharedRender(false) && sim.calls==0 && sim.captures==0,
+              "playback without a capture dependency never waits for microphone PCM");
+    }
+    struct FreshnessCase {
+        MonotonicTicks capturedAt, renderedAt, finishAt;
+        int waits;
+        const char* message;
+    };
+    for(const auto& test: {
+        FreshnessCase{Start,0,Start,0,"fresh unrendered PCM submits without arming a timer"},
+        FreshnessCase{Start,Start,Target,1,"already-rendered PCM cannot satisfy freshness"},
+        FreshnessCase{Start-2*Ms,0,Target,1,"old unrendered PCM cannot satisfy freshness"},
+    }) {
+        sim={}; Subject s; s.runtime.inputPeriodFrames=480;
+        s.lastCaptureAt=test.capturedAt; s.renderedCaptureAt=test.renderedAt;
+        check(s.scheduleSharedRender(true) && sim.now==test.finishAt &&
+              sim.calls==test.waits && sim.captures==0 && !sim.armed, test.message);
+    }
+    {
+        sim={}; sim.captureTimes={102*Ms,104*Ms}; Subject s;
+        s.runtime.inputPeriodFrames=480; s.scheduleSharedRender(true);
+        check(sim.captures==1 && sim.now==102*Ms+Ms/4 && !sim.armed &&
+              sim.nextCapture<sim.captureTimes.size(),
+              "new fresh PCM submits early and leaves later packets for the outer pass");
+        check(s.renderJitWaitOnlySamples.samples==std::vector<std::uint32_t>{2000} &&
+              s.renderJitWaitSamples.samples==std::vector<std::uint32_t>{2250} &&
+              s.renderJitDeadlineOvershootSamples.samples==std::vector<std::uint32_t>{0},
+              "early submission reports wait-only, total work and zero overshoot");
     }
     return failures==0?0:1;
 }
@@ -226,7 +261,7 @@ class ActualWasapiWaitLoopTests(unittest.TestCase):
         code = HARNESS.replace("__TARGET_POLICY__", function(
             pcm.read_text(encoding="utf-8"), "MonotonicTicks justInTimeRenderAt("))
         code = code.replace("__WAIT_LOOP__", function(
-            backend.read_text(encoding="utf-8"), "bool waitForSharedEnginePass() noexcept"))
+            backend.read_text(encoding="utf-8"), "bool scheduleSharedRender(bool captureRequired) noexcept"))
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "actual_wait_loop.cpp"
             executable = Path(directory) / "actual_wait_loop"

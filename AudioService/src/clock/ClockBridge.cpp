@@ -123,7 +123,10 @@ bool ClockBridge::push(std::span<const float> samples, std::uint32_t frames) noe
 }
 
 std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFrames,
-                                double correctionRatio) noexcept {
+                                double correctionRatio, ReadPosition* position,
+                                std::uint64_t inputEnd, bool endOfInput) noexcept {
+    if (position)
+        *position = {};
     if (channels_ == 0 || output.size() < static_cast<std::size_t>(outputFrames) * channels_)
         return 0;
     if (!std::isfinite(correctionRatio) || correctionRatio <= 0.0) {
@@ -131,38 +134,57 @@ std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFra
         underruns_.fetch_add(1, std::memory_order_relaxed);
         return 0;
     }
-    const auto ratio = regulateFill(ring_.availableFrames(), outputFrames, correctionRatio);
+    // A stopped endpoint has a finite last sample. Draining it is not a clock-rate observation.
+    const auto ratio = endOfInput
+        ? correctionRatio * (1.0 + fillCorrection_.load(std::memory_order_relaxed))
+        : regulateFill(ring_.availableFrames(), outputFrames, correctionRatio);
+    const auto first = ring_.readCursor();
+    const auto available = endOfInput
+        ? static_cast<std::uint32_t>(std::min<std::uint64_t>(ring_.availableFrames(),
+              inputEnd > first ? inputEnd - first : 0U))
+        : ring_.availableFrames();
+    if (position) {
+        position->firstFrame = static_cast<double>(first) + phase_;
+        position->step = ratio;
+    }
     if (ratio == 1.0 && phase_ == 0.0) {
         // Equal clocks need no interpolation/lookahead. Consume the complete current packet
         // directly instead of retaining its final sample until the next capture callback.
-        const auto produced = ring_.pop(output, outputFrames);
+        const auto produced = ring_.pop(output, endOfInput ? std::min(outputFrames, available) : outputFrames);
+        if (position) position->frames = produced;
         if (produced < outputFrames) {
             std::fill(output.begin() + static_cast<std::ptrdiff_t>(produced * channels_),
                       output.begin() + static_cast<std::ptrdiff_t>(outputFrames * channels_), 0.0F);
-            underruns_.fetch_add(1, std::memory_order_relaxed);
+            if (!endOfInput) underruns_.fetch_add(1, std::memory_order_relaxed);
         }
         return produced;
     }
     const auto endPosition = phase_ + static_cast<double>(outputFrames) * ratio;
     const auto needed = static_cast<std::uint32_t>(
         std::min(std::floor(endPosition) + 2.0, static_cast<double>(ring_.capacityFrames())));
-    const auto toPeek = std::min(needed, ring_.availableFrames());
+    const auto toPeek = std::min(needed, available);
     const auto read = ring_.peek(scratch_, toPeek);
-    if (read < 2) {
+    if (position && inputEnd > first && inputEnd - first <= read &&
+        channels_ <= position->lastSample.size()) {
+        std::copy_n(scratch_.data() + (inputEnd - first - 1U) * channels_, channels_,
+                    position->lastSample.data());
+        position->hasLastSample = true;
+    }
+    if (read < (endOfInput ? 1U : 2U)) {
         std::fill_n(output.data(), static_cast<std::size_t>(outputFrames) * channels_, 0.0F);
-        underruns_.fetch_add(1, std::memory_order_relaxed);
+        if (!endOfInput) underruns_.fetch_add(1, std::memory_order_relaxed);
         return 0;
     }
     std::uint32_t produced = 0;
     for (; produced < outputFrames; ++produced) {
-        const auto position = phase_ + static_cast<double>(produced) * ratio;
-        if (position >= static_cast<double>(read - 1U))
+        const auto sourcePosition = phase_ + static_cast<double>(produced) * ratio;
+        if (sourcePosition >= static_cast<double>(read - (endOfInput ? 0U : 1U)))
             break;
-        const auto index = static_cast<std::uint32_t>(position);
-        const auto fraction = static_cast<float>(position - static_cast<double>(index));
+        const auto index = static_cast<std::uint32_t>(sourcePosition);
+        const auto fraction = static_cast<float>(sourcePosition - static_cast<double>(index));
         for (std::uint32_t channel = 0; channel < channels_; ++channel) {
             const auto a = scratch_[static_cast<std::size_t>(index) * channels_ + channel];
-            const auto b = scratch_[static_cast<std::size_t>(index + 1U) * channels_ + channel];
+            const auto b = scratch_[static_cast<std::size_t>(std::min(index + 1U, read - 1U)) * channels_ + channel];
             output[static_cast<std::size_t>(produced) * channels_ + channel] =
                 a + (b - a) * fraction;
         }
@@ -173,8 +195,9 @@ std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFra
                   output.begin() + static_cast<std::ptrdiff_t>(
                                        static_cast<std::size_t>(outputFrames) * channels_),
                   0.0F);
-        underruns_.fetch_add(1, std::memory_order_relaxed);
+        if (!endOfInput) underruns_.fetch_add(1, std::memory_order_relaxed);
     }
+    if (position) position->frames = produced;
     const auto consumedPosition = phase_ + static_cast<double>(produced) * ratio;
     const auto consume = static_cast<std::uint32_t>(
         std::min(std::floor(consumedPosition), static_cast<double>(read)));

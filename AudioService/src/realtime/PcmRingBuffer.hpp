@@ -43,6 +43,12 @@ class PcmRingBuffer {
     std::uint32_t discardBefore(MonotonicTicks firstAllowedTime) noexcept;
     [[nodiscard]] std::uint32_t availableFrames() const noexcept;
     [[nodiscard]] std::uint32_t freeFrames() const noexcept;
+    [[nodiscard]] std::uint64_t writeCursor() const noexcept {
+        return writeFrame_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] std::uint64_t readCursor() const noexcept {
+        return readFrame_.load(std::memory_order_acquire);
+    }
     [[nodiscard]] std::uint32_t capacityFrames() const noexcept {
         return capacityFrames_;
     }

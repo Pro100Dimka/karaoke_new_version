@@ -177,6 +177,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/backend/AsioSampleConversionTests.cpp
         tests/backend/AsioBackendTests.cpp
         tests/realtime/PcmRingBufferTests.cpp
+        tests/realtime/CaptureTimingTests.cpp
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
         tests/network/NetworkTests.cpp
@@ -189,6 +190,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/media/MediaFoundationTests.cpp
         tests/devices/WindowsDeviceTests.cpp
         tests/recording/RecordingTests.cpp
+        tests/recording/RecordingCaptureBoundaryTests.cpp
         tests/dsp/DspTests.cpp
         tests/dsp/LoudnessTests.cpp
         tests/ipc/ProtocolTests.cpp

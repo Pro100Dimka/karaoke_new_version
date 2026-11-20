@@ -318,15 +318,18 @@ void AudioService::captureFailure(FailureInfo failure) {
     };
 }
 
-void AudioService::processPendingBackendEvent() {
+PendingBackendEvent AudioService::capturePendingBackendFailure() {
     const auto event = realtime_.pendingBackendEvent();
-    if (event.sequence == 0)
-        return;
+    if (event.sequence == 0) return {};
     realtime_.acknowledgeBackendEvent(event.sequence);
-    if (event.generation != session_.generationId())
-        return;
+    if (event.generation != session_.generationId()) return {};
     captureFailure({FailureCategory::Device, FailureSeverity::SessionFatal, event.code,
                     std::string(backendEventName(event.type))});
+    return event;
+}
+void AudioService::processPendingBackendEvent() {
+    const auto event = capturePendingBackendFailure();
+    if (event.sequence == 0) return;
     constexpr std::array nonRecoverableStates{SessionState::Idle, SessionState::Stopping};
     if (std::ranges::find(nonRecoverableStates, session_.state()) == nonRecoverableStates.end()) {
         (void)session_.recover();
