@@ -39,7 +39,7 @@ from backend.ai_worker.ctc_emission import (
     emission as emission,
     frame_stride_samples as frame_stride_samples,
 )
-from backend.ai_worker.ctc_guidance import preserve_following_core
+from backend.ai_worker.ctc_guidance import confirmed_prefix_end, preserve_following_core
 from backend.ai_worker.ctc_bounds import (
     _clamped_letters as _clamped_letters,
     _clips_letter_anchor as _clips_letter_anchor,
@@ -132,6 +132,9 @@ def align_guided(
         window, entry = _guided_bounds(window, entry, following, reference, voiced)
         recovery_end = _recovery_end(following, whole, window, reference)
         guided = _guided_crop(scores, frame_seconds, chunk, window, result, recovery_end, voiced)
+        guided = _guided_prefix(
+            guided, reference, result, scores, frame_seconds, window, anchors, heard, voiced
+        )
         candidates = _guided_candidates(
             guided, reference, result, whole, window, following, entry, voiced
         )
@@ -374,3 +377,30 @@ def _guided_crop(
             if _follows_word(retry, result, voiced):
                 guided = retry
     return guided
+
+
+def _guided_prefix(
+    guided: list[AlignedWord],
+    reference: list[AlignedWord],
+    previous: Sequence[AlignedWord],
+    scores: torch.Tensor,
+    step: float,
+    window: Window,
+    anchors: Mapping[int, float],
+    heard: Mapping[int, float],
+    voiced: np.ndarray | None,
+) -> list[AlignedWord]:
+    """Offer a bounded suffix retry after an independently confirmed internal core."""
+    first = confirmed_prefix_end(guided, reference, window, anchors, step)
+    if first is None:
+        return guided
+    suffix = _align_window(
+        scores,
+        step,
+        [word.text for word in reference[first:]],
+        replace(window, first=window.first + first, start=reference[first - 1].end),
+    )
+    candidate = [*reference[:first], *suffix]
+    if any(word.score <= 0 for word in suffix) or not _follows_word(candidate, previous, voiced):
+        return guided
+    return _preferred(candidate, guided, window.first, heard, voiced)

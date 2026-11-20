@@ -14,6 +14,57 @@ from backend.ai_worker.ctc_domain import (
 from backend.ai_worker.ctc_tokens import _character_tokens
 
 
+def confirmed_prefix_end(
+    guided: Sequence[AlignedWord],
+    reference: Sequence[AlignedWord],
+    window: Window,
+    anchors: Mapping[int, float],
+    step: float,
+) -> int | None:
+    """Keep a measured core when the whole-song suffix escaped its recognized phrase."""
+    for index in range(len(reference) - 2, -1, -1):
+        core = reference[index]
+        anchor = anchors.get(window.first + index)
+        if (
+            anchor is None
+            or core.score <= max(_PREFERENCE, guided[index].score)
+            or abs(core.start - guided[index].start) <= _HEARD_DISAGREEMENT_SECONDS
+            or abs(core.start - anchor) > _HEARD_DISAGREEMENT_SECONDS
+            or not core.end < window.end
+        ):
+            continue
+        contradicted = any(
+            word.start >= window.end
+            and window.start <= anchors.get(window.first + offset, float("inf")) < window.end
+            for offset, word in enumerate(reference[index + 1 :], index + 1)
+        )
+        if contradicted and _supported_prefix(
+            guided[: index + 1], reference[: index + 1], window, anchors, step
+        ):
+            return index + 1
+    return None
+
+
+def _supported_prefix(
+    guided: Sequence[AlignedWord],
+    reference: Sequence[AlignedWord],
+    window: Window,
+    anchors: Mapping[int, float],
+    step: float,
+) -> bool:
+    return all(
+        word.score > 0
+        and window.start - 1e-9 <= word.start < word.end <= window.end
+        and (
+            abs(word.start - anchors[window.first + index]) <= _HEARD_DISAGREEMENT_SECONDS
+            if window.first + index in anchors
+            else max(abs(word.start - guided[index].start), abs(word.end - guided[index].end))
+            <= step + 1e-9
+        )
+        for index, word in enumerate(reference)
+    )
+
+
 def preserve_following_core(
     candidates: list[list[AlignedWord]],
     reference: list[AlignedWord],
