@@ -23,15 +23,28 @@ export const useRecordingPlayback = (
   const owner = useRef(Symbol('recording-preview'));
   const generation = useRef(0);
   const pendingSeek = useRef<number | null>(null);
+  const seeking = useRef<Promise<void> | null>(null);
+  const lastPosition = useRef(0);
   const id = recording.id;
 
   const release = useCallback(() => {
+    generation.current += 1;
     owns.current = false;
+    loading.current = false;
+    pendingSeek.current = null;
+    seeking.current = null;
+    lastPosition.current = 0;
     setPlaying(false);
     setPosition(0);
   }, []);
 
   const toggle = useCallback(async () => {
+    // A pause/play is a barrier: finish the latest requested position first.
+    const previous = generation.current;
+    if (seeking.current) {
+      await seeking.current;
+      if (previous !== generation.current) return;
+    }
     const request = ++generation.current;
     try {
       if (owns.current && playing) {
@@ -47,12 +60,14 @@ export const useRecordingPlayback = (
         volume,
       );
       if (request !== generation.current) return;
-      loading.current = false;
-      if (pendingSeek.current !== null) {
-        await preview.seekRecordingPreview(pendingSeek.current, owner.current);
-        if (request !== generation.current) return;
+      while (pendingSeek.current !== null) {
+        const target = pendingSeek.current;
         pendingSeek.current = null;
+        await preview.seekRecordingPreview(target, owner.current);
+        if (request !== generation.current) return;
+        lastPosition.current = target;
       }
+      loading.current = false;
       clearOperationFailure('errors.previewPlayback');
       setPlaying(true);
     } catch (error) {
@@ -76,30 +91,46 @@ export const useRecordingPlayback = (
   };
 
   const seek = useCallback(
-    async (seconds: number) => {
+    (seconds: number): Promise<void> => {
+      // Paint immediately, but keep at most one native operation and one newer target.
+      setPosition(seconds);
+      pendingSeek.current = seconds;
+      if (!owns.current || loading.current) return Promise.resolve();
+      if (seeking.current) return seeking.current;
       const request = generation.current;
-      try {
-        const status =
-          owns.current && !loading.current
-            ? await preview.recordingPreviewStatus(owner.current)
-            : null;
-        if (request !== generation.current) return;
-        if (!status || status.recordingId !== id) {
-          if (!loading.current) owns.current = false;
-          setPlaying(false);
-          setPosition(seconds);
-          pendingSeek.current = seconds;
-          return;
+      const drain = async () => {
+        try {
+          while (
+            request === generation.current &&
+            pendingSeek.current !== null
+          ) {
+            const status = await preview.recordingPreviewStatus(owner.current);
+            if (request !== generation.current) return;
+            if (!status || status.recordingId !== id) {
+              owns.current = false;
+              setPlaying(false);
+              return;
+            }
+            const target = pendingSeek.current;
+            pendingSeek.current = null;
+            await preview.seekRecordingPreview(target, owner.current);
+            if (request !== generation.current) return;
+            lastPosition.current = target;
+            clearOperationFailure('errors.previewSeek');
+          }
+        } catch (error) {
+          if (request === generation.current) {
+            pendingSeek.current = null;
+            setPosition(lastPosition.current);
+            reportOperationFailure('errors.previewSeek', error);
+          }
         }
-        await preview.seekRecordingPreview(seconds, owner.current);
-        if (request === generation.current) {
-          clearOperationFailure('errors.previewSeek');
-          setPosition(seconds);
-        }
-      } catch (error) {
-        if (request === generation.current)
-          reportOperationFailure('errors.previewSeek', error);
-      }
+      };
+      const work = drain().finally(() => {
+        if (seeking.current === work) seeking.current = null;
+      });
+      seeking.current = work;
+      return work;
     },
     [id, preview],
   );
@@ -110,7 +141,10 @@ export const useRecordingPlayback = (
       owner.current,
       (status) => {
         if (status.recordingId !== id || status.state === 'finished') release();
-        else setPosition(status.positionSeconds);
+        else if (!seeking.current && pendingSeek.current === null) {
+          lastPosition.current = status.positionSeconds;
+          setPosition(status.positionSeconds);
+        }
       },
       (error) => {
         release();
@@ -125,6 +159,8 @@ export const useRecordingPlayback = (
     return () => {
       generation.current += 1;
       loading.current = false;
+      pendingSeek.current = null;
+      seeking.current = null;
       if (owns.current) {
         owns.current = false;
         void preview.stopRecordingPreview(owner.current).catch(() => undefined);
