@@ -56,6 +56,7 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/realtime/RealtimeBufferPool.cpp
     src/diagnostics/GraphIntrospection.cpp
     src/analysis/AnalysisEngine.cpp
+    src/analysis/PitchEstimator.cpp
     src/analysis/SignalMetrics.cpp
     src/analysis/OutputSpectrum.cpp
     src/app/AudioService.cpp
@@ -190,6 +191,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/realtime/CaptureTimingTests.cpp
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
+        tests/analysis/PitchTests.cpp
         tests/network/NetworkTests.cpp
         tests/network/VoicePacketTraceTests.cpp
         tests/network/NativeVoiceRelayTests.cpp

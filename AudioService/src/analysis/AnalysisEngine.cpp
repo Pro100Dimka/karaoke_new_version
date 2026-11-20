@@ -1,4 +1,5 @@
 #include "analysis/AnalysisEngine.hpp"
+#include "analysis/PitchEstimator.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -91,100 +92,6 @@ constexpr std::uint32_t AnalysisWindowFrames = 2048;
 constexpr std::uint32_t AnalysisOverlap = 4;
 constexpr std::size_t PitchHistoryWindows = 64 * AnalysisOverlap;
 
-float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std::uint32_t channels,
-                    std::uint32_t sampleRateHz, float& confidence) noexcept {
-    confidence = 0.0F;
-    if (frames < 4 || channels == 0 || sampleRateHz == 0)
-        return 0.0F;
-    const auto minimumLag = std::max(1U, sampleRateHz / 1200U);
-    const auto maximumLag = std::min(frames / 2U, sampleRateHz / 60U);
-    if (minimumLag >= maximumLag)
-        return 0.0F;
-    double mean = 0.0;
-    for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        mean += samples[static_cast<std::size_t>(frame) * channels];
-    }
-    mean /= frames;
-    std::vector<double> centred(frames);
-    std::vector<double> energyPrefix(static_cast<std::size_t>(frames) + 1U, 0.0);
-    // A centred moving average removes out-of-range breath/hiss before correlation, without
-    // shifting the capture-window timestamp. The first zero is about 3 kHz at every device rate.
-    const auto radius = std::max(1U, sampleRateHz / 6000U);
-    const auto sampleAt = [&](std::int64_t frame) {
-        const auto bounded = std::clamp<std::int64_t>(frame, 0, frames - 1U);
-        return samples[static_cast<std::size_t>(bounded) * channels];
-    };
-    double runningSum = 0;
-    for (auto frame = -static_cast<std::int64_t>(radius); frame <= radius; ++frame)
-        runningSum += sampleAt(frame);
-    for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        centred[frame] = runningSum / (2U * radius + 1U) - mean;
-        energyPrefix[frame + 1U] = energyPrefix[frame] + centred[frame] * centred[frame];
-        runningSum += sampleAt(static_cast<std::int64_t>(frame) + radius + 1U) -
-                      sampleAt(static_cast<std::int64_t>(frame) - radius);
-    }
-    const auto energy = energyPrefix.back();
-    if (energy / frames < 1.0e-8)
-        return 0.0F;
-
-    std::vector<double> correlations(static_cast<std::size_t>(maximumLag) + 2U, -1.0);
-    for (std::uint32_t lag = 0; lag <= maximumLag + 1; ++lag) {
-        double correlation = 0.0;
-        for (std::uint32_t frame = lag; frame < frames; ++frame) {
-            correlation += centred[frame] * centred[frame - lag];
-        }
-        const auto currentEnergy = energyPrefix[frames] - energyPrefix[lag];
-        const auto delayedEnergy = energyPrefix[frames - lag];
-        const auto denominator = currentEnergy + delayedEnergy;
-        const auto normalized = denominator > 1.0e-12 ? 2.0 * correlation / denominator : 0.0;
-        correlations[lag] = normalized;
-    }
-    // McLeod/Wyvill NSDF key maxima: one strongest peak per positive lobe, after the initial lobe.
-    // Taking the first small noisy peak inside a lobe systematically sharpens breathy voices.
-    std::vector<std::uint32_t> peaks;
-    bool initialLobe = true;
-    std::uint32_t peak = 0;
-    for (std::uint32_t lag = 1; lag <= maximumLag; ++lag) {
-        if (initialLobe) {
-            initialLobe = correlations[lag] > 0;
-            continue;
-        }
-        if (correlations[lag] <= 0) {
-            if (peak != 0) peaks.push_back(peak);
-            peak = 0;
-        } else if (lag >= minimumLag && correlations[lag] >= correlations[lag - 1] &&
-                   correlations[lag] >= correlations[lag + 1] &&
-                   (peak == 0 || correlations[lag] > correlations[peak])) {
-            peak = lag;
-        }
-    }
-    if (peak != 0) peaks.push_back(peak);
-    double bestCorrelation = 0;
-    for (const auto lag : peaks) bestCorrelation = std::max(bestCorrelation, correlations[lag]);
-    if (bestCorrelation < 0.35) return 0.0F;
-    const auto strongPeak = bestCorrelation * 0.92;
-    std::uint32_t selectedLag = 0;
-    for (const auto lag : peaks) {
-        if (correlations[lag] >= strongPeak) {
-            selectedLag = lag;
-            break;
-        }
-    }
-    // A monotone correlation slope is drift, not a period; never use the search boundary as a pitch.
-    if (selectedLag == 0) return 0.0F;
-
-    double refinedLag = selectedLag;
-    if (selectedLag > minimumLag && selectedLag < maximumLag) {
-        const auto left = correlations[selectedLag - 1U];
-        const auto centre = correlations[selectedLag];
-        const auto right = correlations[selectedLag + 1U];
-        const auto curvature = left - 2.0 * centre + right;
-        if (std::abs(curvature) > 1.0e-9)
-            refinedLag += std::clamp(0.5 * (left - right) / curvature, -0.5, 0.5);
-    }
-    confidence = static_cast<float>(std::clamp(correlations[selectedLag], 0.0, 1.0));
-    return static_cast<float>(static_cast<double>(sampleRateHz) / refinedLag);
-}
 } // namespace
 
 void AnalysisEngine::workerMain() noexcept {
@@ -193,6 +100,8 @@ void AnalysisEngine::workerMain() noexcept {
     const auto windowFrames = std::max(4U, static_cast<std::uint32_t>(
         std::ceil(static_cast<double>(AnalysisWindowFrames) * rate / 48000)));
     const auto hopFrames = windowFrames / AnalysisOverlap;
+    PitchEstimator pitchEstimator;
+    pitchEstimator.prepare(windowFrames, rate);
     std::vector<float> scratch(static_cast<std::size_t>(windowFrames) * channels);
     std::vector<MonotonicTicks> captureTimes(windowFrames);
     // Match the reference track's 30 dB audible range, using a causal rolling 95th percentile.
@@ -252,7 +161,7 @@ void AnalysisEngine::workerMain() noexcept {
             static_cast<float>(crossings) / static_cast<float>(windowFrames - 1U);
         zeroCrossingRate_.store(zeroCrossingRate, std::memory_order_relaxed);
         float confidence = 0.0F;
-        const auto pitch = audioActive ? estimatePitch(scratch, windowFrames, channels, rate, confidence) : 0.0F;
+        const auto pitch = audioActive ? pitchEstimator.estimate(scratch, channels, confidence) : 0.0F;
         {
             std::lock_guard lock(pitchMutex_);
             if (workGeneration != generation_.load(std::memory_order_acquire)) continue;
