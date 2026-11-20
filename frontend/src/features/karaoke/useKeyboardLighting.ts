@@ -11,14 +11,17 @@ export const useKeyboardLighting = (
   positionSeconds: number | (() => number),
   playing: boolean,
 ): void => {
-  const position =
-    typeof positionSeconds === 'number'
+  const music = preferences.mode === 'music' && playing;
+  // Static colours have no song-clock dependency, including music while paused.
+  const position = !music
+    ? 0
+    : typeof positionSeconds === 'number'
       ? Math.floor(positionSeconds * 2) / 2
       : positionSeconds;
   useEffect(() => {
     if (!preferences.enabled) return;
     const effective =
-      preferences.mode === 'music' && !playing
+      preferences.mode === 'music' && !music
         ? { ...preferences, mode: 'theme' as const }
         : preferences;
     return reaction(
@@ -34,7 +37,7 @@ export const useKeyboardLighting = (
       },
       { fireImmediately: true },
     );
-  }, [position, playing, preferences, theme]);
+  }, [position, music, preferences, theme]);
 
   useEffect(
     () => () => {

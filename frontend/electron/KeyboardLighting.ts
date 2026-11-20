@@ -45,6 +45,7 @@ export class OpenRgbKeyboardLighting {
   private keyboards: OpenRgbKeyboard[] = [];
   private pending: Promise<void> = Promise.resolve();
   private revision = 0;
+  private appliedState: string | undefined;
 
   constructor(
     executable: string,
@@ -70,6 +71,8 @@ export class OpenRgbKeyboardLighting {
     } catch {
       this.keyboards = [];
     }
+    // Explicit discovery may follow a device reconnect, even with the same device indexes.
+    this.appliedState = undefined;
     return {
       available: this.keyboards.length > 0,
       provider: this.keyboards.length ? 'OpenRGB' : undefined,
@@ -98,7 +101,8 @@ export class OpenRgbKeyboardLighting {
       request.enabled && /^[0-9a-f]{6}$/i.test(request.color)
         ? request.color.toUpperCase()
         : '000000';
-    const args = this.keyboards.flatMap((keyboard) => [
+    const keyboards = this.keyboards;
+    const args = keyboards.flatMap((keyboard) => [
       '--device',
       String(keyboard.index),
       '--mode',
@@ -108,7 +112,12 @@ export class OpenRgbKeyboardLighting {
       '--brightness',
       String(clampPercentage(request.brightness)),
     ]);
+    const state = JSON.stringify(args);
+    if (state === this.appliedState) return;
+    // A failed CLI call may have partially updated the devices. Retry any later setting.
+    this.appliedState = undefined;
     await this.run(args);
+    if (this.keyboards === keyboards) this.appliedState = state;
   }
 }
 
