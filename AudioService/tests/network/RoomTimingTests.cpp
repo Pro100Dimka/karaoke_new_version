@@ -256,9 +256,26 @@ void stableLatenessUnknownAndResetCannotClaimARequirement() {
 
 void stableLatenessRingReallyEvictsOldBadHistory() {
     StableLatenessHistory history;
+    VoiceLatenessTracker recent;
     constexpr auto normal = 35U * FramesPerMillisecond;
     for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
         noteStableBlock(history, 220U * FramesPerMillisecond);
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet) {
+        recent.note(normal);
+        history.note(normal);
+        if (packet + 1U < VoiceLatenessTracker::WindowPackets)
+            expect(history.targetFrames(recent) == history.targetFrames(),
+                   "an incomplete fresh window cannot retire the established requirement");
+    }
+    expect(history.targetFrames(recent) < 60U * FramesPerMillisecond &&
+               history.targetFrames() > 200U * FramesPerMillisecond,
+           "thirty healthy seconds retire stale latency without waiting for three-minute history");
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet) {
+        recent.note(220U * FramesPerMillisecond);
+        history.note(220U * FramesPerMillisecond);
+    }
+    expect(history.targetFrames(recent) > 200U * FramesPerMillisecond,
+           "recurring sustained delays cannot remain hidden behind a previous recovery");
     for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
         noteStableBlock(history, normal);
     expect(history.blocks() == StableLatenessHistory::Blocks &&

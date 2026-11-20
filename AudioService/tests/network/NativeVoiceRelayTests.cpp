@@ -1,4 +1,5 @@
 #include "TestHarness.hpp"
+#include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkPacket.hpp"
 #include "relay/NativeVoiceRelay.hpp"
 
@@ -1142,6 +1143,7 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
                    base + SharedRoomPacketFrames * 3U,
            "once ingress is absent, silence follows the 2.5-ms room grid without a backlog");
 
+    const auto beforeStall = header;
     const auto afterSilence = base + SharedRoomPacketFrames * 4U;
     (void)relay.receive(packet("alice", 0x1111, 3, afterSilence, 300), alice,
                         10.0777, 1'000.0777);
@@ -1166,6 +1168,36 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
                (header.timestampFrame & ~SharedAudioTimelineFlag) == currentDue,
            "after a scheduler stall the relay resumes at the current position instead of "
            "bursting obsolete silence");
+    expect(header.sequence - beforeStall.sequence ==
+               (header.timestampFrame - beforeStall.timestampFrame) / SharedRoomPacketFrames,
+           "skipped room positions remain visible as packet loss instead of compressing time");
+    AdaptiveJitterBuffer receiver;
+    receiver.configure(1, 128);
+    receiver.reset();
+    const auto receiveMix = [&](const AudioPacketHeader& mix) {
+        receiver.push({mix.sequence, mix.timestampFrame, mix.channels, mix.frames, {}, mix.codec});
+    };
+    NetworkAudioPacket received{};
+    receiveMix(beforeStall);
+    require(receiver.pop(received) == JitterPopOutcome::Delivered,
+            "the receiver accepts the first server sequence without assuming zero");
+    receiveMix(header);
+    constexpr auto delay = 80U * VoiceProtocolSampleRateHz / 1'000U;
+    const auto firstMissing = (beforeStall.timestampFrame & ~SharedAudioTimelineFlag) +
+                              SharedRoomPacketFrames;
+    expect(receiver.pop(received, firstMissing + delay - 1U, delay) == JitterPopOutcome::Empty,
+           "a missing position remains recoverable until its playout deadline");
+    const auto missing = header.sequence - beforeStall.sequence - 1U;
+    for (std::uint32_t index = 0; index < missing; ++index) {
+        const auto position = firstMissing + index * SharedRoomPacketFrames;
+        require(receiver.pop(received, position + delay, delay) == JitterPopOutcome::Lost,
+                "the receiver represents each missing musical position once");
+        expect((received.timestampFrame & ~SharedAudioTimelineFlag) == position,
+               "concealment retains the missing position instead of stretching its successor");
+    }
+    expect(receiver.pop(received) == JitterPopOutcome::Delivered &&
+               received.timestampFrame == header.timestampFrame,
+           "the current mix resumes at its original musical position");
     const auto afterStallPosition = currentDue + SharedRoomPacketFrames;
     (void)relay.receive(packet("alice", 0x1111, 64, afterStallPosition, 300), alice,
                         10.2001, 1'000.2001);
