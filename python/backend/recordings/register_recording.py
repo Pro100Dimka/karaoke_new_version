@@ -54,6 +54,7 @@ class RegisterRecording:
         *,
         prepare_recording: Callable[[Recording, threading.Event], None] | None = None,
         jobs: ProcessingJobManager | None = None,
+        on_ready: Callable[[str], None] | None = None,
     ) -> None:
         self._uow = uow
         self._storage = storage
@@ -63,10 +64,22 @@ class RegisterRecording:
         self._lifecycle = lifecycle
         self._prepare_recording = prepare_recording
         self._jobs = jobs
+        self._on_ready = on_ready
         self._pending: set[str] = set()
         self._lock = threading.RLock()
         self._registration_locks = KeyedLockManager()
         self._prepare_slot = threading.Semaphore(1)
+
+    def set_ready_callback(self, on_ready: Callable[[str], None]) -> None:
+        self._on_ready = on_ready
+
+    def _notify_ready(self, recording_id: str) -> None:
+        if self._on_ready is not None:
+            with job_failure(
+                partial(logging.getLogger(__name__).exception, "Recording archival queue failed"),
+                suppress=True,
+            ):
+                self._on_ready(recording_id)
 
     def execute(self, request: RegisterRecordingRequest) -> Recording:
         validate_recording_id(request.recording_id)
@@ -81,6 +94,8 @@ class RegisterRecording:
         if existing:
             if existing.file_status not in {"Preparing", "PreparationFailed"}:
                 self._storage.remove_recovery_descriptor(request.recording_id)
+            if existing.file_status == "Ready":
+                self._notify_ready(existing.recording_id)
             return existing
         path = self._storage.validate_owned_file(
             request.file_path, recording_id=request.recording_id
@@ -105,11 +120,16 @@ class RegisterRecording:
         if prepare and self._jobs is None and self._prepare_recording is not None:
             self._prepare_recording(recording, threading.Event())
         self._persist(recording, request.idempotency_key, _request_hash(request))
+        self._finish_registration(recording)
+        return recording
+
+    def _finish_registration(self, recording: Recording) -> None:
         if recording.file_status == "Preparing":
             self._schedule(recording)
         else:
             self._storage.remove_recovery_descriptor(recording.recording_id)
-        return recording
+            if recording.file_status == "Ready":
+                self._notify_ready(recording.recording_id)
 
     def resume_pending(self) -> None:
         offset = 0
@@ -188,6 +208,7 @@ class RegisterRecording:
                 context.ensure_not_cancelled()
                 self._set_status(recording.recording_id, "Ready")
                 self._storage.remove_recovery_descriptor(recording.recording_id)
+                self._notify_ready(recording.recording_id)
                 return {"recordingId": recording.recording_id}
         finally:
             if acquired:

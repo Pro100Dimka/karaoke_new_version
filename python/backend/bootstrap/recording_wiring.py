@@ -38,9 +38,9 @@ def build_recording_cases(
         runtime.config.roots.recordings,
         runtime.database,
         runtime.processes,
-        ListRecordingAnalyses(runtime.database).execute,
         processing.jobs.run_when_idle,
     )
+    register.set_ready_callback(archive.request)
     analysis, studio_master = _analysis_and_mastering(
         runtime, project, processing, storage, register, archive
     )

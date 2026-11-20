@@ -94,28 +94,28 @@ class StudioMasterBalance:
 
 
 def recording_stems(path: Path, *, prefer_dry: bool = False) -> tuple[Path, Path] | None:
-    # Lossless archival changes the mix filename while retained native stems keep their WAV name.
+    # The mix can be archived separately; native stems retain their original basename.
+    voices = (".dry.wav", ".dry.flac", ".vocal.wav") if prefer_dry else (".vocal.wav",)
     for source in dict.fromkeys((path, path.with_suffix(".wav"))):
-        dry = ensure_within(Path(str(source) + ".dry.wav"), path.parent)
-        voice_suffix = ".dry.wav" if prefer_dry and dry.is_file() else ".vocal.wav"
-        stems = tuple(
-            ensure_within(Path(str(source) + suffix), path.parent)
-            for suffix in (voice_suffix, ".backing.wav")
-        )
-        if not all(stem.is_file() for stem in stems):
+        backing = ensure_within(Path(str(source) + ".backing.wav"), path.parent)
+        if not backing.is_file():
             continue
-        info = sf.info(path)
-        for stem in stems:
-            other = sf.info(stem)
-            if (other.frames, other.samplerate, other.channels) != (
-                info.frames,
-                info.samplerate,
-                info.channels,
-            ):
-                raise DependencyError(
-                    "StudioMasterInvalidStems", "Recording stems are not synchronized"
-                )
-        return stems[0], stems[1]
+        for suffix in voices:
+            voice = ensure_within(Path(str(source) + suffix), path.parent)
+            if not voice.is_file():
+                continue
+            info = sf.info(path)
+            for stem in (voice, backing):
+                other = sf.info(stem)
+                if (other.frames, other.samplerate, other.channels) != (
+                    info.frames,
+                    info.samplerate,
+                    info.channels,
+                ):
+                    raise DependencyError(
+                        "StudioMasterInvalidStems", "Recording stems are not synchronized"
+                    )
+            return voice, backing
     return None
 
 

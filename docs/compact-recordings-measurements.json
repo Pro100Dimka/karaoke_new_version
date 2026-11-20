@@ -1,0 +1,137 @@
+{
+  "date": "2026-11-20",
+  "scope": "Different real recordings, not a before/after original-master pair. Archival work only; no capture or mastering rerun.",
+  "listening_archives": {
+    "supplied_standalone_original": {
+      "old_lossless_archiver": {
+        "median_seconds": 0.7433310619962867,
+        "times_seconds": [
+          0.7433310619962867,
+          0.7943125099991448,
+          0.7255934249988059
+        ],
+        "bytes": 4114030,
+        "with_sidecars_bytes": 4138243,
+        "format": "FLAC",
+        "archive": null
+      },
+      "final_compact_recording": {
+        "median_seconds": 0.715485232998617,
+        "times_seconds": [
+          0.715485232998617,
+          0.828669053997146,
+          0.6450009280088125
+        ],
+        "bytes": 4114030,
+        "with_sidecars_bytes": 4138500,
+        "format": "FLAC",
+        "archive": {
+          "channels": 2,
+          "file": "recording.flac",
+          "format": "FLAC",
+          "frames": 2528160,
+          "reason": "PreserveRemasteringSourceOrLayout",
+          "sampleExact": true,
+          "sampleRate": 48000,
+          "sha256": "f2405a706f3cba3f9a6cfb306a93abfa78ba975b75b0d17433caeace17172714",
+          "size": 4114030,
+          "version": 1
+        }
+      }
+    },
+    "separate_previous_real_master": {
+      "old_lossless_archiver": {
+        "median_seconds": 1.1087957550043939,
+        "times_seconds": [
+          1.1087957550043939,
+          0.9971046120044775,
+          1.1596273339964682
+        ],
+        "bytes": 22292865,
+        "with_sidecars_bytes": 22317081,
+        "format": "FLAC",
+        "archive": null
+      },
+      "final_compact_recording": {
+        "median_seconds": 3.8881448219908634,
+        "times_seconds": [
+          3.8851595869928133,
+          4.111933003005106,
+          3.8881448219908634
+        ],
+        "bytes": 4378165,
+        "with_sidecars_bytes": 4402641,
+        "format": "MP3",
+        "archive": {
+          "bitrate": 320000,
+          "channels": 2,
+          "file": "recording.mp3",
+          "format": "MP3",
+          "frames": 4824320,
+          "integratedLufs": -11.11,
+          "sampleExact": false,
+          "sampleRate": 44100,
+          "sha256": "1b41f6d3ba23ebfd16a8b8cce16f28139318265cfb17484bd745e456f4bf4d2c",
+          "size": 4378165,
+          "truePeakDbtp": -1.15,
+          "version": 1
+        }
+      }
+    }
+  },
+  "dry_microphone_archive": {
+    "source_provenance": "Previous supplied real six-channel recording companion; distinct from standalone recording(9).wav and separate prior Master benchmark.",
+    "source_sha256": "f29e8d791762609c0c28144e14ec8b4a159644abd0bf0ca1dcbb0acfdf20cd2f",
+    "mix_sha256": "6e022258f549d46af7a3e69daa05c5894d194da67cf808f9c707e62b7b1be482",
+    "source_bytes": 131788844,
+    "source_format": "WAV",
+    "source_subtype": "FLOAT",
+    "output_sha256": "84fca0dd87b9be58147dd03939c0b4fd3f1f7eaf0fff64aaff18202312547808",
+    "output_bytes": 62335748,
+    "output_format": "FLAC",
+    "output_subtype": "PCM_24",
+    "duration": 124.51700680272108,
+    "frames": 5491200,
+    "sample_rate": 44100,
+    "channels": 6,
+    "elapsed_seconds_one_run": 0.8190447929955553,
+    "decoded_float32_bytes_identical": true,
+    "decoded_float32_sha256": "64994819e042754f4b6dd4f295d83a4a4d7493eb7499ffd4df4beaa7b4577a9c",
+    "input_bytes_preserved": true,
+    "copied_wav_retained": true,
+    "wet_backing_sources_untouched": true,
+    "source_retirement_called": false,
+    "implementation_sha256": "cd5c9e38800a3ca9560b1673ba05385f429d8308ec0df3bf0dd3ab1b2bd1ae9b",
+    "timing_scope": "One prepare_dry_archive call, including streaming eligibility, encode, complete equality verification and sync; input copying and independent checks excluded."
+  },
+  "source_sizes_bytes": {
+    "standalone_original": 10112684,
+    "separate_master": 28946022
+  },
+  "source_sha256": {
+    "standalone_original": "ee521ef4eacf34abcb59dd5d567067021bf95ab923bf9ade28c43f43afdd7f1b",
+    "separate_master": "9fb8f919d1446d74e01a5c4a11e4adab9b80ec60dc8e20287e0fbac31ff1380e"
+  },
+  "mp3_algorithm_quality_comparison": {
+    "real_full_lumen_instrumental": {
+      "default_seconds": 3.567614429994137,
+      "q0_seconds": 10.84476745298889,
+      "q0_overhead_seconds": 7.277153022994753,
+      "q0_slowdown_percent": 203.9781250410155,
+      "default_bytes": 11741561,
+      "q0_bytes": 11741561,
+      "default_snr_db": 36.167601509242445,
+      "q0_snr_db": 33.64530194751027
+    },
+    "separate_previous_real_master": {
+      "default_seconds": 1.325361064999015,
+      "q0_seconds": 3.9955360040039523,
+      "q0_overhead_seconds": 2.670174939004937,
+      "q0_slowdown_percent": 201.4677365678402,
+      "default_bytes": 4378165,
+      "q0_bytes": 4378165,
+      "default_snr_db": 35.60306445550351,
+      "q0_snr_db": 33.134641601360755
+    }
+  }
+}

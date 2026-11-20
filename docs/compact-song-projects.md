@@ -9,8 +9,9 @@ The complete fresh project for the supplied 293.5-second Lumen track occupies **
 melody, both lyric documents, manifests and waveform data.
 
 Generated instrumental and reference-vocal stems are now stored as **320 kb/s MP3**. This is
-perceptual, lossy compression. The original imported media is retained byte-for-byte; recording
-archives continue to use their existing sample-exact lossless compressor. Melody remains FLAC.
+perceptual, lossy compression. The original imported media is retained byte-for-byte. Melody
+remains FLAC. Recording storage is handled separately in
+[compact-recordings.md](compact-recordings.md), following the user's additional request.
 
 Initial separation, recognition, alignment and note extraction still operate before publication.
 The compact encoder preserves decoded frame count, sample rate and channel count. It does not

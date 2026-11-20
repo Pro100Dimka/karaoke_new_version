@@ -1,4 +1,4 @@
-"""Compact generated playback stems; recording archives remain sample-exact FLAC."""
+"""Compact generated playback stems with verified gapless audio and waveform metadata."""
 
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ from backend.infrastructure.process_runner import ProcessRunner
 
 _MP3_RATE = 320_000
 _MPEG1_SAMPLE_RATES = frozenset({32000, 44100, 48000})
+
+
+class CompactAudioLayoutError(ValueError):
+    """An encoder/decoder pair did not preserve the exact source timeline or layout."""
 
 
 def compact_stems(instrumental: Path, vocal: Path, workspace: Path) -> tuple[Path, Path]:
@@ -116,7 +120,7 @@ def _verify_encoded(source: Path, encoded: Path, cancel: threading.Event, *, pea
         info.samplerate,
         info.channels,
     ):
-        raise ValueError("Compact audio duration or layout changed")
+        raise CompactAudioLayoutError("Compact audio duration or layout changed")
     if peaks:
         # The peaks pass also reads every sample and verifies finite, complete audio.
         write_lossless_peaks(encoded, cancel)

@@ -61,7 +61,7 @@ class StartRecordingAnalysis:
         self._active: dict[str, Job] = {}
 
     def execute(self, recording_id: str) -> Job:
-        with self._submission_lock:
+        with self._jobs.prepare_submission(), self._submission_lock:
             previous = self._active.get(recording_id)
             current = self._jobs.get(previous.job_id) if previous else None
             if current and current.state in {

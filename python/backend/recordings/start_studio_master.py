@@ -62,10 +62,6 @@ class StartStudioMaster:
                 raise NotFoundError(
                     "StudioMasterUnavailable", "Original song stems are unavailable"
                 )
-        # Recover older recordings with only a backing track before deciding to
-        # run costly source separation. The original take remains untouched.
-        stems = self._stems(recording)
-        logger.info("Studio Master requested: recording=%s stems=%s", recording_id, bool(stems))
         return self._jobs.start(
             JobType.RECORDING_MASTERING,
             lambda context: self._run(recording, context),
@@ -84,7 +80,11 @@ class StartStudioMaster:
         workspace = self._workspaces.allocate(f"studio-{recording.recording_id}")
         try:
             context.ensure_not_cancelled()
+            # Resolve/recover stems only after job admission prevents archive publication.
             stems = self._stems(recording)
+            logger.info(
+                "Studio Master requested: recording=%s stems=%s", recording.recording_id, bool(stems)
+            )
             exact_stems = stems is not None
             if stems is None:
                 stems = self._separate(recording, workspace, context)
@@ -116,7 +116,7 @@ class StartStudioMaster:
                 context.cancel,
                 performance_mix=recording.file_path,
                 exact_stems=exact_stems,
-                process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
+                process_voice=exact_stems and stems[0].name.endswith((".dry.wav", ".dry.flac")),
                 match_recording_loudness=True,
                 adjustments=recording_adjustments(recording),
                 progress=context.progress,
@@ -247,7 +247,18 @@ class StartStudioMaster:
                     "StudioMasterSourceMissing", "Master has no original recording link", 409
                 )
             recording_id = source_id
-        if not recording.file_path.is_file():
+        return self._available_recording(recording)
+
+    def _available_recording(self, recording: Recording) -> Recording:
+        # Archival commits its new path before retiring the WAV. Refresh a stale row once.
+        available = recording.file_path.is_file()
+        if not available:
+            with self._uow.create() as transaction:
+                latest = transaction.recordings.get(recording.recording_id)
+            if latest is not None:
+                recording = latest
+            available = recording.file_path.is_file()
+        if not available:
             raise NotFoundError("RecordingFileMissing", "Recording file is unavailable")
         if recording.file_status != "Ready":
             raise DomainError("StudioMasterUnavailable", "Recording is not finalized", 409)

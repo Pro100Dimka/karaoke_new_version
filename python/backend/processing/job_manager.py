@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import threading
+from contextlib import contextmanager
 from time import monotonic
 from dataclasses import dataclass, replace
-from typing import Callable, Sequence
+from typing import Callable, Iterator, Sequence
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
 from backend.runtime import Clock
@@ -45,6 +46,7 @@ class ProcessingJobManager:
         self._events = events
         # Serialize job transitions with progress so stale snapshots cannot undo cancellation.
         self._state_lock = threading.RLock()
+        self._preparing_submissions = 0
         self._active_job_types: dict[str, JobType] = {}
         self._pending_progress: dict[str, Job] = {}
         self._progress_saved_at: dict[str, float] = {}
@@ -128,6 +130,17 @@ class ProcessingJobManager:
             )
         return job
 
+    @contextmanager
+    def prepare_submission(self) -> Iterator[None]:
+        """Keep input files stable until start() registers the job, without holding progress locks."""
+        with self._state_lock:
+            self._preparing_submissions += 1
+        try:
+            yield
+        finally:
+            with self._state_lock:
+                self._preparing_submissions -= 1
+
     def run_when_idle(
         self,
         action: Callable[[], None],
@@ -142,7 +155,8 @@ class ProcessingJobManager:
                 if allow_job_types
                 else bool(self._executor.stats().get("activeOrQueued", 0))
             )
-            if busy:
+            # An input snapshot has no job type yet; allowed running jobs cannot waive its safety.
+            if self._preparing_submissions or busy:
                 raise busy_error or ConflictError(
                     "ModelsInUse", "Wait for background jobs to finish before deleting models"
                 )
