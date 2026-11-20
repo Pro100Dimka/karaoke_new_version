@@ -13,17 +13,28 @@ import type { PitchFrame } from '../../../contracts/models';
 const phrasesOf = (
   lines: readonly LyricLine[],
   notes: readonly ShowNote[],
-): ShowPhrase[] =>
-  lines.map((line) => {
-    const words = new Set(line.words.map((word) => word.id));
-    return {
-      start: line.start,
-      end: line.end,
-      noteIds: notes
-        .filter((note) => note.wordId && words.has(note.wordId))
-        .map((note) => note.id),
-    };
+): ShowPhrase[] => {
+  const phrases = lines.map(({ start, end }) => ({
+    start,
+    end,
+    noteIds: [] as string[],
+  }));
+  const byWord = new Map<string, string[][]>();
+  lines.forEach((line, index) => {
+    const ids = phrases[index]!.noteIds;
+    for (const wordId of new Set(line.words.map((word) => word.id))) {
+      const targets = byWord.get(wordId) ?? [];
+      targets.push(ids);
+      byWord.set(wordId, targets);
+    }
   });
+  // Visit every note once and retain its source order in every matching phrase.
+  for (const note of notes) {
+    const wordId = note.wordId;
+    if (wordId) for (const ids of byWord.get(wordId) ?? []) ids.push(note.id);
+  }
+  return phrases;
+};
 
 /** Development diagnostics only: `__adShow.autopilot = true` in DevTools sings every note exactly, to watch the show build. */
 interface ShowDiagnostics {

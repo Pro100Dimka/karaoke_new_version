@@ -143,6 +143,83 @@ it('resets a new room performance without scoring buffered frames from the previ
   expect(result.current.noteScore.assessedPitchSeconds).toBeCloseTo(0.05);
 });
 
+it('assigns show phrases without rescanning every note for every lyric line', () => {
+  let wordReads = 0;
+  const notes = Array.from({ length: 2000 }, (_, index) => ({
+    id: `n${index}`,
+    get wordId() {
+      wordReads++;
+      return `w${index}`;
+    },
+    pitch: 60,
+    start: index,
+    end: index + 0.5,
+  }));
+  const lines: LyricLine[] = Array.from({ length: 400 }, (_, line) => ({
+    start: line * 5,
+    end: line * 5 + 4.5,
+    words: Array.from({ length: 5 }, (_, word) => ({
+      id: `w${line * 5 + word}`,
+      text: 'word',
+      start: line * 5 + word,
+      end: line * 5 + word + 0.5,
+    })),
+  }));
+  const load = vi
+    .spyOn(ShowEngine.prototype, 'load')
+    .mockImplementation(() => {});
+  renderHook(() =>
+    useShowEngine({
+      notes,
+      lines,
+      settings: { intensity: 'full', reducedMotion: false },
+      position: 0,
+      playing: false,
+      pitchHz: undefined,
+    }),
+  );
+  const phrases = load.mock.calls[0]?.[1];
+  expect(phrases?.[0]?.noteIds).toEqual(['n0', 'n1', 'n2', 'n3', 'n4']);
+  expect(phrases?.at(-1)?.noteIds).toEqual([
+    'n1995',
+    'n1996',
+    'n1997',
+    'n1998',
+    'n1999',
+  ]);
+  expect(wordReads).toBeLessThanOrEqual(notes.length * 2);
+});
+
+it('keeps phrase note order and repeated word membership when building the show', () => {
+  const word = { id: 'w1', text: 'word', start: 1, end: 2 };
+  const lines: LyricLine[] = [
+    { start: 1, end: 2, words: [word, word, { ...word, id: 'w2' }] },
+    { start: 3, end: 4, words: [{ ...word, start: 3, end: 4 }] },
+  ];
+  const notes = [
+    { id: 'first', wordId: 'w2', start: 1, end: 1.5, pitch: 60 },
+    { id: 'second', wordId: 'w1', start: 1.5, end: 2, pitch: 60 },
+    { id: 'orphan', wordId: 'missing', start: 2, end: 3, pitch: 60 },
+  ];
+  const load = vi
+    .spyOn(ShowEngine.prototype, 'load')
+    .mockImplementation(() => {});
+  renderHook(() =>
+    useShowEngine({
+      notes,
+      lines,
+      settings: { intensity: 'full', reducedMotion: false },
+      position: 0,
+      playing: false,
+      pitchHz: undefined,
+    }),
+  );
+  expect(load.mock.calls[0]?.[1]).toEqual([
+    { start: 1, end: 2, noteIds: ['first', 'second'] },
+    { start: 3, end: 4, noteIds: ['second'] },
+  ]);
+});
+
 it.each([false, true])(
   'scores final captured voice once after pause or EOF (earlier capture: %s)',
   (earlierCapture) => {

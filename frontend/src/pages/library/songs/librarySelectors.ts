@@ -18,9 +18,10 @@ type LibraryFilter = SongSearch;
 export type LastPlayed = Readonly<Record<string, number>>;
 
 /** Match the backend's normalized Unicode order independently of the UI locale. */
-const compareText = (a: string, b: string): number => {
-  const left = Array.from(normalizeSearch(a).trim());
-  const right = Array.from(normalizeSearch(b).trim());
+const compareText = (
+  left: readonly string[],
+  right: readonly string[],
+): number => {
   for (let index = 0; index < Math.min(left.length, right.length); index++) {
     const difference =
       left[index]!.codePointAt(0)! - right[index]!.codePointAt(0)!;
@@ -34,9 +35,24 @@ const stableTail = (a: SongDto, b: SongDto): number =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
 type CompareSongs = (a: SongDto, b: SongDto, played: LastPlayed) => number;
-const primary: Record<Exclude<LibrarySort, 'recent'>, CompareSongs> = {
-  title: (a, b) => compareText(a.title, b.title),
-  artist: (a, b) => compareText(a.artist, b.artist),
+const compareByText = (field: 'title' | 'artist'): CompareSongs => {
+  // A sort compares each song many times; fold its Unicode text only once.
+  // Keep this cache within one selection so edited metadata is never stale.
+  const keys = new Map<SongDto, readonly string[]>();
+  const key = (song: SongDto) => {
+    let value = keys.get(song);
+    if (!value) {
+      value = Array.from(normalizeSearch(song[field]).trim());
+      keys.set(song, value);
+    }
+    return value;
+  };
+  return (a, b) => compareText(key(a), key(b));
+};
+const primary: Record<
+  Exclude<LibrarySort, 'recent' | 'title' | 'artist'>,
+  CompareSongs
+> = {
   played: (a, b, played) => (played[a.id] ?? 0) - (played[b.id] ?? 0),
   duration: (a, b) => a.durationSeconds - b.durationSeconds,
   bpm: (a, b) => (a.detectedBpm ?? 0) - (b.detectedBpm ?? 0),
@@ -75,6 +91,12 @@ export const selectLibrarySongs = (
 ): readonly SongDto[] => {
   const query = normalizeSearch(filter.query.trim());
   const { sort, direction } = filter;
+  const compare =
+    sort === 'title' || sort === 'artist'
+      ? compareByText(sort)
+      : sort === 'recent'
+        ? undefined
+        : primary[sort];
   return songs
     .filter((song) => {
       if (filter.status !== 'all' && song.status !== filter.status)
@@ -94,7 +116,7 @@ export const selectLibrarySongs = (
     .sort((a, b) =>
       sort === 'recent'
         ? compareAddedSongs(a, b, direction)
-        : (direction === 'asc' ? 1 : -1) * primary[sort](a, b, played) ||
+        : (direction === 'asc' ? 1 : -1) * compare!(a, b, played) ||
           stableTail(a, b),
     );
 };
