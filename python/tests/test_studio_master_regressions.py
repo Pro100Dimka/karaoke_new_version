@@ -150,6 +150,67 @@ def test_unmatched_reference_does_not_disable_the_new_plan(tmp_path, monkeypatch
     assert result.processing["gainPlan"]["activeSeconds"] > 3
 
 
+@pytest.mark.parametrize(
+    "exact_stems,process_voice,source_suffix,channels",
+    [
+        (True, False, ".wav", 1),
+        (True, True, ".wav", 2),
+        (False, False, ".wav", 1),
+        (True, False, ".flac", 2),
+        (True, False, ".wav", 6),
+    ],
+    ids=["exact-wet", "exact-dry", "separated", "archived-flac", "repeated-channels"],
+)
+def test_insufficient_vocal_evidence_preserves_the_recorded_mix(
+    tmp_path: Path, exact_stems, process_voice, source_suffix, channels
+):
+    from tests.test_studio_master_scenarios import scenario_audio
+
+    paths, _ = scenario_audio("steady", tmp_path)
+    rate, frames = 8000, 8037
+    voice = sf.read(paths[0], dtype="float32")[0][:frames]
+    dry = voice * (np.arange(frames) < round(0.3 * rate))
+    wet = dry.copy()
+    delay = round(0.65 * rate)
+    wet[delay:] += 0.6 * dry[:-delay]
+    wet[-37:] += 0.25 * voice[-37:]
+    backing = sf.read(paths[1], dtype="float32")[0][:frames] * 0.25
+    # Native duplicated outputs repeat the second channel; keep the first two distinct.
+    channel_gains = np.array([1, *[0.7] * (channels - 1)])
+    for path, samples in zip(
+        paths[:2], (dry if process_voice or not exact_stems else wet, backing), strict=True
+    ):
+        sf.write(path, samples[:, None] * channel_gains, rate, subtype="FLOAT")
+    paths[4] = paths[4].with_suffix(source_suffix)
+    sf.write(
+        paths[4],
+        (wet + backing)[:, None] * channel_gains,
+        rate,
+        subtype="PCM_24" if source_suffix == ".flac" else "FLOAT",
+    )
+    before = {path: path.read_bytes() for path in paths}
+    expected = sf.read(paths[4], dtype="float32", always_2d=True)[0][:, :2]
+    output = tmp_path / "master.wav"
+
+    result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
+        *paths[:4],
+        output,
+        threading.Event(),
+        performance_mix=paths[4],
+        exact_stems=exact_stems,
+        process_voice=process_voice,
+        match_recording_loudness=True,
+    )
+
+    actual, actual_rate = sf.read(output, dtype="float32", always_2d=True)
+    assert result.processing["bypassReason"] == "insufficient-vocal-evidence"
+    assert actual_rate == rate and actual.shape == expected.shape
+    assert sf.info(output).format == "WAV"
+    np.testing.assert_array_equal(actual, expected)
+    assert result.processing["outputChannels"] == expected.shape[1]
+    assert {path: path.read_bytes() for path in paths} == before
+
+
 def test_reference_section_excludes_unperformed_song_and_rejects_seeks():
     adjustments = [{"elapsedSeconds": 0, "sourceSeconds": 40, "playbackRate": 1, "keyShift": 0}]
     assert reference_section(adjustments, 10) == (40, 50)
