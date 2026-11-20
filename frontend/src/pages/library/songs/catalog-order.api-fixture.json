@@ -1,0 +1,114 @@
+{
+  "songs": [
+    {
+      "songId": "c7da32ad-bdf8-4140-980c-c0551a4c71be",
+      "title": "Alpha",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:33:25.120140Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-3.wav"
+    },
+    {
+      "songId": "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "title": "Beta",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:33:24.992170Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-2.wav"
+    },
+    {
+      "songId": "49fe4782-b25c-407f-9416-2ea980997938",
+      "title": "Zulu",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:33:24.900457Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-1.wav"
+    },
+    {
+      "songId": "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "title": "Été",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:33:24.822427Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-0.wav"
+    }
+  ],
+  "orders": {
+    "artist-asc": [
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ],
+    "artist-desc": [
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ],
+    "title-asc": [
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a"
+    ],
+    "title-desc": [
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ],
+    "duration-asc": [
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ],
+    "duration-desc": [
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ],
+    "bpm-asc": [
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ],
+    "bpm-desc": [
+      "49fe4782-b25c-407f-9416-2ea980997938",
+      "4cff3874-da61-4e8f-9d2f-dfe8b715d33a",
+      "a8f7981e-4b82-43ac-b846-7be6d533a3b8",
+      "c7da32ad-bdf8-4140-980c-c0551a4c71be"
+    ]
+  }
+}

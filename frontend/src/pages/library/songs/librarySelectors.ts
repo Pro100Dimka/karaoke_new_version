@@ -17,14 +17,21 @@ type LibraryFilter = SongSearch;
 
 export type LastPlayed = Readonly<Record<string, number>>;
 
-const compareText = (a: string, b: string): number =>
-  normalizeSearch(a).localeCompare(normalizeSearch(b));
+/** Match the backend's normalized Unicode order independently of the UI locale. */
+const compareText = (a: string, b: string): number => {
+  const left = Array.from(normalizeSearch(a).trim());
+  const right = Array.from(normalizeSearch(b).trim());
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    const difference =
+      left[index]!.codePointAt(0)! - right[index]!.codePointAt(0)!;
+    if (difference) return difference;
+  }
+  return left.length - right.length;
+};
 
-/** Every sort ends in the same tie-breakers so equal primary values never reshuffle cards. */
+/** Search cursors use ascending song IDs to break ties, even for descending primary sorts. */
 const stableTail = (a: SongDto, b: SongDto): number =>
-  compareText(a.title, b.title) ||
-  compareText(a.artist, b.artist) ||
-  a.id.localeCompare(b.id);
+  a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
 type CompareSongs = (a: SongDto, b: SongDto, played: LastPlayed) => number;
 const primary: Record<Exclude<LibrarySort, 'recent'>, CompareSongs> = {
@@ -32,7 +39,7 @@ const primary: Record<Exclude<LibrarySort, 'recent'>, CompareSongs> = {
   artist: (a, b) => compareText(a.artist, b.artist),
   played: (a, b, played) => (played[a.id] ?? 0) - (played[b.id] ?? 0),
   duration: (a, b) => a.durationSeconds - b.durationSeconds,
-  bpm: (a, b) => (a.detectedBpm ?? -1) - (b.detectedBpm ?? -1),
+  bpm: (a, b) => (a.detectedBpm ?? 0) - (b.detectedBpm ?? 0),
 };
 
 /** Pending imports are the next additions. Their order comes from the file selection. */

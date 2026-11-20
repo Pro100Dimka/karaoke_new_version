@@ -1,0 +1,183 @@
+{
+  "songs": [
+    {
+      "songId": "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "title": "STRASSE",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:05.299092Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-5.wav"
+    },
+    {
+      "songId": "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "title": "Straße",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:05.196925Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-4.wav"
+    },
+    {
+      "songId": "fb00f375-3635-4d96-8acc-197f1ee53ba8",
+      "title": "Unknown duration",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": null,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:05.562525Z",
+      "detectedBpm": null,
+      "originalFilename": "Live.opus"
+    },
+    {
+      "songId": "3800913d-dc05-44f1-929c-f30201a43f06",
+      "title": "Été",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:05.086516Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-3.wav"
+    },
+    {
+      "songId": "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "title": "яблоко",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:04.857989Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-1.wav"
+    },
+    {
+      "songId": "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "title": "Яблоко",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:04.690425Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-0.wav"
+    },
+    {
+      "songId": "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "title": "Ёж",
+      "artist": "Same Artist",
+      "album": null,
+      "duration": 1.0,
+      "language": "Auto",
+      "status": "Imported",
+      "activeRevision": 1,
+      "projectFormatVersion": 2,
+      "coverState": "Fallback",
+      "createdAt": "2026-11-20T10:40:04.976435Z",
+      "detectedBpm": null,
+      "originalFilename": "audio-2.wav"
+    }
+  ],
+  "orders": {
+    "artist-asc": [
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8"
+    ],
+    "artist-desc": [
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8"
+    ],
+    "title-asc": [
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a"
+    ],
+    "title-desc": [
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b"
+    ],
+    "duration-asc": [
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8",
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a"
+    ],
+    "duration-desc": [
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8"
+    ],
+    "bpm-asc": [
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8"
+    ],
+    "bpm-desc": [
+      "001e6d1b-b534-4f22-9dd2-4d3caf7371f9",
+      "3800913d-dc05-44f1-929c-f30201a43f06",
+      "4ba09578-a4b8-44e6-8f09-fd2b0d3ef2b2",
+      "819a2f31-7181-4f37-b0f6-48110ae13237",
+      "d42a32d2-44bc-487c-8366-fba64e12a60b",
+      "e11f703d-0787-4b27-88cc-a0c4baf6421a",
+      "fb00f375-3635-4d96-8acc-197f1ee53ba8"
+    ]
+  }
+}
