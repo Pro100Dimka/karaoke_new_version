@@ -278,6 +278,8 @@ def test_reused_deployment_stamp_cannot_remove_another_attempts_stage(deployment
 
 @pytest.fixture
 def processing_deployment_sandbox(tmp_path: Path, bash_interpreter):
+    # Exercise the /tmp prefix overlap even when the local pytest root lives elsewhere.
+    tmp_path = tmp_path / "tmp" / "processing-sandbox"
     stage = tmp_path / "tmp/ad-voice-processing-20261115-120000"
     root = tmp_path / "root"
     config = tmp_path / "etc"
@@ -302,12 +304,16 @@ def processing_deployment_sandbox(tmp_path: Path, bash_interpreter):
         (stage / name).write_text("new " + name, encoding="utf-8")
     original = {target: target.read_text(encoding="utf-8") for target in targets}
     source = (ROOT / "scripts/deploy-processing-server.sh").read_text(encoding="utf-8")
-    for old, replacement in [
-        ("/opt/karaoke-processing-server", root),
-        ("/etc", config),
-        ("/tmp", stage.parent),
-    ]:
-        source = source.replace(old, _bash_path(replacement))
+    replacements = {
+        "/opt/karaoke-processing-server": _bash_path(root),
+        "/etc": _bash_path(config),
+        "/tmp": _bash_path(stage.parent),
+    }
+    source = re.sub(
+        "|".join(re.escape(path) for path in replacements),
+        lambda match: replacements[match.group()],
+        source,
+    )
     script = tmp_path / "deploy-processing.sh"
     script.write_text(source, encoding="utf-8", newline="\n")
     mocks = tmp_path / "mocks.sh"
@@ -321,7 +327,18 @@ def processing_deployment_sandbox(tmp_path: Path, bash_interpreter):
 sudo() { "$@"; }
 sleep() { :; }
 chown() { :; }
-install() { command install "$@"; fail_once "install-${@: -1}"; }
+install() {
+    local target="${@: -1}" args=()
+    printf '%s\n' "$@" >> "$RC_SANDBOX/install-arguments"
+    while (( $# )); do
+        case "$1" in
+            -o|-g) shift 2 ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+    command install "${args[@]}" || return $?
+    fail_once "install-$target"
+}
 cp() {
     if [[ "${FAIL_ROLLBACK:-}" == 1 && "${@: -2:1}" == *processing-before-* ]]; then return 1; fi
     command cp "$@"
@@ -450,3 +467,41 @@ def test_processing_deployment_reports_failed_rollback(processing_deployment_san
     assert result.returncode != 0
     assert "PROCESSING_SERVER_ROLLBACK=failed" in result.stderr
     assert "PROCESSING_SERVER_ROLLBACK=restored" not in result.stdout
+
+
+def test_processing_deployment_sandbox_creates_data_without_changing_host_ownership(
+    processing_deployment_sandbox,
+):
+    bash, script, stage, environment, original = processing_deployment_sandbox
+    data = next(iter(original)).parent / "data"
+    data.rmdir()
+    result = subprocess.run(
+        [str(bash), str(script), _bash_path(stage)],
+        env={**environment, "FAIL_AT": ""},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert data.is_dir()
+    arguments = (stage.parents[1] / "install-arguments").read_text(encoding="utf-8").splitlines()
+    assert arguments[:8] == [
+        "-d",
+        "-m",
+        "700",
+        "-o",
+        "ubuntu",
+        "-g",
+        "ubuntu",
+        _bash_path(data),
+    ]
+    if os.name != "nt":
+        assert data.stat().st_uid == os.geteuid()
+        assert data.stat().st_mode & 0o777 == 0o700
+        assert [path.stat().st_mode & 0o777 for path in list(original)[:4]] == [
+            0o644,
+            0o600,
+            0o644,
+            0o644,
+        ]
