@@ -472,6 +472,7 @@ constexpr std::array tests{
     Test{"fakeBackendReplaysTimingTraceWithoutPcmStorage",
          Tests::fakeBackendReplaysTimingTraceWithoutPcmStorage},
     Test{"wasapiConversionPreservesOutputLevel", Tests::wasapiConversionPreservesOutputLevel},
+    Test{"wasapiIntegerOutputHonorsValidBits", Tests::wasapiIntegerOutputHonorsValidBits},
     Test{"wasapiRejectsInvalidSampleLayouts", Tests::wasapiRejectsInvalidSampleLayouts},
     Test{"wasapiExclusivePreservesSystemNativePcmFormat",
          Tests::wasapiExclusivePreservesSystemNativePcmFormat},

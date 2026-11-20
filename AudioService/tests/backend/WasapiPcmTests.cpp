@@ -7,6 +7,7 @@
 #include "backend/wasapi/WasapiBackend.hpp"
 #include "backend/wasapi/WasapiPcm.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -41,6 +42,82 @@ void Tests::wasapiConversionPreservesOutputLevel() {
     Tests::expect(
         std::abs(exclusive - shared) < 0.0001F,
         "Device mode must not add guessed gain or clip an otherwise unclipped master mix");
+}
+
+void Tests::wasapiIntegerOutputHonorsValidBits() {
+    constexpr std::array values{-1.1F, -1.0F, -0.5F, -0.1F, 0.0F,
+                                0.1F, 0.5F, 1.0F, 1.1F};
+    struct Layout {
+        std::uint32_t bits;
+        std::array<std::int64_t, values.size()> fullWidth;
+    };
+    constexpr std::array layouts{
+        Layout{16, {-32767, -32767, -16384, -3277, 0, 3277, 16384, 32767, 32767}},
+        Layout{24, {-8388607, -8388607, -4194304, -838861, 0,
+                    838861, 4194304, 8388607, 8388607}},
+        Layout{32, {-2147483647, -2147483647, -1073741824, -214748368, 0,
+                    214748368, 1073741824, 2147483647, 2147483647}},
+    };
+    for (const auto& layout : layouts) {
+        for (const auto validBits : {8U, 16U, 20U, 24U, 32U}) {
+            if (validBits > layout.bits)
+                continue;
+            for (const auto channels : {1U, 2U, 6U, 8U}) {
+                const auto label = std::to_string(validBits) + " valid bits in " +
+                                   std::to_string(layout.bits) + ", channels=" +
+                                   std::to_string(channels);
+                WAVEFORMATEXTENSIBLE format{};
+                format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+                format.Format.nChannels = static_cast<WORD>(channels);
+                format.Format.nSamplesPerSec = 48'000;
+                format.Format.wBitsPerSample = static_cast<WORD>(layout.bits);
+                format.Format.nBlockAlign = static_cast<WORD>(channels * layout.bits / 8);
+                format.Format.nAvgBytesPerSec = 48'000 * format.Format.nBlockAlign;
+                format.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+                format.Samples.wValidBitsPerSample = static_cast<WORD>(validBits);
+                format.dwChannelMask = channels == 1 ? 0x4U : channels == 2 ? 0x3U :
+                                       channels == 6 ? 0x3FU : 0x63FU;
+                format.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+                require(WasapiPcm::sampleFormat(&format.Format) != AudioSampleFormat::Unknown,
+                        label + " is an accepted native integer layout");
+                std::vector<float> input(values.size() * channels), decoded(input.size());
+                for (std::size_t frame = 0; frame < values.size(); ++frame)
+                    for (std::size_t channel = 0; channel < channels; ++channel)
+                        input[frame * channels + channel] = values[(frame + channel) % values.size()];
+                const auto sampleBytes = layout.bits / 8;
+                std::vector<BYTE> output(input.size() * sampleBytes);
+                constexpr auto frames = static_cast<std::uint32_t>(values.size());
+                WasapiPcm::fromFloat(input.data(), output.data(), frames, &format.Format);
+                WasapiPcm::toFloat(output.data(), decoded.data(), frames, &format.Format, false);
+                const auto unusedMask = (std::uint32_t{1} << (layout.bits - validBits)) - 1U;
+                const auto tolerance = 1.5 / std::ldexp(1.0, static_cast<int>(validBits - 1));
+                bool paddingIsZero = true, fullWidthUnchanged = true, precise = true;
+                for (std::size_t frame = 0; frame < values.size(); ++frame) {
+                    for (std::size_t channel = 0; channel < channels; ++channel) {
+                        const auto sample = frame * channels + channel;
+                        std::uint32_t word = 0;
+                        for (std::uint32_t byte = 0; byte < sampleBytes; ++byte)
+                            word |= static_cast<std::uint32_t>(
+                                output[sample * sampleBytes + byte]) << (byte * 8);
+                        paddingIsZero = paddingIsZero && (word & unusedMask) == 0;
+                        const auto signedValue =
+                            (word & (std::uint32_t{1} << (layout.bits - 1))) != 0
+                                ? static_cast<std::int64_t>(word) - (std::int64_t{1} << layout.bits)
+                                : static_cast<std::int64_t>(word);
+                        fullWidthUnchanged = fullWidthUnchanged &&
+                            signedValue == layout.fullWidth[(frame + channel) % values.size()];
+                        precise = precise && std::isfinite(decoded[sample]) &&
+                            std::abs(static_cast<double>(decoded[sample]) -
+                                     std::clamp(input[sample], -1.0F, 1.0F)) <= tolerance;
+                    }
+                }
+                expect(paddingIsZero, label + " must zero every unused least-significant bit");
+                expect(precise, label + " preserves channel order, signed extrema and quantized level");
+                if (validBits == layout.bits)
+                    expect(fullWidthUnchanged, label + " preserves the existing full-width PCM bytes");
+            }
+        }
+    }
 }
 
 void Tests::wasapiRejectsInvalidSampleLayouts() {
@@ -193,6 +270,7 @@ void Tests::wasapiSharedQueueRequiresDirectEvidence() {}
 void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {}
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}
+void Tests::wasapiIntegerOutputHonorsValidBits() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}
 void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {}
 void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {}

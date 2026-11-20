@@ -342,6 +342,7 @@ void fakeBackendEmitsScheduledFault();
 void fakeBackendCanReproduceStaleCallbackAfterStop();
 void fakeBackendReplaysTimingTraceWithoutPcmStorage();
 void wasapiConversionPreservesOutputLevel();
+void wasapiIntegerOutputHonorsValidBits();
 void wasapiRejectsInvalidSampleLayouts();
 void wasapiExclusivePreservesSystemNativePcmFormat();
 void wasapiDeadlineMetricExcludesEventWaitTime();
