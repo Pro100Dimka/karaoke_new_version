@@ -198,15 +198,18 @@ def _returns_measured(routes: list[TimedRoute]) -> bool:
 def _idle_timing(routes: list[TimedRoute], policy: RoomTimingPolicy) -> RoomTiming:
     """Use measured routes for conversation once the initial reserve is calibrated."""
     idle_policy = replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)
-    whole_route = max(route.voice_latency_ms for route in routes)
-    if not _returns_measured(routes):
+    live = [
+        route for route in routes if eligibility(route, idle_policy) is EligibilityReason.ELIGIBLE
+    ]
+    if not live or not _returns_measured(live):
         return RoomTiming(
             policy.maximum_idle_delay_ms,
             policy.idle_return_reserve_floor_ms,
             TimingSource.IDLE_CONVERSATION,
         )
+    # An unsupported return route must not consume the collection time of healthy singers.
     return replace(
-        _measured_timing(routes, whole_route, idle_policy),
+        _measured_timing(live, max(route.voice_latency_ms for route in live), idle_policy),
         source=TimingSource.IDLE_CONVERSATION,
     )
 
