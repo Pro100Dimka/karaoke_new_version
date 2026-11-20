@@ -4,6 +4,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -56,6 +57,10 @@ _definitions = (
     EnvironmentDefinition("AD_VOICE_ROOM_SERVER_SSH_USER", "deployment", "text", "project"),
 )
 
+# Routes create a store for each request; the read/rewrite cycle must still be
+# serialized across stores so saving one key cannot discard another request.
+_write_lock = Lock()
+
 
 def default_environment_store() -> "EnvironmentSettingsStore":
     project_root = Path(__file__).parents[3]
@@ -107,13 +112,14 @@ class EnvironmentSettingsStore:
 
     def save(self, key: str, value: str) -> EnvironmentEntry:
         definition = _definition(key)
-        target = self._files[definition.source]
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if not target.exists():
-            target.touch()
-        set_key(target, key, value, quote_mode="auto")
-        values = self._values()
-        return self._entry(definition, values.get(key, ""), values)
+        with _write_lock:
+            target = self._files[definition.source]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                target.touch()
+            set_key(target, key, value, quote_mode="auto")
+            values = self._values()
+            return self._entry(definition, values.get(key, ""), values)
 
     def verify(self, key: str) -> EnvironmentEntry:
         definition = _definition(key)
