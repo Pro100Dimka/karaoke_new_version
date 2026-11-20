@@ -200,11 +200,13 @@ void RealtimeEngine::acknowledgeRecordingFinish() noexcept {
 }
 
 std::uint32_t RealtimeEngine::retainedVoiceFrames(MonotonicTicks sungAt,
-                                                  std::uint32_t frames) const noexcept {
+                                                  std::uint32_t frames,
+                                                  double fillCorrection) const noexcept {
     if (finishPresentationEnd_ <= 0 || sungAt <= 0) return frames;
     if (sungAt >= finishPresentationEnd_) return 0;
     const auto remaining = static_cast<long double>(finishPresentationEnd_ - sungAt) *
-                           plan_.internalSampleRateHz / NanosecondsPerSecond;
+                           plan_.internalSampleRateHz /
+                           (static_cast<long double>(NanosecondsPerSecond) * fillCorrection);
     return static_cast<std::uint32_t>(std::min<long double>(frames, std::ceil(remaining)));
 }
 
@@ -223,7 +225,8 @@ void RealtimeEngine::addStoppedRecordingVoice(std::span<const float> bridge,
                 bridge[(frame * 2U + 1U) * plan_.outputChannels + channel];
         }
     const auto wetAt = voiceSungAt(capturedAt);
-    const auto wetFrames = retainedVoiceFrames(wetAt, frames);
+    const auto fillCorrection = clockBridge_.snapshot().fillCorrectionRatio;
+    const auto wetFrames = retainedVoiceFrames(wetAt, frames, fillCorrection);
     const auto late = smoothVoiceLateFrames(presentation, wetAt);
     const auto gain = mixer_.gains().microphone;
     recording_.observeVoicePeak(pcmPeak(mic.first(static_cast<std::size_t>(wetFrames) *
@@ -231,7 +234,7 @@ void RealtimeEngine::addStoppedRecordingVoice(std::span<const float> bridge,
     aligner_.addVoice(mic, wetFrames, gain, late);
     if (recording_.backingEnabled()) {
         const auto dryAt = capturedAt - acousticLatencyNs_.load(std::memory_order_relaxed);
-        const auto dryFrames = retainedVoiceFrames(dryAt, frames);
+        const auto dryFrames = retainedVoiceFrames(dryAt, frames, fillCorrection);
         const auto dryLate = late > dspLatencyFrames() ? late - dspLatencyFrames() : 0U;
         dryAligner_.addVoice(dry, dryFrames, 1.0F, dryLate);
     }
@@ -1227,14 +1230,16 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                             bridgeRead.lastSample[plan_.outputChannels + channel];
                     }
     }
-    const auto wetFrames = finishDraining ? retainedVoiceFrames(sungAt, recordedVoiceFrames)
-                                          : recordedVoiceFrames;
+    const auto wetFrames = finishDraining
+        ? retainedVoiceFrames(sungAt, recordedVoiceFrames, bridge.fillCorrectionRatio)
+        : recordedVoiceFrames;
     if (performanceActive && pairedPerformance && microphoneEnabled) {
         const auto dryLateFrames = voiceLateFrames > dspLatencyFrames()
             ? voiceLateFrames - dspLatencyFrames() : 0U;
         const auto dryFrames = finishDraining
             ? retainedVoiceFrames(micCaptured - acousticLatencyNs_.load(std::memory_order_relaxed),
-                                   recordedVoiceFrames) : recordedVoiceFrames;
+                                   recordedVoiceFrames, bridge.fillCorrectionRatio)
+            : recordedVoiceFrames;
         dryAligner_.addVoice(rawMic, dryFrames, 1.0F, dryLateFrames);
     }
     if (recording_.backingEnabled()) {

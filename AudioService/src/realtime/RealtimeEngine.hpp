@@ -293,7 +293,8 @@ class RealtimeEngine final : public IAudioCallback {
     void freezeRecordingFinish() noexcept;
     void acknowledgeRecordingFinish() noexcept;
     [[nodiscard]] std::uint32_t retainedVoiceFrames(MonotonicTicks sungAt,
-                                                   std::uint32_t frames) const noexcept;
+                                                   std::uint32_t frames,
+                                                   double fillCorrection) const noexcept;
     void addStoppedRecordingVoice(std::span<const float> bridge, std::uint32_t frames,
                                    MonotonicTicks capturedAt, MonotonicTicks presentation) noexcept;
 
