@@ -91,6 +91,12 @@ vi.mock('./useKaraokeLoadSession', async () => {
       }, []);
       return {
         load: { kind: 'ready', song },
+        refreshCapabilities: async () => ({
+          microphone: monitoringPreference.microphoneReady
+            ? 'ready'
+            : 'missing',
+          keyboardLighting: false,
+        }),
         capabilities: {
           microphone: monitoringPreference.microphoneReady
             ? 'ready'

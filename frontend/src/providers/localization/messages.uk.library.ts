@@ -129,6 +129,8 @@ export const ukLibrary = {
     'Видалити {name}? Пісні та записи залишаться. Модель можна буде завантажити знову.',
   libraryArchive: 'Архів бібліотеки',
   libraryImported: 'Додано пісень: {imported}. Уже в бібліотеці: {skipped}.',
+  libraryImportedWithRecordings:
+    'Пісні: додано {imported}, уже в бібліотеці {skipped}. Записи: додано {recordingsAdded}, уже в бібліотеці {recordingsSkipped}.',
   libraryTransferFailed: 'Не вдалося перенести бібліотеку',
   addSong: 'Додати пісню',
   library: 'Бібліотека',

@@ -68,7 +68,12 @@ def test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing(tm
         write_wav(other_audio, frequency=550)
         existing = import_song(client, other_audio, title="Keep my song")
         result = transfer(client, "import", archive)
-        assert result == {"imported": 2, "skipped": 0}
+        assert result == {
+            "imported": 2,
+            "skipped": 0,
+            "recordingsAdded": 1,
+            "recordingsSkipped": 0,
+        }
         songs = client.get("/songs").json()["items"]
         assert {item["songId"] for item in songs} == {
             song_id,
@@ -96,7 +101,12 @@ def test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing(tm
                 transaction.analyses.list_for_recording(take.recording_id)[0].state.value
                 == "Succeeded"
             )
-        assert transfer(client, "import", archive) == {"imported": 0, "skipped": 2}
+        assert transfer(client, "import", archive) == {
+            "imported": 0,
+            "skipped": 2,
+            "recordingsAdded": 0,
+            "recordingsSkipped": 1,
+        }
         assert len(client.get("/songs").json()["items"]) == 3
         assert client.get("/recordings").json()["total"] == 1
 
@@ -120,7 +130,12 @@ def test_library_export_snapshots_a_clip_before_manual_replacement(
         assert not tuple(client.app.state.container.roots.temp.glob("library-*"))
 
     with app_client(tmp_path / "target-runtime", ai_providers=(FakeAiProvider(),)) as client:
-        assert transfer(client, "import", package) == {"imported": 1, "skipped": 0}
+        assert transfer(client, "import", package) == {
+            "imported": 1,
+            "skipped": 0,
+            "recordingsAdded": 0,
+            "recordingsSkipped": 0,
+        }
         assert client.get(f"/songs/{song['songId']}/clip").content == original_clip.read_bytes()
         assert client.get(f"/songs/{song['songId']}").json()["title"] == song["title"]
 
@@ -185,7 +200,12 @@ def test_empty_library_can_be_exported_and_imported(tmp_path: Path):
     with app_client(tmp_path / "source") as client:
         archive = Path(transfer(client, "export")["path"])
     with app_client(tmp_path / "target") as client:
-        assert transfer(client, "import", archive) == {"imported": 0, "skipped": 0}
+        assert transfer(client, "import", archive) == {
+            "imported": 0,
+            "skipped": 0,
+            "recordingsAdded": 0,
+            "recordingsSkipped": 0,
+        }
 
 
 def test_library_publication_failure_rolls_back_files_and_rows(tmp_path: Path, monkeypatch):

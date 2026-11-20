@@ -14,6 +14,11 @@ import { pythonClient } from '../../../../services/pythonClient';
 import { SongSettingsModal } from './index';
 import { refreshSongs } from '../../../../components/api-service';
 
+const actions = vi.hoisted(() => ({
+  confirmDelete: vi.fn(),
+  retryProcessing: vi.fn(async () => true),
+  retrying: null as string | null,
+}));
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
   useRouter: () => ({ navigate: vi.fn() }),
@@ -25,7 +30,12 @@ vi.mock('../../../../providers/notifications', () => ({
   useNotify: () => vi.fn(),
 }));
 vi.mock('../../songs/useSongActions', () => ({
-  useSongActions: () => ({ confirmDelete: vi.fn() }),
+  useSongActions: () => actions,
+}));
+vi.mock('../../../editor/editorApi', () => ({
+  editorApi: {
+    load: vi.fn(async () => ({ revision: 7, words: [], notes: [] })),
+  },
 }));
 vi.mock('../../../../components/api-service', () => ({
   refreshSongs: vi.fn(async () => undefined),
@@ -46,8 +56,41 @@ const song: SongDto = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  actions.retrying = null;
   vi.mocked(pythonClient.updateSong).mockResolvedValue(song);
 });
+
+it.each(['ready', 'processing', 'not-processed'] as const)(
+  'offers words-and-notes refinement only for a ready project (%s)',
+  async (status) => {
+    const onClose = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <SongSettingsModal
+          song={{ ...song, status }}
+          onClose={onClose}
+          onChange={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    const refine = screen.getByRole('button', { name: tr('realignLyrics') });
+    if (status === 'ready') {
+      expect(refine).toBeEnabled();
+      fireEvent.click(refine);
+      await waitFor(() =>
+        expect(actions.retryProcessing).toHaveBeenCalledWith(song.id, 'lyrics'),
+      );
+      expect(onClose).not.toHaveBeenCalled();
+    } else {
+      expect(refine).toBeDisabled();
+      fireEvent.click(refine);
+      expect(actions.retryProcessing).not.toHaveBeenCalled();
+    }
+  },
+);
 
 it.each(['', '   '])(
   'saves an explicitly cleared artist (%j)',

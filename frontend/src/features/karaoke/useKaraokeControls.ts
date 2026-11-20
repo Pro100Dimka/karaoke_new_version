@@ -218,7 +218,7 @@ export const useKaraokeControls = ({
     }
   }, [microphoneReady, monitoring, notify, setMonitoring, updatePreferences]);
 
-  // Restore once per prepared session; subsequent changes belong to the monitoring switch.
+  // Restore when the session/input becomes ready, without rearming after a safety trip.
   useEffect(() => {
     if (
       ready &&
@@ -227,7 +227,7 @@ export const useKaraokeControls = ({
       !monitoring
     )
       void toggleMonitoring();
-  }, [ready]);
+  }, [ready, microphoneReady]);
 
   const setShowNotes = useCallback(
     (value: boolean) => updatePreferences({ karaokeShowNotes: value }),

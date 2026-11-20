@@ -5,7 +5,7 @@ from backend.packages.inspect_package import InspectPackage, PackageInspection
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.domain import ArtifactCategory, ProjectRevision
 from backend.projects.ports import ProjectStorage
-from backend.songs.domain import Song
+from backend.songs.domain import CoverState, Song
 from backend.songs.prepare_clip import LOCAL_CLIP
 from backend.storage.ports import StorageSystem
 from pathlib import Path
@@ -59,6 +59,13 @@ class PackageExportPreflight:
 
     def _portable_bytes(self, song: Song, revision: int) -> int:
         size = self._projects.portable_revision_size(song.song_id, revision)
+        if song.cover_state is CoverState.CUSTOM:
+            if song.cover_path is None or not song.cover_path.is_file():
+                raise NotFoundError("CoverMissing", "Custom song cover is unavailable")
+            try:
+                size += song.cover_path.stat().st_size
+            except OSError as exc:
+                raise DependencyError("StorageUnavailable", "Cover size cannot be read") from exc
         clip = self._projects.video_path(
             song.song_id, revision, prefer_local="video" in song.user_overrides
         )

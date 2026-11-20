@@ -12,8 +12,11 @@ import {
   libraryChanged,
   nextJobChange,
   onLibraryChange,
+  onRecordingsChange,
   readBackendSnapshot,
+  recordingsChanged,
 } from './backendEvents';
+import { mapLibraryImportResult } from './libraryImportResult';
 import { bridgedHttp } from './desktopBridge';
 import {
   jobProgress,
@@ -21,6 +24,7 @@ import {
   mapHistory,
   mapAnalysisFailure,
   mapPackageFailure,
+  mapJobFailure,
   optionalString,
   mapAnalysis,
   mapJob,
@@ -107,10 +111,7 @@ const waitForJob = async (
         return current;
       }
       if (['Failed', 'Cancelled', 'Interrupted'].includes(current.state))
-        throw (
-          wait.failure?.(current) ??
-          new Error(`${wait.label} ${current.state.toLowerCase()}`)
-        );
+        throw wait.failure?.(current) ?? mapJobFailure(current, wait.label);
       await Promise.race([changed, aborted]);
     }
     throw new Error(`${wait.label} timed out`);
@@ -272,12 +273,9 @@ export const pythonClient: PythonClient = {
       onProgress,
       86_400_000,
     );
-    if (
-      typeof report.imported !== 'number' ||
-      typeof report.skipped !== 'number'
-    )
-      throw new Error('Library import completed without its result');
-    return { imported: report.imported, skipped: report.skipped };
+    const result = mapLibraryImportResult(report);
+    recordingsChanged();
+    return result;
   },
 
   async importProject(path, decision = 'SafeOnly') {
@@ -378,7 +376,7 @@ export const pythonClient: PythonClient = {
         `/recordings?song_id=${encodeURIComponent(songId)}&limit=200`,
       );
       return recordings.map(mapRecording);
-    }, ['recordings.changed']);
+    }, onRecordingsChange);
   },
 
   async analyzeRecording(recordingId, onProgress) {

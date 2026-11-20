@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import PurePosixPath
 
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.packages.domain import PackageArtifact, PackageManifest, PackageSongIdentity
@@ -26,6 +27,11 @@ def encode_manifest(manifest: PackageManifest) -> str:
                 "videoUrl": manifest.song.video_url,
                 "recognitionProvider": manifest.song.recognition_provider,
                 "recognitionExternalId": manifest.song.recognition_external_id,
+                **(
+                    {"customCover": manifest.song.custom_cover.as_posix()}
+                    if manifest.song.custom_cover is not None
+                    else {}
+                ),
             },
             "revision": manifest.revision,
             "revisionFingerprint": manifest.revision_fingerprint,
@@ -42,6 +48,7 @@ def decode_manifest(raw: str) -> PackageManifest:
     data = loads_object(raw)
     song_raw = _mapping(data.get("songIdentity"), "songIdentity")
     artifacts_raw = _list(data.get("artifacts"), "artifacts")
+    artifacts = tuple(_artifact(item) for item in artifacts_raw)
     return PackageManifest(
         package_version=_integer(data.get("packageVersion"), "packageVersion"),
         project_format_version=_integer(data.get("projectFormatVersion"), "projectFormatVersion"),
@@ -62,12 +69,24 @@ def decode_manifest(raw: str) -> PackageManifest:
             recognition_external_id=_optional_text(
                 song_raw.get("recognitionExternalId"), "recognitionExternalId"
             ),
+            custom_cover=_custom_cover(song_raw.get("customCover"), artifacts),
         ),
         revision=_integer(data.get("revision"), "revision"),
         revision_fingerprint=_text(data.get("revisionFingerprint"), "revisionFingerprint"),
         lineage_id=_text(data.get("lineageId"), "lineageId"),
-        artifacts=tuple(_artifact(item) for item in artifacts_raw),
+        artifacts=artifacts,
     )
+
+
+def _custom_cover(value: JsonValue, artifacts: tuple[PackageArtifact, ...]) -> PurePosixPath | None:
+    if value is None:
+        return None
+    path = portable_relative_path(_text(value, "customCover"))
+    if len(path.parts) != 2 or path.parts[0] != "song-media" or path.stem != "cover":
+        raise ValueError("customCover must identify a song-media cover file")
+    if sum(artifact.path == path for artifact in artifacts) != 1:
+        raise ValueError("customCover must identify exactly one checksummed artifact")
+    return path
 
 
 def _artifact(value: JsonValue) -> PackageArtifact:

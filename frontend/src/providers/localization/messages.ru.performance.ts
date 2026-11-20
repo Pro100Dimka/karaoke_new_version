@@ -219,6 +219,21 @@ export const ruPerformance = {
   studioMasterPublishing: 'Сохраняем Studio Master',
   studioMasterReady: 'Studio Master готов',
   studioMasterFailed: 'Не удалось создать Studio Master',
+  errorRecordingNotFound: 'Запись больше не доступна. Обновите список записей.',
+  errorAiProviderUnavailable:
+    'Не найден доступный обработчик аудио. Проверьте установленные модели и выбранный способ обработки.',
+  studioMasterUnavailable:
+    'Для Studio Master не хватает готовой записи или дорожек песни. Дождитесь подготовки записи и проверьте обработку песни.',
+  studioMasterTimelineUnavailable:
+    'Не удалось восстановить синхронизацию этой записи с музыкой. Для Studio Master нужен новый дубль.',
+  studioMasterInvalidAudio:
+    'Не удалось прочитать или совместить звуковые дорожки записи. Проверьте исходную запись и дорожки песни.',
+  studioMasterSilentTrack:
+    'В одной из необходимых дорожек нет звука. Проверьте запись и уровень микрофона.',
+  studioMasterInvalidTarget:
+    'Целевой уровень громкости для Studio Master недопустим.',
+  studioMasterSourceMissing:
+    'Не найдена исходная запись для Studio Master. Выберите сохранённый исходный дубль.',
   analysisPitchAdvice:
     'Потренируйте попадание в высоту нот, начиная с медленного темпа.',
   analysisRhythmAdvice:

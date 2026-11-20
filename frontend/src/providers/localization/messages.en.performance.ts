@@ -215,6 +215,22 @@ export const enPerformance = {
   studioMasterPublishing: 'Saving Studio Master',
   studioMasterReady: 'Studio Master is ready',
   studioMasterFailed: 'Studio Master could not be created',
+  errorRecordingNotFound:
+    'This recording is no longer available. Refresh the recordings list.',
+  errorAiProviderUnavailable:
+    'No audio processor is available. Check the installed models and selected processing method.',
+  studioMasterUnavailable:
+    'Studio Master needs a ready recording and the song tracks. Wait for recording preparation and check that the song is processed.',
+  studioMasterTimelineUnavailable:
+    'This recording could not be synchronized with the music. Record a new take for Studio Master.',
+  studioMasterInvalidAudio:
+    'The recording tracks could not be read or matched. Check the source recording and song tracks.',
+  studioMasterSilentTrack:
+    'One of the required tracks has no sound. Check the recording and microphone level.',
+  studioMasterInvalidTarget:
+    'The target loudness for Studio Master is invalid.',
+  studioMasterSourceMissing:
+    'The source recording for Studio Master is missing. Select a saved original take.',
   analysisPitchAdvice:
     'Practise matching the pitch of each note, starting at a slow tempo.',
   analysisRhythmAdvice:

@@ -182,6 +182,21 @@ export const ukPerformance = {
   studioMasterPublishing: 'Зберігаємо Studio Master',
   studioMasterReady: 'Studio Master готовий',
   studioMasterFailed: 'Не вдалося створити Studio Master',
+  errorRecordingNotFound: 'Запис більше не доступний. Оновіть список записів.',
+  errorAiProviderUnavailable:
+    'Немає доступного обробника аудіо. Перевірте встановлені моделі та вибраний спосіб обробки.',
+  studioMasterUnavailable:
+    'Для Studio Master бракує готового запису або доріжок пісні. Дочекайтеся підготовки запису та перевірте обробку пісні.',
+  studioMasterTimelineUnavailable:
+    'Не вдалося відновити синхронізацію цього запису з музикою. Для Studio Master потрібен новий дубль.',
+  studioMasterInvalidAudio:
+    'Не вдалося прочитати або поєднати звукові доріжки запису. Перевірте вихідний запис і доріжки пісні.',
+  studioMasterSilentTrack:
+    'В одній із необхідних доріжок немає звуку. Перевірте запис і рівень мікрофона.',
+  studioMasterInvalidTarget:
+    'Цільовий рівень гучності для Studio Master неприпустимий.',
+  studioMasterSourceMissing:
+    'Не знайдено вихідний запис для Studio Master. Виберіть збережений вихідний дубль.',
   recordingFailed: 'Помилка запису',
   recordingSaved: 'Запис збережено',
   recordingFileReady: 'Файл готовий',

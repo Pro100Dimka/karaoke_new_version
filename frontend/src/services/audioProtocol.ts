@@ -1,5 +1,6 @@
 import type {
   AudioBackendName,
+  AudioCapabilities,
   AudioConfigurationCapabilities,
   DeviceDto,
   LatencyParts,
@@ -15,6 +16,19 @@ import type {
 /** A diagnostic number; absent, empty or non-numeric text reads as 0. */
 export const diagnosticNumber = (value: string | undefined): number =>
   Number(value) || 0;
+
+/** A listed input is not usable when the open native session reports it is occupied. */
+export const microphoneAvailability = (
+  hasInput: boolean,
+  values: Record<string, string>,
+): AudioCapabilities['microphone'] => {
+  if (!hasInput) return 'missing';
+  return ['Running', 'Prepared', 'Suspended'].includes(
+    values.SessionState ?? '',
+  ) && values.InputUnavailableReason === 'DEVICE_IN_USE'
+    ? 'busy'
+    : 'ready';
+};
 
 const parseBands = (value: string | undefined): number[] =>
   (value ?? '').split(',').map(Number).filter(Number.isFinite);

@@ -198,7 +198,7 @@ export const mapJob = (
   return {
     id: job.jobId,
     type: full?.type ?? 'SongProcessing',
-    songId: full?.entityId ?? songId,
+    songId: full?.entityId ?? optionalString(report?.songId) ?? songId,
     songTitle:
       typeof report?.songTitle === 'string' ? report.songTitle : undefined,
     songArtist:
@@ -356,6 +356,22 @@ export const mapAnalysisFailure = (current: BackendJob): AppError =>
       optionalString(current.error?.message) ?? 'Performance analysis failed',
     source: 'python',
   }) satisfies AppError;
+
+/** Preserve an asynchronous operation's cause just like a failed HTTP response. */
+export const mapJobFailure = (
+  current: BackendJob,
+  label: string,
+): AppError => ({
+  code: optionalString(current.error?.code) ?? `Job${current.state}`,
+  message:
+    optionalString(current.error?.message) ??
+    `${label} ${current.state.toLowerCase()}`,
+  details:
+    current.error?.details === undefined
+      ? undefined
+      : JSON.stringify(current.error.details),
+  source: 'python',
+});
 
 export const mapPackageFailure = (current: BackendJob): AppError => {
   const error = current.error ?? {};

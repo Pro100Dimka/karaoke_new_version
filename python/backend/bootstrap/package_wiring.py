@@ -14,6 +14,7 @@ from backend.packages.project_publication import PackageProjectPublication
 from backend.packages.security import PackageSecurityValidator
 from backend.packages.library_archive import LibraryArchive
 from backend.packages.policy import PackagePolicy
+from backend.packages.snapshot_package import SnapshotPackage
 
 
 def build_package_cases(
@@ -41,6 +42,7 @@ def build_package_cases(
         runtime.database,
         inspect,
         publication,
+        project.songs,
         project.operations,
         runtime.clock,
         runtime.ids,
@@ -84,7 +86,7 @@ def _package_export(
 ) -> ExportPackage:
     return ExportPackage(
         runtime.database,
-        project.projects,
+        SnapshotPackage(runtime.database, project.projects, project.songs),
         archive,
         LocalPackageOutputStorage(runtime.config.roots.app / "exports"),
         processing.workspaces,

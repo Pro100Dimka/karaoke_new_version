@@ -75,6 +75,25 @@ describe('audioClient contract', () => {
     });
   });
 
+  it('reports an enumerated microphone as busy until native capture recovers', async () => {
+    let reason = 'DEVICE_IN_USE';
+    installBridge(({ command }) => ({
+      status: 0,
+      text:
+        command === 'GetDevices'
+          ? 'active-input,Microphone,1,0,2\nactive-output,Speakers,1,1,2\n'
+          : `SessionState: Running\nLowLatencyMicrophoneRequested: 0\nInputUnavailableReason: ${reason}`,
+    }));
+
+    await expect(audioClient.capabilities()).resolves.toMatchObject({
+      microphone: 'busy',
+    });
+    reason = 'NONE';
+    await expect(audioClient.capabilities()).resolves.toMatchObject({
+      microphone: 'ready',
+    });
+  });
+
   it.each([
     ['Prepared', ['GetDiagnostics', 'StartSession', 'PlayOutputTest']],
     [

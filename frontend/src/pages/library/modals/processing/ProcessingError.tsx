@@ -38,6 +38,7 @@ export const ProcessingErrorDialog = ({
   fallback,
   onClose,
   onRetry,
+  onResetLyrics,
   onReport,
   retrying,
   reporting,
@@ -48,11 +49,13 @@ export const ProcessingErrorDialog = ({
   fallback?: string;
   onClose(): void;
   onRetry?(): void;
+  onResetLyrics?(): void;
   onReport(): void;
   retrying: boolean;
   reporting: boolean;
 }) => {
   useLocale();
+  const manualConflict = job?.error?.code === 'ManualLyricsConflict';
   return (
     <Dialog
       open={open}
@@ -92,15 +95,26 @@ export const ProcessingErrorDialog = ({
           <Button icon="upload" disabled={reporting} onClick={onReport}>
             {tr(reporting ? 'processingReportSending' : 'processingSendReport')}
           </Button>
-          {onRetry && (
+          {manualConflict && onResetLyrics ? (
             <Button
               icon="refresh"
               variant="primary"
               disabled={retrying}
-              onClick={onRetry}
+              onClick={onResetLyrics}
             >
-              {tr('processingRetry')}
+              {tr('resetLyricsAndReprocess')}
             </Button>
+          ) : (
+            onRetry && (
+              <Button
+                icon="refresh"
+                variant="primary"
+                disabled={retrying}
+                onClick={onRetry}
+              >
+                {tr('processingRetry')}
+              </Button>
+            )
           )}
         </Stack>
       </Stack>

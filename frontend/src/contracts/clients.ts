@@ -7,6 +7,7 @@ import type {
   AudioConfigurationCapabilities,
   BackendDiagnosticsDto,
   HistoryPageDto,
+  LibraryImportResultDto,
   DeviceDto,
   PlaybackSnapshot,
   ProcessingJobDto,
@@ -173,7 +174,7 @@ export interface PythonClient {
   importLibrary(
     path: string,
     onProgress?: (job: ProcessingJobDto) => void,
-  ): Promise<{ imported: number; skipped: number }>;
+  ): Promise<LibraryImportResultDto>;
   importProject(
     path: string,
     decision?: ProjectImportDecision,
@@ -413,6 +414,7 @@ export interface AudioServiceClient {
   prepareSong(
     song: SongDto,
     isCurrent?: () => boolean,
+    options?: { preservePlayback?: boolean },
   ): Promise<PlaybackSnapshot>;
   play(schedule?: PlaybackSchedule): Promise<PlaybackSnapshot>;
   pause(): Promise<PlaybackSnapshot>;

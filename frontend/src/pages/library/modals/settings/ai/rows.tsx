@@ -38,7 +38,20 @@ export const LibraryArchive = () => {
         const path = desktopClient.pathForFile(file);
         if (!path) throw new Error(tr('libraryTransferFailed'));
         const result = await pythonClient.importLibrary(path, update);
-        notify(tr('libraryImported', result), 'success');
+        const message =
+          result.recordingsAdded !== undefined &&
+          result.recordingsSkipped !== undefined
+            ? tr('libraryImportedWithRecordings', {
+                imported: result.imported,
+                skipped: result.skipped,
+                recordingsAdded: result.recordingsAdded,
+                recordingsSkipped: result.recordingsSkipped,
+              })
+            : tr('libraryImported', {
+                imported: result.imported,
+                skipped: result.skipped,
+              });
+        notify(message, 'success');
       }
     },
     onError,

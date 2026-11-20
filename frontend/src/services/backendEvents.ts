@@ -25,8 +25,20 @@ const onBackendChange = (
 export const onModelsChange = (listener: () => void): (() => void) =>
   onBackendChange(['models.changed'], listener);
 
-export const onRecordingsChange = (listener: () => void): (() => void) =>
-  onBackendChange(['recordings.changed'], listener);
+const recordingListeners = new Set<() => void>();
+export const recordingsChanged = (): void => {
+  [...recordingListeners].forEach((listener) => listener());
+};
+
+/** Local imports also change recordings when no per-record backend event is emitted. */
+export const onRecordingsChange = (listener: () => void): (() => void) => {
+  recordingListeners.add(listener);
+  const stop = onBackendChange(['recordings.changed'], listener);
+  return () => {
+    recordingListeners.delete(listener);
+    stop();
+  };
+};
 
 /** A read started before a change/reconnection must not replace the new authoritative state. */
 export const readBackendSnapshot = async <T>(

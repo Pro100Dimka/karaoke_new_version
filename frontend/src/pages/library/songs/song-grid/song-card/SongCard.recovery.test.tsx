@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mapSong } from '../../../../../services/pythonMappers';
@@ -115,5 +116,61 @@ it.each(['Queued', 'Processing', 'Ready'])(
       screen.queryByRole('button', { name: tr('processingRetry') }),
     ).not.toBeInTheDocument();
     expect(request).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['dialog', 'card'])(
+  'retries lyrics from the %s without changing the requested operation',
+  async (entry) => {
+    request.mockImplementation(async (call) => ({
+      ok: true,
+      status: 200,
+      body:
+        call.method === 'GET'
+          ? {
+              items: [
+                {
+                  jobId: 'lyrics-failed',
+                  type: 'SongProcessing',
+                  entityId: api.song.songId,
+                  state: 'Failed',
+                  stage: 'Alignment',
+                  stageProgress: 0.5,
+                  overallProgress: 0.8,
+                  report: { timingOperation: 'lyrics' },
+                  error: {
+                    code: 'ProcessingTimeout',
+                    message: 'Alignment timed out',
+                  },
+                },
+              ],
+              total: 1,
+              limit: 200,
+              offset: 0,
+            }
+          : { jobId: 'lyrics-retry', state: 'Queued' },
+    }));
+    render(card('Failed'));
+    if (entry === 'dialog') {
+      fireEvent.click(screen.getByRole('button', { name: tr('viewError') }));
+      await screen.findAllByText(/Alignment timed out/);
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: tr('processingRetry'),
+        }),
+      );
+    } else {
+      fireEvent.click(
+        screen.getByRole('button', { name: tr('processingRetry') }),
+      );
+    }
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'POST',
+          path: `/songs/${api.song.songId}/processing/lyrics`,
+        }),
+      ),
+    );
   },
 );

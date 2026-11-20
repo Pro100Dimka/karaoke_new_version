@@ -220,11 +220,8 @@ class StartStudioMaster:
         stems = recording_stems(recording.file_path, prefer_dry=True)
         if stems is not None:
             return stems
-        backing = Path(str(recording.file_path) + ".backing.wav")
-        if backing.is_file():
-            self._renderer.preserve_stems(recording.file_path)
-            return recording_stems(recording.file_path, prefer_dry=True)
-        return None
+        self._renderer.preserve_stems(recording.file_path)
+        return recording_stems(recording.file_path, prefer_dry=True)
 
     def _recording(self, recording_id: str) -> Recording:
         seen: set[str] = set()

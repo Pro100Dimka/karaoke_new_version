@@ -116,3 +116,87 @@ it('hides an import card without removing the actual pending import', () => {
   ).toBe(false);
   expect(songs.get(pending.id)).toBe(pending);
 });
+
+it('reconciles a running import with its named placeholder and real cancellable job', () => {
+  const pending = {
+    ...song('import:next', 'importing', '2026-11-14'),
+    jobId: 'import-job',
+  };
+  snapshot.jobs = [
+    {
+      ...job(''),
+      id: 'import-job',
+      type: 'SongImport',
+      state: 'processing',
+      progress: 42,
+    },
+  ];
+  const { result } = renderHook(() =>
+    useProcessingQueue(new Map([[pending.id, pending]])),
+  );
+  expect(result.current.visible).toEqual([
+    expect.objectContaining({
+      id: 'import-job',
+      songId: pending.id,
+      state: 'processing',
+      progress: 42,
+    }),
+  ]);
+});
+
+it('keeps a hidden placeholder hidden when the import receives its backend identity', () => {
+  const pending = song('import:next', 'importing', '2026-11-14');
+  snapshot.jobs = [];
+  const { result, rerender } = renderHook(
+    ({ item }) => useProcessingQueue(new Map([[item.id, item]])),
+    {
+      initialProps: { item: pending },
+    },
+  );
+  act(() => result.current.hide([pending.id]));
+  snapshot.jobs = [
+    { ...job(''), id: 'import-job', type: 'SongImport', state: 'processing' },
+  ];
+  rerender({ item: { ...pending, jobId: 'import-job' } });
+  expect(result.current.visible).toEqual([]);
+  rerender({ item: { ...pending, id: 'saved-song', status: 'not-processed' } });
+  expect(result.current.visible).toEqual([]);
+});
+
+it('keeps model, archive and recording jobs out of the song processing queue', () => {
+  snapshot.jobs = [
+    'SongProcessing',
+    'SongImport',
+    'ModelDownload',
+    'RecordingMastering',
+    'LibraryExport',
+  ].map((type) => ({ ...job(type), type }));
+  const { result } = renderHook(() => useProcessingQueue(new Map()));
+  expect(result.current.visible.map((item) => item.type)).toEqual([
+    'SongProcessing',
+    'SongImport',
+  ]);
+});
+
+it('hands a completed import card over to the song processing job', () => {
+  const imported = song('next', 'processing', '2026-11-14');
+  snapshot.jobs = [
+    {
+      ...job('next'),
+      id: 'import-job',
+      type: 'SongImport',
+      state: 'completed',
+    },
+    { ...job('next'), state: 'processing', progress: 25 },
+  ];
+  const { result } = renderHook(() =>
+    useProcessingQueue(new Map([[imported.id, imported]])),
+  );
+  expect(result.current.visible).toEqual([
+    expect.objectContaining({
+      id: 'job:next',
+      type: 'SongProcessing',
+      state: 'processing',
+    }),
+  ]);
+});

@@ -38,6 +38,17 @@ type EditorLoad =
 
 const draftDelayMilliseconds = 600;
 
+const sameGuide = (before: EditorDocument, after: EditorDocument) =>
+  before.notes.length === after.notes.length &&
+  before.notes.every((note, index) => {
+    const next = after.notes[index];
+    return (
+      next?.pitch === note.pitch &&
+      next.start === note.start &&
+      next.end === note.end
+    );
+  });
+
 export const useEditorSession = (songId: string) => {
   const notify = useNotify();
   const locale = useLocale();
@@ -115,7 +126,7 @@ export const useEditorSession = (songId: string) => {
           else clearDraft(loaded.id);
         }
         await audioClient
-          .prepareSong(loaded)
+          .prepareSong(loaded, () => active)
           .then(() => {
             if (active) {
               clearOperationFailure('errors.editorAudio');
@@ -174,6 +185,38 @@ export const useEditorSession = (songId: string) => {
     });
   }, []);
 
+  const refreshSavedAudio = useCallback(
+    async (
+      target: SongDto,
+      previous: EditorDocument,
+      next: EditorDocument,
+      requestGeneration: number,
+    ) => {
+      const updated = { ...target, activeRevision: next.revision };
+      latest.current.song = updated;
+      setLoad({ kind: 'ready', song: updated });
+      if (audioReady && sameGuide(previous, next)) return;
+      const isCurrent = () => requestGeneration === generation.current;
+      try {
+        const snapshot = await audioClient.prepareSong(updated, isCurrent, {
+          preservePlayback: audioReady,
+        });
+        if (isCurrent()) {
+          setAudioReady(true);
+          preview.restore(snapshot);
+          clearOperationFailure('errors.editorAudio');
+        }
+      } catch (error) {
+        if (isCurrent()) {
+          setAudioReady(false);
+          reportOperationFailure('errors.editorAudio', error);
+          await audioClient.stop().catch(() => undefined);
+        }
+      }
+    },
+    [preview.restore, audioReady],
+  );
+
   const save = useCallback(async (): Promise<boolean> => {
     const target = latest.current.song;
     const current = latest.current.history?.present;
@@ -206,8 +249,10 @@ export const useEditorSession = (songId: string) => {
           if (pendingEdits)
             saveDraft(target.id, { baseRevision: revision, document: present });
           else clearDraft(target.id);
+          await refreshSavedAudio(target, base, next, requestGeneration);
+          if (requestGeneration !== generation.current) return false;
           notify(tr('editorSaved'), 'success');
-          return !pendingEdits;
+          return !isEditorDirty(next, latest.current.history?.present ?? next);
         } catch (error) {
           if (requestGeneration !== generation.current) return false;
           if (toAppError(error).code !== 'RevisionConflict') throw error;
@@ -232,7 +277,8 @@ export const useEditorSession = (songId: string) => {
             setHistory(startHistory(latest));
             setSelection(new Set());
             clearDraft(target.id);
-            return true;
+            await refreshSavedAudio(target, base, latest, requestGeneration);
+            return requestGeneration === generation.current;
           }
           if (choice !== 'overwrite') return false;
           // Explicit overwrite: adopt the latest revision number, keep the local edits.
@@ -251,7 +297,7 @@ export const useEditorSession = (songId: string) => {
         setSaving(false);
       }
     }
-  }, [ask, notify, locale]);
+  }, [ask, notify, locale, refreshSavedAudio]);
 
   /** Save / Discard / Cancel; resolves true when the caller may leave. */
   const resolveUnsaved = useCallback(async (): Promise<boolean> => {

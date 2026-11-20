@@ -3,15 +3,14 @@ from __future__ import annotations
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from backend.domain_errors import NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.packages.codec import encode_manifest
 from backend.packages.domain import PackageArtifact, PackageManifest, PackageSongIdentity
 from backend.packages.ports import PackageArchive, PackageOutputStorage
+from backend.packages.snapshot_package import SnapshotPackage, custom_cover_path
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.domain import ArtifactCategory, ProjectManifest, ProjectRevision
 from backend.projects.operations import SongOperation, SongOperationRegistry
-from backend.projects.ports import ProjectStorage
 from backend.runtime import Clock, IdGenerator
 from backend.songs.domain import Song
 from backend.songs.prepare_clip import LOCAL_CLIP
@@ -24,7 +23,7 @@ class ExportPackage:
     def __init__(
         self,
         uow: UnitOfWorkFactory,
-        projects: ProjectStorage,
+        snapshot: SnapshotPackage,
         archive: PackageArchive,
         outputs: PackageOutputStorage,
         workspaces: WorkStorage,
@@ -34,7 +33,7 @@ class ExportPackage:
         ids: IdGenerator,
     ) -> None:
         self._uow = uow
-        self._projects = projects
+        self._snapshot = snapshot
         self._archive = archive
         self._outputs = outputs
         self._workspaces = workspaces
@@ -52,12 +51,12 @@ class ExportPackage:
     ) -> Path:
         ensure_not_cancelled()
         with self._operations.acquire(song_id, SongOperation.PACKAGE_EXPORT):
-            song, revision_meta = self._load(song_id, revision)
             workspace = self._workspaces.allocate(f"export-{song_id}")
             try:
-                snapshot = self._snapshot(song, revision_meta.revision, workspace)
+                song, revision_meta, project, snapshot = self._snapshot.execute(
+                    song_id, revision, workspace
+                )
                 ensure_not_cancelled()
-                project = self._projects.load_manifest(song_id, revision_meta.revision)
                 package, files = self._package(song, revision_meta, project, snapshot)
                 ensure_not_cancelled()
                 output = self._outputs.path_for_export(song_id, revision_meta.revision)
@@ -72,34 +71,6 @@ class ExportPackage:
             finally:
                 self._workspaces.cleanup(workspace)
 
-    def _snapshot(self, song: Song, revision: int, workspace: Path) -> Path:
-        supplemental: dict[Path, Path] = {}
-        clip = self._projects.video_path(
-            song.song_id, revision, prefer_local="video" in song.user_overrides
-        )
-        if song.video_url == LOCAL_CLIP and clip.is_file():
-            supplemental[Path("media/clip.mp4")] = clip
-        return self._projects.snapshot_revision(
-            song.song_id,
-            revision,
-            workspace,
-            supplemental_files=supplemental,
-            portable_only=True,
-        )
-
-    def _load(self, song_id: str, revision: int | None) -> tuple[Song, ProjectRevision]:
-        with self._uow.create() as transaction:
-            song = transaction.songs.get(song_id)
-            if song is None:
-                raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
-            target = revision if revision is not None else song.active_revision
-            revision_meta = transaction.projects.get(song_id, target)
-        if revision_meta is None:
-            raise NotFoundError(
-                "ProjectInvalid", "Project revision does not exist", revision=target
-            )
-        return song, revision_meta
-
     def _package(
         self,
         song: Song,
@@ -107,21 +78,16 @@ class ExportPackage:
         project: ProjectManifest,
         snapshot: Path,
     ) -> tuple[PackageManifest, dict[PurePosixPath, Path]]:
-        manifest_path = PurePosixPath("manifest.json")
-        files = {manifest_path: snapshot / "manifest.json"}
-        artifacts = [PackageArtifact(manifest_path, self._hasher(files[manifest_path]))]
-        for artifact in project.artifacts:
-            if artifact.category is not ArtifactCategory.PORTABLE:
-                continue
-            relative = PurePosixPath(artifact.relative_path.as_posix())
-            source = snapshot / artifact.relative_path
-            files[relative] = source
-            artifacts.append(PackageArtifact(relative, self._hasher(source)))
+        files, artifacts = self._project_files(project, snapshot)
         local_clip = snapshot / "media/clip.mp4"
         if song.video_url == LOCAL_CLIP and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip
             artifacts.append(PackageArtifact(relative, self._hasher(local_clip)))
+        cover = custom_cover_path(song)
+        if cover is not None:
+            files[cover] = snapshot.joinpath(*cover.parts)
+            artifacts.append(PackageArtifact(cover, self._hasher(files[cover])))
         identity = _song_identity(song)
         return (
             PackageManifest(
@@ -135,6 +101,21 @@ class ExportPackage:
             ),
             files,
         )
+
+    def _project_files(
+        self, project: ProjectManifest, snapshot: Path
+    ) -> tuple[dict[PurePosixPath, Path], list[PackageArtifact]]:
+        manifest_path = PurePosixPath("manifest.json")
+        files = {manifest_path: snapshot / "manifest.json"}
+        artifacts = [PackageArtifact(manifest_path, self._hasher(files[manifest_path]))]
+        for artifact in project.artifacts:
+            if artifact.category is not ArtifactCategory.PORTABLE:
+                continue
+            relative = PurePosixPath(artifact.relative_path.as_posix())
+            source = snapshot / artifact.relative_path
+            files[relative] = source
+            artifacts.append(PackageArtifact(relative, self._hasher(source)))
+        return files, artifacts
 
     def _record(self, song_id: str) -> None:
         now = self._clock.now()
@@ -159,4 +140,5 @@ def _song_identity(song: Song) -> PackageSongIdentity:
         video_url=song.video_url,
         recognition_provider=song.recognition_provider,
         recognition_external_id=song.recognition_external_id,
+        custom_cover=custom_cover_path(song),
     )

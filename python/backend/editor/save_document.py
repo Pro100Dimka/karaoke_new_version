@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 from dataclasses import replace
 from pathlib import Path
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
+from backend.editor.melody_audio import UpdateEditorMelody
 from backend.history.domain import HistoryEvent
 from backend.runtime import Clock, IdGenerator
 from backend.projects.content_lock import KeyedLockManager
@@ -32,6 +34,7 @@ class SaveEditorDocument:
         journal: RecoveryJournal,
         clock: Clock,
         ids: IdGenerator,
+        melody: UpdateEditorMelody,
     ) -> None:
         self._uow = uow
         self._projects = projects
@@ -41,6 +44,7 @@ class SaveEditorDocument:
         self._journal = journal
         self._clock = clock
         self._ids = ids
+        self._melody = melody
 
     def execute(self, song_id: str, expected_revision: int, document: LyricsDocument) -> int:
         try:
@@ -55,22 +59,27 @@ class SaveEditorDocument:
         new_revision = max((expected_revision, *self._projects.revisions(song_id))) + 1
         updated_manifest = _updated_manifest(manifest, new_revision, document)
         working = self._projects.clone_revision(song_id, expected_revision, new_revision)
-        lyrics_text = encode_document(document)
-        lyrics_path = _lyrics_path(updated_manifest)
-        self._projects.write_working_text(working, lyrics_path, lyrics_text)
-        self._projects.write_working_text(
-            working, Path("manifest.json"), encode_manifest(updated_manifest)
-        )
-        self._validator.validate_working(
-            updated_manifest, working, require_ready=True, reuse_audio=True
-        )
-        entry = self._journal.begin(
-            RecoveryOperation.PROJECT_PUBLISH,
-            {"songId": song_id, "revision": new_revision, "working": str(working)},
-        )
-        self._commit(song_id, expected_revision, updated_manifest, lineage_id, working)
-        self._journal.complete(entry.transaction_id)
-        return new_revision
+        try:
+            updated_manifest = self._melody.update(updated_manifest, working, document)
+            lyrics_text = encode_document(document)
+            lyrics_path = _lyrics_path(updated_manifest)
+            self._projects.write_working_text(working, lyrics_path, lyrics_text)
+            self._projects.write_working_text(
+                working, Path("manifest.json"), encode_manifest(updated_manifest)
+            )
+            self._validator.validate_working(
+                updated_manifest, working, require_ready=True, reuse_audio=True
+            )
+            entry = self._journal.begin(
+                RecoveryOperation.PROJECT_PUBLISH,
+                {"songId": song_id, "revision": new_revision, "working": str(working)},
+            )
+            self._commit(song_id, expected_revision, updated_manifest, lineage_id, working)
+            self._journal.complete(entry.transaction_id)
+            return new_revision
+        finally:
+            # Publication moves this directory; failures must not strand its cloned assets.
+            shutil.rmtree(working, ignore_errors=True)
 
     def _load_base(
         self, song_id: str, expected_revision: int, duration: float

@@ -129,6 +129,8 @@ export const ruLibrary = {
     'Удалить {name}? Песни и записи сохранятся. Модель можно будет скачать снова.',
   libraryArchive: 'Архив библиотеки',
   libraryImported: 'Добавлено песен: {imported}. Уже в библиотеке: {skipped}.',
+  libraryImportedWithRecordings:
+    'Песни: добавлено {imported}, уже в библиотеке {skipped}. Записи: добавлено {recordingsAdded}, уже в библиотеке {recordingsSkipped}.',
   libraryTransferFailed: 'Не удалось перенести библиотеку',
   addSong: 'Добавить песню',
   songPerformances: 'Выступления песни',

@@ -96,6 +96,14 @@ export interface ProcessingJobDto {
   error?: AppError;
 }
 
+export interface LibraryImportResultDto {
+  imported: number;
+  skipped: number;
+  /** Older backends do not report separate recording counts. */
+  recordingsAdded?: number;
+  recordingsSkipped?: number;
+}
+
 export interface DeviceDto {
   id: string;
   name: string;

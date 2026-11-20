@@ -127,6 +127,8 @@ export const enLibrary = {
   libraryArchive: 'Library archive',
   libraryImported:
     'Songs added: {imported}. Already in the library: {skipped}.',
+  libraryImportedWithRecordings:
+    'Songs: added {imported}, already in the library {skipped}. Recordings: added {recordingsAdded}, already in the library {recordingsSkipped}.',
   libraryTransferFailed: 'Could not transfer the library',
   addSong: 'Add song',
   songPerformances: 'Song performances',

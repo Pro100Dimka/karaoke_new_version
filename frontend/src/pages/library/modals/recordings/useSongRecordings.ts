@@ -48,6 +48,8 @@ export const useSongRecordings = (
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
   const [analysisSong, setAnalysisSong] = useState<SongDto | null>(null);
   const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(null);
+  const selectedAnalysis = useRef(analysisRecordId);
+  selectedAnalysis.current = analysisRecordId;
   const [analysisProgress, setAnalysisProgress] = useState<
     Readonly<Record<string, RecordingAnalysisProgress>>
   >({});
@@ -160,7 +162,8 @@ export const useSongRecordings = (
     }
   };
 
-  const recordingsTargetId = song?.id ?? (analysisRecordId ? analysisSong?.id : undefined);
+  const recordingsTargetId =
+    song?.id ?? (analysisRecordId ? analysisSong?.id : undefined);
   const preparingRecordings = recordings.some((item) =>
     ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
   );
@@ -216,7 +219,8 @@ export const useSongRecordings = (
         setFailedRecordings(true);
         throw error;
       } finally {
-        if (request === requests.current.recordings) setLoadingRecordings(false);
+        if (request === requests.current.recordings)
+          setLoadingRecordings(false);
       }
     });
 
@@ -320,6 +324,15 @@ export const useSongRecordings = (
       if (choice !== 'delete') return;
       await preview.stopRecordingPreview(undefined, recording.id);
       await catalog.deleteRecording(recording.id);
+      analysisRuns.current.delete(recording.id);
+      setAnalysisProgress(({ [recording.id]: _, ...items }) => items);
+      setAnalysisFailures(({ [recording.id]: _, ...items }) => items);
+      if (selectedAnalysis.current === recording.id) {
+        requests.current.analysis += 1;
+        setAnalysis(null);
+        setAnalysisRecordId(null);
+        setAnalysisSong(null);
+      }
       setRecordings((items) =>
         items.filter((item) => item.id !== recording.id),
       );

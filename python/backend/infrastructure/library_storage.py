@@ -11,13 +11,19 @@ from types import MappingProxyType
 from typing import Callable, Mapping, Sequence, cast
 
 from sqlalchemy import DateTime, Float, MetaData, Table, select
-from sqlalchemy.engine import Connection, RowMapping
+from sqlalchemy.engine import RowMapping
 
 from backend.analysis.domain import AnalysisState
 from backend.domain_errors import ConflictError
 from backend.infrastructure.database import Database
 from backend.infrastructure.atomic_files import atomic_write_text
 from backend.infrastructure.hashing import sha256_file
+from backend.infrastructure.library_selection import (
+    LibraryRow,
+    LibraryRows,
+    deduplicate_library_history,
+    select_library_rows,
+)
 from backend.infrastructure.library_snapshot import copy_snapshot_files, require_recording_file
 from backend.infrastructure.orm import (
     AnalysisRow,
@@ -37,8 +43,6 @@ from backend.storage.domain import StorageRoots
 from backend.storage.path_policy import portable_component, portable_relative_path
 from backend.storage.ports import StorageSystem
 
-LibraryRow = dict[str, object]
-LibraryRows = dict[str, list[LibraryRow]]
 _TABLES: Mapping[str, Table] = MappingProxyType(
     {
         row.__tablename__: cast(Table, row.__table__)
@@ -220,8 +224,9 @@ class SqlLibraryStorage:
         committed = False
         try:
             with self._database.engine.begin() as connection:
-                selected = self._selected_rows(rows, connection)
+                selected = select_library_rows(rows, connection, self._roots, workspace)
                 self._local_paths(selected)
+                deduplicate_library_history(selected, connection)
                 self._source_references(selected, workspace)
                 self._publish_files(selected, workspace, published, entries)
                 for name, records in selected.items():
@@ -229,7 +234,13 @@ class SqlLibraryStorage:
                         connection.execute(_TABLES[name].insert(), records)
             committed = True
             added = len(selected["songs"])
-            return {"imported": added, "skipped": len(rows["songs"]) - added}
+            recordings = len(selected["recordings"])
+            return {
+                "imported": added,
+                "skipped": len(rows["songs"]) - added,
+                "recordingsAdded": recordings,
+                "recordingsSkipped": len(rows["recordings"]) - recordings,
+            }
         finally:
             if not committed:
                 self._rollback(published)
@@ -291,46 +302,6 @@ class SqlLibraryStorage:
                 raise ValueError("Archive contains a file outside its library items")
         if any(not (workspace / path).is_file() for path in recording_paths):
             raise ValueError("Recording file is missing from the archive")
-
-    def _added_songs(self, rows: LibraryRows, connection: Connection) -> set[object]:
-        existing = {
-            song_id: identity
-            for song_id, identity in connection.execute(
-                select(SongRow.song_id, SongRow.source_identity)
-            )
-        }
-        if any(
-            row["song_id"] in existing and existing[row["song_id"]] != row["source_identity"]
-            for row in rows["songs"]
-        ):
-            raise ConflictError(
-                "PackageConflict", "A different song already uses this library identity"
-            )
-        return {
-            row["song_id"]
-            for row in rows["songs"]
-            if row["song_id"] not in existing and row["source_identity"] not in existing.values()
-        }
-
-    def _selected_rows(self, rows: LibraryRows, connection: Connection) -> LibraryRows:
-        added = self._added_songs(rows, connection)
-        known_recordings = set(connection.scalars(select(RecordingRow.recording_id)))
-        takes = {
-            row["recording_id"]
-            for row in rows["recordings"]
-            if row["recording_id"] not in known_recordings and row["song_id"] in added | {None}
-        }
-        scope = {
-            "songs": ("song_id", added),
-            "project_revisions": ("song_id", added),
-            "recordings": ("recording_id", takes),
-            "analysis_results": ("recording_id", takes),
-            "history_events": ("entity_id", added | takes),
-        }
-        return {
-            name: [row for row in rows[name] if row[field] in allowed]
-            for name, (field, allowed) in scope.items()
-        }
 
     def _local_paths(self, rows: LibraryRows) -> None:
         for name, records in rows.items():

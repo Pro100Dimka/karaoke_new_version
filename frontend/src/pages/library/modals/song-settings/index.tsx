@@ -51,7 +51,7 @@ export const SongSettingsModal = ({
   const close = () => {
     if (active.current) onClose();
   };
-  const { confirmDelete } = useSongActions(close);
+  const { confirmDelete, retryProcessing, retrying } = useSongActions(close);
   const onRemoveCover = (target: SongDto) =>
     guarded(async () => {
       const saved = await pythonClient.removeSongCover(target.id);
@@ -153,6 +153,8 @@ export const SongSettingsModal = ({
             previews,
             chooseMedia,
             failure,
+            refining: retrying === song.id,
+            onRefine: () => void retryProcessing(song.id, 'lyrics'),
             onEdit: () => {
               close();
               navigate(routes.editor(song.id));

@@ -205,9 +205,8 @@ def test_editor_save_shares_unchanged_files_with_the_previous_revision(tmp_path:
     changed = {
         relative for relative in old_files if not old_files[relative].samefile(new_files[relative])
     }
-    # Only the lyrics and the manifest are new; the audio is shared, not copied.
-    assert Path("manifest.json") in changed
-    assert len(changed) == 2, changed
+    # Edited pitches update the guide; the backing/vocal audio and baseline remain shared.
+    assert changed == {Path("manifest.json"), Path("lyricsSync.json"), Path("audio/melody.flac")}
     for relative in changed:
         assert old_files[relative].read_bytes() != new_files[relative].read_bytes()
 

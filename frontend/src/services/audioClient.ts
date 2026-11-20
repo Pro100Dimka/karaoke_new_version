@@ -1,4 +1,5 @@
 import { desktopBridge } from './desktopBridge';
+import { prepareSong } from './audioSong';
 import { measureAcousticLatency } from './acousticLatency';
 import type {
   AudioServiceClient,
@@ -13,6 +14,7 @@ import {
   audioCapabilitiesFromValues,
   backendName,
   diagnosticNumber,
+  microphoneAvailability,
   parseKeyValues,
   runtimeConfigurationFromDiagnostics,
   spectrumFromText,
@@ -261,8 +263,9 @@ export const audioClient: AudioServiceClient = {
     const hasMicrophone = devices.some(
       (device) => device.kind === 'input' && device.channels > 0,
     );
+    const values = hasMicrophone ? await diagnostics() : {};
     return {
-      microphone: hasMicrophone ? 'ready' : 'missing',
+      microphone: microphoneAvailability(hasMicrophone, values),
       keyboardLighting: false,
     };
   },
@@ -392,39 +395,7 @@ export const audioClient: AudioServiceClient = {
     await command('PlayOutputTest');
   },
 
-  prepareSong(song, isCurrent = () => true) {
-    return enqueueAudioOperation(async () => {
-      if (!isCurrent())
-        throw new DOMException('Song preparation cancelled', 'AbortError');
-      await ensureSession();
-      if (!isCurrent())
-        throw new DOMException('Song preparation cancelled', 'AbortError');
-      const artifacts = await desktopBridge().resolveProjectArtifacts(
-        song.id,
-        song.activeRevision,
-      );
-      if (!isCurrent())
-        throw new DOMException('Song preparation cancelled', 'AbortError');
-      await command('LoadSong', {
-        instrumental: artifacts.instrumental,
-        vocals: artifacts.vocals,
-        melody: artifacts.melody,
-      });
-      try {
-        await waitForReady(isCurrent);
-        if (!isCurrent())
-          throw new DOMException('Song preparation cancelled', 'AbortError');
-      } catch (error) {
-        if (!isCurrent()) await command('UnloadSong');
-        throw error;
-      }
-      audioState.durationSeconds = song.durationSeconds;
-      audioState.reconfiguration.song = song;
-      audioState.reconfiguration.schedule = undefined;
-      audioState.sessionId = crypto.randomUUID();
-      return snapshot('ready');
-    });
-  },
+  prepareSong,
 
   play(schedule) {
     return enqueueAudioOperation(async () => {

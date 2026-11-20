@@ -38,14 +38,14 @@ def test_package_export_cancellation_respects_archive_publication(
             assert release.wait(10), "Cancellation request did not finish"
 
         if cancel_at == "snapshot":
-            snapshot = exporter._projects.snapshot_revision
+            snapshot = exporter._snapshot._projects.snapshot_revision
 
             def blocked_snapshot(*args, **kwargs):
                 result = snapshot(*args, **kwargs)
                 pause()
                 return result
 
-            monkeypatch.setattr(exporter._projects, "snapshot_revision", blocked_snapshot)
+            monkeypatch.setattr(exporter._snapshot._projects, "snapshot_revision", blocked_snapshot)
         elif cancel_at in {"validation", "replace-existing"}:
             validate = zip_archive._validate_built_archive
 

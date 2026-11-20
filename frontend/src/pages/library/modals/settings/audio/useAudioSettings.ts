@@ -43,16 +43,7 @@ export const useAudioSettings = (enabled = true) => {
   const commit: AudioCommit = (name, value) => {
     const current = session.getSnapshot();
     const request = toAudioRequest(
-      changeAudioValue(
-        toAudioValues(
-          current.requested,
-          current.audioAvailable && !current.asioUnavailable
-            ? current.runtime
-            : undefined,
-        ),
-        name,
-        value,
-      ),
+      changeAudioValue(toAudioValues(current.requested), name, value),
     );
     if (request.backend === 'ASIO') request.userSelectedAsio = true;
     if (

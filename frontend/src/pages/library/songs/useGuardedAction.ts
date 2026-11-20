@@ -14,7 +14,13 @@ export const useGuardedAction = () => {
     try {
       await action();
     } catch (failure) {
-      notify(tr(errorstring(toAppError(failure)) ?? fallback), 'error');
+      const error = toAppError(failure);
+      const key = errorstring(error);
+      const explanation = !key && error.source === 'python' && error.message;
+      notify(
+        `${tr(key ?? fallback)}${explanation ? `: ${explanation}` : ''}`,
+        'error',
+      );
     }
   };
 };

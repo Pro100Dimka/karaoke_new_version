@@ -1,6 +1,8 @@
-import { useKaraokeRecording } from './useKaraokeRecording';
+import {
+  useKaraokeRecording,
+  useKaraokeRecordingPlayback,
+} from './useKaraokeRecording';
 import { usePreparedRoomAudio } from './usePreparedRoomAudio';
-import { observeOperation } from '../../shared/errors';
 import { observable, runInAction } from 'mobx';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { store } from '../../providers/store';
@@ -134,18 +136,19 @@ export const useKaraokeSession = (
     (error: unknown) => dispatch({ type: 'FAIL', error: toAppError(error) }),
     [],
   );
-  const { load, document, songPrefs, capabilities } = useKaraokeLoadSession(
-    songId,
-    mode,
-    initialGains.current,
-    () => dispatch({ type: 'PREPARED' }),
-    fail,
-    () => {
-      dispatch({ type: 'RESTART' });
-      setSpeed(1);
-      setKeyShift(0);
-    },
-  );
+  const { load, document, songPrefs, capabilities, refreshCapabilities } =
+    useKaraokeLoadSession(
+      songId,
+      mode,
+      initialGains.current,
+      () => dispatch({ type: 'PREPARED' }),
+      fail,
+      () => {
+        dispatch({ type: 'RESTART' });
+        setSpeed(1);
+        setKeyShift(0);
+      },
+    );
   // Commit this participant's latest personal mixer values once the native session is ready.
   const mixerSessionReady =
     load.kind === 'ready' &&
@@ -360,13 +363,12 @@ export const useKaraokeSession = (
         if (generation !== playbackGeneration.current) return;
         dispatch({ type: 'PAUSE' });
       } else if (['ready', 'paused'].includes(stateRef.current.kind)) {
-        if (
-          mode !== 'Rehearsal' &&
-          capabilities.microphone === 'ready' &&
-          recordingRef.current !== 'recording' &&
-          !(await startRecording())
-        )
-          return;
+        if (mode !== 'Rehearsal' && recordingRef.current !== 'recording') {
+          const current = await refreshCapabilities();
+          if (generation !== playbackGeneration.current) return;
+          if (current.microphone === 'ready' && !(await startRecording()))
+            return;
+        }
         if (generation !== playbackGeneration.current) return;
         await audioClient.play();
         if (generation !== playbackGeneration.current) return;
@@ -385,7 +387,7 @@ export const useKaraokeSession = (
     roomPlayback,
     mode,
     fail,
-    capabilities.microphone,
+    refreshCapabilities,
     startRecording,
     finishLocalPerformance,
   ]);
@@ -463,34 +465,17 @@ export const useKaraokeSession = (
     [controls.seek, positionPolling.invalidate],
   );
 
-  useEffect(() => {
-    if (
-      room &&
-      state.kind === 'playing' &&
-      recording === 'idle' &&
-      capabilities.microphone === 'ready'
-    )
-      void startRecording();
-  }, [room, state.kind, recording, capabilities.microphone, startRecording]);
-
-  // Solo and room pauses both land here: the take pauses with the song and resumes where the song resumes.
-  useEffect(() => {
-    if (state.kind === 'paused')
-      void observeOperation(
-        'errors.recordingPause',
-        recordingCoordinator.pause(),
-      ).catch(() => undefined);
-    if (state.kind === 'playing') {
-      void observeOperation(
-        'errors.recordingResume',
-        recordingCoordinator.resume({
-          sourceSeconds: positionRef.current,
-          playbackRate: speedRef.current,
-          keyShift: keyRef.current,
-        }),
-      ).catch(() => undefined);
-    }
-  }, [state.kind]);
+  useKaraokeRecordingPlayback({
+    room,
+    mode,
+    stateKind: state.kind,
+    recording,
+    microphone: capabilities.microphone,
+    startRecording,
+    positionRef,
+    speedRef,
+    keyRef,
+  });
 
   return {
     load,

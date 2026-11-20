@@ -16,7 +16,7 @@ import { useRef, useState } from 'react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
 import { processingErrorText } from './ProcessingError';
 import {
-  isActive,
+  isInQueue,
   phaseOf,
   phases,
   processingDuration,
@@ -29,6 +29,7 @@ interface JobActions {
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   playbackDisabled?: boolean;
+  canCancel?: boolean;
   onStop(): void;
   onDetails(): void;
   onRemove(): void;
@@ -55,7 +56,7 @@ export const ProcessingJobCard = ({
   useLocale();
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const active = isActive(job);
+  const active = isInQueue(job) && actions.canCancel !== false;
   const duration = processingDuration(job);
   const phase =
     song?.status === 'importing'
@@ -204,7 +205,7 @@ export const ProcessingJobCard = ({
               onClick={actions.onRetry}
             />
           )}
-        {job.state === 'completed' && song && (
+        {job.state === 'completed' && song?.status === 'ready' && (
           <IconButton
             icon="play"
             label={tr('play')}

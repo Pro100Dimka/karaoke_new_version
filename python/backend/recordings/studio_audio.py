@@ -119,6 +119,32 @@ def recording_stems(path: Path, *, prefer_dry: bool = False) -> tuple[Path, Path
     return None
 
 
+def recoverable_recording_sources(path: Path) -> tuple[Path, Path, Path] | None:
+    """Resolve untouched audio separately from companions that retain the native basename."""
+    for native in dict.fromkeys((path, path.with_suffix(".wav"))):
+        backing = ensure_within(Path(str(native) + ".backing.wav"), path.parent)
+        vocal = ensure_within(Path(str(native) + ".vocal.wav"), path.parent)
+        if not backing.is_file() or vocal.is_file():
+            continue
+        original = ensure_within(path.with_name(f"{path.stem}.original.wav"), path.parent)
+        source = original if original.is_file() else path
+        inputs = (sf.info(source), sf.info(backing))
+        if any(
+            info.format not in {"WAV", "WAVEX", "RF64", "FLAC"}
+            or info.subtype not in {"PCM_U8", "PCM_16", "PCM_24", "PCM_32", "FLOAT", "DOUBLE"}
+            for info in inputs
+        ):
+            # A lossy listening copy cannot recover the original microphone by subtraction.
+            return None
+        shapes = {(info.frames, info.samplerate, info.channels) for info in (*inputs, sf.info(path))}
+        if len(shapes) != 1 or inputs[0].frames <= 0:
+            raise DependencyError(
+                "StudioMasterInvalidStems", "Recording stems are not synchronized"
+            )
+        return source, backing, vocal
+    return None
+
+
 def _check_cancel(cancel: threading.Event) -> None:
     if cancel.is_set():
         raise DomainError("ProcessCancelled", "Studio master was cancelled", 499)

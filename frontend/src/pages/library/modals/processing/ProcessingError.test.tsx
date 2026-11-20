@@ -68,3 +68,39 @@ it('offers retry and report actions and blocks duplicate clicks while busy', () 
   expect(retry).toHaveBeenCalledOnce();
   expect(report).toHaveBeenCalledOnce();
 });
+
+it('offers explicit AI reset for an asynchronous manual-edit conflict instead of repeating it', () => {
+  setLocale('ru');
+  const reset = vi.fn();
+  const props = {
+    open: true,
+    job: {
+      ...job,
+      timingOperation: 'lyrics' as const,
+      error: {
+        code: 'ManualLyricsConflict',
+        message: 'Manual edits must be preserved',
+        source: 'python' as const,
+      },
+    },
+    onClose: vi.fn(),
+    onRetry: vi.fn(),
+    onResetLyrics: reset,
+    onReport: vi.fn(),
+    retrying: false,
+    reporting: false,
+  };
+  const view = render(<ProcessingErrorDialog {...props} />);
+  expect(
+    screen.queryByRole('button', { name: 'Повторить обработку' }),
+  ).toBeNull();
+  const action = screen.getByRole('button', {
+    name: 'Вернуться к AI и пересчитать',
+  });
+  fireEvent.click(action);
+  expect(reset).toHaveBeenCalledOnce();
+  view.rerender(<ProcessingErrorDialog {...props} retrying />);
+  expect(action).toBeDisabled();
+  fireEvent.click(action);
+  expect(reset).toHaveBeenCalledOnce();
+});

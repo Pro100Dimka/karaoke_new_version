@@ -11,7 +11,7 @@ from backend.packages.security import PackageSecurityValidator
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.domain import ProjectRevision
 from backend.projects.ports import ProjectStorage
-from backend.projects.fingerprint import manifest_fingerprint
+from backend.projects.fingerprint import manifest_fingerprint, project_content_fingerprint
 from backend.songs.domain import Song
 from backend.version import PACKAGE_FORMAT_VERSION, PROJECT_FORMAT_VERSION
 
@@ -26,6 +26,7 @@ class PackageInspection:
     existing_song_id: str | None
     uncompressed_bytes: int
     local_revision: int | None = None
+    matches_existing_revision: bool = False
 
 
 class InspectPackage:
@@ -48,6 +49,9 @@ class InspectPackage:
         compatibility = _compatibility(manifest)
         existing, revision = self._existing(manifest)
         conflict = _conflict(manifest, existing, revision)
+        matches_existing = conflict is PackageConflict.SAME_REVISION
+        if matches_existing and self._hides_newer_content(manifest, existing, revision):
+            conflict = PackageConflict.OLDER_REVISION
         size = sum(entry.file_size for entry in entries)
         return PackageInspection(
             manifest,
@@ -56,7 +60,22 @@ class InspectPackage:
             existing.song_id if existing else (manifest.song.song_id if revision else None),
             size,
             revision.revision if revision else None,
+            matches_existing,
         )
+
+    def _hides_newer_content(
+        self, manifest: PackageManifest, song: Song | None, revision: ProjectRevision | None
+    ) -> bool:
+        if song is None or revision is None or revision.revision >= song.active_revision:
+            return False
+        try:
+            old = self._projects.load_manifest(song.song_id, revision.revision)
+            active = self._projects.load_manifest(song.song_id, song.active_revision)
+        except DomainError:
+            return True
+        incoming = project_content_fingerprint(old, manifest.song.video_url)
+        current = project_content_fingerprint(active, song.video_url)
+        return incoming is None or incoming != current
 
     def _decode(self, path: Path) -> PackageManifest:
         try:

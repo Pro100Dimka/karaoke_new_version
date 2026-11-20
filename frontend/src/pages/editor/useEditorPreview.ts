@@ -2,6 +2,7 @@ import { observeOperation } from '../../shared/errors';
 import { audioClient } from '../../services/audioClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observable, runInAction } from 'mobx';
+import type { PlaybackSnapshot } from '../../contracts/models';
 
 export const useEditorPreview = (
   audioReady: boolean,
@@ -17,9 +18,11 @@ export const useEditorPreview = (
   useEffect(() => {
     generation.current += 1;
     pendingToggle.current = null;
-    playingRef.current = false;
-    setPlaying(false);
-    runInAction(() => position.set(0));
+    if (!audioReady) {
+      playingRef.current = false;
+      setPlaying(false);
+      runInAction(() => position.set(0));
+    }
     return () => {
       generation.current += 1;
     };
@@ -71,6 +74,15 @@ export const useEditorPreview = (
     [audioReady, position],
   );
 
+  const restore = useCallback(
+    (snapshot: PlaybackSnapshot) => {
+      playingRef.current = snapshot.state === 'playing';
+      setPlaying(playingRef.current);
+      runInAction(() => position.set(snapshot.positionSeconds));
+    },
+    [position],
+  );
+
   return {
     playing,
     get position() {
@@ -78,5 +90,6 @@ export const useEditorPreview = (
     },
     togglePlay,
     seek,
+    restore,
   };
 };

@@ -14,9 +14,18 @@ import { audioClient } from '../../services/audioClient';
 import { pythonClient } from '../../services/pythonClient';
 import { recordingCoordinator } from '../../services/recordingCoordinator';
 import { KaraokeRecordingCoordinator } from '../../application/karaoke/KaraokeRecordingCoordinator';
-import type { reduceKaraoke } from '../../application/karaoke/karaokeMachine';
-import type { RoomStateDto, SongDto } from '../../contracts/models';
+import type {
+  KaraokeOpenMode,
+  KaraokeState,
+  reduceKaraoke,
+} from '../../application/karaoke/karaokeMachine';
+import type {
+  AudioCapabilities,
+  RoomStateDto,
+  SongDto,
+} from '../../contracts/models';
 import type { useRoomPlayback } from '../../providers/application';
+import { observeOperation } from '../../shared/errors';
 import { askInsufficientDisk } from './askInsufficientDisk';
 import { createSingleFlight } from './performanceFinish';
 type RecordingUiState =
@@ -126,4 +135,55 @@ export const useKaraokeRecording = ({
     finishLocalPerformance,
     startRecording,
   };
+};
+
+export const useKaraokeRecordingPlayback = ({
+  room,
+  mode,
+  stateKind,
+  recording,
+  microphone,
+  startRecording,
+  positionRef,
+  speedRef,
+  keyRef,
+}: {
+  room: RoomStateDto | null;
+  mode: KaraokeOpenMode;
+  stateKind: KaraokeState['kind'];
+  recording: RecordingUiState;
+  microphone: AudioCapabilities['microphone'];
+  startRecording(): Promise<boolean>;
+  positionRef: MutableRefObject<number>;
+  speedRef: MutableRefObject<number>;
+  keyRef: MutableRefObject<number>;
+}) => {
+  useEffect(() => {
+    if (
+      (room || mode === 'Normal' || mode === 'AutoStart') &&
+      stateKind === 'playing' &&
+      recording === 'idle' &&
+      microphone === 'ready'
+    )
+      void startRecording();
+  }, [room, mode, stateKind, recording, microphone, startRecording]);
+
+  // Solo and room pauses both land here: the take pauses with the song and resumes where the song resumes.
+  useEffect(() => {
+    if (stateKind === 'paused')
+      void observeOperation(
+        'errors.recordingPause',
+        recordingCoordinator.pause(),
+      ).catch(() => undefined);
+    if (stateKind === 'playing') {
+      void observeOperation(
+        'errors.recordingResume',
+        recordingCoordinator.resume({
+          sourceSeconds: positionRef.current,
+          playbackRate: speedRef.current,
+          keyShift: keyRef.current,
+        }),
+      ).catch(() => undefined);
+    }
+  }, [stateKind]);
 };

@@ -1,12 +1,13 @@
 import {
   reportOperationFailure,
   clearOperationFailure,
+  observeOperation,
 } from '../../shared/errors';
 import { store } from '../../providers/store';
 import { editorApi } from '../../pages/editor/editorApi';
 import { audioClient } from '../../services/audioClient';
 import { pythonClient } from '../../services/pythonClient';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
   AudioCapabilities,
@@ -31,13 +32,42 @@ export const useKaraokeLoadSession = (
   onFailure: (error: unknown) => void,
   onRestart: () => void = () => undefined,
 ) => {
-  const { pythonEpoch } = store.application.services;
+  const { pythonEpoch, audioEpoch } = store.application.services;
+  const audioConfiguration = store.preferences.audio;
   const preparedSession = useRef('');
   const [load, setLoad] = useState<KaraokeLoad>({ kind: 'loading' });
   const [document, setDocument] = useState<EditorDocument | null>(null);
   const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
   const [capabilities, setCapabilities] =
     useState<AudioCapabilities>(noMicrophone);
+  const capabilityRequest = useRef(0);
+  // Device recovery and an explicit settings change do not reload the song.
+  const refreshCapabilities = useCallback(async () => {
+    const request = ++capabilityRequest.current;
+    const current = await observeOperation(
+      'errors.microphoneCapabilities',
+      audioClient.capabilities(),
+    ).catch(() => noMicrophone);
+    if (request !== capabilityRequest.current) return noMicrophone;
+    setCapabilities(current);
+    return current;
+  }, []);
+  const audioContext = useRef({ audioEpoch, audioConfiguration });
+  useEffect(() => {
+    const previous = audioContext.current;
+    audioContext.current = { audioEpoch, audioConfiguration };
+    if (
+      previous.audioEpoch !== audioEpoch ||
+      previous.audioConfiguration !== audioConfiguration
+    )
+      void refreshCapabilities();
+  }, [audioEpoch, audioConfiguration, refreshCapabilities]);
+  useEffect(
+    () => () => {
+      capabilityRequest.current++;
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -75,6 +105,7 @@ export const useKaraokeLoadSession = (
     setDocument(null);
     setSongPrefs(null);
     onRestart();
+    const initialCapabilityRequest = capabilityRequest.current;
     void prepareKaraokeSession({
       songId,
       gains,
@@ -87,7 +118,10 @@ export const useKaraokeLoadSession = (
         setSongPrefs(resolved.prefs);
       },
       onDocument: setDocument,
-      onCapabilities: setCapabilities,
+      onCapabilities: (value) => {
+        if (initialCapabilityRequest === capabilityRequest.current)
+          setCapabilities(value);
+      },
       onPrepared: () => {
         preparedSession.current = key;
         onPrepared();
@@ -101,5 +135,5 @@ export const useKaraokeLoadSession = (
     };
   }, [songId, reloadKey, pythonEpoch]); // callbacks and opening gains intentionally belong to this one session
 
-  return { load, document, songPrefs, capabilities };
+  return { load, document, songPrefs, capabilities, refreshCapabilities };
 };

@@ -12,7 +12,7 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { refreshSongs } from '../../../../../components/api-service';
 import type {
   ProcessingJobDto,
@@ -63,6 +63,22 @@ const primaryIcon = (
   return primary ? actionMeta[primary].icon : 'processing';
 };
 
+const failedProcessingJob = async (
+  song: SongDto,
+): Promise<ProcessingJobDto | undefined> => {
+  const jobs = (await pythonClient.listJobs())
+    .filter(
+      (job) =>
+        job.songId === song.id && ['failed', 'interrupted'].includes(job.state),
+    )
+    .sort((a, b) =>
+      (b.finishedAt ?? b.createdAt ?? '').localeCompare(
+        a.finishedAt ?? a.createdAt ?? '',
+      ),
+    );
+  return jobs.find((job) => job.id === song.jobId) ?? jobs[0];
+};
+
 export const SongCard = memo(
   function SongCard({
     song,
@@ -94,29 +110,44 @@ export const SongCard = memo(
     const {
       confirmDelete,
       retryProcessing,
+      resetLyricsAndReprocess,
       retrying,
       reportProcessingError,
       reporting,
     } = useSongActions();
     const [failure, setFailure] = useState<{ job?: ProcessingJobDto }>();
-    const retry = async () => {
-      if (await retryProcessing(song.id)) setFailure(undefined);
+    const retryRequest = useRef(false);
+    const [resolvingRetry, setResolvingRetry] = useState(false);
+    const retry = () =>
+      guarded(async () => {
+        if (retryRequest.current) return;
+        retryRequest.current = true;
+        setResolvingRetry(true);
+        try {
+          const job =
+            failure?.job ??
+            (song.status === 'failed'
+              ? await failedProcessingJob(song)
+              : undefined);
+          if (
+            await retryProcessing(
+              song.id,
+              job?.timingOperation === 'lyrics' ? 'lyrics' : 'full',
+            )
+          )
+            setFailure(undefined);
+        } finally {
+          retryRequest.current = false;
+          setResolvingRetry(false);
+        }
+      });
+    const resetLyrics = async () => {
+      if (await resetLyricsAndReprocess(song.id)) setFailure(undefined);
     };
     const showError = async () => {
       setFailure({});
       try {
-        const jobs = (await pythonClient.listJobs())
-          .filter(
-            (job) =>
-              job.songId === song.id &&
-              ['failed', 'interrupted'].includes(job.state),
-          )
-          .sort((a, b) =>
-            (b.finishedAt ?? b.createdAt ?? '').localeCompare(
-              a.finishedAt ?? a.createdAt ?? '',
-            ),
-          );
-        const job = jobs.find((item) => item.id === song.jobId) ?? jobs[0];
+        const job = await failedProcessingJob(song);
         setFailure((current) => (current ? { job } : current));
       } catch {
         // The fallback explanation and report action remain available offline.
@@ -259,7 +290,7 @@ export const SongCard = memo(
                   }
                   disabled={
                     (['play', 'rehearsal'].includes(id) && playbackDisabled) ||
-                    (id === 'retry' && Boolean(retrying))
+                    (id === 'retry' && (Boolean(retrying) || resolvingRetry))
                   }
                   onClick={actions[id]}
                 />
@@ -290,7 +321,8 @@ export const SongCard = memo(
               : undefined
           }
           onReport={() => void reportProcessingError(song.id, failure?.job)}
-          retrying={Boolean(retrying)}
+          onResetLyrics={() => void resetLyrics()}
+          retrying={Boolean(retrying) || resolvingRetry}
           reporting={reporting}
         />
       </Card>

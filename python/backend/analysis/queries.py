@@ -10,10 +10,10 @@ from backend.recordings.domain import Recording
 from backend.version import ANALYSIS_ALGORITHM_VERSION
 
 
-def _current(result: AnalysisResult, active_revision: int | None) -> AnalysisResult:
-    """Retain historical results without presenting an obsolete score as current."""
+def _current(result: AnalysisResult, reference: tuple[str, int] | None) -> AnalysisResult:
+    """A take is assessed against its recorded reference, even after editing the song."""
     outdated = (
-        active_revision != result.song_revision
+        reference != (result.song_id, result.song_revision)
         or result.algorithm_version != ANALYSIS_ALGORITHM_VERSION
     )
     if outdated and result.state is AnalysisState.SUCCEEDED:
@@ -26,18 +26,21 @@ class ListRecordingAnalyses:
         self._uow = uow
 
     def execute(self, recording_id: str) -> Sequence[AnalysisResult]:
+        reference = None
         with self._uow.create() as transaction:
             results = transaction.analyses.list_for_recording(recording_id)
             recording = transaction.recordings.get(recording_id)
             live = live_result(recording) if recording else None
             if live:
                 results = [*results, live]
-            revisions: dict[str, int | None] = {}
-            for result in results:
-                if result.song_id not in revisions:
-                    song = transaction.songs.get(result.song_id)
-                    revisions[result.song_id] = song.active_revision if song else None
-        return [_current(result, revisions[result.song_id]) for result in results]
+            if (
+                recording is not None
+                and recording.song_id is not None
+                and recording.song_revision is not None
+                and transaction.songs.get(recording.song_id) is not None
+            ):
+                reference = (recording.song_id, recording.song_revision)
+        return [_current(result, reference) for result in results]
 
 
 def live_result(recording: Recording) -> AnalysisResult | None:

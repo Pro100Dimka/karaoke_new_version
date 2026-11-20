@@ -17,6 +17,18 @@ const hiddenJobsKey = storageKey('processingQueue.hidden');
  */
 export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
   const { jobs, failed } = useJobs();
+  const imports = useMemo(
+    () => [...songs.values()].filter((song) => song.status === 'importing'),
+    [songs],
+  );
+  const cancellable = useMemo(
+    () =>
+      new Set([
+        ...jobs.map((job) => job.id),
+        ...imports.flatMap((song) => (song.jobId ? [song.jobId] : [])),
+      ]),
+    [jobs, imports],
+  );
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => {
     const stored = readJson(hiddenJobsKey);
     return new Set(
@@ -26,12 +38,30 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
     );
   });
   useEffect(() => writeJson(hiddenJobsKey, [...hidden]), [hidden]);
+  // Keep the user's dismissal when a pending file acquires its backend job ID.
+  useEffect(() => {
+    setHidden((previous) => {
+      const aliases = imports.flatMap((song) =>
+        song.jobId && previous.has(song.id) && !previous.has(song.jobId)
+          ? [song.jobId]
+          : [],
+      );
+      return aliases.length ? new Set([...previous, ...aliases]) : previous;
+    });
+  }, [imports]);
 
   const visible = useMemo(() => {
-    const imports: ProcessingJobDto[] = [...songs.values()]
-      .filter((song) => song.status === 'importing')
+    const jobIds = new Set(jobs.map((job) => job.id));
+    const processingSongs = new Set(
+      jobs
+        .filter((job) => job.type === 'SongProcessing')
+        .map((job) => job.songId),
+    );
+    const pendingByJob = new Map(imports.map((song) => [song.jobId, song]));
+    const pending: ProcessingJobDto[] = imports
+      .filter((song) => !song.jobId || !jobIds.has(song.jobId))
       .map((song) => ({
-        id: song.id,
+        id: song.jobId ?? song.id,
         type: 'SongImport',
         songId: song.id,
         state: 'queued',
@@ -39,8 +69,34 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
         progress: song.progress ?? 0,
         createdAt: song.createdAt,
       }));
-    return [...imports, ...jobs].filter((job) => !hidden.has(job.id));
-  }, [jobs, hidden, songs]);
+    const actual = jobs
+      .filter((job) => ['SongImport', 'SongProcessing'].includes(job.type))
+      // Import hands off to processing; do not show a second "completed" song card.
+      .filter(
+        (job) =>
+          !(
+            job.type === 'SongImport' &&
+            job.state === 'completed' &&
+            processingSongs.has(job.songId)
+          ),
+      )
+      .map((job) => {
+        const song = pendingByJob.get(job.id);
+        return song
+          ? {
+              ...job,
+              songId: job.songId || song.id,
+              songTitle: job.songTitle ?? song.title,
+              songArtist: job.songArtist ?? song.artist,
+            }
+          : job;
+      });
+    return [...pending, ...actual].filter(
+      (job) =>
+        !hidden.has(job.id) &&
+        !hidden.has(pendingByJob.get(job.id)?.id ?? job.id),
+    );
+  }, [jobs, hidden, imports]);
   const ordered = useMemo(
     () => orderProcessingJobs(visible, songs),
     [visible, songs],
@@ -50,5 +106,12 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
     visible.filter((job) => states.includes(job.state)).length;
   const hide = (ids: readonly string[]) =>
     setHidden((previous) => new Set([...previous, ...ids]));
-  return { ordered, visible, failed, count, hide };
+  return {
+    ordered,
+    visible,
+    failed,
+    count,
+    hide,
+    canCancel: (id: string) => cancellable.has(id),
+  };
 };

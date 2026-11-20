@@ -20,6 +20,7 @@ import { audioClient } from '../../../services/audioClient';
 import { desktopClient } from '../../../services/desktopClient';
 import { toAppError, errorstring } from '../../../shared/errors';
 import { useGuardedAction } from './useGuardedAction';
+import { confirmLyricsReset } from './confirmLyricsReset';
 
 /** Confirmation shared by the card and song settings. */
 export const useSongActions = (onDeleted?: () => void) => {
@@ -31,12 +32,24 @@ export const useSongActions = (onDeleted?: () => void) => {
   const [reporting, setReporting] = useState(false);
   const pending = useRef({ retry: false, report: false });
 
-  const retryProcessing = async (songId: string) => {
+  const startProcessing = async (
+    songId: string,
+    mode: 'full' | 'lyrics',
+    reset = false,
+  ) => {
     if (pending.current.retry) return false;
     pending.current.retry = true;
     setRetrying(songId);
     try {
-      await catalog.processSong(songId);
+      if (reset) {
+        if (!(await confirmLyricsReset(songId))) return false;
+        // The reset is already committed even if subsequent job admission is refused.
+        await refreshSongs(client);
+        await client.invalidateQueries({
+          queryKey: ['song-settings-document', songId],
+        });
+      }
+      await catalog.processSong(songId, mode === 'lyrics' ? 'lyrics' : undefined);
       await Promise.all([
         refreshSongs(client),
         client.invalidateQueries({ queryKey: ['jobs'] }),
@@ -57,6 +70,11 @@ export const useSongActions = (onDeleted?: () => void) => {
       setRetrying(null);
     }
   };
+
+  const retryProcessing = (songId: string, mode: 'full' | 'lyrics' = 'full') =>
+    startProcessing(songId, mode);
+  const resetLyricsAndReprocess = (songId: string) =>
+    startProcessing(songId, 'lyrics', true);
 
   const reportProcessingError = async (
     songId: string,
@@ -121,6 +139,7 @@ export const useSongActions = (onDeleted?: () => void) => {
   return {
     confirmDelete,
     retryProcessing,
+    resetLyricsAndReprocess,
     retrying,
     reportProcessingError,
     reporting,

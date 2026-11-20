@@ -55,6 +55,7 @@ vi.mock('../../services/audioClient', () => ({
     pause: vi.fn(),
     seek: vi.fn(),
     snapshot: vi.fn(),
+    observeSnapshots: vi.fn(),
   },
   getAudioSnapshot: vi.fn(),
 }));
@@ -78,9 +79,96 @@ describe('editor session', () => {
     );
     vi.mocked(pythonClient.projectCompatibility).mockResolvedValue('Current');
     vi.mocked(editorApi.load).mockResolvedValue(document);
-    vi.mocked(audioClient.prepareSong).mockResolvedValue({} as never);
+    vi.mocked(audioClient.prepareSong).mockResolvedValue({
+      state: 'ready',
+      positionSeconds: 0,
+    } as never);
+    vi.mocked(audioClient.observeSnapshots).mockReturnValue(vi.fn());
     vi.mocked(audioClient.stop).mockResolvedValue({} as never);
     vi.mocked(audioClient.play).mockResolvedValue({} as never);
+  });
+
+  it.each(['paused', 'playing'] as const)(
+    'reloads the saved guide and preserves a %s preview at the current position',
+    async (state) => {
+      editorApi.save.mockResolvedValue(2);
+      const { result } = renderHook(() => useEditorSession('song'));
+      await waitFor(() => expect(result.current.audioReady).toBe(true));
+      vi.mocked(audioClient.prepareSong).mockResolvedValue({
+        state,
+        positionSeconds: 27.25,
+      } as never);
+      act(() => result.current.move(new Set(['note']), 12, 0));
+      await act(async () => expect(await result.current.save()).toBe(true));
+
+      expect(audioClient.prepareSong).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 'song', activeRevision: 2 }),
+        expect.any(Function),
+        { preservePlayback: true },
+      );
+      expect(result.current.load).toMatchObject({
+        kind: 'ready',
+        song: { activeRevision: 2 },
+      });
+      expect(result.current.position).toBe(27.25);
+      expect(result.current.playing).toBe(state === 'playing');
+      expect(audioClient.play).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps the prepared guide for word-only saves', async () => {
+    editorApi.save.mockResolvedValue(2);
+    const { result } = renderHook(() => useEditorSession('song'));
+    await waitFor(() => expect(result.current.audioReady).toBe(true));
+    act(() =>
+      result.current.commit(document, {
+        ...document,
+        words: [{ ...document.words[0]!, text: 'Corrected' }],
+      }),
+    );
+    await act(async () => expect(await result.current.save()).toBe(true));
+    expect(audioClient.prepareSong).toHaveBeenCalledTimes(1);
+    expect(result.current.load).toMatchObject({ song: { activeRevision: 2 } });
+  });
+
+  it('keeps a successful save when refreshing its audio fails', async () => {
+    editorApi.save.mockResolvedValue(2);
+    const { result } = renderHook(() => useEditorSession('song'));
+    await waitFor(() => expect(result.current.audioReady).toBe(true));
+    vi.mocked(audioClient.prepareSong).mockRejectedValue(
+      new Error('Audio unavailable'),
+    );
+    act(() => result.current.move(new Set(['note']), 12, 0));
+    await act(async () => expect(await result.current.save()).toBe(true));
+    expect(result.current.document?.revision).toBe(2);
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.audioReady).toBe(false);
+    expect(dialogs.notify).not.toHaveBeenCalledWith(
+      'editorSaveFailed',
+      'error',
+    );
+  });
+
+  it('recovers a failed preview refresh on the next save without losing its restored position', async () => {
+    editorApi.save.mockResolvedValueOnce(2).mockResolvedValueOnce(3);
+    const { result } = renderHook(() => useEditorSession('song'));
+    await waitFor(() => expect(result.current.audioReady).toBe(true));
+    vi.mocked(audioClient.prepareSong).mockRejectedValueOnce(
+      new Error('Audio unavailable'),
+    );
+    act(() => result.current.move(new Set(['note']), 12, 0));
+    await act(async () => expect(await result.current.save()).toBe(true));
+    expect(result.current.audioReady).toBe(false);
+
+    vi.mocked(audioClient.prepareSong).mockResolvedValue({
+      state: 'paused',
+      positionSeconds: 27.25,
+    } as never);
+    await act(async () => expect(await result.current.save()).toBe(true));
+    expect(result.current.audioReady).toBe(true);
+    expect(result.current.position).toBe(27.25);
+    expect(result.current.playing).toBe(false);
+    expect(audioClient.prepareSong).toHaveBeenCalledTimes(3);
   });
 
   it('disables playback while preparing a different song in the same session', async () => {

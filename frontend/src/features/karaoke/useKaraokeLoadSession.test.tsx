@@ -5,9 +5,14 @@ import { resolveKaraokeLoad } from '../../application/karaoke/karaokeLoader';
 import { useKaraokeLoadSession } from './useKaraokeLoadSession';
 import { pythonClient } from '../../services/pythonClient';
 
-const services = vi.hoisted(() => ({ pythonEpoch: 0 }));
+const services = vi.hoisted(() => ({ pythonEpoch: 0, audioEpoch: 0 }));
 vi.mock('../../providers/store', () => ({
-  store: { application: { services } },
+  store: {
+    application: { services },
+    preferences: {
+      audio: { backend: 'WASAPI Shared', sampleRate: 0, periodFrames: 0 },
+    },
+  },
 }));
 vi.mock('../../services/pythonClient', () => ({
   pythonClient: { getSong: vi.fn() },

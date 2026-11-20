@@ -332,7 +332,7 @@ def test_recording_rejects_metadata_mismatch(tmp_path: Path) -> None:
         assert response.json()["code"] == "InvalidRecording"
 
 
-def test_offline_analysis_succeeds_and_becomes_stale_after_project_revision(tmp_path: Path) -> None:
+def test_offline_analysis_keeps_its_recorded_reference_after_project_revision(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
@@ -353,10 +353,12 @@ def test_offline_analysis_succeeds_and_becomes_stale_after_project_revision(tmp_
             json={"expectedRevision": editor["revision"], "document": editor["document"]},
         )
         assert saved.status_code == 200, saved.text
-        # The list the app reads marks an analysis of an older revision as Stale (spec 132).
-        stale = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
+        # Spec 132: editing a song does not rebind an existing take to another reference.
+        historical = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
 
-        assert next(item for item in stale if item["analysisId"] == analysis_id)["state"] == "Stale"
+        result = next(item for item in historical if item["analysisId"] == analysis_id)
+        assert result["state"] == "Succeeded"
+        assert result["songRevision"] == recording["songRevision"]
 
 
 def test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores(

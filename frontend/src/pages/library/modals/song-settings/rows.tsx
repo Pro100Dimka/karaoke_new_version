@@ -2,6 +2,7 @@ import {
   Button,
   MessageBar,
   SplitButton,
+  Stack,
   tr,
   Typography,
   type FormFieldDefinition,
@@ -75,6 +76,8 @@ type SongSettingsValues = {
 type TRows = {
   failure: string | undefined;
   onEdit(): void;
+  onRefine(): void;
+  refining: boolean;
   onRemoveCover(): void;
   onDelete(): void;
   song: SongDto;
@@ -94,6 +97,8 @@ export const getRows = ({
   chooseMedia,
   failure,
   onEdit,
+  onRefine,
+  refining,
   onRemoveCover,
   onDelete,
 }: TRows): FormFieldDefinition<SongSettingsValues>[] => {
@@ -224,6 +229,26 @@ export const getRows = ({
             <Typography tone="muted">{tr('savedSongVideoMissing')}</Typography>
           )}
         </MediaField>
+      ),
+    },
+    {
+      name: 'refinement',
+      kind: 'custom',
+      span: 'full',
+      render: () => (
+        <Stack gap={1} align="start">
+          <Button
+            size="sm"
+            icon="refresh"
+            label={tr('realignLyrics')}
+            disabled={song.status !== 'ready' || refining}
+            loading={refining}
+            onClick={onRefine}
+          />
+          <Typography variant="caption" tone="muted">
+            {tr('realignLyricsHelp')}
+          </Typography>
+        </Stack>
       ),
     },
     {

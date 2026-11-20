@@ -9,7 +9,6 @@ import threading
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
-from backend.infrastructure.paths import ensure_within
 
 
 from backend.recordings.studio_audio import (
@@ -18,6 +17,7 @@ from backend.recordings.studio_audio import (
     _PROFILE_SECONDS as _PROFILE_SECONDS,
     _check_cancel as _check_cancel,
     _profile as _profile,
+    recoverable_recording_sources,
     recording_stems as recording_stems,
 )
 from backend.recordings.studio_dynamics import _balance_curve, _voice_filters
@@ -44,12 +44,10 @@ class FfmpegStudioMasterRenderer:
     def preserve_stems(self, path: Path) -> None:
         # Older native versions saved a paired backing, but no voice. Recover it once from
         # the untouched take; never subtract from an already balanced or limited replacement.
-        backing = ensure_within(Path(str(path) + ".backing.wav"), path.parent)
-        vocal = ensure_within(Path(str(path) + ".vocal.wav"), path.parent)
-        if not backing.is_file() or vocal.is_file():
+        sources = recoverable_recording_sources(path)
+        if sources is None:
             return
-        original = ensure_within(path.with_name(f"{path.stem}.original.wav"), path.parent)
-        source = original if original.is_file() else path
+        source, backing, vocal = sources
         temporary = vocal.with_suffix(".publishing.wav")
         try:
             self._mix(

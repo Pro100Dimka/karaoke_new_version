@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 from pathlib import PurePosixPath
+from typing import Callable
 
 from backend.domain_errors import DomainError
-from backend.packages.domain import PackageCompatibility, PackageConflict
+from backend.packages.domain import PackageCompatibility
 from backend.packages.inspect_package import PackageInspection
 from backend.packages.ports import PackageArchive
 from backend.projects.domain import ProjectManifest
@@ -26,6 +27,7 @@ class PublishedPackageProject:
     fingerprint: str
     project_format_version: int
     revision: int
+    custom_cover: Path | None = None
 
 
 class PackageProjectPublication:
@@ -52,6 +54,8 @@ class PackageProjectPublication:
         archive_path: Path,
         inspection: PackageInspection,
         song_id: str,
+        *,
+        install_cover: Callable[[Path], Path] | None = None,
     ) -> PublishedPackageProject:
         workspace = self._workspaces.allocate(f"import-{song_id}")
         published = False
@@ -63,6 +67,7 @@ class PackageProjectPublication:
             project = self._local_project(project, inspection, song_id, workspace)
             project = self._upgrade_if_supported(inspection, project, workspace)
             self._validator.validate_working(project, workspace, require_ready=True)
+            cover = self._install_cover(inspection, workspace, install_cover)
             entry = self._journal.begin(
                 RecoveryOperation.PACKAGE_IMPORT,
                 {"songId": song_id, "revision": project.revision},
@@ -78,6 +83,7 @@ class PackageProjectPublication:
                 manifest_fingerprint(project),
                 project.project_format_version,
                 project.revision,
+                cover,
             )
         finally:
             if not published:
@@ -90,9 +96,7 @@ class PackageProjectPublication:
         self, project: ProjectManifest, inspection: PackageInspection, song_id: str, workspace: Path
     ) -> ProjectManifest:
         revision = (
-            inspection.local_revision
-            if inspection.conflict is PackageConflict.SAME_REVISION
-            else None
+            inspection.local_revision if inspection.matches_existing_revision else None
         ) or inspection.manifest.revision
         if self._projects.revision_exists(song_id, revision):
             revision = max(self._projects.revisions(song_id), default=revision) + 1
@@ -116,23 +120,41 @@ class PackageProjectPublication:
         return self._projects.revision_exists(song_id, revision)
 
     def supplement_same_revision(
-        self, archive_path: Path, inspection: PackageInspection, song_id: str
-    ) -> None:
+        self,
+        archive_path: Path,
+        inspection: PackageInspection,
+        song_id: str,
+        *,
+        install_cover: Callable[[Path], Path] | None = None,
+    ) -> Path | None:
         clip_path = PurePosixPath("media/clip.mp4")
-        if not any(item.path == clip_path for item in inspection.manifest.artifacts):
-            return
+        has_clip = any(item.path == clip_path for item in inspection.manifest.artifacts)
+        if not has_clip and inspection.manifest.song.custom_cover is None:
+            return None
         workspace = self._workspaces.allocate(f"supplement-{song_id}")
         try:
             self._archive.extract(archive_path, workspace)
             self._verify_artifacts(inspection, workspace)
-            self._projects.install_revision_artifact(
-                song_id,
-                inspection.local_revision or inspection.manifest.revision,
-                Path(*clip_path.parts),
-                workspace.joinpath(*clip_path.parts),
-            )
+            cover = self._install_cover(inspection, workspace, install_cover)
+            if has_clip:
+                self._projects.install_revision_artifact(
+                    song_id,
+                    inspection.local_revision or inspection.manifest.revision,
+                    Path(*clip_path.parts),
+                    workspace.joinpath(*clip_path.parts),
+                )
+            return cover
         finally:
             self._workspaces.cleanup(workspace)
+
+    @staticmethod
+    def _install_cover(
+        inspection: PackageInspection,
+        workspace: Path,
+        install: Callable[[Path], Path] | None,
+    ) -> Path | None:
+        cover = inspection.manifest.song.custom_cover
+        return install(workspace.joinpath(*cover.parts)) if cover and install else None
 
     def rollback(self, published: PublishedPackageProject) -> None:
         data = published.recovery_entry.data

@@ -23,6 +23,7 @@ from backend.projects.domain import ProjectRevision
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.runtime import Clock, IdGenerator
 from backend.songs.domain import CoverState, Song, SongStatus, SourceState
+from backend.songs.ports import SongMediaUpdate, SongStorage
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +38,7 @@ class ImportPackage:
         uow: UnitOfWorkFactory,
         inspect: InspectPackage,
         publication: PackageProjectPublication,
+        songs: SongStorage,
         operations: SongOperationRegistry,
         clock: Clock,
         ids: IdGenerator,
@@ -44,6 +46,7 @@ class ImportPackage:
         self._uow = uow
         self._inspect = inspect
         self._publication = publication
+        self._songs = songs
         self._operations = operations
         self._clock = clock
         self._ids = ids
@@ -58,27 +61,24 @@ class ImportPackage:
         inspection = self._inspect.execute(archive_path)
         self._require_importable(inspection, decision)
         song_id = inspection.existing_song_id or inspection.manifest.song.song_id
-        with self._operations.acquire(song_id, SongOperation.PACKAGE_IMPORT):
+        with (
+            self._operations.acquire(song_id, SongOperation.PACKAGE_IMPORT),
+            self._songs.media_update(song_id) as media,
+        ):
             if ensure_not_cancelled:
                 ensure_not_cancelled()
             published = None
             committed = False
             try:
-                same_revision = self._is_same_revision(inspection)
-                if not same_revision or not self._publication.revision_exists(
-                    song_id, inspection.local_revision or inspection.manifest.revision
-                ):
-                    published = self._publication.execute(archive_path, inspection, song_id)
+                install_cover = self._cover_installer(song_id, media)
+                published = self._publish_missing(archive_path, inspection, song_id, install_cover)
+                cover = self._prepare_cover(
+                    archive_path, inspection, song_id, published, install_cover
+                )
                 if ensure_not_cancelled:
                     ensure_not_cancelled()
-                if same_revision:
-                    self._publication.supplement_same_revision(archive_path, inspection, song_id)
-                    result = PackageImportResult(
-                        self._activate_existing(song_id, inspection), False
-                    )
-                else:
-                    assert published is not None
-                    result = self._commit(inspection, song_id, published)
+                result = self._commit_import(inspection, song_id, published, cover)
+                media.commit()
                 committed = True
                 return result
             finally:
@@ -86,12 +86,61 @@ class ImportPackage:
                     finish = self._publication.complete if committed else self._publication.rollback
                     finish(published)
 
+    def _publish_missing(
+        self,
+        archive_path: Path,
+        inspection: PackageInspection,
+        song_id: str,
+        install_cover: Callable[[Path], Path] | None,
+    ) -> PublishedPackageProject | None:
+        if self._is_same_revision(inspection) and self._publication.revision_exists(
+            song_id, inspection.local_revision or inspection.manifest.revision
+        ):
+            return None
+        return self._publication.execute(
+            archive_path, inspection, song_id, install_cover=install_cover
+        )
+
+    def _prepare_cover(
+        self,
+        archive_path: Path,
+        inspection: PackageInspection,
+        song_id: str,
+        published: PublishedPackageProject | None,
+        install_cover: Callable[[Path], Path] | None,
+    ) -> Path | None:
+        if published is not None:
+            return published.custom_cover
+        return self._publication.supplement_same_revision(
+            archive_path, inspection, song_id, install_cover=install_cover
+        )
+
+    def _commit_import(
+        self,
+        inspection: PackageInspection,
+        song_id: str,
+        published: PublishedPackageProject | None,
+        cover: Path | None,
+    ) -> PackageImportResult:
+        if self._is_same_revision(inspection):
+            return PackageImportResult(self._activate_existing(song_id, inspection, cover), False)
+        assert published is not None
+        return self._commit(inspection, song_id, published)
+
+    def _cover_installer(
+        self, song_id: str, media: SongMediaUpdate
+    ) -> Callable[[Path], Path] | None:
+        # Manual cover edits use the same media lock. Check the current row before any copy,
+        # including when the incoming file has the same name or the revision is already known.
+        with self._uow.create() as transaction:
+            song = transaction.songs.get(song_id)
+        if song and (song.cover_state is CoverState.CUSTOM or "cover" in song.user_overrides):
+            return None
+        return media.copy_cover
+
     @staticmethod
     def _is_same_revision(inspection: PackageInspection) -> bool:
-        return (
-            inspection.conflict is PackageConflict.SAME_REVISION
-            and inspection.existing_song_id is not None
-        )
+        return inspection.matches_existing_revision and inspection.existing_song_id is not None
 
     def _commit(
         self,
@@ -110,6 +159,7 @@ class ImportPackage:
                 now,
                 published.project_format_version,
                 published.revision,
+                published.custom_cover,
             )
             if existing:
                 transaction.songs.update(song)
@@ -138,6 +188,7 @@ class ImportPackage:
         now: datetime,
         project_format_version: int,
         revision: int,
+        custom_cover: Path | None = None,
     ) -> Song:
         identity = inspection.manifest.song
         if existing is not None and existing.source_identity != identity.source_identity:
@@ -147,6 +198,13 @@ class ImportPackage:
         song = existing or _new_package_song(
             identity, song_id, now, project_format_version, revision
         )
+        if custom_cover is not None:
+            song = replace(
+                song,
+                cover_path=custom_cover,
+                cover_state=CoverState.CUSTOM,
+                user_overrides=song.user_overrides | {"cover"},
+            )
         return replace(
             song,
             active_revision=revision,
@@ -187,7 +245,9 @@ class ImportPackage:
                 conflict=inspection.conflict.value,
             )
 
-    def _activate_existing(self, song_id: str, inspection: PackageInspection) -> Song:
+    def _activate_existing(
+        self, song_id: str, inspection: PackageInspection, custom_cover: Path | None
+    ) -> Song:
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
             activated = self._updated_song(
@@ -197,6 +257,7 @@ class ImportPackage:
                 self._clock.now(),
                 inspection.manifest.project_format_version,
                 inspection.local_revision or inspection.manifest.revision,
+                custom_cover,
             )
             if song is None:
                 transaction.songs.add(activated)

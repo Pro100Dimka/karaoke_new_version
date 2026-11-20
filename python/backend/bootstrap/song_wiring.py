@@ -6,6 +6,7 @@ from backend.ai.provider_resolver import ResolveAiProvider
 from backend.bootstrap.container import SongCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
 from backend.editor.get_document import GetEditorDocument
+from backend.editor.melody_audio import UpdateEditorMelody
 from backend.editor.reset_document import ResetEditorDocument
 from backend.editor.save_document import SaveEditorDocument
 from backend.infrastructure.clock import SystemMonotonicClock
@@ -111,6 +112,9 @@ def _save_editor(runtime: RuntimeWiring, project: ProjectWiring) -> SaveEditorDo
         project.journal,
         runtime.clock,
         runtime.ids,
+        UpdateEditorMelody(
+            project.projects, RenderMelodyReference(), runtime.processes, runtime.hasher
+        ),
     )
 
 

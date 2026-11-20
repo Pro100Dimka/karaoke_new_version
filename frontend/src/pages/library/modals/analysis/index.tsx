@@ -52,28 +52,15 @@ interface PerformanceAnalysisModalProps {
   onCancelAnalysis?(jobId: string): void;
 }
 
-/** The song's own takes (masters are shown beside their source), plus the analysed one if it is not among them. */
+/** Keep retained masters playable when their source take has been deleted. */
 const takeList = (
   recordings: readonly RecordingDto[],
-  recordingId: string,
-): readonly RecordingDto[] => {
-  const takes = recordings.filter((recording) => !recording.sourceRecordingId);
-  return takes.some((recording) => recording.id === recordingId)
-    ? takes
-    : [
-        ...takes,
-        {
-          id: recordingId,
-          filePath: '',
-          songId: '',
-          displayName: '',
-          createdAt: '',
-          durationSeconds: 0,
-          sizeBytes: 0,
-          analyzed: true,
-        },
-      ];
-};
+): readonly RecordingDto[] =>
+  recordings.filter(
+    (recording) =>
+      !recording.sourceRecordingId ||
+      !recordings.some((source) => source.id === recording.sourceRecordingId),
+  );
 
 const metricIcons = {
   pitch: 'music',
@@ -97,14 +84,17 @@ export const PerformanceAnalysisModal = ({
 }: PerformanceAnalysisModalProps) => {
   useLocale();
   const guarded = useGuardedAction();
-  const analyzedTakeId =
-    recordings.find((recording) => recording.id === analysis?.recordingId)
-      ?.sourceRecordingId ?? analysis?.recordingId;
+  const analyzed = recordings.find(
+    (recording) => recording.id === analysis?.recordingId,
+  );
+  const analyzedTakeId = recordings.some(
+    (recording) => recording.id === analyzed?.sourceRecordingId,
+  )
+    ? analyzed?.sourceRecordingId
+    : analyzed?.id;
   const [viewedId, setViewedId] = useState(analyzedTakeId);
   useEffect(() => setViewedId(analyzedTakeId), [analyzedTakeId]);
-  const list = analyzedTakeId
-    ? takeList(recordings, analyzedTakeId)
-    : recordings;
+  const list = takeList(recordings);
   if (!analysis && !pending && !failure) return null;
   const viewed =
     list.find(
@@ -360,14 +350,18 @@ export const PerformanceAnalysisModal = ({
                       border
                       padding="sm"
                       level={4}
-                      icon="mic"
-                      title={tr('studioMasterSourceTitle')}
+                      icon={viewed.sourceRecordingId ? 'sparkle' : 'mic'}
+                      title={tr(
+                        viewed.sourceRecordingId
+                          ? 'studioMasterTitle'
+                          : 'studioMasterSourceTitle',
+                      )}
                       className="analysisOriginal"
                       actions={fileActions(viewed)}
                     >
                       <RecordingPlayer key={viewed.id} recording={viewed} />
                     </Card>
-                    {(master || active) && (
+                    {(master || (active && !viewed.sourceRecordingId)) && (
                       <Card
                         key={master ? 'master' : 'studio'}
                         border

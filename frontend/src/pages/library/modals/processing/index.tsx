@@ -118,15 +118,30 @@ export const ProcessingModal = observer(
       [data, imports],
     );
     const guarded = useGuardedAction();
-    const { retryProcessing, retrying, reportProcessingError, reporting } =
-      useSongActions();
+    const {
+      retryProcessing,
+      resetLyricsAndReprocess,
+      retrying,
+      reportProcessingError,
+      reporting,
+    } = useSongActions();
     const [failure, setFailure] = useState<ProcessingJobDto>();
     const retry = async (job: ProcessingJobDto) => {
-      if (await retryProcessing(job.songId)) setFailure(undefined);
+      if (
+        await retryProcessing(
+          job.songId,
+          job.timingOperation === 'lyrics' ? 'lyrics' : 'full',
+        )
+      )
+        setFailure(undefined);
     };
-    const onCancel = (jobId: string) =>
+    const resetLyrics = async (job: ProcessingJobDto) => {
+      if (await resetLyricsAndReprocess(job.songId)) setFailure(undefined);
+    };
+    const onCancel = (job: ProcessingJobDto) =>
       guarded(async () => {
-        await catalog.cancelProcessing(jobId);
+        if (job.type === 'SongImport') await catalog.cancelJob(job.id);
+        else await catalog.cancelProcessing(job.id);
         await refreshSongs(client);
       });
     const onOpenFolder = (song: SongDto) =>
@@ -192,7 +207,7 @@ export const ProcessingModal = observer(
         text: tr('processingStopText'),
         confirm: tr('processingStop'),
         cancel: tr('cancel'),
-        onConfirm: () => void onCancel(job.id),
+        onConfirm: () => void onCancel(job),
       });
     const remove = (job: ProcessingJobDto) =>
       setNotice({
@@ -282,6 +297,7 @@ export const ProcessingModal = observer(
                         onOpenFolder,
                         onPlay,
                         playbackDisabled,
+                        canCancel: queue.canCancel(job.id),
                         onStop: () => stop(job),
                         onDetails: () => details(job),
                         onRemove: () => remove(job),
@@ -350,10 +366,15 @@ export const ProcessingModal = observer(
           onRetry={
             failure &&
             failureSong &&
-            !['queued', 'processing', 'importing'].includes(
-              failureSong.status,
-            )
+            !['queued', 'processing', 'importing'].includes(failureSong.status)
               ? () => void retry(failure)
+              : undefined
+          }
+          onResetLyrics={
+            failure?.error?.code === 'ManualLyricsConflict' &&
+            failureSong &&
+            !['queued', 'processing', 'importing'].includes(failureSong.status)
+              ? () => void resetLyrics(failure)
               : undefined
           }
           retrying={Boolean(retrying)}
