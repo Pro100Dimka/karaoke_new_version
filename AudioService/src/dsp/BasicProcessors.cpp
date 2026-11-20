@@ -321,11 +321,13 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
         mean += sample;
     mean /= PitchAnalysisFrames;
     std::array<double, PitchAnalysisFrames> centredSamples;
+    std::array<double, PitchAnalysisFrames + 1U> energyPrefix{};
     double energy = 0.0;
     for (std::uint32_t frame = 0; frame < PitchAnalysisFrames; ++frame) {
         const auto centred = static_cast<double>(pitchAnalysis_[frame]) - mean;
         centredSamples[frame] = centred;
         energy += centred * centred;
+        energyPrefix[frame + 1U] = energy;
     }
     if (energy / PitchAnalysisFrames < 1.0e-5)
         return 0.0F;
@@ -335,13 +337,13 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
     for (auto lag = minimumLag; lag <= maximumLag; ++lag) {
         double correlation = 0.0;
         double currentEnergy = 0.0;
-        double delayedEnergy = 0.0;
+        // The delayed side is always the same ordered prefix; reuse its exact scalar sum.
+        const auto delayedEnergy = energyPrefix[PitchAnalysisFrames - lag];
         for (std::uint32_t frame = lag; frame < PitchAnalysisFrames; ++frame) {
             const auto current = centredSamples[frame];
             const auto delayed = centredSamples[frame - lag];
             correlation += current * delayed;
             currentEnergy += current * current;
-            delayedEnergy += delayed * delayed;
         }
         const auto denominator = std::sqrt(currentEnergy * delayedEnergy);
         const auto normalized =
@@ -399,16 +401,18 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
     // Each sample is written before the taps are read. One frame of lookbehind keeps both
     // interpolation samples causal; a whole extra grain window only delays the voice.
     const auto minimumDelay = shortDelay_ ? 1.0 : window;
+    const auto hardTune = amount >= 0.999F;
+    const auto targetRatio = hardTune ? std::pow(2.0, static_cast<double>(targetSemitones) / 12.0) : 0.0;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         const auto writeIndexFrame = static_cast<std::uint32_t>(writeFrame_ % capacityFrames_);
         for (std::uint32_t ch = 0; ch < channels_; ++ch)
             delayLine_[static_cast<std::size_t>(writeIndexFrame) * channels_ + ch] =
                 samples[static_cast<std::size_t>(frame) * channels_ + ch];
         currentSemitones_ =
-            amount >= 0.999F
+            hardTune
                 ? targetSemitones
                 : currentSemitones_ + (targetSemitones - currentSemitones_) * smoothing;
-        const auto pitchRatio = std::pow(2.0, static_cast<double>(currentSemitones_) / 12.0);
+        const auto pitchRatio = hardTune ? targetRatio : std::pow(2.0, static_cast<double>(currentSemitones_) / 12.0);
         phase_ += (1.0 - pitchRatio) / window;
         phase_ -= std::floor(phase_);
         const auto phaseB = phase_ + 0.5 >= 1.0 ? phase_ - 0.5 : phase_ + 0.5;

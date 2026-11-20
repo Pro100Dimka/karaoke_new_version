@@ -1,9 +1,11 @@
 #include "TestHarness.hpp"
+#include "dsp/BasicProcessors.hpp"
 #include "dsp/DspChain.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <vector>
 
 #if defined(_M_X64) || defined(__x86_64__)
@@ -125,6 +127,42 @@ void autoTuneCorrectsAStableVoiceWithoutClipping() {
     expect(crossings >= 420 && crossings <= 460,
            "maximum auto-tune exaggerates chromatic correction as an obvious voice effect");
     expect(peak <= 0.35F, "auto-tune keeps voice peaks bounded");
+}
+
+void autoTunePreservesReferenceWaveformAcrossSampleRates() {
+    struct Fixture {
+        std::uint32_t rate;
+        float amount;
+        std::array<float, 4> expected;
+    };
+    // Samples from the scalar energy sums, including both sides of the hard-tune boundary.
+    constexpr Fixture fixtures[]{
+        {48000, 0.4F, {-0.324342429638F, -0.326173186302F, -0.32071185112F, -0.307548135519F}},
+        {48000, 0.999F, {0.0164111405611F, 0.000229462981224F, -0.0131914913654F, -0.0234304144979F}},
+        {48000, 1.0F, {0.0173852965236F, -0.000503875315189F, -0.0157357156277F, -0.0279369279742F}},
+        {192000, 0.4F, {-0.0571190901101F, -0.048242110759F, -0.0393341556191F, -0.0304085016251F}},
+        {192000, 0.999F, {0.00522119551897F, 0.000388592481613F, -0.00457359105349F, -0.00965368002653F}},
+        {192000, 1.0F, {0.0559961274266F, 0.0521260872483F, 0.0480947196484F, 0.0439057424664F}},
+    };
+    for (const auto& fixture : fixtures) {
+        const auto frames = fixture.rate / 10U;
+        std::vector<float> samples(frames);
+        for (std::uint32_t frame = 0; frame < frames; ++frame) {
+            const auto phase = 2 * std::numbers::pi * 475 * frame / fixture.rate;
+            samples[frame] = static_cast<float>(0.3 * std::sin(phase) + 0.08 * std::sin(phase * 2));
+        }
+        PitchShiftProcessor processor;
+        processor.prepare(fixture.rate, 128, 1);
+        processor.setShortDelay(true);
+        processor.setAutoTuneAmount(fixture.amount);
+        for (std::uint32_t from = 0; from < frames; from += 128U) {
+            const auto count = std::min(128U, frames - from);
+            processor.process(std::span<float>{samples}.subspan(from, count), count);
+        }
+        for (std::size_t index = 0; index < fixture.expected.size(); ++index)
+            expect(std::abs(samples[frames - 8U + index * 2U] - fixture.expected[index]) < 0.00001F,
+                   "auto-tune retains the scalar waveform at normal and high device rates");
+    }
 }
 
 void dspOutputRemainsFinite() {

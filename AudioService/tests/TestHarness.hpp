@@ -566,6 +566,7 @@ void songLoudnessIsMeasuredOnLoadIgnoringSilence();
 void dspParametersAreValidated();
 void activePitchReportsLatency();
 void autoTuneCorrectsAStableVoiceWithoutClipping();
+void autoTunePreservesReferenceWaveformAcrossSampleRates();
 void dspOutputRemainsFinite();
 void roomVoiceEffectAmountsDriveWetProcessing();
 void noiseSuppressionPreservesVoicedWaveform();

@@ -822,6 +822,8 @@ constexpr std::array tests{
     Test{"activePitchReportsLatency", Tests::activePitchReportsLatency},
     Test{"autoTuneCorrectsAStableVoiceWithoutClipping",
          Tests::autoTuneCorrectsAStableVoiceWithoutClipping},
+    Test{"autoTunePreservesReferenceWaveformAcrossSampleRates",
+         Tests::autoTunePreservesReferenceWaveformAcrossSampleRates},
     Test{"dspOutputRemainsFinite", Tests::dspOutputRemainsFinite},
     Test{"roomVoiceEffectAmountsDriveWetProcessing",
          Tests::roomVoiceEffectAmountsDriveWetProcessing},
