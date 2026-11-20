@@ -55,6 +55,7 @@ const wait = (milliseconds: number) =>
 export const createAudioPlayers = (
   ops: AudioPlayerOperations,
 ): AudioPlayers => {
+  let radioGeneration = 0;
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
   let loadingOwner: symbol | undefined;
@@ -215,13 +216,17 @@ export const createAudioPlayers = (
       );
     },
     async playRadio() {
+      const generation = ++radioGeneration;
       await stopPreview();
+      if (generation !== radioGeneration) return;
       await ops.command('PlayRadio');
     },
     async pauseRadio() {
+      radioGeneration += 1;
       await ops.command('PauseRadio');
     },
     async stopRadio() {
+      radioGeneration += 1;
       await ops.command('StopRadio');
     },
     async setRadioGain(gain) {

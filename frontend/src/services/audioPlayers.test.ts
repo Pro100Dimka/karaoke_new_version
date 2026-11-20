@@ -50,6 +50,63 @@ const setup = () => {
   return { players, command, pythonRequest, diagnostics };
 };
 
+describe('radio transport intents', () => {
+  it.each(['pauseRadio', 'stopRadio'] as const)(
+    'does not start radio after a later %s while preview shutdown is pending',
+    async (interrupt) => {
+      const { players, command } = setup();
+      let completePreviewStop!: (reply: string) => void;
+      const pendingPreviewStop = new Promise<string>((resolve) => {
+        completePreviewStop = resolve;
+      });
+      command.mockImplementation((name) =>
+        name === 'StopRecordingPreview'
+          ? pendingPreviewStop
+          : Promise.resolve(''),
+      );
+
+      const starting = players.playRadio();
+      await players[interrupt]();
+      completePreviewStop('');
+      await starting;
+
+      expect(command.mock.calls.map(([name]) => name)).toEqual([
+        'StopRecordingPreview',
+        interrupt === 'pauseRadio' ? 'PauseRadio' : 'StopRadio',
+      ]);
+    },
+  );
+
+  it.each(['pauseRadio', 'stopRadio', 'playRadio'] as const)(
+    'keeps the latest explicit Play after %s when an older preview stop completes',
+    async (interrupt) => {
+      const { players, command } = setup();
+      let completePreviewStop!: (reply: string) => void;
+      command.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            completePreviewStop = resolve;
+          }),
+      );
+
+      const starting = players.playRadio();
+      if (interrupt !== 'playRadio') await players[interrupt]();
+      await players.playRadio();
+      completePreviewStop('');
+      await starting;
+
+      expect(command.mock.calls.map(([name]) => name)).toEqual([
+        'StopRecordingPreview',
+        ...(interrupt === 'playRadio'
+          ? []
+          : [interrupt === 'pauseRadio' ? 'PauseRadio' : 'StopRadio']),
+        'StopRecordingPreview',
+        'PlayRadio',
+      ]);
+    },
+  );
+});
+
 describe('recording preview ownership', () => {
   it('keeps a pending player volume separate from the active player and discards it on cancellation', async () => {
     const { players, command, pythonRequest } = setup();
