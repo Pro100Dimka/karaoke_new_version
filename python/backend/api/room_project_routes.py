@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Callable
 
@@ -38,7 +39,7 @@ def _project_path(root: Path, room_id: str, song_id: str, revision: int, uploade
 async def store_project(
     request: Request, target: Path, on_progress: Callable[[int], None] | None = None
 ) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
+    await anyio.to_thread.run_sync(partial(target.parent.mkdir, parents=True, exist_ok=True))
     temporary = target.with_name(f".{target.name}.{UuidGenerator().new()}.upload")
     received = 0
     try:
@@ -109,12 +110,20 @@ def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> 
         room = await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
         source = project_source(room, song_id, revision)
         target = None if source is None else _project_path(root, room_id, song_id, revision, source)
-        pending = uploads.get(target) if target is not None else None
-        if pending is not None or target is None or not target.is_file():
-            details = {"uploadBytes": pending[1], "uploadTotalBytes": pending[2]} if pending else {}
-            raise NotFoundError(
-                "RoomProjectNotFound",
-                "Room project has not been uploaded",
-                **details,
-            )
+        target = await _downloadable_project(target, uploads)
         return FileResponse(target, media_type="application/zip", filename=target.name)
+
+
+async def _downloadable_project(
+    target: Path | None, uploads: dict[Path, tuple[object, int, int]]
+) -> Path:
+    pending = uploads.get(target) if target is not None else None
+    available = False
+    if target is not None and pending is None:
+        available = await anyio.to_thread.run_sync(target.is_file)
+        # An upload may have started while the filesystem worker checked an older file.
+        pending = uploads.get(target)
+    if pending is not None or target is None or not available:
+        details = {"uploadBytes": pending[1], "uploadTotalBytes": pending[2]} if pending else {}
+        raise NotFoundError("RoomProjectNotFound", "Room project has not been uploaded", **details)
+    return target
