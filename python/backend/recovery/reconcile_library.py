@@ -58,8 +58,12 @@ class ReconcileLibrary:
         songs: list[Song] = []
         with self._uow.create() as transaction:
             while page := transaction.songs.list(
-                search=None, status=None, sort="createdAt", descending=False,
-                limit=10_000, offset=len(songs),
+                search=None,
+                status=None,
+                sort="createdAt",
+                descending=False,
+                limit=10_000,
+                offset=len(songs),
             ):
                 songs.extend(page)
         return tuple(songs)

@@ -230,14 +230,20 @@ def test_test_suite_redirects_writable_environment_files(tmp_path: Path) -> None
     assert Path(os.environ["AD_VOICE_FRONTEND_ENV_FILE"]).parent == tmp_path
 
 
-@pytest.mark.parametrize("status,payload,state", [
-    (200, {"status": "error", "error": {"error_code": 900}}, "invalid"),
-    (503, {}, "invalid"),
-    (503, {"status": "success"}, "invalid"),
-    (200, {"status": "success", "result": None}, "valid"),
-])
+@pytest.mark.parametrize(
+    "status,payload,state",
+    [
+        (200, {"status": "error", "error": {"error_code": 900}}, "invalid"),
+        (503, {}, "invalid"),
+        (503, {"status": "success"}, "invalid"),
+        (200, {"status": "success", "result": None}, "valid"),
+    ],
+)
 def test_environment_token_verification_marks_rejected_audd_token_invalid(
-    tmp_path: Path, status: int, payload: dict[str, object], state: str,
+    tmp_path: Path,
+    status: int,
+    payload: dict[str, object],
+    state: str,
 ) -> None:
     def reject(request: httpx.Request) -> httpx.Response:
         assert request.url == "https://api.audd.io/"

@@ -130,9 +130,12 @@ def test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quie
             LyricLineTiming(3, "I am alone"),
         ),
     )
-    assert _with_completed_repeats(
-        mixed, "keep my heart keep my heart keep my heart I am alone", Event()
-    ).lyrics == baseline
+    assert (
+        _with_completed_repeats(
+            mixed, "keep my heart keep my heart keep my heart I am alone", Event()
+        ).lyrics
+        == baseline
+    )
 
 
 @pytest.mark.parametrize("score", [0.02, 0.0])

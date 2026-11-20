@@ -59,7 +59,9 @@ class Friends:
             self._friends.remove_request(requester_id, me.account_id)
             self._friends.remove_request(me.account_id, requester_id)
             self._friends.befriend(me.account_id, requester_id, now)
-            self._events.add_notice(requester_id, NoticeKind.FRIEND_ACCEPTED, me.account_id, None, now)
+            self._events.add_notice(
+                requester_id, NoticeKind.FRIEND_ACCEPTED, me.account_id, None, now
+            )
             self._notifier.changed((me.account_id, requester_id))
 
     def decline(self, me: Account, requester_id: str) -> None:

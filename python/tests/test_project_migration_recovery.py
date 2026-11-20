@@ -114,14 +114,16 @@ def test_reconciliation_reports_orphan_project_without_auto_repair(
         uow, catalog = MagicMock(), MagicMock()
         repository = uow.create.return_value.__enter__.return_value.songs
         repository.list.side_effect = lambda **page: songs[
-            page["offset"]:page["offset"] + page["limit"]
+            page["offset"] : page["offset"] + page["limit"]
         ]
         catalog.song_ids.return_value = tuple(song.song_id for song in songs) + ("orphan-song",)
         catalog.revisions.return_value = (1,)
         reconcile = ReconcileLibrary(uow, catalog, MagicMock(), MagicMock(), MagicMock())
         monkeypatch.setattr(reconcile, "_song_issues", lambda _: [])
         issues = reconcile.execute()
-        assert [(issue.code, issue.entity_id) for issue in issues] == [("OrphanProject", "orphan-song")]
+        assert [(issue.code, issue.entity_id) for issue in issues] == [
+            ("OrphanProject", "orphan-song")
+        ]
         return
     root = tmp_path / "runtime"
     with app_client(root) as client:
