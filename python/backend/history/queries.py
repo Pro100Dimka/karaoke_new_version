@@ -28,11 +28,18 @@ class ListHistory:
         with self._uow.create() as transaction:
             items = transaction.history.list(limit=limit, offset=offset, event_types=event_types)
             total = transaction.history.count(event_types)
+            recording_ids = tuple(
+                {
+                    event.entity_id
+                    for event in items
+                    if event.entity_type == "Recording" and event.entity_id
+                }
+            )
+            recording_songs = transaction.recordings.song_ids(recording_ids)
             song_ids: dict[str, str | None] = {}
             for event in items:
                 if event.entity_type == "Song":
                     song_ids[event.event_id] = event.entity_id
                 elif event.entity_type == "Recording" and event.entity_id:
-                    recording = transaction.recordings.get(event.entity_id)
-                    song_ids[event.event_id] = recording.song_id if recording else None
+                    song_ids[event.event_id] = recording_songs.get(event.entity_id)
         return HistoryPage(items, total, limit, offset, song_ids)
