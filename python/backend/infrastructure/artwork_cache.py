@@ -52,8 +52,8 @@ def _cached_artwork(
         cached = next(
             (
                 path
-                for path in cache_dir.glob(f"{key}.*")
-                if path.suffix != ".tmp" and path.is_file()
+                for extension in _EXTENSIONS.values()
+                if (path := cache_dir / f"{key}{extension}").is_file()
             ),
             None,
         )
