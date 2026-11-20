@@ -81,8 +81,10 @@ constexpr MonotonicTicks PlausibleWindowNs = 1'000'000'000;
 } // namespace
 
 MonotonicTicks captureTicksFromQpc(MonotonicTicks qpc100ns, MonotonicTicks now) noexcept {
+    if (qpc100ns <= 0 || qpc100ns > now / NanosecondsPer100ns)
+        return 0;
     const auto ticks = qpc100ns * NanosecondsPer100ns;
-    return qpc100ns > 0 && ticks <= now && now - ticks <= PlausibleWindowNs ? ticks : 0;
+    return now - ticks <= PlausibleWindowNs ? ticks : 0;
 }
 
 std::uint64_t rebasedRenderSubmission(std::uint64_t submittedFrames, std::uint64_t positionFrames,
