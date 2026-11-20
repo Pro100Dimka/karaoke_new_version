@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,7 @@ from backend.idempotency import IdempotencyRecord
 from backend.runtime import Clock
 from backend.runtime import IdGenerator
 from backend.persistence import UnitOfWorkFactory
+from backend.projects.content_lock import KeyedLockManager
 from backend.projects.domain import ProjectRevision
 from backend.projects.fingerprint import manifest_fingerprint
 from backend.projects.ports import ProjectStorage
@@ -68,6 +70,7 @@ class ImportSong:
         self._clock = clock
         self._ids = ids
         self._recognition = recognition
+        self._commit_locks = KeyedLockManager()
 
     def execute(
         self,
@@ -102,7 +105,7 @@ class ImportSong:
             )
             _checkpoint(progress, ensure_not_cancelled, "Copying", 0.9)
             _checkpoint(progress, ensure_not_cancelled, "Saving", 0.98)
-            self._persist(song, request.idempotency_key, request_hash)
+            song = self._persist(song, request, request_hash, ensure_not_cancelled)
         except DomainError:
             self._cleanup_failed_import(song_id)
             self._journal.complete(entry.transaction_id)
@@ -148,7 +151,29 @@ class ImportSong:
             now,
         )
 
-    def _persist(self, song: Song, idempotency_key: str | None, request_hash: str) -> None:
+    def _persist(
+        self,
+        song: Song,
+        request: ImportSongRequest,
+        request_hash: str,
+        ensure_not_cancelled: Callable[[], None] | None,
+    ) -> Song:
+        key = request.idempotency_key
+        with self._commit_locks.acquire(f"request:{key}") if key else nullcontext():
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
+            repeated = self._idempotent_result(key, request_hash)
+            if repeated:
+                self._cleanup_failed_import(song.song_id)
+                return repeated
+            with self._commit_locks.acquire(f"source:{song.source_identity}"):
+                if ensure_not_cancelled:
+                    ensure_not_cancelled()
+                self._ensure_not_duplicate(song.source_identity)
+                self._save(song, key, request_hash)
+        return song
+
+    def _save(self, song: Song, idempotency_key: str | None, request_hash: str) -> None:
         manifest = self._projects.load_manifest(song.song_id, song.active_revision)
         revision = ProjectRevision(
             song_id=song.song_id,
