@@ -158,7 +158,15 @@ def _shifted_hints(
             if index in supported
         }
         if interval is not None and len(phrase_support) >= _MINIMUM_BLOCK:
-            if not interval[0] - _MARGIN_SECONDS <= entry <= interval[1] + _MARGIN_SECONDS:
+            if not interval[0] - _MARGIN_SECONDS <= entry <= interval[
+                1
+            ] + _MARGIN_SECONDS and not any(
+                other != line_index and start <= supported[index][0] < end
+                for other, (start, end) in spans.items()
+                for index in range(first, first + len(text.split()))
+                if index in supported
+            ):
+                # The opening alone cannot validate suffix words borrowed from another cue.
                 entry = interval[0]
         elif line_index and previous_entry is not None and not phrase_support:
             previous_first, _, previous_text = lines[line_index - 1]

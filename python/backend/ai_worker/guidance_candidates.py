@@ -147,6 +147,7 @@ def _recognized_cores(
         following = heard.get(index + 1)
         word = words[index]
         crossed = _crosses_recognized_word(word, interval, following, margin)
+        conflict = "BoundaryConflict" in word.diagnostics
         search = replace(window, start=max(window.start, word.start)) if crossed else window
         align = partial(
             _candidates,
@@ -157,9 +158,12 @@ def _recognized_cores(
             voiced=voiced,
             margin=margin,
             onsets=onsets,
-            review=index in reviewed or crossed,
+            review=index in reviewed or crossed or conflict,
         )
         candidates = align(search)
+        if conflict and index and search.start < words[index - 1].end < word.start:
+            # Padded recognition can borrow the previous word instead of repairing the clipped core.
+            candidates += align(replace(search, start=words[index - 1].end))
         after = words[index + 1] if index + 1 < len(words) else None
         bounded = _bounded_candidate_window(candidates, after, search)
         if bounded is not None:
@@ -277,6 +281,8 @@ def _candidates(
 ) -> list[ctc.AlignedWord]:
     first, last = interval
     miss = abs(first - word.start)
+    # A plausible opening cannot validate phonemes borrowed from a later phrase.
+    review = review or word.end > last + margin
     if miss <= ctc._HEARD_DISAGREEMENT_SECONDS and not review:
         return []
     candidates = [
@@ -388,6 +394,16 @@ def _core_candidates(
         ctc.Window(0, 1, start, end),
     )
     end = min(last, window.end)
+    if (
+        start < end
+        and (window.heard_start is None or end > window.heard_start)
+        and any(candidate.end > end + frame_seconds for candidate in candidates)
+    ):
+        # The search margin may select the next word's stronger phonemes. Keep
+        # an alternative inside this span unless it precedes the confirmed phrase.
+        candidates += ctc._align_window(
+            scores, frame_seconds, [word.text], ctc.Window(0, 1, start, end)
+        )
     if start < end and (review or not start <= word.start < end):
         # A recognition span can include the previous vowel. An interpolated entry
         # supplies no acoustic evidence against a CTC core already inside that span.

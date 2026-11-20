@@ -15,6 +15,7 @@ from backend.lyrics.catalogue_lookup import (
     select_catalogue,
     supported_alternative,
 )
+from backend.lyrics.catalogue_versions import reconcile_timed_overlaps
 from backend.lyrics.codec import (
     decode_document,
     decode_timing_hints,
@@ -169,9 +170,23 @@ class LyricsDiscovery:
         if found is None:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
         found = self._ending(song, sources, asr, cancel, found, execution, ending)
+        reconciled = reconcile_timed_overlaps(
+            LyricsCandidate(
+                found.lyrics,
+                song.title,
+                song.artist,
+                song.duration,
+                found.source,
+                found.timing_hints,
+            ),
+            found.alternatives,
+            transcripts,
+            _lyrics_key,
+        )
         return replace(
             found,
-            timing_hints=reconcile_timing_hints(found.lyrics, found.timing_hints),
+            lyrics=reconciled.lyrics,
+            timing_hints=reconcile_timing_hints(reconciled.lyrics, reconciled.timing_hints),
             repeat_baseline_hints=reconcile_timing_hints(
                 found.repeat_baseline or found.lyrics, found.repeat_baseline_hints
             ),

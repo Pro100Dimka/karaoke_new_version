@@ -76,6 +76,17 @@ def preserve_following_core(
 ) -> list[list[AlignedWord]]:
     """A weak unheard tail cannot improve by taking the next confirmed whole-song core."""
     anchor = anchors.get(window.last)
+    if anchor is not None and any(
+        candidate[-1].score > 0 and candidate[-1].end <= anchor + _HEARD_DISAGREEMENT_SECONDS
+        for candidate in candidates
+    ):
+        # A matching onset cannot validate a weak suffix in the next recognized phrase.
+        candidates = [
+            candidate
+            for candidate in candidates
+            if candidate[-1].score > _PREFERENCE
+            or candidate[-1].end <= anchor + _HEARD_DISAGREEMENT_SECONDS
+        ]
     if (
         not any(candidate is reference for candidate in candidates)
         or window.last >= len(whole)

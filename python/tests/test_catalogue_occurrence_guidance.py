@@ -101,3 +101,29 @@ def test_a_common_catalogue_offset_preserves_separate_recognized_occurrences():
     shifted = speech_windows._shifted_hints(" ".join(lines).split(), hints, whole, heard)
 
     assert [hint["start"] for hint in shifted] == pytest.approx([start + 2.5 for start in cues])
+
+
+def test_a_repeated_suffix_cannot_shift_a_cue_using_the_next_reserved_phrase(monkeypatch):
+    lines = ["hold me close hold me close", "hold me close until dawn", "silver rivers flow"]
+    hints = [{"start": start, "text": line} for start, line in zip([10.0, 13.0, 16.0], lines)]
+    whole = _timed_lines(lines, [10.1, 13.1, 16.1])
+    heard = [(word.text, word.start, word.end) for word in whole[3:]]
+    # A partial ASR view misses the opening. Its best spelling match fills the
+    # preceding six-word phrase with three words owned by the complete next cue.
+    supported = {index: (start, end) for index, (_, start, end) in enumerate(heard[:6])}
+    monkeypatch.setattr(speech_windows, "_heard_timings", lambda *_args, **_kwargs: supported)
+
+    shifted = speech_windows._shifted_hints(" ".join(lines).split(), hints, whole, heard)
+
+    assert shifted == hints
+
+
+def test_an_independent_complete_phrase_still_corrects_its_early_catalogue_entry():
+    lines = ["hold me close hold me close", "hold me close until dawn", "silver rivers flow"]
+    hints = [{"start": start, "text": line} for start, line in zip([10.0, 16.0, 20.0], lines)]
+    whole = _timed_lines(lines, [11.6, 16.0, 20.0])
+    heard = [(word.text, word.start, word.end) for word in whole]
+
+    shifted = speech_windows._shifted_hints(" ".join(lines).split(), hints, whole, heard)
+
+    assert [hint["start"] for hint in shifted] == pytest.approx([11.6, 16.0, 20.0])

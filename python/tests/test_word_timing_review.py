@@ -36,6 +36,116 @@ def _emissions(words: list[ctc.AlignedWord], total: float = 4) -> torch.Tensor:
     return scores
 
 
+@pytest.mark.parametrize("phrase_entry,bounded", [(None, True), (1.4, False)])
+def test_recognized_word_keeps_a_bounded_core_when_search_margin_selects_the_next_repeat(
+    phrase_entry, bounded
+):
+    actual = ctc.AlignedWord("we", 1, 1.2, (1, 1.18), 0.2)
+    following = ctc.AlignedWord("we", 1.5, 1.7, (1.5, 1.68), 0.99)
+    scores = _emissions([actual, following])
+    for moment, tokens in zip(actual.letters, ctc._character_tokens(actual.text), strict=True):
+        scores[round(moment / 0.02), 0] = np.log(0.79)
+        scores[round(moment / 0.02), tokens[0]] = np.log(0.2)
+    original = _word("we", 0.2, 0.4, 0.01)
+
+    candidates = word_guidance._candidates(
+        original,
+        scores,
+        0.02,
+        ctc.Window(0, 1, 0, 3, phrase_entry),
+        (1, 1.3),
+        np.ones(400, bool),
+        0.6,
+    )
+
+    assert any(word.start == pytest.approx(1) and word.end <= 1.3 for word in candidates) == bounded
+    assert any(word.start == pytest.approx(1.5) for word in candidates)
+
+
+def test_agreeing_onset_does_not_hide_a_phonetic_suffix_in_the_next_phrase():
+    actual = ctc.AlignedWord("we", 1.08, 1.22, (1.08, 1.2), 0.99)
+    original = ctc.AlignedWord("we", 1, 3, (1, 2.98), 0.01)
+
+    candidates = word_guidance._candidates(
+        original,
+        _emissions([actual]),
+        0.02,
+        ctc.Window(0, 1, 0, 3.5),
+        (1, 1.3),
+        np.ones(400, bool),
+        0.6,
+    )
+
+    assert any(word.start == pytest.approx(1.08) and word.end <= 1.3 for word in candidates)
+
+
+def test_bounded_recognition_retry_does_not_replace_a_supported_opening_with_weak_audio():
+    actual = ctc.AlignedWord("we", 1.08, 1.22, (1.08, 1.2), 0.1)
+    original = ctc.AlignedWord("we", 1, 3, (1, 2.98), 0.99)
+    scores = _emissions([actual, original])
+    for moment, tokens in zip(actual.letters, ctc._character_tokens(actual.text), strict=True):
+        scores[round(moment / 0.02), tokens[0]] = np.log(0.01)
+
+    assert (
+        word_guidance._candidates(
+            original, scores, 0.02, ctc.Window(0, 1, 0, 3.5), (1, 1.3), np.ones(400, bool), 0.6
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("evidence", ["confirmed_next", "coarse_only", "strong_tail", "no_core"])
+def test_a_weak_phrase_suffix_cannot_cross_the_next_independently_heard_entry(evidence):
+    from backend.ai_worker.ctc_guidance import preserve_following_core
+
+    # Whole-song alignment borrowed the last phoneme from a later repetition.
+    reference = [_word("we", 1, 3.2, 0.8 if evidence == "strong_tail" else 0.02)]
+    bounded = [_word("we", 1, 1.3, 0 if evidence == "no_core" else 0.01)]
+    candidates = [bounded, reference]
+    whole = [*reference, _word("we", 3.3, 3.6)]
+    anchors = {0: 1} if evidence == "coarse_only" else {0: 1, 1: 2}
+
+    kept = preserve_following_core(
+        candidates, reference, whole, ctc.Window(0, 1, 0.8, 1.6), anchors, torch.empty(0), 0.02
+    )
+
+    assert kept == ([bounded] if evidence == "confirmed_next" else candidates)
+
+
+@pytest.mark.parametrize("conflict", [False, True])
+def test_a_clipped_core_can_retry_after_its_neighbour_inside_padded_recognition(conflict):
+    from dataclasses import replace
+
+    before = ctc.AlignedWord("we", 0.8, 1, (0.8, 0.98), 0.99)
+    actual = ctc.AlignedWord("we", 1.08, 1.22, (1.08, 1.2), 0.2)
+    after = ctc.AlignedWord("we", 1.5, 1.7, (1.5, 1.68), 0.99)
+    clipped = ctc.AlignedWord("we", 1.02, 1.5, (1.02, 1.5), 0.01)
+    if conflict:
+        clipped = replace(clipped, diagnostics=("BoundaryConflict",))
+    scores = _emissions([before, actual, after])
+    for moment, tokens in zip(actual.letters, ctc._character_tokens(actual.text), strict=True):
+        scores[round(moment / 0.02), 0] = np.log(0.79)
+        scores[round(moment / 0.02), tokens[0]] = np.log(0.2)
+
+    result = word_guidance.with_word_guidance(
+        [before, clipped, after],
+        scores,
+        0.02,
+        [ctc.Window(1, 2, 0.5, 2)],
+        {1: (0.8, 1.3)},
+        np.ones(400, bool),
+        0.6,
+    )
+
+    assert result[0] == before and result[2] == after
+    if conflict:
+        assert result[1].start == pytest.approx(1.08)
+        assert result[1].letters == pytest.approx((1.08, 1.2))
+        assert result[1].end == pytest.approx(1.22)
+    else:
+        assert result[1] == clipped
+
+
 @pytest.mark.parametrize(
     "text,duration", [("дом", 0.07), ("привет", 0.18), ("дім", 0.07), ("привіт", 0.18)]
 )

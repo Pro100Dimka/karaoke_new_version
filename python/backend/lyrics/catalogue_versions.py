@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
+from dataclasses import replace
 from difflib import SequenceMatcher
+from statistics import median
 
 from backend.lyrics.ports import LyricsCandidate
 from backend.text_normalization import clean_lyrics
@@ -43,6 +45,80 @@ def corroborated_versions(
             for other in candidates
         )
     ]
+
+
+def reconcile_timed_overlaps(
+    candidate: LyricsCandidate,
+    alternatives: Sequence[LyricsCandidate],
+    transcripts: Sequence[str],
+    key: _WordKey,
+) -> LyricsCandidate:
+    """Reconcile a copied full cue with a positively supported shorter catalogue prefix."""
+    lines, hints = candidate.lyrics.splitlines(), candidate.timing_hints
+    words = [_words(line, key) for line in lines]
+    if not transcripts or not all(words) or words != [_words(hint.text, key) for hint in hints]:
+        return candidate
+    heard = [_words(text, key) for text in transcripts]
+    changes: dict[int, str] = {}
+    for index in range(1, len(words) - 1):
+        full, fragment, following = words[index - 1 : index + 2]
+        if len(set(fragment)) < 3 or words.count(fragment) != 1 or following == fragment:
+            continue
+        spans = [
+            hints[i + 1].start - hints[i].start
+            for i in range(len(words) - 1)
+            if words[i] == words[i + 1] == full and hints[i + 1].start > hints[i].start
+        ]
+        typical = median(spans) if spans else 0
+        actual_span = hints[index].start - hints[index - 1].start
+        if (
+            not 0 < actual_span < typical
+            or sum(abs(span / typical - 1) <= 0.15 for span in spans) < 3
+        ):
+            continue
+        prefixes = set()
+        for other in alternatives:
+            raw = [line for line in other.lyrics.splitlines() if line.strip()]
+            variants = [_words(line, key) for line in raw]
+            if variants.count(fragment) != 1:
+                continue
+            at = variants.index(fragment)
+            if not 0 < at < len(variants) - 1 or variants[at + 1] != following:
+                continue
+            prefix = variants[at - 1]
+            if (
+                len(prefix) >= 3
+                and prefix == full[: len(prefix)]
+                and full[len(prefix) : len(prefix) + len(fragment)] == fragment
+                and abs(actual_span / typical - len(prefix) / len(full)) <= 0.05
+            ):
+                prefixes.add(tuple(prefix))
+        if len(prefixes) != 1:
+            continue
+        replacement = " ".join(
+            clean_lyrics(lines[index - 1], "Auto").split()[: len(next(iter(prefixes)))]
+        )
+        chain = _words(replacement, key)[-3:] + fragment + following[:3]
+        original = full + fragment + following[:3]
+        counts = [
+            sum(view[i : i + len(chain)] == chain for i in range(len(view))) for view in heard
+        ]
+        if max(counts, default=0) != 1 or any(
+            view[i : i + len(original)] == original for view in heard for i in range(len(view))
+        ):
+            continue
+        changes[index - 1] = replacement
+    return (
+        replace(
+            candidate,
+            lyrics="\n".join(changes.get(i, line) for i, line in enumerate(lines)),
+            timing_hints=tuple(
+                replace(hint, text=changes.get(i, hint.text)) for i, hint in enumerate(hints)
+            ),
+        )
+        if changes
+        else candidate
+    )
 
 
 def _words(text: str, key: _WordKey) -> list[str]:
