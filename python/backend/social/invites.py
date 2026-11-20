@@ -104,6 +104,12 @@ class RoomInvites:
             invite = self._events.invite(invite_id)
             if invite is None or invite.to_account_id != me.account_id:
                 raise NotFoundError("InviteNotFound", "This invitation was not found")
+            if (
+                state is InviteState.ACCEPTED
+                and invite.state is InviteState.ACCEPTED
+                and self._room_exists(invite.room_id)
+            ):
+                return invite
             if invite.state is not InviteState.PENDING:
                 raise ConflictError("InviteAnswered", "This invitation was already answered")
             if state is InviteState.ACCEPTED and not self._room_exists(invite.room_id):
