@@ -70,7 +70,7 @@ export const AppearanceFields = observer(
     }));
     return (
       <Grid columns={12} gap={3} className="appearanceLayout">
-        <Grid span={{ base: 'full', md: 3, lg: 4 }}>
+        <Grid span={{ base: 'full', md: 4 }}>
           <Card
             className="appearanceThemes"
             border
@@ -102,7 +102,7 @@ export const AppearanceFields = observer(
             </Grid>
           </Card>
         </Grid>
-        <Grid span={{ base: 'full', md: 9, lg: 8 }}>
+        <Grid span={{ base: 'full', md: 8 }}>
           <Grid columns={12} gap={3} className="appearanceDetails">
             <Grid span={{ base: 'full', md: 6 }}>
               <Card
