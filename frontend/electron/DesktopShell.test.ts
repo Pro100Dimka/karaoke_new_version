@@ -89,6 +89,33 @@ it('turns launch arguments into commands: links, jump-list tasks and existing au
   );
 });
 
+it('checks only the files that can enter a capped bulk import and still handles trailing commands', () => {
+  const files = Array.from({ length: 2000 }, (_, index) =>
+    path.resolve(`track-${index}.wav`),
+  );
+  const exists = vi.fn(() => true);
+  expect(
+    commandsFromArguments(
+      [...files, '--open-room', 'advoice://room/AB12'],
+      exists,
+    ),
+  ).toEqual([
+    { type: 'openRoom' },
+    { type: 'joinRoom', code: 'AB12' },
+    { type: 'importFiles', paths: files.slice(0, 50) },
+  ]);
+  expect(exists).toHaveBeenCalledTimes(50);
+});
+
+it('does not repeat disk checks for duplicate paths in the same launch', () => {
+  const file = path.resolve('same-track.wav');
+  const exists = vi.fn(() => true);
+  expect(commandsFromArguments(Array<string>(2000).fill(file), exists)).toEqual(
+    [{ type: 'importFiles', paths: [file] }],
+  );
+  expect(exists).toHaveBeenCalledExactlyOnceWith(file);
+});
+
 it.each([
   'advoice://room/AB12CD?source=clip.wav',
   'advoice://room/AB12CD/clip.wav',

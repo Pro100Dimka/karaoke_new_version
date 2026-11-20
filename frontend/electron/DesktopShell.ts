@@ -202,7 +202,7 @@ export const commandsFromArguments = (
   },
 ): ShellCommand[] => {
   const commands: ShellCommand[] = [];
-  const files: string[] = [];
+  const files = new Set<string>();
   for (const argument of argv) {
     const code = argument.toLowerCase().startsWith(`${linkScheme}:`)
       ? roomCodeFromLink(argument)
@@ -212,13 +212,15 @@ export const commandsFromArguments = (
       commands.push({ type: 'addSong' });
     else if (argument === taskArguments.openRoom)
       commands.push({ type: 'openRoom' });
-    else if (isAudioArgument(argument) && exists(argument))
-      files.push(path.resolve(argument));
+    else if (isAudioArgument(argument) && files.size < 50) {
+      const file = path.resolve(argument);
+      if (!files.has(file) && exists(argument)) files.add(file);
+    }
   }
-  if (files.length)
+  if (files.size)
     commands.push({
       type: 'importFiles',
-      paths: [...new Set(files)].slice(0, 50),
+      paths: [...files],
     });
   return commands;
 };
