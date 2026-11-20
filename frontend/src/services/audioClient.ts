@@ -288,12 +288,18 @@ export const audioClient: AudioServiceClient = {
     return { ...audioState.preferred };
   },
 
-  async suspendSession() {
-    await command('SuspendSession');
+  suspendSession() {
+    return enqueueAudioOperation(async () => {
+      await command('SuspendSession');
+      healthIdentity(await diagnostics(), true);
+    });
   },
 
-  async resumeSession() {
-    await command('ResumeSession');
+  resumeSession() {
+    return enqueueAudioOperation(async () => {
+      await command('ResumeSession');
+      healthIdentity(await diagnostics(), true);
+    });
   },
 
   async setAcousticLatency(milliseconds, context = calibrationContext) {

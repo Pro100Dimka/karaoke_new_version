@@ -28,9 +28,10 @@ export const useKaraokeLoadSession = (
   songId: string,
   reloadKey: KaraokeOpenMode,
   gains: MixerChannelGains,
-  onPrepared: () => void,
+  onPrepared: (rate: number, keyShift: number) => void,
   onFailure: (error: unknown) => void,
   onRestart: () => void = () => undefined,
+  playback?: { rate: number; keyShift: number },
 ) => {
   const { pythonEpoch, audioEpoch } = store.application.services;
   const audioConfiguration = store.preferences.audio;
@@ -109,6 +110,7 @@ export const useKaraokeLoadSession = (
     void prepareKaraokeSession({
       songId,
       gains,
+      playback,
       backend: pythonClient,
       repository: editorApi,
       audio: audioClient,
@@ -122,9 +124,9 @@ export const useKaraokeLoadSession = (
         if (initialCapabilityRequest === capabilityRequest.current)
           setCapabilities(value);
       },
-      onPrepared: () => {
+      onPrepared: (rate, keyShift) => {
         preparedSession.current = key;
-        onPrepared();
+        onPrepared(rate, keyShift);
       },
       onFailure,
     }).catch((error) => {

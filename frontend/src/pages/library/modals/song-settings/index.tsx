@@ -85,6 +85,8 @@ export const SongSettingsModal = ({
       ...loadSongPreferences(song.id),
     },
     reinitialize: false,
+    validate: ({ title }) =>
+      title.trim() ? {} : { title: tr('fieldRequired') },
     onSubmit: async (values) => {
       setFailure(undefined);
       try {

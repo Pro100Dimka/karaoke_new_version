@@ -114,7 +114,7 @@ const RecordingTransport = ({
         aria-pressed={playing}
         variant="primary"
         icon={playing ? 'pause' : 'play'}
-        label={tr(playing ? 'pause' : original ? 'play' : 'playRecording')}
+        label={tr(playing ? 'pause' : 'playRecording')}
         onClick={() => void toggle()}
       />
       <div className="recordingTimeline">

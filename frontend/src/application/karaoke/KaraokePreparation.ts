@@ -23,6 +23,7 @@ const mixerChannels = [
 interface Preparation {
   songId: string;
   gains: MixerChannelGains;
+  playback?: { rate: number; keyShift: number };
   backend: Pick<KaraokeBackendPort, 'getSong' | 'projectCompatibility'>;
   repository: Pick<EditorRepository, 'load'>;
   audio: Pick<
@@ -37,7 +38,7 @@ interface Preparation {
   onResolved(value: ResolvedKaraoke): void;
   onDocument(value: EditorDocument | null): void;
   onCapabilities(value: AudioCapabilities): void;
-  onPrepared(): void;
+  onPrepared(rate: number, keyShift: number): void;
   onFailure(error: unknown): void;
 }
 
@@ -81,14 +82,16 @@ export const prepareKaraokeSession = async (
       options.onCapabilities(capabilities);
       await audio.prepareSong(resolved.load.song, isCurrent);
       if (!isCurrent()) return;
-      await audio.setPlaybackRate(1, isCurrent);
+      const rate = options.playback?.rate ?? resolved.prefs.defaultSpeed;
+      const keyShift = options.playback?.keyShift ?? resolved.prefs.defaultKey;
+      await audio.setPlaybackRate(rate, isCurrent);
       if (!isCurrent()) return;
-      await audio.setPitchShift(0, isCurrent);
+      await audio.setPitchShift(keyShift, isCurrent);
       for (const channel of mixerChannels) {
         if (!isCurrent()) return;
         await audio.setMixer(channel, gains[channel]);
       }
-      if (isCurrent()) options.onPrepared();
+      if (isCurrent()) options.onPrepared(rate, keyShift);
     } catch (error) {
       if (isCurrent()) options.onFailure(error);
     }

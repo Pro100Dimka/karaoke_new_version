@@ -76,12 +76,12 @@ export const AudioFields = observer(
             icon="timer"
             style={{ height: '100%', background: 'transparent' }}
             actions={
-              <Tooltip content={tr('audioLatencyHint')}>
+              <Tooltip content={tr('latencyTechnicalDetails')}>
                 <IconButton
                   icon="info"
                   size="sm"
                   variant="ghost"
-                  label={tr('audioLatencyHint')}
+                  label={tr('latencyTechnicalDetails')}
                   onClick={showDiagnostics}
                 />
               </Tooltip>

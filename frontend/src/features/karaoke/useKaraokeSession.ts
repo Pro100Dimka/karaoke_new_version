@@ -141,13 +141,22 @@ export const useKaraokeSession = (
       songId,
       mode,
       initialGains.current,
-      () => dispatch({ type: 'PREPARED' }),
+      (rate, shift) => {
+        speedRef.current = rate;
+        keyRef.current = shift;
+        setSpeed(rate);
+        setKeyShift(shift);
+        dispatch({ type: 'PREPARED' });
+      },
       fail,
       () => {
         dispatch({ type: 'RESTART' });
         setSpeed(1);
         setKeyShift(0);
       },
+      room
+        ? { rate: room.playbackRate ?? 1, keyShift: room.keyShift ?? 0 }
+        : undefined,
     );
   // Commit this participant's latest personal mixer values once the native session is ready.
   const mixerSessionReady =
@@ -301,7 +310,7 @@ export const useKaraokeSession = (
 
   // Tempo and key are authoritative room parameters. Every participant applies the same snapshot locally.
   useEffect(() => {
-    if (!room || load.kind !== 'ready') return;
+    if (!room || !mixerSessionReady) return;
     const nextSpeed = room.playbackRate ?? 1;
     const nextKey = room.keyShift ?? 0;
     const speedChanged = speedRef.current !== nextSpeed;
@@ -315,7 +324,7 @@ export const useKaraokeSession = (
       audioClient.setPlaybackRate(nextSpeed),
       audioClient.setPitchShift(nextKey),
     ]).catch(fail);
-  }, [room?.code, room?.playbackRate, room?.keyShift, load.kind, fail]);
+  }, [room?.code, room?.playbackRate, room?.keyShift, mixerSessionReady, fail]);
 
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(

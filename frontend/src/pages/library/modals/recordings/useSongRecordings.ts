@@ -143,6 +143,10 @@ export const useSongRecordings = (
     } catch (failure) {
       const error = toAppError(failure);
       if (!ownsRun() || error.code === 'JobCancelled') return null;
+      setAnalysisFailures((items) => ({
+        ...items,
+        [recordingId]: errorstring(error) ?? 'actionFailed',
+      }));
       if (error.code === 'AnalysisPitchUncertain') {
         if (request === requests.current.analysis) {
           setAnalysisRecordId(null);
@@ -150,10 +154,6 @@ export const useSongRecordings = (
         }
         return null;
       }
-      setAnalysisFailures((items) => ({
-        ...items,
-        [recordingId]: errorstring(error) ?? 'actionFailed',
-      }));
       throw failure;
     } finally {
       if (ownsRun())

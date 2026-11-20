@@ -384,7 +384,12 @@ describe('audioClient contract', () => {
     const { commands } = installBridge(() => ({ status: 0, text: 'Ok' }));
     await audioClient.suspendSession();
     await audioClient.resumeSession();
-    expect(commands).toEqual(['SuspendSession', 'ResumeSession']);
+    expect(commands).toEqual([
+      'SuspendSession',
+      'GetDiagnostics',
+      'ResumeSession',
+      'GetDiagnostics',
+    ]);
   });
 
   it('issues Pause and reads a paused snapshot', async () => {
