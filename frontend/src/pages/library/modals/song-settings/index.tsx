@@ -43,6 +43,7 @@ export const SongSettingsModal = ({
   const client = useQueryClient();
   const guarded = useGuardedAction();
   const active = useRef(true);
+  const original = useRef(song).current;
   useEffect(() => {
     active.current = true;
     return () => {
@@ -89,10 +90,17 @@ export const SongSettingsModal = ({
       try {
         const { title, artist, language, coverPath, videoPath, ...local } =
           values;
+        // Recognition may refresh song props while this form keeps its draft.
         await pythonClient.updateSong(song.id, {
-          title: title.trim() || undefined,
-          artist: artist.trim(),
-          language,
+          title:
+            title.trim() === original.title.trim()
+              ? undefined
+              : title.trim() || undefined,
+          artist:
+            artist.trim() === original.artist.trim()
+              ? undefined
+              : artist.trim(),
+          language: language === original.language ? undefined : language,
           coverPath: coverPath || undefined,
           videoPath: videoPath || undefined,
         });

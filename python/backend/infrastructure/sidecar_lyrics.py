@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 from pathlib import Path
 
 
@@ -8,7 +9,14 @@ class LocalSidecarLyricsReader:
         for suffix in (".txt", ".lrc"):
             candidate = source.with_suffix(suffix)
             if candidate.is_file():
-                text = candidate.read_text(encoding="utf-8").strip()
+                data = candidate.read_bytes()
+                encoding = (
+                    "utf-16"
+                    if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE))
+                    and not data.startswith(codecs.BOM_UTF32_LE)
+                    else "utf-8-sig"
+                )
+                text = data.decode(encoding).replace("\r\n", "\n").replace("\r", "\n").strip()
                 if text:
                     return text
         return None

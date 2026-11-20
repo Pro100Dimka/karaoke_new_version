@@ -11,8 +11,10 @@ import {
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ProcessingJobDto, SongDto } from '../../../contracts/models';
+import { loadSongPreferences } from '../../../application/library/songPreferences';
 import { libraryChanged } from '../../../services/backendEvents';
 import { pythonClient } from '../../../services/pythonClient';
+import { clearStorage } from '../../../shared/storage/localStore';
 import { editorApi } from '../../editor/editorApi';
 import LibrarySongs from './index';
 
@@ -101,6 +103,7 @@ let client: QueryClient;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  clearStorage();
   jobState.jobs = [];
   song = initialSong;
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -149,6 +152,69 @@ const openSettings = async (status: SongDto['status'] | 'all' = 'all') => {
   );
   return within(screen.getByRole('dialog'));
 };
+
+it.each(['tempo', 'artist'] as const)(
+  'preserves newly recognized metadata when an open form saves its %s edit',
+  async (edit) => {
+    const dialog = await openSettings();
+    await waitFor(() =>
+      expect(
+        dialog.getByRole('spinbutton', { name: tr('practiceSpeed') }),
+      ).toHaveValue(105),
+    );
+    if (edit === 'tempo') {
+      const tempo = dialog.getByRole('spinbutton', {
+        name: tr('practiceSpeed'),
+      });
+      fireEvent.change(tempo, { target: { value: '126' } });
+      fireEvent.blur(tempo);
+    } else {
+      fireEvent.change(dialog.getByRole('textbox', { name: tr('artist') }), {
+        target: { value: 'My artist' },
+      });
+    }
+
+    song = {
+      ...song,
+      title: 'Recognized title',
+      artist: 'Recognized artist',
+      language: 'Ukrainian',
+    };
+    act(() => libraryChanged());
+    await dialog.findByText('Recognized artist — Recognized title');
+    expect(dialog.getByRole('textbox', { name: tr('title') })).toHaveValue(
+      initialSong.title,
+    );
+    vi.mocked(pythonClient.updateSong).mockImplementation(async (_, patch) => {
+      // The real PATCH endpoint retains omitted fields and applies supplied metadata.
+      song = {
+        ...song,
+        title: patch.title ?? song.title,
+        artist: patch.artist ?? song.artist,
+        language: patch.language ?? song.language,
+      };
+      return song;
+    });
+    fireEvent.click(dialog.getByRole('button', { name: tr('save') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    expect(song).toMatchObject({
+      title: 'Recognized title',
+      artist: edit === 'artist' ? 'My artist' : 'Recognized artist',
+      language: 'Ukrainian',
+    });
+    expect(pythonClient.updateSong).toHaveBeenLastCalledWith(song.id, {
+      title: undefined,
+      artist: edit === 'artist' ? 'My artist' : undefined,
+      language: undefined,
+      coverPath: undefined,
+      videoPath: undefined,
+    });
+    expect(loadSongPreferences(song.id).defaultSpeed).toBe(
+      edit === 'tempo' ? 1.2 : 1,
+    );
+  },
+);
 
 it.each(['all', 'ready'] as const)(
   'updates an open form across refinement without discarding drafts (%s filter)',

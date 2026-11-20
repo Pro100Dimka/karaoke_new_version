@@ -139,8 +139,13 @@ class FfmpegMediaInspector:
         format_data = payload.get("format")
         if not isinstance(format_data, dict):
             raise ValueError("ffprobe format missing")
-        tags = format_data.get("tags")
+        tags = [format_data.get("tags")]
         streams = payload.get("streams")
+        if isinstance(streams, list):
+            for stream in streams:
+                if isinstance(stream, dict) and stream.get("codec_type") == "audio":
+                    tags.append(stream.get("tags"))
+                    break
         has_artwork = isinstance(streams, list) and any(
             isinstance(stream, dict) and stream.get("codec_type") == "video" for stream in streams
         )
@@ -152,16 +157,27 @@ class FfmpegMediaInspector:
             album=_tag(tags, "album"),
             duration=duration,
             media_format=str(format_name) if format_name else source.suffix.lstrip("."),
-            embedded_lyrics=_tag(tags, "lyrics") or _tag(tags, "unsyncedlyrics"),
+            embedded_lyrics=_tag(tags, "lyrics", "unsyncedlyrics"),
             has_embedded_artwork=has_artwork,
         )
 
 
-def _tag(tags: object, key: str) -> str | None:
-    if not isinstance(tags, dict):
-        return None
-    value = tags.get(key) or tags.get(key.upper())
-    return value.strip() if isinstance(value, str) and value.strip() else None
+def _tag(sources: list[object], *keys: str) -> str | None:
+    # Container tags take precedence; Ogg/Opus store theirs on the audio stream.
+    for tags in sources:
+        if not isinstance(tags, dict):
+            continue
+        for key in keys:
+            values = [tags.get(key), tags.get(key.upper())]
+            values.extend(
+                value
+                for name, value in tags.items()
+                if isinstance(name, str) and name.casefold() == key
+            )
+            for value in values:
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+    return None
 
 
 def _optional_float(value: object) -> float | None:
