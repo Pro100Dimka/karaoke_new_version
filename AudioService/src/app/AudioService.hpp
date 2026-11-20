@@ -64,6 +64,7 @@ class AudioService {
     RequestedConfiguration requestFromControl(const ControlRequest& request) const;
     MediaContext contextFromControl(const ControlRequest& request) const;
     void processPendingBackendEvent();
+    PendingBackendEvent capturePendingBackendFailure();
     void processDeviceEvents();
     void captureFailure(FailureInfo failure);
     void syncDeviceGeneration() noexcept {

@@ -153,6 +153,76 @@ def test_unmatched_reference_does_not_disable_the_new_plan(tmp_path, monkeypatch
     assert result.processing["qualityControl"]["verified"]
 
 
+@pytest.mark.parametrize(
+    "exact_stems,process_voice,source_suffix,channels",
+    [
+        (True, False, ".wav", 1),
+        (True, True, ".wav", 2),
+        (False, False, ".wav", 1),
+        (True, False, ".flac", 2),
+        (True, False, ".wav", 6),
+    ],
+    ids=["exact-wet", "exact-dry", "separated", "archived-flac", "repeated-channels"],
+)
+def test_sparse_voice_survives_adaptive_mastering(
+    tmp_path: Path, exact_stems, process_voice, source_suffix, channels
+):
+    rate, frames = 8000, 8037
+    time = np.arange(frames) / rate
+    voice = 0.08 * np.sin(2 * np.pi * 700 * time)
+    dry = voice * (time < 0.3)
+    wet = dry.copy()
+    delay = round(0.65 * rate)
+    wet[delay:] += 0.6 * dry[:-delay]
+    wet[-37:] += 0.25 * voice[-37:]
+    music = 0.05 * np.sin(2 * np.pi * 160 * time)
+    backing = music * 0.25
+    paths = [tmp_path / f"{name}.wav" for name in ("voice", "backing", "ref", "original", "mix")]
+    paths[4] = paths[4].with_suffix(source_suffix)
+    # Repeated native channels reduce to the distinct front pair, preserving its balance.
+    channel_gains = np.array([1, *[0.7] * (channels - 1)])
+    recorded_voice = dry if process_voice or not exact_stems else wet
+    for path, samples in zip(
+        paths, (recorded_voice, backing, voice, music, wet + backing), strict=True
+    ):
+        sf.write(
+            path,
+            samples[:, None] * channel_gains,
+            rate,
+            subtype="PCM_24" if path.suffix == ".flac" else "FLOAT",
+        )
+    before = {path: path.read_bytes() for path in paths}
+    output = tmp_path / "master.wav"
+    result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
+        *paths[:4],
+        output,
+        threading.Event(),
+        performance_mix=paths[4],
+        exact_stems=exact_stems,
+        process_voice=process_voice,
+        match_recording_loudness=True,
+    )
+    actual, actual_rate = sf.read(output, dtype="float32", always_2d=True)
+    assert actual_rate == rate and actual.shape == (frames, min(channels, 2))
+    info = sf.info(output)
+    assert info.format in {"WAV", "WAVEX"} and info.subtype == "PCM_24"
+    assert np.isfinite(actual).all()
+    assert result.processing["pipeline"] == "adaptive-studio-v2"
+    assert result.processing["qualityControl"]["verified"]
+    assert "bypassReason" not in result.processing
+    assert result.processing["outputChannels"] == actual.shape[1]
+    # The 700-Hz voice and 160-Hz accompaniment are orthogonal in these 200-ms windows.
+    # Processing may alter gain or phase; instrumental-only output cannot pass this check.
+    selected = (time >= 0.05) & (time < 0.25)
+    amplitude = 2 * abs(np.mean(actual[selected, 0] * np.exp(-2j * np.pi * 700 * time[selected])))
+    assert amplitude > 0.02, "A short captured phrase must remain audible after mastering"
+    if exact_stems and not process_voice:
+        selected = (time >= 0.7) & (time < 0.9)
+        echo = 2 * abs(np.mean(actual[selected, 0] * np.exp(-2j * np.pi * 700 * time[selected])))
+        assert echo > 0.01, "Existing recorded voice effects must not be replaced with backing"
+    assert {path: path.read_bytes() for path in paths} == before
+
+
 def test_reference_section_excludes_unperformed_song_and_rejects_seeks():
     adjustments = [{"elapsedSeconds": 0, "sourceSeconds": 40, "playbackRate": 1, "keyShift": 0}]
     assert reference_section(adjustments, 10) == (40, 50)
@@ -333,12 +403,13 @@ def test_compression_controls_excess_dynamics_even_with_a_steady_reference(tmp_p
 
 
 @pytest.mark.parametrize("speed,key", [(1, 0), (1.25, 2), (0.75, -3)])
-def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key):
+@pytest.mark.parametrize("rate", [8000, 44100, 48000])
+def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, key, rate):
     from backend.recordings.studio_sources import render_timeline
 
     path = tmp_path / "reference.wav"
-    samples = np.arange(16000, dtype=np.float32) / 16000
-    sf.write(path, samples, 8000, subtype="FLOAT")
+    samples = np.arange(2 * rate, dtype=np.float32) / (2 * rate)
+    sf.write(path, samples, rate, subtype="FLOAT")
     adjustments = [
         {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
         {"elapsedSeconds": 0.25, "sourceSeconds": 1, "playbackRate": 1, "keyShift": 0},
@@ -346,23 +417,39 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, 
     vocal = tmp_path / "performed-reference.wav"
     renderer = FfmpegStudioMasterRenderer(ProcessRunner())
     coverage = render_timeline(
-        renderer, path, vocal, threading.Event(), adjustments, frames=4000, rate=8000, channels=1
+        renderer,
+        path,
+        vocal,
+        threading.Event(),
+        adjustments,
+        frames=rate // 2,
+        rate=rate,
+        channels=1,
     )
     actual, _ = sf.read(vocal)
-    np.testing.assert_array_equal(actual, np.r_[samples[:2000], samples[8000:10000]])
+    np.testing.assert_array_equal(
+        actual, np.r_[samples[: round(0.25 * rate)], samples[rate : round(1.25 * rate)]]
+    )
     assert coverage == 1
 
-    time = np.arange(8000) / 8000
+    time = np.arange(rate) / rate
     tones = np.sin(2 * np.pi * np.where(time < 0.5, 400, 800) * time) * 0.1
-    sf.write(path, tones, 8000, subtype="FLOAT")
+    sf.write(path, tones, rate, subtype="FLOAT")
     adjustments = [
         {"elapsedSeconds": 0, "sourceSeconds": 0.2, "playbackRate": speed, "keyShift": key}
     ]
     render_timeline(
-        renderer, path, vocal, threading.Event(), adjustments, frames=4000, rate=8000, channels=1
+        renderer,
+        path,
+        vocal,
+        threading.Event(),
+        adjustments,
+        frames=rate // 2,
+        rate=rate,
+        channels=1,
     )
-    changed, rate = sf.read(vocal)
-    assert rate == 8000 and changed.shape == actual.shape
+    changed, actual_rate = sf.read(vocal)
+    assert actual_rate == rate and changed.shape == actual.shape
     for start, end, frequency in [(0.03, 0.13, 400), (0.43, 0.49, 800)]:
         block = changed[round(start * rate) : round(end * rate)]
         spectrum = abs(np.fft.rfft(block * np.hanning(len(block)), n=16384))

@@ -73,6 +73,7 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
         vram_is_current=True,
         total_ram_bytes=32 * 1024**3,
     )
+    monkeypatch.setattr("os.cpu_count", lambda: runtime.cpu_count)
     monkeypatch.setattr(SystemRuntimeProbe, "inspect", lambda self: runtime)
     monkeypatch.setattr(SystemRuntimeProbe, "warm_up", lambda self: None)
     provider = StreamingProvider()

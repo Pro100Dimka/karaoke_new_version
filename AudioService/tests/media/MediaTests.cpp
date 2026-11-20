@@ -631,6 +631,109 @@ void audioReconfigurePreservesActiveKaraokeMedia() {
            "changing the audio device format keeps the karaoke source and timeline active");
 }
 
+void mediaReconfigurePreservesScheduledPlayback() {
+    constexpr std::uint32_t sourceRate = 48'000, sourceFrames = 9'600;
+    constexpr MonotonicTicks start = 20'000'000'000LL;
+    const auto path = tempRoot / "scheduled-format-change.wav";
+    std::vector<float> input(sourceFrames);
+    for (std::size_t frame = 0; frame < input.size(); ++frame)
+        input[frame] = 0.1F + static_cast<float>(frame) / sourceRate * 0.1F;
+    WavWriter writer;
+    writer.open(path.string(), sourceRate, 1, true);
+    writer.write(input);
+    writer.close(1.0F, true);
+
+    struct Format {
+        const char* name;
+        std::uint32_t beforeRate = sourceRate, afterRate = sourceRate;
+        std::uint32_t beforeChannels = 2, afterChannels = 2;
+    };
+    constexpr std::array formats{
+        Format{"unchanged"},
+        Format{"48k to 44.1k", sourceRate, 44'100},
+        Format{"44.1k to 48k", 44'100, sourceRate},
+        Format{"channel decrease", sourceRate, sourceRate, 2, 1},
+        Format{"channel increase", sourceRate, sourceRate, 1, 2},
+    };
+    enum class Transport { Future, Started, Immediate, Paused, NewGeneration };
+    constexpr std::array transports{
+        std::pair{Transport::Future, "future start"},
+        std::pair{Transport::Started, "already playing"},
+        std::pair{Transport::Immediate, "immediate playback"},
+        std::pair{Transport::Paused, "paused playback"},
+        std::pair{Transport::NewGeneration, "retired presentation"},
+    };
+    for (const auto& format : formats) {
+        for (const auto& [transport, name] : transports) {
+            const auto label = std::string(format.name) + ": " + name;
+            MediaSource source{std::make_unique<WavDecoder>()};
+            source.prepareOutput(format.beforeRate, format.beforeChannels, format.beforeRate / 2);
+            source.load(path.string());
+            require(source.waitUntilReady() == PlaybackState::Ready, label + " preloads");
+            const auto waitForPcm = [&](std::uint32_t frames) {
+                const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+                while (source.snapshot(false).bufferFillFrames < frames &&
+                       std::chrono::steady_clock::now() < until)
+                    std::this_thread::yield();
+                require(source.snapshot(false).bufferFillFrames >= frames,
+                        label + " has queued PCM before the callback");
+            };
+            waitForPcm(format.beforeRate / 10);
+            const auto firstStart =
+                transport == Transport::NewGeneration ? start + 2'000'000'000LL : start;
+            source.play(transport == Transport::Immediate ? 0 : firstStart);
+            std::vector<float> output(960);
+            if (transport != Transport::Future) {
+                require(source.render(output, format.beforeRate / 100, firstStart) ==
+                            format.beforeRate / 100,
+                        label + " renders the initial ten milliseconds");
+            }
+            if (transport == Transport::NewGeneration) {
+                source.stop();
+                source.play(start);
+            } else if (transport == Transport::Paused) {
+                source.pause();
+            }
+            const auto before = source.snapshot(false);
+            source.prepareOutput(format.afterRate, format.afterChannels, format.afterRate / 2);
+            waitForPcm(format.afterRate / 10);
+            expect(source.snapshot(false).state == before.state,
+                   label + " preserves the transport state");
+            const auto frames = format.afterRate / 100;
+            if (transport == Transport::Future || transport == Transport::NewGeneration ||
+                transport == Transport::Paused) {
+                const auto count = source.render(output, frames, start - 1'000'000'000LL);
+                expect(count == 0 &&
+                           std::all_of(output.begin(), output.begin() + frames * format.afterChannels,
+                                       [](float value) { return value == 0.0F; }),
+                       label + " remains silent before the deadline or while paused");
+                if (transport == Transport::Paused) {
+                    expect(source.snapshot(false).sourcePositionFrames == before.sourcePositionFrames,
+                           label + " keeps the paused source position");
+                    continue;
+                }
+            }
+            const auto expectedFirst = transport == Transport::Started ? 1'440U
+                                        : transport == Transport::Immediate ? 480U : 0U;
+            const auto at = start + (expectedFirst != 0 ? 30'000'000LL : 0);
+            const auto count = source.render(output, frames, at);
+            const auto position = source.snapshot(false).sourcePositionFrames;
+            bool pcmMatches = count == frames;
+            for (std::size_t frame = 0; frame < frames; ++frame) {
+                const auto expected = 0.1F + static_cast<float>(
+                    expectedFirst + static_cast<double>(frame) * sourceRate / format.afterRate) /
+                    sourceRate * 0.1F;
+                for (std::size_t channel = 0; channel < format.afterChannels; ++channel)
+                    pcmMatches = pcmMatches &&
+                        std::abs(output[frame * format.afterChannels + channel] - expected) < 1e-5F;
+            }
+            expect(pcmMatches && std::abs(static_cast<double>(position) - expectedFirst - 480) <= 2,
+                   label + " renders scheduled PCM on its existing timeline: position=" +
+                       std::to_string(position) + ", expected=" + std::to_string(expectedFirst + 480));
+        }
+    }
+}
+
 void karaokeTracksShareTransport() {
     MediaController controller;
     controller.prepare(48000, 2, 4096);

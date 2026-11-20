@@ -194,8 +194,8 @@ void SessionManager::start() {
         backend_->start(engine_, generationId_);
         setState(SessionState::Running);
     } catch (...) {
-        backend_->close();
         invalidateGeneration();
+        backend_->close();
         setState(SessionState::Failed);
         throw;
     }
@@ -203,6 +203,8 @@ void SessionManager::start() {
 
 void SessionManager::invalidateGeneration() noexcept {
     ++generationId_;
+    engine_.rejectCallbacks(generationId_);
+    backend_->stop(); // joins/drains callbacks before control consumes the old capture queue
     engine_.invalidate(generationId_, preserveRecording_);
 }
 
@@ -213,7 +215,6 @@ void SessionManager::stop() noexcept {
 
     setState(SessionState::Stopping);
     invalidateGeneration();
-    backend_->stop();
     backend_->close();
     engine_.reset(preserveRecording_);
     runtime_ = {};
@@ -239,6 +240,27 @@ RuntimeConfiguration SessionManager::reconfigure(RequestedConfiguration requeste
     return runtime;
 }
 
+RecordingResult SessionManager::finishRecording(RecordingState nextState,
+                                                 const std::function<void()>& captureBackendFailure) {
+    if (state_ != SessionState::Running || engine_.requestRecordingFinish())
+        return engine_.finishRecording(nextState);
+    // A missing callback deadline, not an audio delay. Ready/fatal events wake immediately;
+    // expiry requires stopped-callback ownership before any control-side bridge read.
+    constexpr auto CallbackDeadline = std::chrono::seconds(2);
+    if (engine_.waitForRecordingFinish(std::chrono::steady_clock::now() + CallbackDeadline))
+        return engine_.finishRecording(nextState);
+    if (captureBackendFailure) captureBackendFailure();
+    const auto request = requested_;
+    try {
+        // Reopening uses the normal ordered stop and old-format finalization. A stopped
+        // WASAPI client's queued output must not be reused by merely calling start again.
+        (void)reconfigure(request, nextState == RecordingState::Paused);
+    } catch (...) {
+        setState(SessionState::Failed);
+    }
+    return engine_.recordingResult();
+}
+
 bool SessionManager::openBackendControlPanel(const RequestedConfiguration& requested) {
     const auto sameDriver = requested.backend == requested_.backend &&
                             requested.inputDeviceId == requested_.inputDeviceId &&
@@ -256,7 +278,6 @@ bool SessionManager::recover() {
 
     setState(SessionState::Recovering);
     invalidateGeneration();
-    backend_->stop();
     backend_->close();
     runtime_ = {};
     plan_ = {};
@@ -281,7 +302,6 @@ bool SessionManager::suspend() noexcept {
         return true;
     wasRunningBeforeSuspend_ = state_ == SessionState::Running;
     invalidateGeneration();
-    backend_->stop();
     backend_->close();
     engine_.reset();
     setState(SessionState::Suspended);

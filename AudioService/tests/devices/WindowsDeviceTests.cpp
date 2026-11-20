@@ -3,6 +3,8 @@
 #include "devices/DeviceManager.hpp"
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
+#include <atomic>
+#include <chrono>
 #include <mmdeviceapi.h>
 #include <thread>
 #include <limits>
@@ -88,6 +90,86 @@ void asioSystemVolumeFollowsTheNewWindowsDefault() {
                "Windows volume following never reopens the ASIO driver");
     }
     service.shutdown();
+#endif
+}
+
+void recordingFinishRecoveryPreservesDeviceNotifications() {
+#ifdef _WIN32
+    for (unsigned scenario = 0; scenario < 3; ++scenario) {
+        const auto pending = scenario != 0;
+        const auto pause = scenario == 2;
+        CapturedNotifications enumerator;
+        AudioService service{std::make_unique<FakeAudioBackend>()};
+        service.start();
+        const auto command = [&](const std::string& text) {
+            require(service.handleLine("1|" + text).status == ControlStatus::Ok,
+                    "device-generation fixture needs a successful recording/session command");
+        };
+        // The real command must publish the initial generation. Setting it through test access
+        // would hide the missing publication when a later recording command reopens the device.
+        command("PrepareSession|backend=fake");
+        command("StartSession");
+        auto& devices = AudioServiceTestAccess::devices(service);
+        devices.stopNotifications();
+        DeviceEvent oldNotification;
+        while (devices.popEvent(oldNotification)) {}
+        require(DeviceManagerTestAccess::start(devices, &enumerator) && enumerator.client,
+                "recording recovery uses the real notification client with a controllable source");
+        require(service.session().runtime().inputChannels != 0 &&
+                    deviceEventRequiresRecovery({DeviceEventType::DefaultChanged, Direction::Output,
+                                                  "new-default", service.session().generationId()},
+                                                service.session().requested()),
+                "the fixture follows the default output and rejects genuinely stale generations");
+        const auto path = tempRoot / ("finish-device-generation-" + std::to_string(scenario) + ".wav");
+        command("PrepareRecording|id=device-generation|tap=performance|path=" + path.string());
+        command("StartRecording");
+        auto& engine = service.realtime();
+        engine.setDspEnabled(false);
+        const auto generation = service.session().generationId();
+        const auto origin = monotonicTicksNow() - 5'000'000'000LL;
+        std::vector<float> input(480, 0.1F), output(960);
+        const auto capture = [&](std::uint32_t frame) {
+            const auto at = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / 48'000;
+            engine.onCapture(generation, {input.data(), nullptr, 480, 1, frame, at / 100, 0, 0, at});
+        };
+        for (std::uint32_t frame = 0; frame < 2'400; frame += 480) {
+            capture(frame);
+            const auto at = origin + static_cast<MonotonicTicks>(frame) * 1'000'000'000LL / 48'000;
+            engine.onRender(generation, {nullptr, output.data(), 480, 2, frame,
+                                          (at + 10'000'000) / 100, 0, at + 30'000'000});
+        }
+        if (pending)
+            capture(2'400);
+        ControlResponse response;
+        std::atomic<bool> done{false};
+        std::jthread control([&] {
+            response = service.handleLine(pause ? "1|PauseRecording" : "1|StopRecording");
+            done.store(true, std::memory_order_release);
+        });
+        if (pending) {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+            while (!engine.recordingFinishPending() && !done.load(std::memory_order_acquire) &&
+                   std::chrono::steady_clock::now() < deadline)
+                std::this_thread::yield();
+            require(engine.recordingFinishPending(),
+                    "the recording command publishes its boundary before the simulated device loss");
+            engine.onBackendEvent(generation, BackendEventType::DeviceLost, -17);
+        }
+        control.join();
+        const auto afterFinish = service.session().generationId();
+        require(response.status == ControlStatus::Ok &&
+                    service.session().state() == SessionState::Running &&
+                    (pending ? afterFinish > generation : afterFinish == generation) &&
+                    engine.pendingBackendEvent().sequence == 0,
+                "normal finish keeps its generation; fatal finish recovers and consumes its backend event");
+        require(enumerator.client->OnDefaultDeviceChanged(eRender, eConsole, L"new-default") == S_OK,
+                "the Windows notification client accepts the new default output event");
+        command("GetDiagnostics");
+        expect(service.session().generationId() > afterFinish &&
+                   service.session().state() == SessionState::Running,
+               "default-device notifications still recover the session after Stop/Pause reopens it");
+        service.shutdown();
+    }
 #endif
 }
 

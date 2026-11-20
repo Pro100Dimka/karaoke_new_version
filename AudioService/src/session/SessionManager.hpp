@@ -28,6 +28,8 @@ class SessionManager {
     bool recover();
     bool suspend() noexcept;
     bool resume();
+    RecordingResult finishRecording(RecordingState nextState,
+                                    const std::function<void()>& captureBackendFailure = {});
     bool refreshRuntimeLatency() { return backend_->refreshRuntimeLatency(runtime_); }
     [[nodiscard]] SessionState state() const noexcept {
         return state_;

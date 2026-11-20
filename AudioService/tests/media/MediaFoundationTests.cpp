@@ -11,6 +11,7 @@
 #include <mfreadwrite.h>
 #include <semaphore>
 #include <thread>
+#include <tuple>
 #include <wrl/client.h>
 
 struct MediaFoundationTestAccess {
@@ -197,15 +198,38 @@ void mediaFoundationOwnsComOnTheDecodingThread() {
 #ifdef _WIN32
     const auto path = tempRoot / "mf-com.wav";
     makeTestWav(path, 1024);
-    bool initialized = false, cleaned = false;
+    bool initialized = true, cleaned = true;
     std::thread worker([&] {
-        MediaFoundationDecoder decoder;
-        decoder.open(path.string());
-        APTTYPE apartment;
-        APTTYPEQUALIFIER qualifier;
-        initialized = SUCCEEDED(CoGetApartmentType(&apartment, &qualifier));
-        decoder.close();
-        cleaned = CoGetApartmentType(&apartment, &qualifier) == CO_E_NOTINITIALIZED;
+        const auto apartmentState = [](const char* stage) {
+            APTTYPE apartment{};
+            APTTYPEQUALIFIER qualifier{};
+            const auto result = CoGetApartmentType(&apartment, &qualifier);
+            std::cerr << "COM " << stage << " hr=0x" << std::hex
+                      << static_cast<unsigned long>(result) << std::dec
+                      << " apartment=" << static_cast<int>(apartment)
+                      << " qualifier=" << static_cast<int>(qualifier) << '\n';
+            return std::tuple{result, SUCCEEDED(result) ? apartment : APTTYPE_CURRENT,
+                              SUCCEEDED(result) ? qualifier : APTTYPEQUALIFIER_NONE};
+        };
+        const auto before = apartmentState("before");
+        const auto explicitMta = std::tuple{S_OK, APTTYPE_MTA, APTTYPEQUALIFIER_NONE};
+        initialized = std::get<0>(before) == CO_E_NOTINITIALIZED ||
+                      before == std::tuple{S_OK, APTTYPE_MTA, APTTYPEQUALIFIER_IMPLICIT_MTA};
+        for (const bool callerOwnsCom : {false, true}) {
+            if (callerOwnsCom && FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) {
+                initialized = false;
+                return;
+            }
+            MediaFoundationDecoder decoder;
+            decoder.open(path.string());
+            initialized = apartmentState("open") == explicitMta && initialized;
+            decoder.close();
+            cleaned = apartmentState("close") == (callerOwnsCom ? explicitMta : before) && cleaned;
+            if (callerOwnsCom) {
+                CoUninitialize();
+                cleaned = apartmentState("release caller") == before && cleaned;
+            }
+        }
     });
     worker.join();
     expect(initialized && cleaned, "decoder initializes and balances COM on its worker thread");

@@ -113,13 +113,22 @@ const activateConfiguration = async (
   healthIdentity(await diagnostics(), true);
 };
 
+const requestedMonitoring = (values: Record<string, string>): boolean =>
+  values.MonitoringSafetyTripped === '1'
+    ? false
+    : audioState.monitoringRequested;
+
 const applyConfiguration = async (
   configuration: RequestedAudioConfiguration,
+  monitoringOverride?: boolean,
 ) => {
   const devices = await rawDevices();
   configuration = safeAudioConfiguration(configuration, devices);
   if (!endpointsAvailable(devices, configuration))
     throw new Error(`${configuration.backend} device is unavailable`);
+  // Reconfigure clears the native trip flag, including when no song needs a checkpoint.
+  audioState.monitoringRequested =
+    monitoringOverride ?? requestedMonitoring(await diagnostics());
   const previous = audioState.active;
   const previousPreferred = audioState.preferred;
   const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
@@ -143,14 +152,29 @@ const applyConfiguration = async (
   return runtimeConfigurationFromDiagnostics(await diagnostics());
 };
 
-const reconcileWindowsMode = async (): Promise<void> => {
+const reconcileWindowsMode = async (
+  monitoringOverride?: boolean,
+): Promise<void> => {
   if (audioState.preferred.backend !== 'WASAPI Shared') return;
-  const running = (await diagnostics()).Backend;
+  const values = await diagnostics();
+  audioState.monitoringRequested =
+    monitoringOverride ?? requestedMonitoring(values);
+  const running = values.Backend;
   if (
     effectiveConfiguration().backend !==
     (running === undefined ? audioState.active.backend : backendName(running))
   )
-    await applyConfiguration(audioState.preferred);
+    await applyConfiguration(audioState.preferred, monitoringOverride);
+};
+
+const reconcileMonitoringSnapshot = async (
+  value: PlaybackSnapshot,
+): Promise<PlaybackSnapshot> => {
+  if (value.monitoringSafetyTripped && audioState.monitoringRequested) {
+    audioState.monitoringRequested = false;
+    await reconcileWindowsMode();
+  }
+  return value;
 };
 
 /** Where AudioService starts a scheduled song: its clock ticks and the first frame. */
@@ -180,7 +204,16 @@ const scheduledStart = async (
 };
 
 export const audioClient: AudioServiceClient = {
-  observeSnapshots,
+  observeSnapshots(onValue, onError, intervalMs) {
+    return observeSnapshots(
+      async (value) => {
+        onValue(value);
+        await reconcileMonitoringSnapshot(value);
+      },
+      onError,
+      intervalMs,
+    );
+  },
   observeSpectrum(onValue, onError, intervalMs = 50) {
     return observeAudioTelemetry(
       'GetSpectrum',
@@ -190,7 +223,9 @@ export const audioClient: AudioServiceClient = {
     );
   },
   snapshot() {
-    return enqueueAudioOperation(() => snapshot());
+    return enqueueAudioOperation(async () =>
+      reconcileMonitoringSnapshot(await snapshot()),
+    );
   },
   health() {
     return enqueueAudioOperation(async () => {
@@ -454,10 +489,11 @@ export const audioClient: AudioServiceClient = {
         });
         if (!cautious) throw new Error(unverifiedAsioMonitoring);
       }
-      const previous = audioState.monitoringRequested;
+      const previous = requestedMonitoring(await diagnostics());
       audioState.monitoringRequested = enabled;
       try {
-        await reconcileWindowsMode();
+        // This explicit request supersedes a trip from the preceding monitoring attempt.
+        await reconcileWindowsMode(enabled);
         if (enabled) {
           for (const [name, value] of audioState.dspParameters)
             await command('SetDspParameter', { name, value });

@@ -27,6 +27,7 @@ SUPPORT = r'''
 using MonotonicTicks = long long;
 enum class MediaSlot { Music, ReferenceVocal, Melody, Preview, Radio, RecordingPreview };
 enum class MediaContext { Karaoke, EditorPreview, Radio, RecordingPreview, None };
+enum class RecordingTap { RawInput, PerformanceMix };
 struct Buffer { unsigned frames{4}, channels{2}; };
 struct Gains { float master{0.5F}, music{0.8F}, reference{0.7F}, melody{0.6F}, preview{0.9F}, radio{0.4F}, microphone{0.75F}; };
 struct Media {
@@ -48,7 +49,14 @@ struct Mixer {
     }
 };
 struct Spectrum { void observe(std::span<const float>,unsigned,float = 1) {} };
-struct Contribution { std::vector<float> pcm; unsigned lateFrames; };
+struct Recording {
+    bool backing{false}; RecordingTap tap{RecordingTap::PerformanceMix};
+    float observedVoicePeak{0};
+    bool backingEnabled()const { return backing; }
+    RecordingTap selectedTap()const { return tap; }
+    void observeVoicePeak(float peak) { observedVoicePeak=peak; }
+};
+struct Contribution { std::vector<float> pcm; unsigned lateFrames; bool voice{false}; };
 struct Aligner {
     std::vector<Contribution> contributions;
     void add(std::span<const float> samples,unsigned,float gain,unsigned delay) {
@@ -56,10 +64,16 @@ struct Aligner {
         for(auto& sample:pcm) sample*=gain;
         contributions.push_back({std::move(pcm),delay});
     }
+    void addVoice(std::span<const float> samples,unsigned frames,float gain,unsigned delay) {
+        add(samples,frames,gain,delay); contributions.back().voice=true;
+    }
 };
+__PCM_PEAK__
 struct RealtimeEngine {
-    Buffers buffers_; Mixer mixer_; Media media_; Spectrum backingSpectrum_; Aligner aligner_;
+    Buffers buffers_; Mixer mixer_; Media media_; Spectrum backingSpectrum_; Recording recording_;
+    Aligner aligner_,dryAligner_,backingAligner_;
     bool songUnderway_{};
+    unsigned dspLatencyFrames()const { return 5; }
     std::uint32_t addMedia(MediaSlot,std::span<float>,unsigned,float,MonotonicTicks = 0) noexcept;
     void route(MediaContext context,bool monitoring,bool microphoneEnabled,bool performanceActive) {
         media_.current=context;
@@ -68,6 +82,7 @@ struct RealtimeEngine {
         // The earlier production monitor stage can supply any limited/faded self-voice.
         std::fill(output.begin(),output.end(),monitoring?0.03F:0.0F);
         auto mic=buffers_.buffer(1,buffer.frames); std::fill(mic.begin(),mic.end(),0.2F);
+        auto rawMic=buffers_.buffer(5,buffer.frames); std::fill(rawMic.begin(),rawMic.end(),0.4F);
         const float songLoudness=1.2F;
         const unsigned voiceLateFrames=17;
         const MonotonicTicks presentationTicks=1'000'000'000;
@@ -84,25 +99,56 @@ void check(bool good,const char* label) {
 bool same(const std::vector<Contribution>& a,const std::vector<Contribution>& b) {
     if(a.size()!=b.size()) return false;
     for(unsigned i=0;i<a.size();++i)
-        if(a[i].lateFrames!=b[i].lateFrames || a[i].pcm!=b[i].pcm) return false;
+        if(a[i].lateFrames!=b[i].lateFrames || a[i].pcm!=b[i].pcm || a[i].voice!=b[i].voice)
+            return false;
     return true;
 }
 int main() {
+    for(auto recording:{Recording{false,RecordingTap::PerformanceMix},
+                        Recording{true,RecordingTap::PerformanceMix},
+                        Recording{true,RecordingTap::RawInput}})
     for(auto context:{MediaContext::Karaoke,MediaContext::EditorPreview,MediaContext::Radio,
                      MediaContext::RecordingPreview,MediaContext::None}) {
-        RealtimeEngine off,on;
+        RealtimeEngine off,on,stopped,disabled;
+        for(auto* engine:{&off,&on,&stopped,&disabled}) engine->recording_=recording;
         off.route(context,false,true,true); on.route(context,true,true,true);
         check(same(off.aligner_.contributions,on.aligner_.contributions),"identical recorded PCM and timing with monitoring on/off");
-        check(on.aligner_.contributions.size()==2 && on.aligner_.contributions[1].lateFrames==17,
+        check(on.aligner_.contributions.size()==2 && on.aligner_.contributions[1].lateFrames==17 &&
+              on.aligner_.contributions[1].voice,
               "processed voice enters user recording once at the corrected time");
         check(std::abs(on.aligner_.contributions[1].pcm[0]-0.15F)<1e-6F,
               "recorded own voice does not inherit monitor fade/limiter");
+        check(std::abs(on.recording_.observedVoicePeak-0.15F)<1e-6F &&
+              on.recording_.observedVoicePeak==off.recording_.observedVoicePeak,
+              "voice peak observation uses the same gained processed PCM with either monitor state");
         const auto audible=on.buffers_.data[0][0]-off.buffers_.data[0][0];
         check(std::abs(audible-0.03F)<1e-6F,"monitor toggle affects only local listening");
-        RealtimeEngine stopped; stopped.route(context,true,true,false);
-        check(stopped.aligner_.contributions.empty(),"no user recording writes before recording is active");
-        RealtimeEngine disabled; disabled.route(context,true,false,true);
+        stopped.route(context,true,true,false);
+        check(stopped.aligner_.contributions.empty() && stopped.dryAligner_.contributions.empty() &&
+              stopped.backingAligner_.contributions.empty(),
+              "no user recording writes before recording is active");
+        disabled.route(context,true,false,true);
         check(disabled.aligner_.contributions.size()==1,"microphone disable still gates user voice, not backing");
+        const auto paired=recording.backing && recording.tap==RecordingTap::PerformanceMix;
+        const auto pairedCount=paired?1U:0U;
+        check(on.dryAligner_.contributions.size()==pairedCount &&
+              on.backingAligner_.contributions.size()==pairedCount,
+              "raw and backing stems are written only for paired performance recording");
+        check(same(off.dryAligner_.contributions,on.dryAligner_.contributions) &&
+              same(off.backingAligner_.contributions,on.backingAligner_.contributions),
+              "paired raw and backing PCM and timing do not depend on monitoring");
+        check(disabled.dryAligner_.contributions.empty() &&
+              disabled.backingAligner_.contributions.size()==pairedCount,
+              "microphone disable gates raw voice while preserving paired backing");
+        if(paired) {
+            const auto& dry=on.dryAligner_.contributions.front();
+            const auto& backing=on.backingAligner_.contributions.front();
+            check(dry.voice && dry.lateFrames==12 && dry.pcm==std::vector<float>(8,0.4F),
+                  "raw voice is captured once at unity before backing reuse, with DSP delay removed");
+            check(!backing.voice && backing.lateFrames==0 &&
+                  backing.pcm==on.aligner_.contributions.front().pcm,
+                  "paired backing preserves the exact gained accompaniment without voice");
+        }
     }
     std::cout<<"CHECKS "<<checks<<'\n';
 }
@@ -117,7 +163,10 @@ class MonitorRecordingTests(unittest.TestCase):
         end=source.index('    auto remote = buffers_.buffer',start)
         addstart=source.rindex(chr(10),0,source.index('RealtimeEngine::addMedia('))+1
         addend=source.index('// Test and synchronisation tones',addstart)
+        peakstart=source.index('[[nodiscard]] float pcmPeak(')
+        peakend=source.index('void retainPeak(',peakstart)
         program=SUPPORT.replace('__ROUTING__',source[start:end]).replace('__ADDMEDIA__',source[addstart:addend])
+        program=program.replace('__PCM_PEAK__',source[peakstart:peakend])
         if source[addstart:].startswith('void'):  # a pre-fix source passed for the RED check
             program=(program.replace('std::uint32_t addMedia(','void addMedia(')
                      .replace('(void)mediaFrames;',''))
