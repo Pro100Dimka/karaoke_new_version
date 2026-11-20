@@ -221,6 +221,7 @@ const registerFileDialogs = ({
   window,
   storageRoot,
 }: DesktopIpcContext) => {
+  const textExports = new Map<string, Promise<void>>();
   trustedIpc.handle(
     ipcChannels.pickAudioFile,
     async () => (await pickFiles(window(), audioFiles, false))[0] ?? null,
@@ -260,8 +261,21 @@ const registerFileDialogs = ({
       filters: [{ name: 'Text', extensions: ['txt', 'json'] }],
     });
     if (result.canceled || !result.filePath) return false;
-    await writeFile(result.filePath, content, 'utf8');
-    return true;
+    const filePath = result.filePath;
+    const resolvedPath = path.resolve(filePath);
+    const key =
+      process.platform === 'win32' ? resolvedPath.toLowerCase() : resolvedPath;
+    // Concurrent writes to one file can truncate each other; unrelated exports stay independent.
+    const pending = (textExports.get(key) ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => writeFile(filePath, content, 'utf8'));
+    textExports.set(key, pending);
+    try {
+      await pending;
+      return true;
+    } finally {
+      if (textExports.get(key) === pending) textExports.delete(key);
+    }
   });
 };
 
