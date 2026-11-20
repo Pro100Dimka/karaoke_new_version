@@ -468,8 +468,28 @@ export const parsePreferences = (raw: unknown): Preferences => {
   };
 };
 
-export const loadPreferences = (): Preferences =>
-  parsePreferences(readJson(storageKey));
+let pendingPreferences: Preferences | undefined;
+let saveTimer: number | undefined;
 
-export const savePreferences = (preferences: Preferences): void =>
-  writeJson(storageKey, preferences);
+export const loadPreferences = (): Preferences =>
+  pendingPreferences ?? parsePreferences(readJson(storageKey));
+
+const flushPreferences = (): void => {
+  window.clearTimeout(saveTimer);
+  saveTimer = undefined;
+  const pending = pendingPreferences;
+  pendingPreferences = undefined;
+  if (pending) writeJson(storageKey, pending);
+};
+
+/** Knobs update memory immediately; serializing the photo and playlists waits for one bounded write. */
+export const savePreferences = (preferences: Preferences): void => {
+  pendingPreferences = preferences;
+  saveTimer ??= window.setTimeout(flushPreferences, 200);
+};
+
+window.addEventListener('pagehide', flushPreferences);
+window.addEventListener('beforeunload', flushPreferences);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) flushPreferences();
+});
