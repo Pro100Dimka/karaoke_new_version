@@ -1,10 +1,24 @@
 from pathlib import Path
+import re
 import subprocess
 import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILD_STEPS = "build-steps.mjs"
+
+
+def test_explorer_offers_every_audio_format_accepted_by_song_import() -> None:
+    from backend.songs.import_song import _ALLOWED_SUFFIXES
+
+    source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
+    registered_types = set(re.findall(r'\\SupportedTypes";[^\n]*ValueName: "([^"]+)"', source))
+    open_with_types = set(
+        re.findall(r'\\Classes\\(\.[^\\"]+)\\OpenWithProgids";[^\n]*"ADVoice.Audio"', source)
+    )
+
+    assert registered_types == _ALLOWED_SUFFIXES
+    assert open_with_types == _ALLOWED_SUFFIXES
 
 
 def test_installer_catalog_tracks_payload_content_and_excludes_user_data(tmp_path: Path) -> None:

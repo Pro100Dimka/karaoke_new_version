@@ -36,7 +36,10 @@ interface DesktopIpcContext {
 }
 
 const audioFiles: FileFilter[] = [
-  { name: 'Audio', extensions: ['mp3', 'wav', 'flac', 'm4a', 'ogg'] },
+  {
+    name: 'Audio',
+    extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wma'],
+  },
 ];
 const imageFiles: FileFilter[] = [
   { name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp'] },

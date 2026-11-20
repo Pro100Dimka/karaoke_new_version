@@ -141,7 +141,16 @@ export const taskArguments = {
   addSong: '--add-song',
   openRoom: '--open-room',
 } as const;
-const audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.ogg'] as const;
+const audioExtensions = [
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.m4a',
+  '.aac',
+  '.ogg',
+  '.opus',
+  '.wma',
+] as const;
 
 const roomCodePattern = /^[A-Za-z0-9-]{3,32}$/;
 
