@@ -20,7 +20,6 @@ from inspect import signature
 from types import CodeType, FunctionType
 from typing import cast
 
-import librosa
 from librosa.version import version as _LIBROSA_VERSION
 import numpy as np
 from scipy import stats
@@ -28,6 +27,11 @@ from scipy import stats
 from backend.recordings.studio_pitch_decoder import isolate_decoder
 from backend.recordings.studio_pitch_difference import bounded_difference
 from backend.recordings.studio_pitch_kernels import trough_probabilities
+from backend.recordings.studio_pitch_numeric import (
+    local_minimum,
+    parabolic_interpolation,
+    stock_callable,
+)
 
 PitchResult = tuple[np.ndarray, np.ndarray, np.ndarray]
 _MAX_PERIODS = 512
@@ -78,6 +82,7 @@ def _compatible(function: Callable[..., PitchResult], version: str) -> bool:
         return False
     helper = function.__globals__.get("__pyin_helper")
     difference = function.__globals__.get(_DIFFERENCE_NAME)
+    interpolation = function.__globals__.get("_parabolic_interpolation")
     return (
         _uses_helper(function.__code__)
         and isinstance(helper, FunctionType)
@@ -89,6 +94,9 @@ def _compatible(function: Callable[..., PitchResult], version: str) -> bool:
         and difference.__name__ == _DIFFERENCE_NAME
         and difference.__code__.co_name == _DIFFERENCE_NAME
         and tuple(signature(difference).parameters) == _DIFFERENCE_ARGUMENTS
+        and stock_callable(
+            interpolation, "librosa.core.pitch", "_parabolic_interpolation", ("x", "axis")
+        )
     )
 
 
@@ -97,15 +105,26 @@ def _engine(function: Callable[..., PitchResult], version: str) -> Callable[...,
         return function
     source = cast(FunctionType, function)
     return isolate_decoder(
-        _clone(source, source.__globals__["__pyin_helper"], source.__globals__[_DIFFERENCE_NAME])
+        _clone(
+            source,
+            source.__globals__["__pyin_helper"],
+            source.__globals__[_DIFFERENCE_NAME],
+            source.__globals__["_parabolic_interpolation"],
+        )
     )
 
 
 @lru_cache(maxsize=4)
-def _clone(function: FunctionType, helper: FunctionType, difference: FunctionType) -> FunctionType:
+def _clone(
+    function: FunctionType,
+    helper: FunctionType,
+    difference: FunctionType,
+    interpolation: FunctionType,
+) -> FunctionType:
     namespace = dict(function.__globals__)
     namespace["__pyin_helper"] = partial(_helper, reference=helper)
     namespace[_DIFFERENCE_NAME] = partial(bounded_difference, reference=difference)
+    namespace["_parabolic_interpolation"] = parabolic_interpolation
     engine = FunctionType(
         function.__code__, namespace, function.__name__, function.__defaults__, function.__closure__
     )
@@ -147,7 +166,7 @@ def _yin_probabilities(
     beta: np.ndarray,
     no_trough: float,
 ) -> np.ndarray:
-    troughs = librosa.util.localmin(frames, axis=0)
+    troughs = local_minimum(frames, axis=0)
     troughs[0] = frames[0] < frames[1]
     count = len(frames) + 1
     prior = stats.boltzmann.pmf(np.arange(count)[:, None], boltzmann, np.arange(count)[None, :])

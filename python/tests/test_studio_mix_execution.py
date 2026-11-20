@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import replace
 from types import SimpleNamespace
 import threading
 
@@ -73,6 +74,33 @@ def test_sends_overlap_ducking_and_collect_measurement_before_sum(mix_case, monk
     assert report["balance"] == {"plan": 1, "measured": 3}
     assert report["backingEq"] == {"duck": 4} and report["space"] == {"space": 5}
     assert mix_case.summed.is_set()
+
+
+@pytest.mark.parametrize("prepared", [None, object()], ids=["without-prefit", "with-prefit"])
+def test_mix_sends_only_adds_prefit_keyword_when_a_prepared_reference_exists(
+    mix_case, monkeypatch, prepared
+):
+    inputs = replace(mix_case.inputs, ambience=prepared)
+    received = []
+
+    def duck(voice, backing, target, cancel):
+        target.write_bytes(b"ducked backing")
+        return {"duck": 4}
+
+    def sends(voice, backing, target, cancel, **kwargs):
+        assert ("ambience" in kwargs) == (prepared is not None)
+        if prepared is not None:
+            assert kwargs["ambience"] is prepared
+        received.append(kwargs)
+        target.write_bytes(b"spatial voice")
+        return {"space": 5}
+
+    monkeypatch.setattr(mix, "duck_backing", duck)
+    monkeypatch.setattr(mix, "render_sends", sends)
+    with parallel.render_execution(threading.Event(), workers=1):
+        report = mix._mix_stages(object(), inputs, mix_case.work, threading.Event(), None)
+    assert len(received) == 1 and report["space"] == {"space": 5}
+    assert mix_case.measured.is_set() and mix_case.summed.is_set()
 
 
 @pytest.mark.parametrize("workers", [1, 2])

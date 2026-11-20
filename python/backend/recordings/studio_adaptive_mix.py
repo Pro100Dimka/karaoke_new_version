@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import closing
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import math
@@ -38,6 +39,7 @@ from backend.recordings.studio_section_balance import plan_section_balance
 from backend.recordings.studio_mix_audit import audit_mix
 from backend.recordings.studio_profiles import ProfileRequest, measure_profiles
 from backend.recordings.studio_parallel import schedule_map
+from backend.recordings.studio_reference_ambience import ReferenceAmbience
 
 _STEP = 0.1
 
@@ -203,6 +205,7 @@ class MixInputs:
     original_mix: Path | None
     recorded_is_dry: bool
     arrangement: ArrangementMap
+    ambience: ReferenceAmbience | None = None
 
 
 def _sum_stems(
@@ -236,6 +239,9 @@ def _mix_sends(
     cancel: threading.Event,
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     balanced, music, spatial = paths
+    sends = render_sends
+    if inputs.ambience is not None:
+        sends = partial(sends, ambience=inputs.ambience)
 
     def prepare(_: None) -> tuple[dict[str, object], dict[str, object]]:
         duck = duck_backing(balanced, inputs.backing, music, cancel)
@@ -249,7 +255,7 @@ def _mix_sends(
             if result is None:
                 result = next(pending)
 
-        effects = render_sends(
+        effects = sends(
             balanced,
             music,
             spatial,
@@ -297,6 +303,37 @@ def _mix_stages(
     }
 
 
+def _mix_arrangement(
+    vocal: Path,
+    backing: Path,
+    reference: Path | None,
+    arrangement: ArrangementMap | None,
+    cancel: threading.Event,
+) -> ArrangementMap:
+    info = _validate_formats(vocal, backing)
+    context = arrangement or analyze_arrangement(backing, reference, cancel)
+    if (context.frames, context.rate) != (info.frames, info.samplerate):
+        raise DependencyError("StudioMasterStemMismatch", "Arrangement must cover the mix timeline")
+    return context
+
+
+def _deliver_mix(
+    renderer: MasterRenderer,
+    inputs: MixInputs,
+    work: Path,
+    target: Path,
+    cancel: threading.Event,
+    progress: Callable[[str, float, float], None] | None,
+) -> tuple[dict[str, object], dict[str, object], float]:
+    reference = _reference_mix(renderer, inputs, work, cancel)
+    if progress:
+        progress("MasteringRecording", 0.0, 0.87)
+    started = time.perf_counter()
+    delivery = deliver_master(renderer, work / "mix.wav", target, cancel, reference=reference)
+    audit = audit_mix(work / "spatial.wav", work / "backing.wav", target)
+    return delivery, audit, started
+
+
 def mix_and_master(
     renderer: MasterRenderer,
     vocal: Path,
@@ -310,28 +347,28 @@ def mix_and_master(
     recorded_is_dry: bool = True,
     arrangement: ArrangementMap | None = None,
     progress: Callable[[str, float, float], None] | None = None,
+    ambience: ReferenceAmbience | None = None,
 ) -> dict[str, object]:
     _check_cancel(cancel)
-    info = _validate_formats(vocal, backing)
-    context = arrangement or analyze_arrangement(backing, reference_vocal, cancel)
-    if (context.frames, context.rate) != (info.frames, info.samplerate):
-        raise DependencyError("StudioMasterStemMismatch", "Arrangement must cover the mix timeline")
+    context = _mix_arrangement(vocal, backing, reference_vocal, arrangement, cancel)
     target.parent.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
     inputs = MixInputs(
-        vocal, backing, reference_vocal, reference_backing, original_mix, recorded_is_dry, context
+        vocal,
+        backing,
+        reference_vocal,
+        reference_backing,
+        original_mix,
+        recorded_is_dry,
+        context,
+        ambience,
     )
     with TemporaryDirectory(prefix=".adaptive-mix-", dir=target.parent) as directory:
         work = Path(directory)
         report = _mix_stages(renderer, inputs, work, cancel, progress)
-        reference = _reference_mix(renderer, inputs, work, cancel)
-        if progress:
-            progress("MasteringRecording", 0.0, 0.87)
-        delivery_started = time.perf_counter()
-        report["delivery"] = deliver_master(
-            renderer, work / "mix.wav", target, cancel, reference=reference
+        report["delivery"], report["postMixAudit"], delivery_started = _deliver_mix(
+            renderer, inputs, work, target, cancel, progress
         )
-        report["postMixAudit"] = audit_mix(work / "spatial.wav", work / "backing.wav", target)
     return _completed_mix_report(report, started, delivery_started)
 
 

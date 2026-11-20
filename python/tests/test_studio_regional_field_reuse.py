@@ -8,6 +8,7 @@ import soundfile as sf
 
 from backend.recordings import studio_regional_space as space
 from backend.recordings import studio_regional_levels as levels
+from backend.recordings import studio_reference_ambience as estimator
 from backend.recordings import studio_parallel as execution
 from backend.recordings.studio_regional_returns import AmbienceRegion
 
@@ -32,8 +33,8 @@ def _fixture(tmp_path, monkeypatch):
     region = AmbienceRegion(
         0.0, end, np.exp(-np.arange(31) / 8), (500, 3500), 1, 0.12, 0.0, 0.9, "fixture"
     )
-    monkeypatch.setattr(space, "_global_priors", lambda *args: [None, None])
-    monkeypatch.setattr(space, "_candidate_region", lambda *args: region)
+    monkeypatch.setattr(estimator, "_global_priors", lambda *args: [None, None])
+    monkeypatch.setattr(estimator, "_candidate_region", lambda *args: region)
     monkeypatch.setattr(space, "plan_coherent_echoes", lambda *args: [])
     return voice, reference, arrangement
 

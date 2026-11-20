@@ -50,6 +50,7 @@ def make_render(tmp_path, monkeypatch, *, workers=2):
     monkeypatch.setattr(subject.MasterRender, "_align", lambda self: None)
     monkeypatch.setattr(subject.MasterRender, "_prepare_voice", lambda self: None)
     monkeypatch.setattr(subject.MasterRender, "_finish_voice", lambda self: None)
+    monkeypatch.setattr(subject.MasterRender, "_prefetch_ambience", lambda self: None)
     monkeypatch.setattr(subject.MasterRender, "_deliver", lambda self: None)
     monkeypatch.setattr(subject.MasterRender, "_balance_report", lambda self: "done")
     monkeypatch.setattr(subject, "apply_reference_pitch", lambda self: {})

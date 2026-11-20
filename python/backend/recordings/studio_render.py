@@ -38,6 +38,10 @@ from backend.recordings.studio_parallel import (
 )
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_sources import IDENTITY_TIMELINE, MasterSources, prepare_sources
+from backend.recordings.studio_reference_ambience import (
+    ReferenceAmbience,
+    prepare_reference_ambience,
+)
 
 
 def _timed_arrangement(action: Callable[[], ArrangementMap]) -> tuple[ArrangementMap, float]:
@@ -88,6 +92,9 @@ class MasterRender:
     _arrangement_work: (
         ScheduledMap[Callable[[], ArrangementMap], tuple[ArrangementMap, float]] | None
     ) = field(default=None, init=False, repr=False)
+    _ambience_work: ScheduledMap[Path | None, ReferenceAmbience | None] | None = field(
+        default=None, init=False, repr=False
+    )
 
     def run(self) -> StudioMasterBalance:
         self._validate_destination()
@@ -116,6 +123,7 @@ class MasterRender:
                 return self._balance_report()
             finally:
                 self._close_arrangement()
+                self._close_ambience()
 
     def _prefetch_reference_pitch(self) -> None:
         if (
@@ -231,6 +239,29 @@ class MasterRender:
             self.stage_seconds["arrangement"] = elapsed
         finally:
             self._close_arrangement()
+        self._prefetch_ambience()
+
+    def _prefetch_ambience(self) -> None:
+        action = partial(
+            prepare_reference_ambience,
+            arrangement=self.arrangement,
+            cancel=self.cancel,
+            channels=self.output_channels,
+        )
+        self._ambience_work = schedule_map(action, (self.sources.reference_vocal,), initial_tasks=1)
+
+    def _collect_ambience(self) -> ReferenceAmbience | None:
+        if self._ambience_work is None:
+            return None
+        try:
+            return next(self._ambience_work)
+        finally:
+            self._close_ambience()
+
+    def _close_ambience(self) -> None:
+        pending, self._ambience_work = self._ambience_work, None
+        if pending is not None:
+            pending.close()
 
     def _close_arrangement(self) -> None:
         pending, self._arrangement_work = self._arrangement_work, None
@@ -312,6 +343,7 @@ class MasterRender:
             recorded_is_dry=self.process_voice,
             arrangement=self.arrangement,
             progress=self.progress,
+            ambience=self._collect_ambience(),
         )
         self.processing.update(
             mix=result,

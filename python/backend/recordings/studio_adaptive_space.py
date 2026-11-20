@@ -20,6 +20,7 @@ from scipy.signal import butter, sosfilt, lfilter
 
 from backend.recordings.studio_arrangement import ArrangementMap
 from backend.recordings.studio_regional_space import render_regional_sends
+from backend.recordings.studio_reference_ambience import ReferenceAmbience
 from backend.recordings.studio_regional_evidence import (
     estimate_tempo as estimate_tempo,
     _diffuse_spectrum as _diffuse_spectrum,
@@ -439,6 +440,7 @@ def _regional_returns(
     arrangement: ArrangementMap,
     buses: list[tuple[str, Path, float]],
     cancel: threading.Event,
+    ambience: ReferenceAmbience | None = None,
 ) -> dict[str, object]:
     ducker = (
         WetDucker(sf.info(voice).samplerate, _voice_activity_level(voice, cancel))
@@ -451,6 +453,7 @@ def _regional_returns(
         cancel,
         reference=reference,
         arrangement=arrangement,
+        ambience=ambience,
         base_report=plan.report,
         legacy=buses,
         legacy_duck=ducker.envelope if ducker is not None else None,
@@ -468,6 +471,7 @@ def render_sends(
     recorded_is_dry: bool = True,
     arrangement: ArrangementMap | None = None,
     backing_ready: Callable[[], None] | None = None,
+    ambience: ReferenceAmbience | None = None,
 ) -> dict[str, object]:
     _check_cancel(cancel)
     plan = _plan_sends(
@@ -479,7 +483,9 @@ def render_sends(
             voice, Path(directory), plan, field_reference, cancel
         )
         if arrangement is not None:
-            return _regional_returns(voice, target, plan, reference, arrangement, buses, cancel)
+            return _regional_returns(
+                voice, target, plan, reference, arrangement, buses, cancel, ambience
+            )
         if not buses:
             shutil.copyfile(voice, target)
             return {

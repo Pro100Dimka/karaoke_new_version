@@ -17,14 +17,15 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from collections.abc import Callable
 
 from librosa import util
-from librosa.core import audio
 import numpy as np
+
+from backend.recordings.studio_pitch_numeric import autocorrelation
 
 _FFT_FRAMES = 128
 
 
 def _difference(frames: np.ndarray, minimum: int, maximum: int) -> np.ndarray:
-    correlation = audio.autocorrelate(frames, max_size=maximum + 1, axis=-2)
+    correlation = autocorrelation(frames, maximum + 1)
     # Only this prefix of cumulative energy is used by the original equation.
     difference = np.square(frames[..., : maximum + 1, :])
     np.cumsum(difference, out=difference, axis=-2)

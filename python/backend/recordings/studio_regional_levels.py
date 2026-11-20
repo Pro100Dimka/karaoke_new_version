@@ -20,6 +20,12 @@ from backend.recordings.studio_space_analysis import _field_envelopes
 class RegionalFields:
     voice: np.ndarray | None = field(default=None, init=False)
 
+    def measure_voice(self, voice: Path, cancel: threading.Event) -> np.ndarray:
+        actual = _field_envelopes(voice, cancel)
+        actual.setflags(write=False)
+        self.voice = actual
+        return actual
+
     def measure_pair(
         self, voice: Path, reference: Path, cancel: threading.Event
     ) -> tuple[np.ndarray, np.ndarray]:

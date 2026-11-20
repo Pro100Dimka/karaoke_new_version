@@ -23,6 +23,7 @@ from backend.ai.domain import PitchPoint
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import _check_cancel
 from backend.recordings.studio_parallel import ScheduledMap, ordered_map, schedule_map
+from backend.recordings.studio_pitch_numeric import frame_rms
 from backend.recordings.studio_pitch_probabilities import fast_pyin
 
 FloatArray = NDArray[np.float64]
@@ -59,9 +60,7 @@ def _read_chunk(audio: sf.SoundFile, first: int, last: int) -> FloatArray:
 
 
 def _activity(samples: FloatArray) -> NDArray[np.bool_]:
-    rms = librosa.feature.rms(
-        y=samples, frame_length=_FRAME, hop_length=_HOP, center=True, pad_mode="constant"
-    )[0]
+    rms = frame_rms(samples, _FRAME, _HOP)[0]
     threshold = max(1e-6, float(np.percentile(rms, 95)) * 0.001)
     return np.asarray(rms > threshold, dtype=np.bool_)
 
