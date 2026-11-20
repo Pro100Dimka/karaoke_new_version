@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import math
@@ -13,8 +13,6 @@ import threading
 
 import numpy as np
 import soundfile as sf
-from scipy.fft import irfft, next_fast_len, rfft
-from scipy.signal import butter, sosfilt
 
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_arrangement import ArrangementMap
@@ -25,46 +23,20 @@ from backend.recordings.studio_regional_evidence import (
     _valid_intervals,
     coherent_pan as _coherent_pan,
     envelope_relatedness as _local_relatedness,
+    exclude_instantaneous_pan,
 )
 from backend.recordings.studio_space_analysis import _field_envelopes
-
-
-@dataclass(frozen=True, slots=True)
-class AmbienceRegion:
-    start: float
-    end: float
-    kernel: np.ndarray
-    band: tuple[int, int]
-    band_index: int
-    ratio: float
-    existing_ratio: float
-    confidence: float
-    evidence: str
-    response_source: tuple[float, float] | None = None
-    local_fit: bool = True
-    evidence_origin: str = "section"
-    valid_start: float | None = None
-    valid_end: float | None = None
-
-    def payload(self) -> dict[str, object]:
-        return {
-            "startSeconds": self.start,
-            "endSeconds": self.end,
-            "bandHz": list(self.band),
-            "targetSideToMidPowerRatio": self.ratio,
-            "existingSideToMidPowerRatio": self.existing_ratio,
-            "confidence": self.confidence,
-            "evidence": self.evidence,
-            "responsePowerKernel": self.kernel.tolist(),
-            "responseStepSeconds": 0.02,
-            "wetMidEstimate": "bounded-equal-mid-side-diffuse-energy",
-            "monoWetRatioCeiling": 0.35,
-            "effectIdentity": "estimated-ambience-not-an-identified-plugin",
-            "responseSourceInterval": self.response_source,
-            "localFit": self.local_fit,
-            "evidenceOrigin": self.evidence_origin,
-            "referenceValidityInterval": [self.valid_start, self.valid_end],
-        }
+from backend.recordings.studio_regional_returns import (
+    AmbienceRegion,
+    EchoRegion,
+    _impulse,
+    convolve_return,
+)
+from backend.recordings.studio_coherent_echo import (
+    echo_buses,
+    plan_coherent_echoes,
+    without_echo_regions,
+)
 
 
 def _candidate_region(
@@ -198,7 +170,9 @@ def plan_regional_ambience(
     if reference is None or info.samplerate <= 7000 or info.channels != 2:
         return []
     expected = _field_envelopes(reference, cancel)
-    existing = _field_envelopes(voice, cancel)
+    existing = exclude_instantaneous_pan(
+        voice, _field_envelopes(voice, cancel), arrangement, cancel
+    )
     if len(expected) < 300 or not len(existing):
         return []
     priors = _global_priors(expected, arrangement)
@@ -234,62 +208,6 @@ def _reference_bounds(
         )
         result.append(replace(region, valid_start=start, valid_end=end))
     return result
-
-
-def _impulse(region: AmbienceRegion, rate: int) -> np.ndarray:
-    time = np.arange(round(rate * 0.64)) / rate
-    power = np.interp(time, np.arange(len(region.kernel)) * 0.02, region.kernel, right=0)
-    noise = np.random.default_rng(314159).normal(size=(len(time), 2)) * np.sqrt(power[:, None])
-    noise[: round(rate * 0.02)] = 0
-    response = sosfilt(
-        butter(2, region.band, fs=rate, btype="bandpass", output="sos"), noise, axis=0
-    )
-    response /= np.maximum(np.linalg.norm(response, axis=0), 1e-12)
-    # Independent mid and side responses retain a real wet component in mono.
-    return np.column_stack((response[:, 0] + response[:, 1], response[:, 0] - response[:, 1]))
-
-
-def _input_curve(times: np.ndarray, region: AmbienceRegion) -> np.ndarray:
-    fade = 0.25
-    onset = (
-        np.ones(len(times))
-        if region.start == 0
-        else np.clip((times - region.start) / fade + 0.5, 0, 1)
-    )
-    release = np.clip((region.end - times) / fade + 0.5, 0, 1)
-    curve = np.minimum(onset, release)
-    # Production changes crossfade, but unknown reference gaps cannot excite a
-    # new return. Only previously excited convolution tails may cross those gaps.
-    if region.valid_start is not None:
-        curve *= np.clip((times - region.valid_start) / 0.05, 0, 1)
-    if region.valid_end is not None:
-        curve *= np.clip((region.valid_end - times) / 0.05, 0, 1)
-    return curve
-
-
-def _convolve_region(
-    voice: Path, target: Path, region: AmbienceRegion, cancel: threading.Event
-) -> None:
-    info = sf.info(voice)
-    impulse = _impulse(region, info.samplerate)
-    size = next_fast_len(32768 + len(impulse) - 1, real=True)
-    response = rfft(impulse, n=size, axis=0)
-    overlap = np.zeros((len(impulse) - 1, 2))
-    offset = 0
-    with (
-        sf.SoundFile(voice) as source,
-        _temporary_wave(target, samplerate=info.samplerate, channels=2) as output,
-    ):
-        for block in source.blocks(blocksize=32768, always_2d=True):
-            _check_cancel(cancel)
-            time = (offset + np.arange(len(block))) / info.samplerate
-            mono = block.mean(axis=1) * _input_curve(time, region)
-            wet = irfft(rfft(mono, n=size)[:, None] * response, n=size, axis=0)
-            wet = wet[: len(block) + len(impulse) - 1]
-            wet[: len(overlap)] += overlap
-            overlap = wet[len(block) :].copy()
-            output.write(wet[: len(block)])
-            offset += len(block)
 
 
 def _calibrate_region(
@@ -329,7 +247,7 @@ def _regional_buses(
     existing_wet: float,
     legacy: list[tuple[str, Path, float]],
     cancel: threading.Event,
-) -> tuple[list[tuple[Path, float, float]], list[dict[str, object]]]:
+) -> tuple[list[tuple[str, Path, float, float]], list[dict[str, object]]]:
     voice_energy = _field_envelopes(voice, cancel)
     added_energy = _added_field_energy(legacy, voice_energy, cancel)
     buses, reports = [], []
@@ -345,11 +263,11 @@ def _regional_buses(
             )
             continue
         path = work / f"ambience-{index}.wav"
-        _convolve_region(voice, path, region, cancel)
+        convolve_return(voice, path, region, _impulse(region, sf.info(voice).samplerate), cancel)
         mid, side = _calibrate_region(
             voice_energy, path, region, existing_wet, added_energy, cancel
         )
-        buses.append((path, mid, side))
+        buses.append(("regional-ambience", path, mid, side))
         reports.append(
             {
                 **region.payload(),
@@ -363,32 +281,56 @@ def _regional_buses(
     return buses, reports
 
 
-def _read_regional(readers: list[tuple[sf.SoundFile, float, float]], count: int) -> np.ndarray:
-    result = np.zeros((count, 2))
-    for reader, mid_gain, side_gain in readers:
+def _read_regional(
+    readers: list[tuple[str, sf.SoundFile, float, float]], count: int
+) -> dict[str, np.ndarray]:
+    result: dict[str, np.ndarray] = {}
+    for name, reader, mid_gain, side_gain in readers:
         block = reader.read(count, always_2d=True)
         mid = block.mean(axis=1) * mid_gain
         side = (block[:, 0] - block[:, 1]) * 0.5 * side_gain
-        result += np.column_stack((mid + side, mid - side))
+        result.setdefault(name, np.zeros((count, 2)))
+        result[name] += np.column_stack((mid + side, mid - side))
     return result
+
+
+def _wet_block(
+    rooms: list[tuple[str, sf.SoundFile, float, float]],
+    legacy: list[tuple[str, sf.SoundFile, float]],
+    ducking: np.ndarray,
+    energies: dict[str, float],
+    mono_energies: dict[str, float],
+    channels: int,
+) -> np.ndarray:
+    returns = _read_regional(rooms, len(ducking))
+    for name, reader, gain in legacy:
+        added = reader.read(len(ducking), always_2d=True) * gain * ducking
+        returns[name] = returns.get(name, np.zeros_like(added)) + added
+    wet = np.zeros((len(ducking), channels))
+    for name, added in returns.items():
+        wet += added
+        energies[name] = energies.get(name, 0.0) + float(np.sum(added**2))
+        mono_energies[name] = mono_energies.get(name, 0.0) + float(np.sum(added.mean(axis=1) ** 2))
+    return wet
 
 
 def _mix_buses(
     voice: Path,
     target: Path,
-    regional: list[tuple[Path, float, float]],
+    regional: list[tuple[str, Path, float, float]],
     legacy: list[tuple[str, Path, float]],
     cancel: threading.Event,
     legacy_duck: Callable[[np.ndarray], np.ndarray],
-) -> tuple[dict[str, float], float, float, float]:
+) -> tuple[dict[str, float], float, float, dict[str, float]]:
     info = sf.info(voice)
-    energies = {name: 0.0 for name, _, _ in legacy}
-    energies["regional-ambience"] = 0.0
-    dry_energy = dry_mono_energy = wet_mono_energy = 0.0
+    energies: dict[str, float] = {}
+    mono_energies: dict[str, float] = {}
+    dry_energy = dry_mono_energy = 0.0
     with ExitStack() as stack:
         source = stack.enter_context(sf.SoundFile(voice))
         rooms = [
-            (stack.enter_context(sf.SoundFile(path)), mid, side) for path, mid, side in regional
+            (name, stack.enter_context(sf.SoundFile(path)), mid, side)
+            for name, path, mid, side in regional
         ]
         old = [(name, stack.enter_context(sf.SoundFile(path)), gain) for name, path, gain in legacy]
         output = stack.enter_context(
@@ -396,19 +338,11 @@ def _mix_buses(
         )
         for block in source.blocks(blocksize=32768, always_2d=True):
             _check_cancel(cancel)
-            ambience = _read_regional(rooms, len(block)) if rooms else np.zeros_like(block)
-            wet = ambience.copy()
-            ducking = legacy_duck(block)
-            for name, reader, gain in old:
-                added = reader.read(len(block), always_2d=True) * gain * ducking
-                wet += added
-                energies[name] += float(np.sum(added**2))
-            energies["regional-ambience"] += float(np.sum(ambience**2))
-            wet_mono_energy += float(np.sum(ambience.mean(axis=1) ** 2))
+            wet = _wet_block(rooms, old, legacy_duck(block), energies, mono_energies, info.channels)
             dry_energy += float(np.sum(block**2))
             dry_mono_energy += float(np.sum(block.mean(axis=1) ** 2))
             output.write(block + wet)
-    return energies, dry_energy, dry_mono_energy, wet_mono_energy
+    return energies, dry_energy, dry_mono_energy, mono_energies
 
 
 def _report(
@@ -417,16 +351,16 @@ def _report(
     energies: dict[str, float],
     dry: float,
     dry_mono: float,
-    wet_mono: float,
+    wet_mono: dict[str, float],
 ) -> dict[str, object]:
     buses = {
         name: {"wetToDryDb": 10 * math.log10(max(value, 1e-30) / max(dry, 1e-30))}
         for name, value in energies.items()
         if value > 1e-20
     }
-    if "regional-ambience" in buses:
-        buses["regional-ambience"]["monoWetToDryDb"] = 10 * math.log10(
-            max(wet_mono, 1e-30) / max(dry_mono, 1e-30)
+    for name in buses:
+        buses[name]["monoWetToDryDb"] = 10 * math.log10(
+            max(wet_mono.get(name, 0.0), 1e-30) / max(dry_mono, 1e-30)
         )
     return {
         **base,
@@ -445,10 +379,13 @@ def _report(
     }
 
 
-def _coverage(regions: list[AmbienceRegion], duration: float) -> dict[str, object]:
+def _coverage(
+    regions: list[AmbienceRegion], echoes: list[EchoRegion], duration: float
+) -> dict[str, object]:
     cursor = 0.0
     unresolved = []
-    for region in regions:
+    covered: list[AmbienceRegion | EchoRegion] = [*regions, *echoes]
+    for region in sorted(covered, key=lambda region: region.start):
         if region.start > cursor:
             unresolved.append([cursor, region.start])
         cursor = max(cursor, region.end)
@@ -457,6 +394,7 @@ def _coverage(regions: list[AmbienceRegion], duration: float) -> dict[str, objec
     return {
         "localFitSeconds": sum(r.end - r.start for r in regions if r.local_fit),
         "contextEstimatedSeconds": sum(r.end - r.start for r in regions if not r.local_fit),
+        "coherentEchoSeconds": sum(r.end - r.start for r in echoes),
         "unresolvedIntervals": unresolved,
         "uncertainty": "Context estimates are bounded production choices, not independent local effect identification.",
     }
@@ -474,17 +412,26 @@ def render_regional_sends(
     existing_wet: float,
     legacy_duck: Callable[[np.ndarray], np.ndarray],
 ) -> dict[str, object]:
+    echoes = (
+        []
+        if any(name == "delay" for name, _, _ in legacy)
+        else plan_coherent_echoes(voice, reference, arrangement, cancel)
+    )
     regions = plan_regional_ambience(voice, reference, arrangement, cancel)
+    regions = without_echo_regions(regions, echoes)
     base_report = {
         **base_report,
-        "ambienceEvidenceCoverage": _coverage(regions, arrangement.duration_seconds),
+        "ambienceEvidenceCoverage": _coverage(regions, echoes, arrangement.duration_seconds),
     }
     with TemporaryDirectory(prefix=".regional-sends-", dir=target.parent) as directory:
         work = Path(directory)
         rooms, reports = _regional_buses(voice, work, regions, existing_wet, legacy, cancel)
+        copies, copy_reports = echo_buses(voice, work, echoes, cancel)
+        base_report["coherentEchoRegions"] = copy_reports
+        rooms.extend(copies)
         if not rooms and not legacy:
             shutil.copyfile(voice, target)
-            return _report(base_report, reports, {}, 0, 0, 0)
+            return _report(base_report, reports, {}, 0, 0, {})
         energy, dry, dry_mono, wet_mono = _mix_buses(
             voice, target, rooms, legacy, cancel, legacy_duck
         )

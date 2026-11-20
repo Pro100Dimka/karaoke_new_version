@@ -10,8 +10,26 @@ from scipy.signal import butter, correlate, find_peaks, sosfilt
 from scipy.optimize import nnls
 
 from backend.recordings.studio_audio import _check_cancel, _profile
+from backend.recordings.studio_adaptive_calibration import _periodicity
 from backend.recordings.studio_arrangement import ArrangementMap
 from backend.recordings.studio_field import _delayed_kernel
+
+
+def _diffuse_spectrum(samples: np.ndarray, rate: int) -> bool:
+    width = max(64, round(rate * 0.04))
+    complete = min(len(samples) // width, 6) * width
+    if complete < width:
+        return False
+    frames = samples[:complete].reshape(-1, width, samples.shape[1])
+    power = np.mean(
+        abs(np.fft.rfft(frames * np.hanning(width)[None, :, None], axis=1)) ** 2, axis=2
+    )
+    hz = np.fft.rfftfreq(width, 1 / rate)
+    power = power[:, (hz >= 250) & (hz < min(9000, rate * 0.45))]
+    probability = power / np.maximum(power.sum(axis=1, keepdims=True), 1e-20)
+    entropy = -np.sum(probability * np.log(np.maximum(probability, 1e-20)), axis=1)
+    periodicity = np.median([_periodicity(frame, rate) for frame in frames])
+    return bool(np.median(entropy) / math.log(max(2, power.shape[1])) >= 0.5 and periodicity < 0.92)
 
 
 def _lag_score(mid: np.ndarray, side: np.ndarray) -> float:
@@ -97,6 +115,39 @@ def coherent_pan(reference: Path, start: float, end: float, cancel: threading.Ev
             if power > 1e-20:
                 coherence.append(abs(float(mid @ side)) / math.sqrt(power))
     return not coherence or float(np.median(coherence)) > 0.98
+
+
+def _instantaneous_pan(path: Path, start: float, end: float, cancel: threading.Event) -> bool:
+    residual = side_energy = 0.0
+    with sf.SoundFile(path) as source:
+        source.seek(round(start * source.samplerate))
+        count = round((end - start) * source.samplerate)
+        for block in source.blocks(
+            blocksize=round(source.samplerate * 0.1), frames=count, always_2d=True
+        ):
+            _check_cancel(cancel)
+            mid, side = block.mean(axis=1), (block[:, 0] - block[:, 1]) * 0.5
+            power = float(mid @ mid)
+            direct = float(mid @ side) / max(power, 1e-30)
+            residual += float(np.sum((side - direct * mid) ** 2))
+            side_energy += float(side @ side)
+    # Numerical equality is intentional: a merely wide recording can contain
+    # genuine ambience and must retain its existing-wet protection.
+    return side_energy > 1e-20 and residual <= side_energy * 1e-8
+
+
+def exclude_instantaneous_pan(
+    voice: Path, existing: np.ndarray, arrangement: ArrangementMap, cancel: threading.Event
+) -> np.ndarray:
+    result = existing.copy()
+    for section in arrangement.sections:
+        for start, end in _valid_intervals(section.start_seconds, section.end_seconds, arrangement):
+            selection = slice(round(start * 50), round(end * 50))
+            if result[selection, :, 1].sum() <= 1e-20:
+                continue
+            if _instantaneous_pan(voice, start, end, cancel):
+                result[selection, :, 1] = 0.0
+    return result
 
 
 def estimate_tempo(backing: Path, cancel: threading.Event) -> tuple[float | None, float]:

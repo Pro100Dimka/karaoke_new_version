@@ -17,10 +17,12 @@ from scipy.fft import irfft, next_fast_len, rfft
 from scipy.ndimage import gaussian_filter1d, median_filter
 from scipy.signal import butter, sosfilt, lfilter
 
-from backend.recordings.studio_adaptive_calibration import _periodicity
 from backend.recordings.studio_arrangement import ArrangementMap
 from backend.recordings.studio_regional_space import render_regional_sends
-from backend.recordings.studio_regional_evidence import estimate_tempo as estimate_tempo
+from backend.recordings.studio_regional_evidence import (
+    estimate_tempo as estimate_tempo,
+    _diffuse_spectrum as _diffuse_spectrum,
+)
 from backend.recordings.studio_audio import _band_power, _check_cancel, _profile, _temporary_wave
 from backend.recordings.studio_space_analysis import _delay, _fit_decay, _read_evidence
 from backend.recordings.studio_space import _voice_activity_level, _activity_mask
@@ -45,23 +47,6 @@ def _tail_candidates(levels: np.ndarray) -> list[tuple[int, float, float]]:
         if fit is not None:
             fits.append((int(index), *fit))
     return fits
-
-
-def _diffuse_spectrum(samples: np.ndarray, rate: int) -> bool:
-    width = max(64, round(rate * 0.04))
-    complete = min(len(samples) // width, 6) * width
-    if complete < width:
-        return False
-    frames = samples[:complete].reshape(-1, width, samples.shape[1])
-    power = np.mean(
-        abs(np.fft.rfft(frames * np.hanning(width)[None, :, None], axis=1)) ** 2, axis=2
-    )
-    hz = np.fft.rfftfreq(width, 1 / rate)
-    power = power[:, (hz >= 250) & (hz < min(9000, rate * 0.45))]
-    probability = power / np.maximum(power.sum(axis=1, keepdims=True), 1e-20)
-    entropy = -np.sum(probability * np.log(np.maximum(probability, 1e-20)), axis=1)
-    periodicity = np.median([_periodicity(frame, rate) for frame in frames])
-    return bool(np.median(entropy) / math.log(max(2, power.shape[1])) >= 0.5 and periodicity < 0.92)
 
 
 def _tail_band_agreement(frames: np.ndarray, rate: int, decay: float) -> bool:
