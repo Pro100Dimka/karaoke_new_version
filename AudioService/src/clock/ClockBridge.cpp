@@ -177,11 +177,11 @@ std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFra
     }
     std::uint32_t produced = 0;
     for (; produced < outputFrames; ++produced) {
-        const auto position = phase_ + static_cast<double>(produced) * ratio;
-        if (position >= static_cast<double>(read - (endOfInput ? 0U : 1U)))
+        const auto sourcePosition = phase_ + static_cast<double>(produced) * ratio;
+        if (sourcePosition >= static_cast<double>(read - (endOfInput ? 0U : 1U)))
             break;
-        const auto index = static_cast<std::uint32_t>(position);
-        const auto fraction = static_cast<float>(position - static_cast<double>(index));
+        const auto index = static_cast<std::uint32_t>(sourcePosition);
+        const auto fraction = static_cast<float>(sourcePosition - static_cast<double>(index));
         for (std::uint32_t channel = 0; channel < channels_; ++channel) {
             const auto a = scratch_[static_cast<std::size_t>(index) * channels_ + channel];
             const auto b = scratch_[static_cast<std::size_t>(std::min(index + 1U, read - 1U)) * channels_ + channel];
