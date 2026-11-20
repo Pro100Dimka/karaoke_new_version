@@ -159,15 +159,19 @@ def _missing_field(reference: SpaceProfile, existing: SpaceProfile) -> StereoFie
     return StereoField(ratio, field.lag, field.spread, field.low_hz, field.support)
 
 
-def _field_envelopes(path: Path, cancel: threading.Event) -> np.ndarray:
+def _field_envelopes(
+    path: Path, cancel: threading.Event, *, band_index: int | None = None
+) -> np.ndarray:
+    edges = ((150, 500), (500, 3500))
+    selected = edges if band_index is None else (edges[band_index],)
     rows = []
     with sf.SoundFile(path) as source:
         if source.channels < 2 or source.samplerate <= 7000:
-            return np.empty((0, 2, 2))
+            return np.empty((0, len(selected), 2))
         step = max(1, round(source.samplerate * 0.02))
         bands = [
             butter(2, edges, fs=source.samplerate, btype="bandpass", output="sos")
-            for edges in ((150, 500), (500, 3500))
+            for edges in selected
         ]
         states = [np.zeros((len(band), 2, 2)) for band in bands]
         for block in source.blocks(blocksize=step * 150, always_2d=True):
@@ -185,7 +189,7 @@ def _field_envelopes(path: Path, cancel: threading.Event) -> np.ndarray:
                     np.mean(mid_side[: count * step].reshape(count, step, 2) ** 2, axis=1)
                 )
             rows.append(np.stack(powers, axis=1))
-    return np.concatenate(rows) if rows else np.empty((0, 2, 2))
+    return np.concatenate(rows) if rows else np.empty((0, len(selected), 2))
 
 
 def _field_lags(envelopes: np.ndarray) -> list[float]:

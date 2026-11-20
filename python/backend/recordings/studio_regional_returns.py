@@ -133,8 +133,12 @@ def convolve_return(
             _check_cancel(cancel)
             time = (offset + np.arange(len(block))) / info.samplerate
             mono = block.mean(axis=1) * _input_curve(time, region)
-            wet = irfft(rfft(mono, n=size)[:, None] * response, n=size, axis=0)
-            wet = wet[: len(block) + len(impulse) - 1]
+            length = len(block) + len(impulse) - 1
+            if np.any(mono):
+                wet = irfft(rfft(mono, n=size)[:, None] * response, n=size, axis=0)[:length]
+            else:
+                wet = np.zeros((length, 2))
+            # Silent excitation still drains the previous return across every block.
             wet[: len(overlap)] += overlap
             overlap = wet[len(block) :].copy()
             output.write(wet[: len(block)])

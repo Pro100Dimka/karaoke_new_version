@@ -24,6 +24,7 @@ from backend.recordings.studio_audio import (
 )
 from backend.recordings.studio_adaptive_timing import align_voice
 from backend.recordings.studio_adaptive_voice import prepare_voice, process_voice
+from backend.recordings.studio_voice_analysis import VoiceAnalysisCache
 from backend.recordings.studio_adaptive_mix import mix_and_master
 from backend.recordings.studio_arrangement import ArrangementMap, analyze_arrangement
 from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
@@ -68,6 +69,7 @@ class MasterRender:
     offset_result: tuple[float, float] | None = field(default=None, init=False)
     reference_origin: float = field(default=0.0, init=False)
     stage_seconds: dict[str, float] = field(default_factory=dict, init=False)
+    voice_analysis: VoiceAnalysisCache = field(default_factory=VoiceAnalysisCache, init=False)
 
     def run(self) -> StudioMasterBalance:
         self._validate_destination()
@@ -212,7 +214,12 @@ class MasterRender:
     def _prepare_voice(self) -> None:
         target = self.work / "edited-vocal.wav"
         self.processing["preparation"] = prepare_voice(
-            self.renderer, self.vocal, target, self.cancel, reference=self.sources.reference_vocal
+            self.renderer,
+            self.vocal,
+            target,
+            self.cancel,
+            reference=self.sources.reference_vocal,
+            analysis=self.voice_analysis,
         )
         self.vocal = target
         self.voice_db = _profile(target, self.cancel)
@@ -227,6 +234,7 @@ class MasterRender:
             self.cancel,
             reference=self.sources.reference_vocal,
             arrangement=self.arrangement,
+            analysis=self.voice_analysis,
         )
         self.vocal = self.balanced = target
 

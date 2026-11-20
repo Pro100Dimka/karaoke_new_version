@@ -13,6 +13,7 @@ from scipy.signal import find_peaks
 from backend.recordings.studio_audio import MasterRenderer
 from backend.recordings.studio_voice import render_voice_filters as _filter
 from backend.recordings.studio_adaptive_features import VoiceFeatures, analyze_voice, level_summary
+from backend.recordings.studio_voice_analysis import VoiceAnalysisCache
 from backend.recordings.studio_arrangement import ArrangementMap
 from backend.recordings.studio_section_balance import render_section_tone
 from backend.recordings.studio_adaptive_dynamics import (
@@ -23,10 +24,18 @@ from backend.recordings.studio_adaptive_dynamics import (
 )
 
 
-def _reference(path: Path | None, cancel: threading.Event) -> VoiceFeatures | None:
+def _measure(
+    path: Path, cancel: threading.Event, analysis: VoiceAnalysisCache | None
+) -> VoiceFeatures:
+    return analyze_voice(path, cancel) if analysis is None else analysis.measure(path, cancel)
+
+
+def _reference(
+    path: Path | None, cancel: threading.Event, analysis: VoiceAnalysisCache | None = None
+) -> VoiceFeatures | None:
     if path is None:
         return None
-    measured = analyze_voice(path, cancel)
+    measured = _measure(path, cancel, analysis)
     return measured if measured.active_seconds >= 0.3 else None
 
 
@@ -37,13 +46,14 @@ def prepare_voice(
     cancel: threading.Event,
     *,
     reference: Path | None = None,
+    analysis: VoiceAnalysisCache | None = None,
 ) -> dict[str, object]:
     del renderer  # This stage is sample-preserving gain automation, without a subprocess.
-    measured = analyze_voice(source, cancel)
-    origin = _reference(reference, cancel)
+    measured = _measure(source, cancel, analysis)
+    origin = _reference(reference, cancel, analysis)
     report = write_prepared(source, target, measured, origin, cancel)
     report["before"] = level_summary(measured)
-    report["after"] = level_summary(analyze_voice(target, cancel))
+    report["after"] = level_summary(_measure(target, cancel, analysis))
     return report
 
 
@@ -186,9 +196,10 @@ def process_voice(
     *,
     reference: Path | None = None,
     arrangement: ArrangementMap | None = None,
+    analysis: VoiceAnalysisCache | None = None,
 ) -> dict[str, object]:
-    measured = analyze_voice(source, cancel)
-    origin = _reference(reference, cancel)
+    measured = _measure(source, cancel, analysis)
+    origin = _reference(reference, cancel, analysis)
     with TemporaryDirectory(prefix=".vocal-inserts-", dir=target.parent) as directory:
         report = _insert_chain(
             renderer,

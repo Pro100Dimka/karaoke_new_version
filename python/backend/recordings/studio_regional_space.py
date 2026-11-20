@@ -218,10 +218,10 @@ def _calibrate_region(
     added_energy: np.ndarray,
     cancel: threading.Event,
 ) -> tuple[float, float]:
-    wet = _field_envelopes(path, cancel)
+    wet = _field_envelopes(path, cancel, band_index=region.band_index)
     section = slice(round(region.start * 50), round(region.end * 50))
     dry_mid = float(voice_energy[section, region.band_index, 0].sum())
-    wet_mid, wet_side = wet[section, region.band_index].sum(axis=0)
+    wet_mid, wet_side = wet[section, 0].sum(axis=0)
     missing = max(0, region.ratio - region.existing_ratio)
     missing_side = max(0, missing * dry_mid - added_energy[section, region.band_index, 1].sum())
     missing_mid = max(0, min(missing, 0.35**2) - existing_wet**2)

@@ -20,6 +20,7 @@ import soundfile as sf
 from backend.ai.domain import PitchPoint
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_pitch_probabilities import fast_pyin
 
 FloatArray = NDArray[np.float64]
 _RATE = 16000
@@ -69,7 +70,8 @@ def _estimate(
     if len(samples) < _FRAME or not np.any(active):
         return np.zeros(len(active)), np.zeros(len(active)), active
     _check_cancel(cancel)
-    frequency, voiced, probability = librosa.pyin(
+    frequency, voiced, probability = fast_pyin(
+        librosa.pyin,
         samples,
         fmin=50,
         fmax=1500,
@@ -102,7 +104,8 @@ def _bass_confidence(
     # Confirm periodicity over a longer window, retaining the short-window F0
     # so the longer observation cannot smear vibrato or note transitions.
     _check_cancel(cancel)
-    bass, sustained, probability = librosa.pyin(
+    bass, sustained, probability = fast_pyin(
+        librosa.pyin,
         samples,
         fmin=50,
         fmax=1500,
