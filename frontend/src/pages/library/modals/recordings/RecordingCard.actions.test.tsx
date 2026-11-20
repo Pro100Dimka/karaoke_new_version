@@ -1,6 +1,7 @@
-import { tr } from '@neo-ui-kit/react';
+import { Dialog, tr } from '@neo-ui-kit/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { RecordingDto } from '../../../../contracts/models';
 import { desktopClient } from '../../../../services/desktopClient';
@@ -44,6 +45,80 @@ beforeEach(() => {
   vi.mocked(desktopClient.revealInExplorer).mockResolvedValue(undefined);
 });
 afterEach(() => client.clear());
+
+const RecordingsDialog = ({
+  onRename,
+}: {
+  onRename(recording: RecordingDto, name: string): void;
+}) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <QueryClientProvider client={client}>
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title={tr('recordings')}
+        cancelLabel={false}
+        confirmLabel={false}
+      >
+        <RecordingCard
+          recording={recording}
+          name={recording.displayName}
+          index={0}
+          onRename={onRename}
+          onAnalyze={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </Dialog>
+    </QueryClientProvider>
+  );
+};
+
+it('cancels an inline rename without allowing Escape to close the recordings dialog', () => {
+  const rename = vi.fn();
+  render(<RecordingsDialog onRename={rename} />);
+  fireEvent.click(screen.getByRole('button', { name: tr('renameTake') }));
+  const input = screen.getByRole('textbox', { name: tr('renameTake') });
+  fireEvent.change(input, { target: { value: 'Discard this change' } });
+
+  const defaultAllowed = fireEvent.keyDown(input, { key: 'Escape' });
+
+  expect(
+    screen.queryByRole('textbox', { name: tr('renameTake') }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText(recording.displayName)).toBeInTheDocument();
+  expect(rename).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog', { name: tr('recordings') })).toBeVisible();
+  // jsdom does not perform native Escape dismissal; the key must cancel that default action.
+  expect(defaultAllowed).toBe(false);
+});
+
+it('still saves the edited take name from the inline save button', () => {
+  const rename = vi.fn();
+  render(<RecordingsDialog onRename={rename} />);
+  fireEvent.click(screen.getByRole('button', { name: tr('renameTake') }));
+  fireEvent.change(screen.getByRole('textbox', { name: tr('renameTake') }), {
+    target: { value: 'Saved name' },
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+
+  expect(rename).toHaveBeenCalledExactlyOnceWith(recording, 'Saved name');
+  expect(screen.getByRole('dialog', { name: tr('recordings') })).toBeVisible();
+});
+
+it('allows Escape to dismiss the dialog outside inline renaming', () => {
+  render(<RecordingsDialog onRename={vi.fn()} />);
+  const dialog = screen.getByRole('dialog', { name: tr('recordings') });
+
+  expect(fireEvent.keyDown(dialog, { key: 'Escape' })).toBe(true);
+  // The browser emits cancel for an unhandled Escape; jsdom requires that native event explicitly.
+  fireEvent(dialog, new Event('cancel', { cancelable: true }));
+
+  expect(
+    screen.queryByRole('dialog', { name: tr('recordings') }),
+  ).not.toBeInTheDocument();
+});
 
 it.each(['lookup', 'Explorer'] as const)(
   'reports a failed %s when opening a recording folder and allows retry',

@@ -64,7 +64,10 @@ const TakeName = ({
         value={draft}
         onValueChange={setDraft}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') setDraft(null);
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            setDraft(null);
+          }
         }}
         endAdornment={
           <IconButton
