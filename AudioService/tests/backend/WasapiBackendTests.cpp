@@ -1218,8 +1218,10 @@ void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {
     fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
     fixture.output.client.state.fault = Fault::BufferSize;
     fixture.backend.start(fixture.callback, GenerationId{1});
-    expect(fixture.output.client.state.attempted.wait(),
-           "stalled event delivery must not hide an invalidated device");
+    require(fixture.output.client.state.attempted.wait(),
+            "stalled event delivery must not hide an invalidated device");
+    require(fixture.callback.deviceLost.wait(),
+            "silent endpoint failure is delivered before shutdown");
     fixture.backend.stop();
     expect(fixture.callback.lost == 1, "silent endpoint loss must enter recovery");
 }
