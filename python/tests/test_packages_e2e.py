@@ -208,7 +208,9 @@ def test_importing_an_existing_revision_reactivates_that_valid_project(tmp_path:
 
 
 @pytest.mark.parametrize("cancel_at", [None, "before-commit", "after-commit"])
-def test_exported_package_imports_into_clean_library(tmp_path: Path, monkeypatch, cancel_at) -> None:
+def test_exported_package_imports_into_clean_library(
+    tmp_path: Path, monkeypatch, cancel_at
+) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as source_client:
