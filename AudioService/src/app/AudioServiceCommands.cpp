@@ -393,6 +393,7 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         return ControlResponse{ControlStatus::Ok, "SongLoading"};
     }
     case ControlCommand::UnloadSong:
+        media_.stop(MediaContext::Karaoke);
         media_.unload(MediaSlot::Music);
         media_.unload(MediaSlot::ReferenceVocal);
         media_.unload(MediaSlot::Melody);

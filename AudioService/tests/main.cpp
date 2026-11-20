@@ -309,6 +309,8 @@ constexpr std::array tests{
          Tests::previewTransportCommandsDoNotFallThrough},
     Test{"loadingSongWithoutCompanionsUnloadsThePreviousStems",
          Tests::loadingSongWithoutCompanionsUnloadsThePreviousStems},
+    Test{"unloadingSongReleasesItsForegroundContext",
+         Tests::unloadingSongReleasesItsForegroundContext},
     Test{"mediaResamplingPreservesEveryFrameAcrossChunks",
          Tests::mediaResamplingPreservesEveryFrameAcrossChunks},
     Test{"mediaEofFinishesWithTheExactSampleCount", Tests::mediaEofFinishesWithTheExactSampleCount},

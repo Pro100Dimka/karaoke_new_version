@@ -257,6 +257,37 @@ void loadingSongWithoutCompanionsUnloadsThePreviousStems() {
            "new song cannot play the previous song's vocal or melody");
 }
 
+void unloadingSongReleasesItsForegroundContext() {
+    RunningService fixture;
+    const auto path = tempRoot / "cancelled-song.wav";
+    makeTestWav(path, 9600);
+    const auto source = path.string();
+    require(fixture.service
+                    .handleLine("1|LoadSong|instrumental=" + source + "|vocals=" + source +
+                                "|melody=" + source)
+                    .status == ControlStatus::Ok,
+            "song preparation acquires the karaoke foreground");
+    require(fixture.service.handleLine("1|UnloadSong").status == ControlStatus::Ok,
+            "cancelled song preparation unloads without a preceding Stop command");
+    for (const auto slot : {MediaSlot::Music, MediaSlot::ReferenceVocal, MediaSlot::Melody})
+        expect(fixture.service.media().snapshot(slot).state == PlaybackState::Empty,
+               "cancelling song preparation releases every song source");
+    expect(fixture.service.media().context() == MediaContext::None,
+           "an unloaded song no longer owns the foreground");
+
+    require(fixture.service.handleLine("1|LoadRadioStation|url=" + source).status ==
+                    ControlStatus::Ok &&
+                fixture.service.media().waitUntilReady(MediaSlot::Radio) == PlaybackState::Ready,
+            "radio becomes ready after song preparation is cancelled");
+    require(fixture.service.handleLine("1|PlayRadio").status == ControlStatus::Ok,
+            "radio can start after the cancelled song releases the foreground");
+    require(fixture.service.handleLine("1|UnloadSong").status == ControlStatus::Ok,
+            "repeated song cleanup is accepted while radio plays");
+    expect(fixture.service.media().context() == MediaContext::Radio &&
+               fixture.service.media().snapshot(MediaSlot::Radio).state == PlaybackState::Playing,
+           "song cleanup preserves a different foreground source");
+}
+
 void recordingControlExposesAuthoritativeGapMetadata() {
     RunningService fixture;
     auto& recording = fixture.service.recording();

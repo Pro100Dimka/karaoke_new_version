@@ -181,6 +181,7 @@ void deviceNotificationFailureReleasesComBeforeRetry();
 void recordingControlExposesAuthoritativeGapMetadata();
 void previewTransportCommandsDoNotFallThrough();
 void loadingSongWithoutCompanionsUnloadsThePreviousStems();
+void unloadingSongReleasesItsForegroundContext();
 void mediaResamplingPreservesEveryFrameAcrossChunks();
 void pitchProcessingFlushesTheFinalAudio();
 void mediaEofFinishesWithTheExactSampleCount();
