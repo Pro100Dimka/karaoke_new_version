@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <endpointvolume.h>
 #include <mmreg.h>
 
@@ -167,6 +168,31 @@ void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {
            "WASAPI deadline diagnostics measure callback work after the event, not the event wait");
 }
 
+void Tests::wasapiCaptureClockRejectsOutOfRangeTimestamps() {
+    constexpr auto largest = std::numeric_limits<MonotonicTicks>::max();
+    struct Observation {
+        MonotonicTicks qpc100ns;
+        MonotonicTicks expected{0};
+        MonotonicTicks now{10'000'000'000};
+    };
+    constexpr std::array observations{
+        Observation{0}, Observation{-1},
+        Observation{std::numeric_limits<MonotonicTicks>::min()}, Observation{largest},
+        Observation{100'000'000, 10'000'000'000},
+        Observation{90'000'000, 9'000'000'000},
+        Observation{89'999'999}, Observation{100'000'001},
+        // Multiplying this invalid timestamp first wraps into the current one-second window.
+        Observation{184'467'440'837'095'516},
+        Observation{largest / 100, largest - largest % 100, largest},
+        Observation{largest / 100 + 1, 0, largest},
+    };
+    for (const auto& observation : observations)
+        expect(WasapiPcm::captureTicksFromQpc(observation.qpc100ns, observation.now) ==
+                   observation.expected,
+               "capture clock validates range before converting QPC=" +
+                   std::to_string(observation.qpc100ns));
+}
+
 void Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass() {
     constexpr MonotonicTicks Ms = 1'000'000;
     constexpr MonotonicTicks Event = 1'000 * Ms;
@@ -274,5 +300,6 @@ void Tests::wasapiIntegerOutputHonorsValidBits() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}
 void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {}
 void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {}
+void Tests::wasapiCaptureClockRejectsOutOfRangeTimestamps() {}
 void Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass() {}
 #endif

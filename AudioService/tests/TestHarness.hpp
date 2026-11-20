@@ -346,6 +346,7 @@ void wasapiIntegerOutputHonorsValidBits();
 void wasapiRejectsInvalidSampleLayouts();
 void wasapiExclusivePreservesSystemNativePcmFormat();
 void wasapiDeadlineMetricExcludesEventWaitTime();
+void wasapiCaptureClockRejectsOutOfRangeTimestamps();
 void wasapiSharedRenderWritesJustBeforeTheEnginePass();
 void asioPackedIntegerFormatsUseTheirValidBitDepth();
 void asioSampleConversionSupportsDriverReportedFormats();

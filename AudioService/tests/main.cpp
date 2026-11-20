@@ -478,6 +478,8 @@ constexpr std::array tests{
          Tests::wasapiExclusivePreservesSystemNativePcmFormat},
     Test{"wasapiDeadlineMetricExcludesEventWaitTime",
          Tests::wasapiDeadlineMetricExcludesEventWaitTime},
+    Test{"wasapiCaptureClockRejectsOutOfRangeTimestamps",
+         Tests::wasapiCaptureClockRejectsOutOfRangeTimestamps},
     Test{"wasapiSharedRenderWritesJustBeforeTheEnginePass",
          Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass},
     Test{"bypassingOutputsFollowTheWindowsVolume", Tests::bypassingOutputsFollowTheWindowsVolume},
