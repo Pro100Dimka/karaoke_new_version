@@ -523,8 +523,8 @@ struct Fixture {
         clock.positionCalls = 0;
         ResetEvent(output.client.state.attempted.handle);
         SetEvent(output.client.event);
-        Tests::expect(output.client.state.attempted.wait(),
-                      "controlled render completes its native packet");
+        Tests::require(output.client.state.attempted.wait(),
+                       "controlled render completes its native packet");
     }
 };
 
