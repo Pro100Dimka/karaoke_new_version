@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from backend.domain_errors import DomainError, NotFoundError
+from backend.domain_errors import DependencyError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.runtime import Clock
 from backend.persistence import UnitOfWorkFactory
@@ -130,8 +130,11 @@ class UpdateSong:
         source = path.expanduser().resolve()
         if not source.is_file():
             raise NotFoundError("ClipMissing", "Selected video file was not found")
-        with source.open("rb") as stream:
-            header = stream.read(12)
+        try:
+            with source.open("rb") as stream:
+                header = stream.read(12)
+        except OSError as error:
+            raise DependencyError("StorageUnavailable", "Could not read selected video") from error
         if source.suffix.lower() != ".mp4" or header[4:8] != b"ftyp":
             raise DomainError("InvalidMedia", "Select an MP4 video")
         return source

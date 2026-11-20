@@ -296,3 +296,68 @@ it.each([
     client.clear();
   },
 );
+
+it.each(['success', 'failure'] as const)(
+  'locks the submitted song settings until %s and restores editing after a refusal',
+  async (outcome) => {
+    let resolve!: (saved: SongDto) => void;
+    let reject!: (error: Error) => void;
+    vi.mocked(pythonClient.updateSong).mockReturnValueOnce(
+      new Promise((done, fail) => {
+        resolve = done;
+        reject = fail;
+      }),
+    );
+    const onClose = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <SongSettingsModal song={song} onClose={onClose} onChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const title = screen.getByRole('textbox', { name: tr('title') });
+    const artist = screen.getByRole('textbox', { name: tr('artist') });
+    fireEvent.change(title, { target: { value: 'Submitted title' } });
+    fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+    await waitFor(() => expect(pythonClient.updateSong).toHaveBeenCalledOnce());
+
+    // These fields used to accept more edits that the pending save never sent,
+    // then the successful response closed the dialog and lost those edits.
+    expect(title).toBeDisabled();
+    expect(artist).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: tr('replaceCover') }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: tr('selectFile') }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: tr('closeDialog') }),
+    ).toBeEnabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await act(async () => {
+      if (outcome === 'success') resolve({ ...song, title: 'Submitted title' });
+      else reject(new Error('The settings could not be saved'));
+    });
+    if (outcome === 'success') {
+      expect(onClose).toHaveBeenCalledOnce();
+    } else {
+      expect(screen.getByText('The settings could not be saved')).toBeVisible();
+      expect(title).toBeEnabled();
+      expect(artist).toBeEnabled();
+      expect(title).toHaveValue('Submitted title');
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.change(title, { target: { value: 'Retried title' } });
+      fireEvent.click(screen.getByRole('button', { name: tr('save') }));
+      await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+      expect(pythonClient.updateSong).toHaveBeenLastCalledWith(
+        song.id,
+        expect.objectContaining({ title: 'Retried title' }),
+      );
+    }
+    client.clear();
+  },
+);

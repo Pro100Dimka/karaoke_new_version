@@ -1,5 +1,6 @@
 import { addMessages, setLocale, tr } from '@neo-ui-kit/react';
 import {
+  act,
   fireEvent,
   renderHook,
   screen,
@@ -7,7 +8,7 @@ import {
   within,
 } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import { DialogView } from '../../providers/dialog';
 import { en } from '../../providers/localization/messages.en';
@@ -67,6 +68,7 @@ beforeEach(() => {
   vi.mocked(audioClient.stop).mockResolvedValue({} as never);
   saveDraft('song', draft);
 });
+afterEach(() => vi.useRealTimers());
 
 const WithDialog = ({ children }: PropsWithChildren) => (
   <>
@@ -141,4 +143,30 @@ it('restores the saved text and notes when restoration is explicitly chosen', as
   expect(editor.result.current.document).toEqual(recovered);
   expect(loadDraft('song')).toEqual(draft);
   expect(editorApi.save).not.toHaveBeenCalled();
+});
+
+it('does not resurrect an earlier recovery draft after later edits are explicitly discarded', async () => {
+  const editor = openEditor();
+  const recovery = await recoveryDialog();
+  fireEvent.click(within(recovery).getByRole('button', { name: tr('close') }));
+  await waitFor(() => expect(editor.result.current.audioReady).toBe(true));
+  vi.useFakeTimers();
+  act(() => editor.result.current.move(new Set(['note']), 1, 0));
+  await act(() => vi.advanceTimersByTimeAsync(600));
+  expect(loadDraft('song')?.document.notes[0]?.pitch).toBe(61);
+  let leaving!: Promise<boolean>;
+  act(() => {
+    leaving = editor.result.current.resolveUnsaved();
+  });
+  const confirmation = screen.getByRole('dialog', {
+    name: tr('unsavedEditorTitle'),
+  });
+  fireEvent.click(
+    within(confirmation).getByRole('button', { name: tr('discardChanges') }),
+  );
+  await act(async () => expect(await leaving).toBe(true));
+
+  expect(editor.result.current.document).toEqual(saved);
+  expect(editor.result.current.dirty).toBe(false);
+  expect(loadDraft('song')).toBeNull();
 });

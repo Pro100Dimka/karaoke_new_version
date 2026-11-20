@@ -17,13 +17,17 @@ EnvironmentKind = Literal["text", "secret", "file", "url", "port"]
 
 
 def room_processing_url(values: dict[str, str]) -> str:
-    return (
-        room_server_url(
-            values.get("AD_VOICE_ROOM_SERVER_HOST", "130.61.169.61"),
-            values.get("AD_VOICE_ROOM_SERVER_PORT") or None,
-        )
-        + "/processing"
-    )
+    host = values.get("AD_VOICE_ROOM_SERVER_HOST", "130.61.169.61").strip()
+    port = values.get("AD_VOICE_ROOM_SERVER_PORT", "").strip()
+    for key, value in (
+        ("AD_VOICE_ROOM_SERVER_HOST", host),
+        ("AD_VOICE_ROOM_SERVER_PORT", port),
+    ):
+        if value:
+            state, message = _validate_scalar(_definition(key), value)
+            if state == "invalid":
+                raise ValueError(message)
+    return room_server_url(host, port or None) + "/processing"
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,13 +207,17 @@ class EnvironmentSettingsStore:
             )
         legacy = result.get("AD_VOICE_ROOM_SERVER", "").strip()
         if legacy:
-            parsed = urlparse(legacy)
-            if parsed.hostname:
-                result.setdefault("AD_VOICE_ROOM_SERVER_HOST", parsed.hostname)
-                result.setdefault(
-                    "AD_VOICE_ROOM_SERVER_PORT",
-                    str(parsed.port or (443 if parsed.scheme == "https" else 80)),
-                )
+            try:
+                parsed = urlparse(legacy)
+                host = parsed.hostname
+                port = parsed.port or (443 if parsed.scheme == "https" else 80)
+            except ValueError:
+                # Keep the invalid address editable without blocking unrelated settings.
+                result.setdefault("AD_VOICE_ROOM_SERVER_HOST", legacy)
+            else:
+                if host:
+                    result.setdefault("AD_VOICE_ROOM_SERVER_HOST", host)
+                    result.setdefault("AD_VOICE_ROOM_SERVER_PORT", str(port))
         return {**self._default_values, **result}
 
     @staticmethod

@@ -144,7 +144,7 @@ def decode_document(raw: str) -> LyricsDocument:
         raise ValueError("words must be an array")
     document = LyricsDocument(
         title=_text(data, "title"),
-        artist=_text(data, "artist"),
+        artist=_text(data, "artist", allow_empty=True),
         duration=_number(data, "duration"),
         bpm=_optional_number(data.get("bpm")),
         key=_optional_text(data.get("key")),

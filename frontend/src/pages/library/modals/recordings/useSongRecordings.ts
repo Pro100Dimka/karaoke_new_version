@@ -63,19 +63,12 @@ export const useSongRecordings = (
   const handled = useRef<string | null>(null);
   const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
   const analysisRuns = useRef(new Map<string, number>());
+  const analysisTarget = useRef<{ recordingId: string; songId: string } | null>(
+    null,
+  );
 
-  const loadAnalysis = async (
-    recordingId: string,
-    songId: string,
-    recalculate: boolean,
-    request: number,
-  ) => {
+  const beginAnalysis = (recordingId: string, request: number) => {
     analysisRuns.current.set(recordingId, request);
-    const ownsRun = () => analysisRuns.current.get(recordingId) === request;
-    const clearFailure = () =>
-      setAnalysisFailures(({ [recordingId]: _, ...items }) => items);
-    const listRequest = requests.current.recordings;
-    let started = false;
     setAnalysisProgress((items) => ({
       ...items,
       [recordingId]: {
@@ -86,7 +79,21 @@ export const useSongRecordings = (
         progress: 0,
       },
     }));
-    clearFailure();
+    setAnalysisFailures(({ [recordingId]: _, ...items }) => items);
+  };
+
+  const loadAnalysis = async (
+    recordingId: string,
+    songId: string,
+    recalculate: boolean,
+    request: number,
+  ) => {
+    beginAnalysis(recordingId, request);
+    const ownsRun = () => analysisRuns.current.get(recordingId) === request;
+    const clearFailure = () =>
+      setAnalysisFailures(({ [recordingId]: _, ...items }) => items);
+    const listRequest = requests.current.recordings;
+    let started = false;
     try {
       const stored = recalculate
         ? null
@@ -235,6 +242,49 @@ export const useSongRecordings = (
     [],
   );
 
+  const openAnalysis = async (takeId: string, songId: string) => {
+    const request = ++requests.current.analysis;
+    const listRequest =
+      song?.id === songId
+        ? requests.current.recordings
+        : ++requests.current.recordings;
+    const current = () =>
+      request === requests.current.analysis &&
+      listRequest === requests.current.recordings;
+    setAnalysis(null);
+    setAnalysisSong(null);
+    setAnalysisRecordId(takeId);
+    if (song?.id !== songId) setRecordings([]);
+    analysisTarget.current = { recordingId: takeId, songId };
+    beginAnalysis(takeId, request);
+    try {
+      const target = await client.fetchQuery({
+        queryKey: ['song', store.application.services.pythonEpoch, songId],
+        queryFn: () => catalog.getSong(songId),
+        staleTime: 0,
+      });
+      if (!current()) return;
+      setAnalysisSong(target);
+      // Only the analysis modal opens here; recordings is still fetched because the analysis modal
+      // itself lists sibling takes, not to also open the separate recordings modal on top of it.
+      const items = await catalog.listRecordings(target.id);
+      if (!current()) return;
+      setRecordings(items);
+      // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
+      const result = await loadAnalysis(takeId, target.id, false, request);
+      if (current()) setAnalysis(result);
+    } catch (failure) {
+      if (current()) {
+        const message = errorstring(toAppError(failure)) ?? 'actionFailed';
+        setAnalysisFailures((items) => ({ ...items, [takeId]: message }));
+        notify(tr(message), 'error');
+      }
+    } finally {
+      if (analysisRuns.current.get(takeId) === request)
+        setAnalysisProgress(({ [takeId]: _, ...items }) => items);
+    }
+  };
+
   useEffect(() => {
     const value = returned;
     if (
@@ -244,46 +294,16 @@ export const useSongRecordings = (
     )
       return;
     handled.current = value.analysisFor;
-    const takeId = value.analysisFor;
-    const songId = value.analysisSongId;
-    const request = ++requests.current.analysis;
-    const listRequest = ++requests.current.recordings;
-    const current = () =>
-      request === requests.current.analysis &&
-      listRequest === requests.current.recordings;
-    setAnalysis(null);
-    setAnalysisSong(null);
-    setAnalysisRecordId(takeId);
-    void (async () => {
-      try {
-        const target = await client.fetchQuery({
-          queryKey: ['song', store.application.services.pythonEpoch, songId],
-          queryFn: () => catalog.getSong(songId),
-          staleTime: 0,
-        });
-        if (!current()) return;
-        setAnalysisSong(target);
-        // Only the analysis modal opens here; recordings is still fetched because the analysis modal
-        // itself lists sibling takes, not to also open the separate recordings modal on top of it.
-        const items = await catalog.listRecordings(target.id);
-        if (!current()) return;
-        setRecordings(items);
-        // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
-        const result = await loadAnalysis(takeId, target.id, false, request);
-        if (current()) setAnalysis(result);
-      } catch (failure) {
-        if (current())
-          notify(
-            tr(errorstring(toAppError(failure)) ?? 'actionFailed'),
-            'error',
-          );
-      }
-    })();
+    void openAnalysis(value.analysisFor, value.analysisSongId);
   }, [returned, notify, locale, client]);
 
   const analyze = (recording: RecordingDto, recalculate = false) =>
     guarded(async () => {
       const request = ++requests.current.analysis;
+      analysisTarget.current = {
+        recordingId: recording.id,
+        songId: recording.songId,
+      };
       setAnalysis(null);
       setAnalysisSong(
         [song, analysisSong].find((item) => item?.id === recording.songId) ??
@@ -333,6 +353,7 @@ export const useSongRecordings = (
       setAnalysisFailures(({ [recording.id]: _, ...items }) => items);
       if (selectedAnalysis.current === recording.id) {
         requests.current.analysis += 1;
+        analysisTarget.current = null;
         setAnalysis(null);
         setAnalysisRecordId(null);
         setAnalysisSong(null);
@@ -396,6 +417,16 @@ export const useSongRecordings = (
     analysisRecordId,
     analysisProgress,
     analysisFailures,
+    retryAnalysis: () => {
+      const recording = recordings.find((item) => item.id === analysisRecordId);
+      if (recording) {
+        void analyze(recording);
+        return;
+      }
+      const target = analysisTarget.current;
+      if (target?.recordingId === analysisRecordId)
+        void openAnalysis(target.recordingId, target.songId);
+    },
     cancelAnalysis: (jobId: string) => guarded(() => catalog.cancelJob(jobId)),
     studioMaster,
     analyze,
@@ -410,6 +441,7 @@ export const useSongRecordings = (
     },
     closeAnalysis: () => {
       requests.current.analysis += 1;
+      analysisTarget.current = null;
       setAnalysis(null);
       setAnalysisRecordId(null);
     },

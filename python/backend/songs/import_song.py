@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, TypedDict
 
-from backend.domain_errors import ConflictError, DomainError, NotFoundError
+from backend.domain_errors import ConflictError, DependencyError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.idempotency import IdempotencyRecord
 from backend.runtime import Clock
@@ -86,7 +86,7 @@ class ImportSong:
         if repeated:
             _checkpoint(progress, ensure_not_cancelled, "Completed", 1.0)
             return repeated
-        identity = self._hasher(source)
+        identity = self._source_identity(source)
         _checkpoint(progress, ensure_not_cancelled, "Hashing", 0.2)
         self._ensure_not_duplicate(identity)
         embedded = self._media.inspect(source)
@@ -112,6 +112,12 @@ class ImportSong:
             raise
         self._journal.complete(entry.transaction_id)
         return song
+
+    def _source_identity(self, source: Path) -> str:
+        try:
+            return self._hasher(source)
+        except OSError as error:
+            raise DependencyError("StorageUnavailable", "Could not read selected audio") from error
 
     def _prepare_song(
         self,

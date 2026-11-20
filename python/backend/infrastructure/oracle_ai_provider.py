@@ -39,8 +39,8 @@ from backend.processing.domain import (
     CancellationPolicy,
 )
 from backend.serialization import JsonValue
-from backend.settings.domain import room_server_url, is_secure_kaggle_url
-from backend.settings.environment import default_environment_store
+from backend.settings.domain import is_secure_kaggle_url
+from backend.settings.environment import default_environment_store, room_processing_url
 from backend.songs.domain import Language, Song
 from collections.abc import Callable
 
@@ -48,9 +48,10 @@ from collections.abc import Callable
 def processing_connection() -> tuple[str, str]:
     values = {entry.key: entry.value for entry in default_environment_store().read()}
     token = values.get("AD_VOICE_PROCESSING_TOKEN", "")
-    host = values["AD_VOICE_ROOM_SERVER_HOST"].strip()
-    port = values["AD_VOICE_ROOM_SERVER_PORT"].strip()
-    url = os.environ.get("AD_VOICE_PROCESSING_URL") or room_server_url(host, port) + "/processing"
+    try:
+        url = os.environ.get("AD_VOICE_PROCESSING_URL") or room_processing_url(values)
+    except ValueError as error:
+        raise DependencyError("ProcessingNotConfigured", str(error)) from error
     if not is_secure_kaggle_url(url) or len(token) < 32:
         raise DependencyError(
             "ProcessingNotConfigured", "Configure the processing access key in ENV settings"

@@ -48,6 +48,9 @@ export const useEnvironmentSettings = () => {
   });
   const query = useQuery({
     queryKey,
+    // Consecutive secret writes have identical redacted values. Keep their
+    // identities distinct so an older verification cannot replace the new one.
+    structuralSharing: false,
     queryFn: async ({ signal }) => {
       const entries = await pythonClient.listEnvironmentSettings();
       signal.throwIfAborted();

@@ -1,13 +1,21 @@
 import { setLocale, tr } from '@neo-ui-kit/react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import type { PlaybackSnapshot, SongDto } from '../../contracts/models';
+import { ask } from '../../providers/dialog';
 import { audioClient } from '../../services/audioClient';
 import { pythonClient } from '../../services/pythonClient';
 import { clearStorage } from '../../shared/storage/localStore';
 import '../../providers/localization';
 import { editorApi } from './editorApi';
+import { loadDraft, saveDraft } from './editorDraft';
 import { EditorPage } from './index';
 import type { EditorPianoRollProps } from './EditorPianoRoll';
 
@@ -93,6 +101,7 @@ beforeEach(() => {
   vi.mocked(audioClient.prepareSong).mockResolvedValue(readySnapshot);
   vi.mocked(audioClient.stop).mockResolvedValue(readySnapshot);
 });
+afterEach(() => vi.useRealTimers());
 
 // jsdom has no pointer constructor or geometry; retain the actual PianoRoll handlers.
 const pointer = (target: Element, type: string, x: number, y: number) => {
@@ -282,5 +291,66 @@ it.each([
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: tr('save') })).toBeEnabled();
     expect(editorApi.save).not.toHaveBeenCalled();
+  },
+);
+
+it.each(
+  (['Escape', 'pointercancel'] as const).flatMap((cancel) =>
+    [false, true].map((previousDraft) => ({ cancel, previousDraft })),
+  ),
+)(
+  'restores recovery state after $cancel cancels an autosaved drag (previous draft: $previousDraft)',
+  async ({ cancel, previousDraft }) => {
+    const previous = {
+      baseRevision: document.revision,
+      document: {
+        ...document,
+        notes: [
+          { ...document.notes[0]!, pitch: 67 },
+          ...document.notes.slice(1),
+        ],
+      },
+    };
+    if (previousDraft) {
+      saveDraft('song', previous);
+      vi.mocked(ask).mockResolvedValue(null);
+    }
+    const view = render(<EditorPage />);
+    const body = await screen.findByRole('button', {
+      name: tr('Нота {pitch}', { pitch: 60 }),
+    });
+    await waitFor(() => expect(audioClient.prepareSong).toHaveBeenCalledOnce());
+    const note = body.closest('.ad-piano-roll-note')!;
+    const geometry = note.getAttribute('style');
+    const world = view.container.querySelector<HTMLElement>(
+      '.ad-piano-roll-world',
+    )!;
+    vi.spyOn(world, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 0, 1000, 300),
+    );
+    vi.useFakeTimers();
+    pointer(body, 'pointerdown', 100, 100);
+    pointer(world, 'pointermove', 130, 80);
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    expect(loadDraft('song')?.document.notes[0]?.pitch).toBe(61);
+
+    if (cancel === 'Escape') fireEvent.keyDown(world, { key: 'Escape' });
+    else pointer(world, 'pointercancel', 130, 80);
+
+    expect(note.getAttribute('style')).toBe(geometry);
+    expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
+    expect(screen.getByRole('button', { name: tr('undo') })).toBeDisabled();
+    expect(loadDraft('song')).toEqual(previousDraft ? previous : null);
+    vi.useRealTimers();
+    view.unmount();
+    render(<EditorPage />);
+    await waitFor(() =>
+      expect(audioClient.prepareSong).toHaveBeenCalledTimes(2),
+    );
+    expect(
+      screen.getByRole('button', { name: tr('Нота {pitch}', { pitch: 60 }) }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
+    expect(ask).toHaveBeenCalledTimes(previousDraft ? 2 : 0);
   },
 );

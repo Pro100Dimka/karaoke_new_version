@@ -175,7 +175,9 @@ export const SongCard = memo(
       recordings: () => onOpenRecordings(song),
       settings: () => onOpenSettings(song),
       folder: () =>
-        void desktopClient.revealProject(song.id, song.activeRevision),
+        void guarded(() =>
+          desktopClient.revealProject(song.id, song.activeRevision),
+        ),
       viewError: () => void showError(),
       retry: () => void retry(),
       delete: () => void confirmDelete(song),
