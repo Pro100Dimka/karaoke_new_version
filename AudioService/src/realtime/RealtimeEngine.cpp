@@ -737,6 +737,11 @@ bool RealtimeEngine::requiresCaptureForRender() const noexcept {
 void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleCallbacks_.fetch_add(1, std::memory_order_relaxed);
+        // A stopping backend may still submit this reused buffer from its old device format.
+        if (buffer.output != nullptr && buffer.frames <= MaxBlockFrames &&
+            buffer.channels <= MaxAudioChannels)
+            std::fill_n(buffer.output,
+                        static_cast<std::size_t>(buffer.frames) * buffer.channels, 0.0F);
         return;
     }
     if (buffer.output == nullptr || buffer.frames == 0 ||
