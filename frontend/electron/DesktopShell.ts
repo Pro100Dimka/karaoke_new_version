@@ -169,6 +169,23 @@ export const roomCodeFromLink = (value: string): string | undefined => {
   }
 };
 
+const isAudioArgument = (argument: string): boolean =>
+  !argument.startsWith('-') &&
+  (audioExtensions as readonly string[]).includes(
+    path.extname(argument).toLowerCase(),
+  );
+
+/** File arguments belong to the launching process's directory, including after a queued relaunch. */
+export const resolveLaunchArguments = (
+  argv: readonly string[],
+  workingDirectory: string,
+): string[] =>
+  argv.map((argument) =>
+    isAudioArgument(argument)
+      ? path.resolve(workingDirectory, argument)
+      : argument,
+  );
+
 /**
  * What a launch (or a second launch handed over to the running app) asks for: an invitation link,
  * a jump-list task or audio files opened with the app. Electron's own switches and the app path
@@ -195,13 +212,7 @@ export const commandsFromArguments = (
       commands.push({ type: 'addSong' });
     else if (argument === taskArguments.openRoom)
       commands.push({ type: 'openRoom' });
-    else if (
-      !argument.startsWith('-') &&
-      (audioExtensions as readonly string[]).includes(
-        path.extname(argument).toLowerCase(),
-      ) &&
-      exists(argument)
-    )
+    else if (isAudioArgument(argument) && exists(argument))
       files.push(path.resolve(argument));
   }
   if (files.length)

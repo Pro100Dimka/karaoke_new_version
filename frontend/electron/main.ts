@@ -35,7 +35,7 @@ import { applyGpuSwitches } from './GpuSwitches';
 import { startAutoUpdate } from './AutoUpdate';
 import { startRadioNowPlaying } from './RadioNowPlaying';
 import { startDesktopLaunch } from './DesktopLaunch';
-import { DesktopShell } from './DesktopShell';
+import { DesktopShell, resolveLaunchArguments } from './DesktopShell';
 import { startDiscordPresence } from './DiscordPresence';
 import { createShellNotifier, registerShellIpc } from './ShellIpc';
 import { createTaskbarIntegration } from './TaskbarIntegration';
@@ -316,16 +316,19 @@ try {
 } catch (error) {
   earlyStartupError = error;
 }
-app.on('second-instance', (_event, argv) => {
+app.on('second-instance', (_event, argv, workingDirectory) => {
+  const launchArguments = workingDirectory
+    ? resolveLaunchArguments(argv, workingDirectory)
+    : argv;
   // The last window can be gone while its services are still stopping and the instance lock is held.
   // Preserve this launch without starting another owner of those services before shutdown finishes.
   if (quitting && (!mainWindow || mainWindow.isDestroyed())) {
-    if (!updateQuitRequested) scheduleRelaunch(argv.slice(1));
+    if (!updateQuitRequested) scheduleRelaunch(launchArguments.slice(1));
     return;
   }
   // A second launch hands over what it was started for: an invitation link, a task, opened files.
-  if (desktopLaunch) desktopLaunch.secondLaunch(argv);
-  else pendingLaunches.push([...argv]);
+  if (desktopLaunch) desktopLaunch.secondLaunch(launchArguments);
+  else pendingLaunches.push([...launchArguments]);
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   // The window may be hidden in the tray while the radio plays.

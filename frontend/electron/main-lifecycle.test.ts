@@ -1,4 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 import { mocks, contents, window } from '../test-fixtures/electronMain';
 
@@ -84,6 +86,7 @@ it.each(['reveal', 'close confirmation'])(
 it.each([
   'none',
   'launch',
+  'relative-launch',
   'update',
   'cancelled-update',
   'failed-update',
@@ -141,19 +144,27 @@ it.each([
       expect.objectContaining({ command: 'ShutdownService' }),
     );
     if (scenario !== 'none') {
+      const launchDirectory = join(mocks.profileRoot, 'shutdown-launch');
+      const relative = scenario === 'relative-launch';
+      const file = relative
+        ? join(launchDirectory, 'open-me.wav')
+        : 'D:/songs/open-me.wav';
+      if (relative) {
+        await mkdir(launchDirectory, { recursive: true });
+        await writeFile(file, 'launch parsing only');
+      }
       const launch = () =>
-        mocks.appEvents.get('second-instance')?.({ preventDefault: vi.fn() }, [
-          'AD Voice.exe',
-          'D:/songs/open-me.wav',
-        ]);
+        mocks.appEvents.get('second-instance')?.(
+          { preventDefault: vi.fn() },
+          ['AD Voice.exe', relative ? 'open-me.wav' : file],
+          relative ? launchDirectory : undefined,
+        );
       launch();
       launch();
       if (scenario === 'update') expect(mocks.relaunch).not.toHaveBeenCalled();
       else
         expect(mocks.relaunch).toHaveBeenCalledExactlyOnceWith(
-          scenario === 'settings-relaunch'
-            ? undefined
-            : { args: ['D:/songs/open-me.wav'] },
+          scenario === 'settings-relaunch' ? undefined : { args: [file] },
         );
       expect(mocks.quit).not.toHaveBeenCalled();
     } else expect(mocks.relaunch).not.toHaveBeenCalled();

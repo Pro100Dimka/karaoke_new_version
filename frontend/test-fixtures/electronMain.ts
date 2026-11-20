@@ -15,7 +15,11 @@ const mocks = vi.hoisted(() => ({
   sendAudioRequest: vi.fn().mockResolvedValue({ status: 0, text: 'Running' }),
   appEvents: new Map<
     string,
-    (event: { preventDefault(): void }, argv?: string[]) => void
+    (
+      event: { preventDefault(): void },
+      argv?: string[],
+      workingDirectory?: string,
+    ) => void
   >(),
   stopService: vi.fn(),
   quit: vi.fn(),
@@ -118,7 +122,11 @@ vi.mock('electron', () => ({
     setUserTasks: vi.fn(),
     on: (
       name: string,
-      callback: (event: { preventDefault(): void }, argv?: string[]) => void,
+      callback: (
+        event: { preventDefault(): void },
+        argv?: string[],
+        workingDirectory?: string,
+      ) => void,
     ) => mocks.appEvents.set(name, callback),
     whenReady: () => ({
       then: (callback: () => unknown) => {
