@@ -38,7 +38,10 @@ class DeleteSong:
         self._jobs = jobs
 
     def execute(self, song_id: str) -> None:
-        with self._operations.acquire(song_id, SongOperation.DELETE):
+        with (
+            self._operations.acquire(song_id, SongOperation.DELETE),
+            self._storage.media_update(song_id),
+        ):
             # Processing holds per-song locks; imports write only newly allocated song folders.
             self._jobs.run_when_idle(
                 lambda: self._delete(song_id),
