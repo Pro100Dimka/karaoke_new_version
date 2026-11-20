@@ -23,8 +23,8 @@ export const songStatusPresentation = {
   'not-processed': {
     label: 'notProcessed',
     tone: 'offline',
-    primaryAction: null,
-    actions: ['settings', 'folder', 'delete'],
+    primaryAction: 'retry',
+    actions: ['retry', 'settings', 'folder', 'delete'],
   },
   queued: {
     label: 'queued',

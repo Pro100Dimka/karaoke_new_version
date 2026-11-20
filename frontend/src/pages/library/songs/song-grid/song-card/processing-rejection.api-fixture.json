@@ -1,0 +1,31 @@
+{
+  "song": {
+    "songId": "ac8cb00d-0e1d-42de-aa77-528604188d2a",
+    "title": "Song",
+    "artist": "Singer",
+    "album": null,
+    "duration": 1.0,
+    "language": "Auto",
+    "status": "Imported",
+    "activeRevision": 1,
+    "projectFormatVersion": 2,
+    "coverState": "Fallback",
+    "createdAt": "2026-11-20T10:37:06.576882Z",
+    "detectedBpm": null,
+    "originalFilename": "Singer - Song.wav"
+  },
+  "rejected": {
+    "status": 503,
+    "body": {
+      "code": "MissingRequiredModels",
+      "message": "Required AI models are not installed and verified",
+      "details": {
+        "models": [
+          "htdemucs:955717e8",
+          "whisper-large-v3-turbo:aff26ae4",
+          "mms-fa:20ef1296"
+        ]
+      }
+    }
+  }
+}
