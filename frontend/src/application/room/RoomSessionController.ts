@@ -35,6 +35,15 @@ export interface RoomSessionScope {
   disconnect(): boolean;
 }
 
+/** Older servers omit the revision; retain their existing snapshot behavior during upgrades. */
+export const roomSnapshotIsOlder = (
+  snapshot: RoomStateDto,
+  current: RoomStateDto | null,
+): boolean =>
+  snapshot.snapshotRevision !== undefined &&
+  current?.snapshotRevision !== undefined &&
+  snapshot.snapshotRevision < current.snapshotRevision;
+
 const cancelledJoin = (): Error =>
   Object.assign(new Error('Room join cancelled'), { name: 'AbortError' });
 
@@ -102,8 +111,7 @@ export class RoomSessionController {
       getRoom: () => (scope.isCurrent() ? this.getRoom() : null),
       setSnapshot: (room) => {
         if (!scope.isCurrent() || room.code !== code) return false;
-        this.setSnapshot(room);
-        return true;
+        return this.setSnapshot(room);
       },
       disconnect: () => {
         if (!scope.isCurrent()) return false;
@@ -132,8 +140,8 @@ export class RoomSessionController {
     for (const listener of this.listeners) listener();
   }
 
-  /** Accepts only snapshots for the active room; late responses cannot restore a departed room. */
-  setSnapshot = (room: RoomStateDto | null): void => {
+  /** Accepts current server snapshots; late replies cannot restore a departed or older room state. */
+  setSnapshot = (room: RoomStateDto | null): boolean => {
     if (!room) {
       const current = this.getRoom();
       if (current) this.retiredCodes.add(current.code);
@@ -141,16 +149,17 @@ export class RoomSessionController {
       this.invalidateScope();
       this.generation += 1;
       this.publish({ type: 'disconnected' });
-      return;
+      return true;
     }
     if (
       this.state.type === 'joining' ||
       this.state.type === 'leaving' ||
       this.retiredCodes.has(room.code)
     )
-      return;
+      return false;
     const current = this.getRoom();
-    if (current && current.code !== room.code) return;
+    if (current && current.code !== room.code) return false;
+    if (roomSnapshotIsOlder(room, current)) return false;
     room = {
       ...room,
       participants: room.participants.map((person) => {
@@ -174,6 +183,7 @@ export class RoomSessionController {
         ? { type: 'recovering', room }
         : { type: 'joined', room },
     );
+    return true;
   };
 
   join(name: string, code?: string): Promise<RoomStateDto> {

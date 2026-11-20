@@ -282,6 +282,8 @@ export interface RoomPlaylist {
 }
 
 export interface RoomStateDto {
+  /** Revision of this exact server snapshot; absent on older room servers. */
+  snapshotRevision?: number;
   performanceResults?: Record<
     string,
     { complete: boolean; score?: number | null }

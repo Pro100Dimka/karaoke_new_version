@@ -25,6 +25,31 @@ describe('roomClient', () => {
     Object.assign(window, { desktop: { roomRequest } });
   });
 
+  it.each([undefined, 17])(
+    'preserves optional HTTP snapshot revision %s',
+    async (snapshotRevision) => {
+      roomRequest.mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        body: {
+          roomId: 'ROOM-1',
+          hostId: participantId,
+          songId: null,
+          revision: null,
+          participants: [],
+          playbackState: 'Stopped',
+          playbackStartedAt: null,
+          playbackPositionSeconds: 0,
+          serverNow: '2026-11-20T00:00:00Z',
+          snapshotRevision,
+        },
+      });
+      expect((await roomClient.getRoom('ROOM-1')).snapshotRevision).toBe(
+        snapshotRevision,
+      );
+    },
+  );
+
   it('sends an uppercase pasted UUID in the canonical lowercase form', async () => {
     await roomClient.joinRoom('0976F70A-988B-412F-AA12-D9229228632E', 'Guest');
 
@@ -339,6 +364,7 @@ describe('roomClient', () => {
 
   it('receives room snapshots through a server-held change subscription', async () => {
     const room = {
+      snapshotRevision: 27,
       roomId: 'ROOM-1',
       hostId: participantId,
       songId: null,
@@ -361,7 +387,7 @@ describe('roomClient', () => {
     const unsubscribe = roomClient.watchRoom('ROOM-1', listener, vi.fn());
     await vi.waitFor(() =>
       expect(listener).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'ROOM-1' }),
+        expect.objectContaining({ code: 'ROOM-1', snapshotRevision: 27 }),
       ),
     );
     unsubscribe();

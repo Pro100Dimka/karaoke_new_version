@@ -5,7 +5,10 @@ import type {
 } from '../../contracts/clients';
 import type { RoomStateDto, SongDto } from '../../contracts/models';
 import { toAppError } from '../../shared/errors';
-import type { RoomSessionScope } from './RoomSessionController';
+import {
+  roomSnapshotIsOlder,
+  type RoomSessionScope,
+} from './RoomSessionController';
 import { createLatestSnapshotQueue } from './latestSnapshotQueue';
 import { roomChimeKinds, type RoomChimeKind } from './roomChime';
 import { diffParticipants, hasCurrentParticipant } from './roomModel';
@@ -69,10 +72,12 @@ export class RoomRecoveryCoordinator {
     const resumed = ready && !this.pythonReady;
     this.pythonReady = ready;
     const current = this.scope.getRoom();
-    if (resumed && this.unsubscribe && current)
-      void this.reconcileProject(current, this.selectionEpoch).catch((error) =>
-        this.onError(error),
+    if (resumed && this.unsubscribe && current) {
+      const epoch = this.selectionEpoch;
+      void this.reconcileProject(current, epoch).catch((error) =>
+        this.onError(error, () => this.current(epoch, current)),
       );
+    }
   }
 
   start(): void {
@@ -84,7 +89,11 @@ export class RoomRecoveryCoordinator {
     this.unsubscribe = this.ports.room.watchRoom(
       this.scope.code,
       (snapshot) => {
-        if (!this.scope.isCurrent() || snapshot.code !== this.scope.code)
+        if (
+          !this.scope.isCurrent() ||
+          snapshot.code !== this.scope.code ||
+          roomSnapshotIsOlder(snapshot, this.scope.getRoom())
+        )
           return;
         if (
           snapshot.songId !== this.selection?.songId ||
@@ -107,8 +116,10 @@ export class RoomRecoveryCoordinator {
     );
   }
 
-  private current = (epoch: number): boolean =>
-    this.scope.isCurrent() && epoch === this.selectionEpoch;
+  private current = (epoch: number, snapshot: RoomStateDto): boolean =>
+    this.scope.isCurrent() &&
+    epoch === this.selectionEpoch &&
+    !roomSnapshotIsOlder(snapshot, this.scope.getRoom());
 
   private markReconnecting(): void {
     const current = this.scope.getRoom();
@@ -116,11 +127,14 @@ export class RoomRecoveryCoordinator {
       this.scope.setSnapshot({ ...current, connectionStatus: 'reconnecting' });
   }
 
-  private async onError(error: unknown): Promise<void> {
-    if (!this.scope.isCurrent()) return;
+  private async onError(
+    error: unknown,
+    isCurrent: () => boolean = () => this.scope.isCurrent(),
+  ): Promise<void> {
+    if (!isCurrent()) return;
     if (toAppError(error).code === 'RoomNotFound') {
       await this.ports.audio.leaveVoiceSession().catch(() => undefined);
-      if (!this.scope.isCurrent()) return;
+      if (!isCurrent()) return;
       this.ports.launch.stop();
       this.scope.disconnect();
       this.ports.notify('roomClosed', 'warning');
@@ -135,11 +149,11 @@ export class RoomRecoveryCoordinator {
     epoch: number,
   ): Promise<void> {
     const before = this.scope.getRoom();
-    if (!before || !this.current(epoch)) return;
+    if (!before || !this.current(epoch, snapshot)) return;
     try {
       if (!hasCurrentParticipant(snapshot)) {
         await this.ports.audio.leaveVoiceSession().catch(() => undefined);
-        if (!this.current(epoch)) return;
+        if (!this.current(epoch, snapshot)) return;
         this.ports.launch.stop();
         this.scope.disconnect();
         this.ports.notify('removedFromRoom', 'warning');
@@ -147,9 +161,9 @@ export class RoomRecoveryCoordinator {
       }
       const after = { ...snapshot, connectionStatus: 'connected' as const };
       await this.ports.voice.synchronize(before, after, () =>
-        this.current(epoch),
+        this.current(epoch, snapshot),
       );
-      if (!this.current(epoch)) return;
+      if (!this.current(epoch, snapshot)) return;
       this.ports.launch.recordPlaybackTransition(before, after);
       const change = diffParticipants(before, after);
       for (const person of change.joined)
@@ -161,13 +175,15 @@ export class RoomRecoveryCoordinator {
         joined: change.joined.length,
         left: change.left.length,
       }).forEach(this.ports.chime);
-      this.scope.setSnapshot(
-        preserveLocalRoomTransfer(this.scope.getRoom() ?? before, after),
-      );
+      if (
+        !this.scope.setSnapshot(
+          preserveLocalRoomTransfer(this.scope.getRoom() ?? before, after),
+        )
+      )
+        return;
       await this.reconcileProject(after, epoch);
     } catch (error) {
-      if (!this.current(epoch)) return;
-      await this.onError(error);
+      await this.onError(error, () => this.current(epoch, snapshot));
     }
   }
 
@@ -175,13 +191,13 @@ export class RoomRecoveryCoordinator {
     snapshot: RoomStateDto,
     epoch: number,
   ): Promise<void> {
-    if (!this.pythonReady || !this.current(epoch)) return;
+    if (!this.pythonReady || !this.current(epoch, snapshot)) return;
     if (!snapshot.songId || snapshot.revision === undefined) {
       this.ports.launch.observe(snapshot, []);
       return;
     }
     const library = await this.ports.python.listSongs();
-    if (!this.current(epoch)) return;
+    if (!this.current(epoch, snapshot)) return;
     this.ports.launch.observe(snapshot, library);
     await this.ports.project.reconcileReadiness(snapshot, library);
   }

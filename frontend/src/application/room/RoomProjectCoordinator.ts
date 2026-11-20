@@ -9,7 +9,10 @@ import type {
   RoomClient,
 } from '../../contracts/clients';
 import type { RoomStateDto, SongDto } from '../../contracts/models';
-import type { RoomSessionScope } from './RoomSessionController';
+import {
+  roomSnapshotIsOlder,
+  type RoomSessionScope,
+} from './RoomSessionController';
 import { createLatestSnapshotQueue } from './latestSnapshotQueue';
 import { RoomLibraryPublisher } from './RoomLibraryPublisher';
 import { localReadiness, localRoomSong } from './roomModel';
@@ -487,8 +490,12 @@ export class RoomProjectCoordinator {
           .catch(() => this.scope.getRoom());
         if (!isCurrent()) return;
         const conflict = isProjectConflict(error);
-        if (failed)
-          this.scope.setSnapshot(roomTransferFailure(failed, conflict));
+        if (failed) {
+          const current = this.scope.getRoom();
+          const snapshot =
+            current && roomSnapshotIsOlder(failed, current) ? current : failed;
+          this.scope.setSnapshot(roomTransferFailure(snapshot, conflict));
+        }
         this.transfer = { type: 'failed', songId, revision };
         this.ports.onFailure(conflict, error);
       } finally {

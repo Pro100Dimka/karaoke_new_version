@@ -45,6 +45,49 @@ const setup = () => {
   return { room, audio, session };
 };
 
+it('rejects older server snapshots while accepting newer remote changes and equal-revision overlays', () => {
+  const { session } = setup();
+  const current = { ...snapshot(), snapshotRevision: 12, libraryQuery: 'ab' };
+  session.setSnapshot(current);
+  session.setSnapshot({ ...current, snapshotRevision: 11, libraryQuery: 'a' });
+  expect(session.getRoom()?.libraryQuery).toBe('ab');
+  const scope = session.getScope()!;
+
+  expect(
+    scope.setSnapshot({ ...current, snapshotRevision: 13, libraryQuery: 'a' }),
+  ).toBe(true);
+  expect(session.getRoom()?.libraryQuery).toBe('a');
+  const accepted = session.getRoom()!;
+  expect(
+    scope.setSnapshot({ ...accepted, connectionStatus: 'reconnecting' }),
+  ).toBe(true);
+  expect(session.getState().type).toBe('recovering');
+  expect(
+    scope.setSnapshot({
+      ...accepted,
+      connectionStatus: 'connected',
+      serverClockOffsetMilliseconds: 23,
+    }),
+  ).toBe(true);
+  expect(session.getRoom()?.serverClockOffsetMilliseconds).toBe(23);
+  expect(session.getState().type).toBe('joined');
+});
+
+it.each([undefined, 8])(
+  'retains legacy unversioned server behavior after revision %s',
+  (snapshotRevision) => {
+    const { session } = setup();
+    const current = { ...snapshot(), snapshotRevision, libraryQuery: 'before' };
+    session.setSnapshot(current);
+    expect(
+      session
+        .getScope()!
+        .setSnapshot({ ...snapshot(), libraryQuery: 'legacy' }),
+    ).toBe(true);
+    expect(session.getRoom()?.libraryQuery).toBe('legacy');
+  },
+);
+
 it('does not let a late room response replace newer singer settings', async () => {
   const { session } = setup();
   await session.join('Singer');
@@ -67,9 +110,14 @@ it('does not let a late room response replace newer singer settings', async () =
     },
     voiceSettingsRevision: 2,
   };
-  session.setSnapshot({ ...snapshot(), participants: [person] });
   session.setSnapshot({
     ...snapshot(),
+    snapshotRevision: 2,
+    participants: [person],
+  });
+  session.setSnapshot({
+    ...snapshot(),
+    snapshotRevision: 3,
     participants: [
       {
         ...person,
@@ -218,15 +266,22 @@ it('keeps a joined room and voice when closing it fails', async () => {
 });
 
 it('rejects a late result from an earlier generation of the same room', async () => {
-  const { session } = setup();
+  const { session, room } = setup();
+  room.joinRoom.mockResolvedValueOnce({ ...snapshot(), snapshotRevision: 50 });
   await session.join('Singer', 'room-a');
   const oldScope = session.getScope();
   expect(oldScope).not.toBeNull();
 
   await session.leave();
+  room.joinRoom.mockResolvedValueOnce({ ...snapshot(), snapshotRevision: 1 });
   await session.join('Singer', 'room-a');
-  const current = { ...snapshot(), playbackState: 'playing' as const };
+  const current = {
+    ...snapshot(),
+    snapshotRevision: 100,
+    playbackState: 'playing' as const,
+  };
   expect(oldScope?.setSnapshot(current)).toBe(false);
+  expect(session.getRoom()?.snapshotRevision).toBe(1);
   expect(session.getRoom()?.playbackState).not.toBe('playing');
   expect(session.getScope()).not.toBe(oldScope);
 });

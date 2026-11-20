@@ -24,6 +24,7 @@ interface BackendRoomParticipant {
 }
 
 export interface BackendRoom {
+  snapshotRevision?: number;
   performanceResults?: RoomStateDto['performanceResults'];
   selectionId?: number;
   playlist?: RoomPlaylist | null;
@@ -112,6 +113,7 @@ export const mapRoom = (
   room: BackendRoom,
   timing?: RoomRequestTiming,
 ): RoomStateDto => ({
+  snapshotRevision: room.snapshotRevision,
   playlist: room.playlist ?? undefined,
   code: room.roomId,
   performanceId: room.performanceId,

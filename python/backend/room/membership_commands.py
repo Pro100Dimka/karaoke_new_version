@@ -50,8 +50,7 @@ class CreateRoom:
             disconnect_policy,
             host_grace_seconds=host_grace_seconds,
         )
-        self._rooms.save(room)
-        return room
+        return self._rooms.save(room)
 
 
 class JoinRoom:
@@ -80,8 +79,7 @@ class JoinRoom:
         updated = replace(room, participants=participants, host_disconnected_at=disconnected_at)
         if room.playback_state is not PlaybackState.PLAYING:
             updated = updated.with_timing(room_timing(updated))
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class DisconnectParticipant:
@@ -107,8 +105,7 @@ class DisconnectParticipant:
             self._clock.now() if participant_id == room.host_id else room.host_disconnected_at
         )
         updated = replace(room, participants=participants, host_disconnected_at=disconnected_at)
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class ResolveHostDisconnect:
@@ -145,8 +142,7 @@ class ResolveHostDisconnect:
         updated = replace(
             room, host_id=new_host_id, participants=participants, host_disconnected_at=None
         )
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class LeaveRoom:
@@ -164,8 +160,7 @@ class LeaveRoom:
         )
         if participant_id != room.host_id:
             updated = replace(room, participants=participants, shared_songs=shared_songs)
-            self._rooms.save(updated)
-            return updated
+            return self._rooms.save(updated)
         connected = [
             key
             for key, person in participants.items()
@@ -183,8 +178,7 @@ class LeaveRoom:
             shared_songs=shared_songs,
             host_disconnected_at=None,
         )
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class TransferRoomHost:
@@ -208,8 +202,7 @@ class TransferRoomHost:
         updated = replace(
             room, host_id=target_id, participants=participants, host_disconnected_at=None
         )
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class RemoveRoomParticipant:
@@ -230,8 +223,7 @@ class RemoveRoomParticipant:
             song for song in room.shared_songs if song.owner_participant_id != target_id
         )
         updated = replace(room, participants=participants, shared_songs=shared_songs)
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class CloseRoom:

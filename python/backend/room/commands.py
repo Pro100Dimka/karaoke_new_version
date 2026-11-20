@@ -73,8 +73,7 @@ class SelectRoomSong:
             singing_timing=None,
         )
         updated = reset_performance(updated).with_timing(room_timing(updated))
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 def _prepare_participants(
@@ -124,8 +123,7 @@ class ClearRoomSong:
             singing_timing=None,
         )
         updated = reset_performance(updated).with_timing(room_timing(updated))
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class SetRoomPlaylist:
@@ -162,7 +160,7 @@ class SetRoomPlaylist:
         finished = set(playlist.finished_participants) | {actor_id}
         playlist = replace(playlist, finished_participants=tuple(sorted(finished)))
         room = replace(room, playlist=playlist)
-        self._rooms.save(room)
+        room = self._rooms.save(room)
         if any(
             p.connection_state is ConnectionState.CONNECTED and key not in finished
             for key, p in room.participants.items()
@@ -216,8 +214,7 @@ class SetParticipantReadiness:
         )
         updated = replace(room, participants=participants)
         updated = start_ready_room(updated, self._clock)
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class AuthorizeMediaControl:
@@ -241,8 +238,7 @@ class AuthorizeMediaControl:
         room = _apply_media_control(room, command, position_seconds, self._clock)
         if command is MediaControlCommand.STOP and not continue_playlist:
             room = replace(room, playlist=None)
-        self._rooms.save(room)
-        return room
+        return self._rooms.save(room)
 
 
 class StartRoomSyncCheck:
@@ -262,8 +258,7 @@ class StartRoomSyncCheck:
             sync_check_id=room.sync_check_id + 1,
             sync_check_started_at=self._clock.now() + ROOM_START_LEAD,
         )
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 def start_ready_room(room: Room, clock: Clock) -> Room:
@@ -370,8 +365,7 @@ class UpdateSharedRoomState:
             reference_gain=max(0.0, min(1.0, reference_gain)),
             melody_gain=max(0.0, min(1.0, melody_gain)),
         )
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 def _retimed_for_rate(room: Room, rate: float, clock: Clock) -> Room:
@@ -411,8 +405,7 @@ class PublishRoomLibrary:
             elif song.song_id in published:
                 shared.append(published.pop(song.song_id))
         updated = replace(room, shared_songs=(*shared, *published.values()))
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class SetCollaborativeControl:
@@ -424,8 +417,7 @@ class SetCollaborativeControl:
     def execute(self, room_id: str, actor_id: str, enabled: bool) -> Room:
         room = host_room(self._rooms, room_id, actor_id)
         updated = replace(room, collaborative_control=enabled)
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 class SetParticipantVoiceSettings:
@@ -464,5 +456,4 @@ class SetParticipantVoiceSettings:
             voice_settings_revision=target.voice_settings_revision + 1,
         )
         updated = replace(room, participants=participants)
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)

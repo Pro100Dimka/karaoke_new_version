@@ -1,6 +1,10 @@
 import { expect, it, vi } from 'vitest';
 import type { RoomStateDto, SongDto } from '../../contracts/models';
-import type { RoomSessionScope } from './RoomSessionController';
+import {
+  RoomSessionController,
+  type RoomSessionScope,
+} from './RoomSessionController';
+import type { RoomClient } from '../../contracts/clients';
 import { RoomProjectCoordinator } from './RoomProjectCoordinator';
 
 it('does not publish an empty placeholder while the initial library read is pending or retired', async () => {
@@ -451,6 +455,74 @@ it('records partial import failure, releases the archive, and allows explicit re
     'song',
     1,
     'local-song',
+  );
+});
+
+it('keeps a local import conflict when its failure acknowledgement is older than the current server snapshot', async () => {
+  const { services, getRoom } = setup();
+  const initial: RoomStateDto = {
+    ...getRoom(),
+    songId: 'song',
+    revision: 1,
+    selectionId: 1,
+    snapshotRevision: 1,
+  };
+  const session = new RoomSessionController(
+    {
+      createRoom: vi.fn(async () => initial),
+      joinRoom: vi.fn(async () => initial),
+      leaveRoom: vi.fn(async () => undefined),
+      closeRoom: vi.fn(async () => undefined),
+    },
+    {
+      joinVoiceSession: vi.fn(async () => undefined),
+      leaveVoiceSession: vi.fn(async () => undefined),
+      setRoomPlayoutDelay: vi.fn(async () => undefined),
+    },
+    'self',
+  );
+  session.setSnapshot(initial);
+  const pending = deferred<RoomStateDto>();
+  let failed!: RoomStateDto;
+  let revision = 1;
+  const setRoomReadiness = vi.fn<RoomClient['setRoomReadiness']>(
+    async (_code, readiness) => {
+      const saved = { ...session.getRoom()!, snapshotRevision: ++revision };
+      if (readiness === 'Failed') {
+        failed = saved;
+        return pending.promise;
+      }
+      return saved;
+    },
+  );
+  services.python.importProject.mockRejectedValueOnce({
+    code: 'PackageConflict',
+    message: 'The local song has a different revision',
+    source: 'python',
+  });
+  const coordinator = new RoomProjectCoordinator(session.getScope()!, {
+    ...services,
+    room: { ...services.room, setRoomReadiness },
+  });
+  const importing = coordinator.prepare('song', 1);
+  await vi.waitFor(() => expect(failed).toBeDefined());
+  const newer = {
+    ...failed,
+    snapshotRevision: ++revision,
+    libraryQuery: 'new shared query',
+  };
+  session.setSnapshot(newer);
+  pending.resolve(failed);
+  await importing;
+
+  expect(session.getRoom()).toMatchObject({
+    snapshotRevision: newer.snapshotRevision,
+    libraryQuery: 'new shared query',
+    transferError: true,
+    transferConflict: true,
+  });
+  expect(services.desktop.releaseRoomProjectDownload).toHaveBeenCalledWith(
+    'archive.zip',
   );
 });
 

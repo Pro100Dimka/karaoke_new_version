@@ -55,8 +55,7 @@ class SetParticipantTiming:
         ):
             updated = updated.with_timing(room_timing(updated))
             updated = start_ready_room(updated, self._clock)
-        self._rooms.save(updated)
-        return updated
+        return self._rooms.save(updated)
 
 
 def _bounded(milliseconds: float | None) -> float | None:

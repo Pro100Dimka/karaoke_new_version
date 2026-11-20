@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +35,13 @@ class SqliteRoomRepository:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS rooms (room_id TEXT PRIMARY KEY, payload TEXT NOT NULL)"
             )
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS room_snapshot_counter "
+                "(id INTEGER PRIMARY KEY CHECK (id = 1), revision INTEGER NOT NULL)"
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO room_snapshot_counter(id, revision) VALUES (1, 0)"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._path, timeout=10)
@@ -47,14 +55,36 @@ class SqliteRoomRepository:
             ).fetchone()
         return None if row is None else _decode_room(str(row[0]))
 
-    def save(self, room: Room) -> None:
-        payload = _encode_room(room)
+    def save(self, room: Room) -> Room:
         with self._lock, self._connect() as connection:
+            # The shared counter and payload commit together, including across repository instances.
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT payload FROM rooms WHERE room_id = ?", (room.room_id,)
+            ).fetchone()
+            current = None if row is None else _decode_room(str(row[0]))
+            # Mapping equality alone would discard a change to the host-failover order.
+            if (
+                current is not None
+                and current.snapshot_revision > 0
+                and tuple(current.participants) == tuple(room.participants)
+                and current == replace(room, snapshot_revision=current.snapshot_revision)
+            ):
+                return current
+            connection.execute(
+                "UPDATE room_snapshot_counter SET revision = revision + 1 WHERE id = 1"
+            )
+            revision = connection.execute(
+                "SELECT revision FROM room_snapshot_counter WHERE id = 1"
+            ).fetchone()
+            assert revision is not None
+            saved = replace(room, snapshot_revision=int(revision[0]))
             connection.execute(
                 "INSERT INTO rooms(room_id, payload) VALUES (?, ?) "
                 "ON CONFLICT(room_id) DO UPDATE SET payload = excluded.payload",
-                (room.room_id, payload),
+                (saved.room_id, _encode_room(saved)),
             )
+        return saved
 
     def delete(self, room_id: str) -> None:
         with self._lock, self._connect() as connection:
@@ -67,8 +97,13 @@ class SqliteRoomRepository:
 
 
 def _encode_room(room: Room) -> str:
-    payload = {
+    return dumps(_room_payload(room))
+
+
+def _room_payload(room: Room) -> dict[str, object]:
+    return {
         "roomId": room.room_id,
+        "snapshotRevision": room.snapshot_revision,
         "hostId": room.host_id,
         "disconnectPolicy": room.disconnect_policy.value,
         "hostGraceSeconds": room.host_grace_seconds,
@@ -105,7 +140,6 @@ def _encode_room(room: Room) -> str:
         "sharedSongs": [_encode_song(song) for song in room.shared_songs],
         "participants": [_encode_participant(item) for item in room.participants.values()],
     }
-    return dumps(payload)
 
 
 def _encode_playlist(playlist: RoomPlaylist | None) -> dict[str, object] | None:
@@ -181,10 +215,8 @@ def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
 def _decode_room(payload: str) -> Room:
     raw = loads_object(payload)
     return Room(
-        room_id=raw["roomId"],
-        host_id=raw["hostId"],
-        participants=_decode_participants(raw),
-        disconnect_policy=HostDisconnectPolicy(raw["disconnectPolicy"]),
+        *_decode_room_membership(raw),
+        snapshot_revision=int(raw.get("snapshotRevision", 0)),
         host_grace_seconds=float(raw["hostGraceSeconds"]),
         host_disconnected_at=_optional_datetime(raw.get("hostDisconnectedAt")),
         song_id=raw["songId"],
@@ -217,6 +249,17 @@ def _decode_room(payload: str) -> Room:
         last_performance_id=_optional_int(raw.get("lastPerformanceId")),
         last_performance_accuracy=_optional_float(raw.get("lastPerformanceAccuracy")),
         performance_history=_decode_performance_history(raw.get("performanceHistory")),
+    )
+
+
+def _decode_room_membership(
+    raw: dict[str, object],
+) -> tuple[str, str, dict[str, Participant], HostDisconnectPolicy]:
+    return (
+        str(raw["roomId"]),
+        str(raw["hostId"]),
+        _decode_participants(raw),
+        HostDisconnectPolicy(str(raw["disconnectPolicy"])),
     )
 
 

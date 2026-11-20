@@ -136,6 +136,7 @@ class RoomDto(ApiModel):
     performance_results: dict[str, RoomPerformanceResult] = Field(default_factory=dict)
     playlist: PlaylistDto | None = None
     room_id: str
+    snapshot_revision: int = Field(ge=0)
     host_id: str
     song_id: str | None
     revision: int | None
@@ -392,15 +393,13 @@ def _room(room: Room) -> RoomDto:
     return RoomDto(
         playlist=_room_playlist(room.playlist),
         room_id=room.room_id,
+        snapshot_revision=room.snapshot_revision,
         performance_id=room.performance_id,
         selection_id=room.selection_id,
         performance_accuracy=group_performance_accuracy(room),
         last_performance_id=room.last_performance_id,
         last_performance_accuracy=room.last_performance_accuracy,
-        performance_results={
-            str(identifier): performance_result(room, identifier)
-            for identifier in {*room.performance_history, room.performance_id}
-        },
+        performance_results=_performance_results(room),
         host_id=room.host_id,
         song_id=room.song_id,
         revision=room.revision,
@@ -428,6 +427,13 @@ def _room(room: Room) -> RoomDto:
         room_timing_source=room.room_timing_source.value,
         transfer_progress=_transfer_progress(room),
     )
+
+
+def _performance_results(room: Room) -> dict[str, RoomPerformanceResult]:
+    return {
+        str(identifier): performance_result(room, identifier)
+        for identifier in {*room.performance_history, room.performance_id}
+    }
 
 
 def _transfer_progress(room: Room) -> int:

@@ -1,7 +1,9 @@
 import { expect, it, vi } from 'vitest';
 import type { RoomStateDto } from '../../contracts/models';
+import type { RoomClient } from '../../contracts/clients';
 import { RoomSessionController } from './RoomSessionController';
 import { RoomLibraryCoordinator } from './RoomLibraryCoordinator';
+import { sharedStateOf } from './roomModel';
 
 const snapshot = (code: string): RoomStateDto => ({
   code,
@@ -115,3 +117,59 @@ it('does not let an old shared-view response replace a new song selection', asyn
   await updating;
   expect(session.getRoom()?.songId).toBe('new');
 });
+
+it.each(['command reply', 'watch snapshot'] as const)(
+  'rejects an older shared-view reply after a newer %s for the same song',
+  async (newerSource) => {
+    const completions: Array<(value: RoomStateDto) => void> = [];
+    const versioned = (libraryQuery: string, snapshotRevision: number) => ({
+      ...snapshot('A'),
+      ...sharedStateOf({ libraryQuery }),
+      songId: 'same-song',
+      revision: 1,
+      snapshotRevision,
+    });
+    const room = {
+      createRoom: vi.fn(async () => versioned('', 1)),
+      joinRoom: vi.fn(async () => versioned('', 1)),
+      leaveRoom: vi.fn(async () => undefined),
+      closeRoom: vi.fn(async () => undefined),
+      selectRoomSong: vi.fn(async () => versioned('', 1)),
+      startPlaylist: vi.fn(async () => versioned('', 1)),
+      setCollaborativeControl: vi.fn(async () => versioned('', 1)),
+      updateSharedState: vi.fn<RoomClient['updateSharedState']>(
+        () => new Promise<RoomStateDto>((resolve) => completions.push(resolve)),
+      ),
+    };
+    const session = new RoomSessionController(
+      room,
+      {
+        joinVoiceSession: vi.fn(async () => undefined),
+        setRoomPlayoutDelay: vi.fn(async () => undefined),
+        leaveVoiceSession: vi.fn(async () => undefined),
+      },
+      'self',
+    );
+    session.setSnapshot(versioned('', 1));
+    const library = new RoomLibraryCoordinator(session.getScope()!, room);
+    const older = library.publishSharedState(
+      sharedStateOf({ libraryQuery: 'a' }),
+    );
+    if (newerSource === 'command reply') {
+      const newer = library.publishSharedState(
+        sharedStateOf({ libraryQuery: 'ab' }),
+      );
+      completions[1]!(versioned('ab', 3));
+      await newer;
+    } else session.setSnapshot(versioned('ab', 3));
+    expect(session.getRoom()?.libraryQuery).toBe('ab');
+
+    completions[0]!(versioned('a', 2));
+
+    await expect(older).resolves.toBeUndefined();
+    expect(session.getRoom()).toMatchObject({
+      libraryQuery: 'ab',
+      snapshotRevision: 3,
+    });
+  },
+);

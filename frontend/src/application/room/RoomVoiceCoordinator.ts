@@ -64,6 +64,7 @@ export class RoomVoiceCoordinator {
   private readonly registered = new Set<string>();
   private readonly calibrationCancels = new Set<() => void>();
   private syncCheckId = 0;
+  private synchronizationEpoch = 0;
   private stopPolling?: () => void;
   private readonly timingSubscriptions = new Set<() => void>();
 
@@ -321,7 +322,10 @@ export class RoomVoiceCoordinator {
     after: RoomStateDto,
     selectionIsCurrent: () => boolean = () => true,
   ): Promise<void> {
-    const current = () => this.scope.isCurrent() && selectionIsCurrent();
+    const epoch = this.synchronizationEpoch;
+    const sessionCurrent = () =>
+      this.scope.isCurrent() && epoch === this.synchronizationEpoch;
+    const current = () => sessionCurrent() && selectionIsCurrent();
     if (!current()) return;
     if (restoreRoomVoiceAfterReconnect(before, after)) {
       await this.audio.setRoomPlayoutDelay(after.roomPlayoutDelayMs ?? 10);
@@ -357,20 +361,24 @@ export class RoomVoiceCoordinator {
     const change = reconcileRemoteParticipants(this.registered, after);
     for (const id of change.add) {
       await this.audio.addRemoteParticipant(id);
-      if (!current()) return;
+      if (!sessionCurrent()) return;
+      // Record completed IPC so the next snapshot can reconcile the actual native state.
       this.registered.add(id);
+      if (!current()) return;
     }
     for (const id of change.remove) {
       await observeOperation(
         'errors.roomParticipant',
         this.audio.removeRemoteParticipant(id),
       ).catch(() => undefined);
-      if (!current()) return;
+      if (!sessionCurrent()) return;
       this.registered.delete(id);
+      if (!current()) return;
     }
   }
 
   stop(): void {
+    ++this.synchronizationEpoch;
     this.stopPolling?.();
     this.timingSubscriptions.forEach((cancel) => cancel());
     if (!this.audio.microphoneEnabled())

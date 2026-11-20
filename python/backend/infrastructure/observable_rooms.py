@@ -25,11 +25,12 @@ class ObservableRoomRepository:
     def get(self, room_id: str) -> Room | None:
         return self._inner.get(room_id)
 
-    def save(self, room: Room) -> None:
-        self._inner.save(room)
-        self._publish(room.room_id)
+    def save(self, room: Room) -> Room:
+        saved = self._inner.save(room)
+        self._publish(saved.room_id)
         for listener in self._listeners:
-            listener(room.room_id, room)
+            listener(saved.room_id, saved)
+        return saved
 
     def delete(self, room_id: str) -> None:
         self._inner.delete(room_id)

@@ -5,7 +5,10 @@ import type {
   RoomClient,
 } from '../../contracts/clients';
 import type { RoomStateDto } from '../../contracts/models';
-import type { RoomSessionScope } from './RoomSessionController';
+import {
+  roomSnapshotIsOlder,
+  type RoomSessionScope,
+} from './RoomSessionController';
 
 type MembershipPort = Pick<RoomClient, 'transferHost' | 'removeParticipant'>;
 type VoicePort = Pick<AudioServiceClient, 'removeRemoteParticipant'>;
@@ -54,7 +57,11 @@ export class RoomMembershipCoordinator {
       this.scope.code,
       participantId,
     );
-    if (!this.scope.isCurrent()) return undefined;
+    if (
+      !this.scope.isCurrent() ||
+      roomSnapshotIsOlder(snapshot, this.scope.getRoom())
+    )
+      return undefined;
     await observeOperation(
       'errors.roomParticipant',
       this.voice.removeRemoteParticipant(participantId),

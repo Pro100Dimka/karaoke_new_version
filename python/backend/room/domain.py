@@ -151,6 +151,8 @@ class Room:
         default_factory=dict
     )
     playlist: RoomPlaylist | None = None
+    # Assigned by the repository together with this snapshot; zero denotes unsaved/legacy data.
+    snapshot_revision: int = 0
 
     def with_timing(self, timing: RoomTiming) -> Room:
         return replace(
