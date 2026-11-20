@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -77,6 +77,11 @@ class JobRow(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        Index("ix_jobs_recent", created_at.desc(), job_id),
+        Index("ix_jobs_type_recent", job_type, created_at.desc(), job_id),
+        Index("ix_jobs_entity_recent", entity_id, created_at.desc(), job_id),
+    )
 
 
 class RecordingRow(Base):

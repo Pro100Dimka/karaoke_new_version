@@ -3,13 +3,14 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 
 from types import MappingProxyType
+from typing import cast
 
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, Table, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.domain_errors import DependencyError
-from backend.infrastructure.orm import Base
+from backend.infrastructure.orm import Base, JobRow
 from backend.version import DB_SCHEMA_VERSION
 
 Migration = Callable[[Connection], None]
@@ -80,6 +81,22 @@ def _migration_3_to_4(connection: Connection) -> None:
             connection.execute(text(f"ALTER TABLE analysis_results ADD COLUMN {name} FLOAT"))
 
 
+def _ensure_query_indexes(connection: Connection) -> None:
+    """Optional non-unique access paths preserve the schema-4 data contract for older builds."""
+    if (
+        connection.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jobs'")
+        ).scalar_one_or_none()
+        is None
+    ):
+        return
+    names = {"ix_jobs_recent", "ix_jobs_type_recent", "ix_jobs_entity_recent"}
+    table = cast(Table, JobRow.__table__)
+    for index in sorted(table.indexes, key=lambda item: item.name or ""):
+        if index.name in names and not index.unique:
+            index.create(connection, checkfirst=True)
+
+
 _MIGRATIONS: Mapping[int, Migration] = MappingProxyType(
     {0: _migration_0_to_1, 1: _migration_1_to_2, 2: _migration_2_to_3, 3: _migration_3_to_4}
 )
@@ -108,6 +125,8 @@ class DatabaseMigrator:
                     raise DependencyError(
                         "DatabaseTooNew", "Database schema is newer than this backend"
                     )
+                if version == 4:
+                    _ensure_query_indexes(connection)
                 return version
         except SQLAlchemyError as exc:
             raise DependencyError("DatabaseMigrationFailed", "Database migration failed") from exc
