@@ -44,12 +44,21 @@ class ResourceLease:
         self._released = False
         self._lock = threading.Lock()
 
+    def retain_cpu(self) -> None:
+        """Finish model work while keeping the render's CPU reservation continuously owned."""
+        with self._lock:
+            if self._released or not (self._request.ram_bytes or self._request.vram_bytes):
+                return
+            memory = replace(self._request, cpu_threads=0, disk_bytes=0)
+            self._request = replace(self._request, ram_bytes=0, vram_bytes=0)
+            self._scheduler.release(memory)
+
     def release(self) -> None:
         with self._lock:
             if self._released:
                 return
             self._released = True
-        self._scheduler.release(self._request)
+            self._scheduler.release(self._request)
 
 
 class ProcessingResourceScheduler:
