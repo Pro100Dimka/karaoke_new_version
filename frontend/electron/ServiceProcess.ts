@@ -1,8 +1,4 @@
-import {
-  spawn,
-  spawnSync,
-  type ChildProcessWithoutNullStreams,
-} from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 /**
  * How a crashed service is restarted. The first restart comes quickly (a one-off crash costs half a
@@ -36,6 +32,7 @@ export class ServiceProcess {
   private stopping = false;
   private stopPromise: Promise<void> | null = null;
   private finishStop: (() => void) | null = null;
+  private forcing = false;
   private consecutiveFailures = 0;
   private startedAt = 0;
 
@@ -119,16 +116,20 @@ export class ServiceProcess {
       this.stopPromise = new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);
-          child.removeListener('exit', finish);
+          child.removeListener('exit', onExit);
           if (this.child === child) this.child = null;
           this.finishStop = null;
           resolve();
+        };
+        const onExit = () => {
+          // A venv launcher can exit before taskkill has finished its descendants.
+          if (!this.forcing) finish();
         };
         const timer = setTimeout(() => {
           void this.stop();
         }, 10_000);
         this.finishStop = finish;
-        child.once('exit', finish);
+        child.once('exit', onExit);
         void Promise.resolve()
           .then(shutdown)
           .catch(() => {
@@ -138,15 +139,58 @@ export class ServiceProcess {
       return this.stopPromise;
     }
     this.child = null;
-    if (process.platform === 'win32') {
-      // A venv python.exe is a launcher; kill the whole tree so no orphan keeps the port or lock.
-      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-        windowsHide: true,
-      });
-    } else {
-      child.kill();
+    this.forcing = true;
+    const terminated = this.terminateChild(child);
+    if (!this.stopPromise) this.stopPromise = terminated;
+    else void terminated.then(() => this.finishStop?.());
+    return this.stopPromise;
+  }
+
+  private terminateChild(child: ChildProcessWithoutNullStreams): Promise<void> {
+    const killChild = () => {
+      try {
+        child.kill();
+      } catch {
+        // An already-exited or inaccessible process cannot hold shutdown open.
+      }
+    };
+    if (process.platform !== 'win32') {
+      killChild();
+      return Promise.resolve();
     }
-    this.finishStop?.();
-    return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      let done = false;
+      let timer: NodeJS.Timeout | undefined;
+      const finish = (failed: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (failed) killChild();
+        resolve();
+      };
+      try {
+        // Keep the tree kill off Electron's main thread, including stalled taskkill launches.
+        const killer = spawn(
+          'taskkill',
+          ['/pid', String(child.pid), '/T', '/F'],
+          {
+            windowsHide: true,
+            stdio: 'ignore',
+          },
+        );
+        killer.once('error', () => finish(true));
+        killer.once('close', (code) => finish(code !== 0));
+        timer = setTimeout(() => {
+          try {
+            killer.kill();
+          } catch {
+            // Fall back to the service handle even if the helper is inaccessible.
+          }
+          finish(true);
+        }, 5_000);
+      } catch {
+        finish(true);
+      }
+    });
   }
 }

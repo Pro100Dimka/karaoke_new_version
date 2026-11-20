@@ -21,6 +21,7 @@ const childProcess = (pid: number) =>
     kill: vi.fn(),
     stdin: { end: vi.fn() },
   });
+const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 
 describe('service process lifecycle', () => {
   it('reports the exit code and signal of an unexpected child exit before restarting', async () => {
@@ -139,21 +140,21 @@ describe('service process lifecycle', () => {
     expect(processMocks.spawnSync).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     await stopping;
-    if (process.platform === 'win32') {
-      expect(processMocks.spawnSync).toHaveBeenCalledTimes(1);
-    } else {
-      expect(child.kill).toHaveBeenCalledOnce();
-      expect(processMocks.spawnSync).not.toHaveBeenCalled();
-    }
+    expect(child.kill).toHaveBeenCalledOnce();
+    expect(processMocks.spawnSync).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
   beforeEach(() => {
     vi.useFakeTimers();
+    Object.defineProperty(process, 'platform', { value: 'linux' });
     processMocks.spawn.mockReset();
     processMocks.spawnSync.mockReset();
   });
 
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(process, 'platform', platform);
+  });
 
   it('coalesces error and exit into one pending restart', () => {
     const child = childProcess(101);
@@ -182,7 +183,7 @@ describe('service process lifecycle', () => {
     expect(processMocks.spawn).toHaveBeenCalledTimes(1);
   });
 
-  it('kills only the process tree owned by the application', () => {
+  it('kills only the owned service handle on non-Windows platforms', () => {
     const child = childProcess(303);
     processMocks.spawn.mockReturnValue(child);
     const service = new ServiceProcess('service.exe', [], 'D:/app');
@@ -190,16 +191,157 @@ describe('service process lifecycle', () => {
     service.start();
     service.stop();
 
-    if (process.platform === 'win32') {
-      expect(processMocks.spawnSync).toHaveBeenCalledWith(
-        'taskkill',
-        ['/pid', '303', '/T', '/F'],
-        { windowsHide: true },
-      );
-    } else {
-      expect(child.kill).toHaveBeenCalledOnce();
+    expect(child.kill).toHaveBeenCalledOnce();
+    expect(processMocks.spawn).toHaveBeenCalledOnce();
+    expect(processMocks.spawnSync).not.toHaveBeenCalled();
+  });
+
+  describe('asynchronous Windows process-tree shutdown', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+    });
+
+    it('keeps the event loop responsive and waits for the tree killer before completing stop', async () => {
+      const child = childProcess(1001);
+      const killer = childProcess(1002);
+      processMocks.spawn.mockReturnValueOnce(child).mockReturnValueOnce(killer);
+      const service = new ServiceProcess('python.exe', [], 'D:/app');
+      service.start();
+      const stopping = service.stop();
+      let finished = false;
+      void stopping.then(() => {
+        finished = true;
+      });
       expect(processMocks.spawnSync).not.toHaveBeenCalled();
-    }
+      expect(processMocks.spawn).toHaveBeenLastCalledWith(
+        'taskkill',
+        ['/pid', '1001', '/T', '/F'],
+        { windowsHide: true, stdio: 'ignore' },
+      );
+      expect(service.stop()).toBe(stopping);
+      expect(service.stop(() => Promise.resolve())).toBe(stopping);
+      const uiTick = vi.fn();
+      setTimeout(uiTick, 25);
+      await vi.advanceTimersByTimeAsync(25);
+      expect(uiTick).toHaveBeenCalledOnce();
+      expect(finished).toBe(false);
+      child.emit('exit', 0);
+      await Promise.resolve();
+      expect(finished).toBe(false);
+      killer.emit('close', 0);
+      await stopping;
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      service.start();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(processMocks.spawn).toHaveBeenCalledTimes(2);
+    });
+
+    it('preserves the graceful deadline and does not resolve on launcher exit during forced termination', async () => {
+      const child = childProcess(1101);
+      const killer = childProcess(1102);
+      processMocks.spawn.mockReturnValueOnce(child).mockReturnValueOnce(killer);
+      const service = new ServiceProcess('python.exe', [], 'D:/app');
+      service.start();
+      const shutdown = vi.fn(() => new Promise<void>(() => {}));
+      const stopping = service.stop(shutdown);
+      let finished = false;
+      void stopping.then(() => {
+        finished = true;
+      });
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(processMocks.spawn).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(processMocks.spawnSync).not.toHaveBeenCalled();
+      expect(processMocks.spawn).toHaveBeenCalledTimes(2);
+      expect(service.stop()).toBe(stopping);
+      child.emit('exit', 0);
+      await Promise.resolve();
+      expect(finished).toBe(false);
+      killer.emit('close', 0);
+      await stopping;
+      expect(shutdown).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('forces a rejected graceful request without publishing a completed stop early', async () => {
+      const child = childProcess(1151);
+      const killer = childProcess(1152);
+      processMocks.spawn.mockReturnValueOnce(child).mockReturnValueOnce(killer);
+      const service = new ServiceProcess('python.exe', [], 'D:/app');
+      service.start();
+      const stopping = service.stop(() => Promise.reject(new Error('offline')));
+      let finished = false;
+      void stopping.then(() => {
+        finished = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(processMocks.spawn).toHaveBeenCalledTimes(2);
+      expect(service.stop()).toBe(stopping);
+      expect(finished).toBe(false);
+      killer.emit('close', 0);
+      await stopping;
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it.each(['error', 'nonzero', 'throw', 'timeout'] as const)(
+      'falls back to the owned child and clears timers when taskkill fails with %s',
+      async (failure) => {
+        const child = childProcess(1201);
+        const killer = childProcess(1202);
+        processMocks.spawn
+          .mockReturnValueOnce(child)
+          .mockImplementationOnce(() => {
+            if (failure === 'throw') throw new Error('taskkill unavailable');
+            return killer;
+          });
+        const service = new ServiceProcess('python.exe', [], 'D:/app');
+        service.start();
+        const stopping = service.stop();
+        expect(processMocks.spawnSync).not.toHaveBeenCalled();
+        if (failure === 'error')
+          killer.emit('error', new Error('taskkill unavailable'));
+        if (failure === 'nonzero') killer.emit('close', 1);
+        if (failure === 'timeout') {
+          await vi.advanceTimersByTimeAsync(4_999);
+          expect(child.kill).not.toHaveBeenCalled();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(killer.kill).toHaveBeenCalledOnce();
+        }
+        await stopping;
+        expect(child.kill).toHaveBeenCalledOnce();
+        expect(vi.getTimerCount()).toBe(0);
+        if (failure === 'timeout')
+          killer.emit('error', new Error('late helper error'));
+        killer.emit('close', 1);
+        expect(child.kill).toHaveBeenCalledOnce();
+        child.emit('exit', 0);
+        service.start();
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(processMocks.spawn).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it('still bounds shutdown if both helper and service handles reject termination', async () => {
+      const child = childProcess(1301);
+      const killer = childProcess(1302);
+      child.kill.mockImplementation(() => {
+        throw new Error('already exited');
+      });
+      killer.kill.mockImplementation(() => {
+        throw new Error('access denied');
+      });
+      processMocks.spawn.mockReturnValueOnce(child).mockReturnValueOnce(killer);
+      const service = new ServiceProcess('python.exe', [], 'D:/app');
+      service.start();
+      const stopping = service.stop();
+      await vi.advanceTimersByTimeAsync(5_000);
+      await stopping;
+      expect(child.kill).toHaveBeenCalledOnce();
+      expect(killer.kill).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 
   describe('crash restart backoff', () => {
