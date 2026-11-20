@@ -19,6 +19,8 @@ dependencies = [
   "scipy>=1.11,<2",
   "soundfile>=0.12,<1",
   "librosa>=0.11,<2",
+  "numba>=0.61,<1",
+  "threadpoolctl>=3,<4",
   "yt-dlp>=2026.3.17",
   "yt-dlp-ejs==0.8.0",
   "num2words>=0.5.14,<1"

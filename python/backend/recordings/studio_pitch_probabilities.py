@@ -25,8 +25,14 @@ from librosa.version import version as _LIBROSA_VERSION
 import numpy as np
 from scipy import stats
 
+from backend.recordings.studio_pitch_decoder import isolate_decoder
+from backend.recordings.studio_pitch_difference import bounded_difference
+from backend.recordings.studio_pitch_kernels import trough_probabilities
+
 PitchResult = tuple[np.ndarray, np.ndarray, np.ndarray]
 _MAX_PERIODS = 512
+_DIFFERENCE_NAME = "_cumulative_mean_normalized_difference"
+_DIFFERENCE_ARGUMENTS = ("y_frames", "min_period", "max_period")
 _HELPER_ARGUMENTS = (
     "yin_frames",
     "parabolic_shifts",
@@ -71,11 +77,18 @@ def _compatible(function: Callable[..., PitchResult], version: str) -> bool:
     if version != "1.0.0" or not isinstance(function, FunctionType):
         return False
     helper = function.__globals__.get("__pyin_helper")
+    difference = function.__globals__.get(_DIFFERENCE_NAME)
     return (
         _uses_helper(function.__code__)
         and isinstance(helper, FunctionType)
+        and helper.__code__.co_name == "__pyin_helper"
         and tuple(signature(function).parameters) == _PYIN_ARGUMENTS
         and tuple(signature(helper).parameters) == _HELPER_ARGUMENTS
+        and isinstance(difference, FunctionType)
+        and difference.__module__ == "librosa.core.pitch"
+        and difference.__name__ == _DIFFERENCE_NAME
+        and difference.__code__.co_name == _DIFFERENCE_NAME
+        and tuple(signature(difference).parameters) == _DIFFERENCE_ARGUMENTS
     )
 
 
@@ -83,18 +96,21 @@ def _engine(function: Callable[..., PitchResult], version: str) -> Callable[...,
     if not _compatible(function, version):
         return function
     source = cast(FunctionType, function)
-    return _clone(source, source.__globals__["__pyin_helper"])
+    return isolate_decoder(
+        _clone(source, source.__globals__["__pyin_helper"], source.__globals__[_DIFFERENCE_NAME])
+    )
 
 
 @lru_cache(maxsize=4)
-def _clone(function: FunctionType, helper: FunctionType) -> Callable[..., PitchResult]:
+def _clone(function: FunctionType, helper: FunctionType, difference: FunctionType) -> FunctionType:
     namespace = dict(function.__globals__)
     namespace["__pyin_helper"] = partial(_helper, reference=helper)
+    namespace[_DIFFERENCE_NAME] = partial(bounded_difference, reference=difference)
     engine = FunctionType(
         function.__code__, namespace, function.__name__, function.__defaults__, function.__closure__
     )
     engine.__kwdefaults__ = function.__kwdefaults__
-    return cast(Callable[..., PitchResult], engine)
+    return engine
 
 
 def fast_pyin(
@@ -131,18 +147,14 @@ def _yin_probabilities(
     beta: np.ndarray,
     no_trough: float,
 ) -> np.ndarray:
-    probabilities = np.zeros_like(frames)
     troughs = librosa.util.localmin(frames, axis=0)
     troughs[0] = frames[0] < frames[1]
     count = len(frames) + 1
     prior = stats.boltzmann.pmf(np.arange(count)[:, None], boltzmann, np.arange(count)[None, :])
-    for index, frame in enumerate(frames.T):
-        (locations,) = np.nonzero(troughs[:, index])
-        if len(locations):
-            probabilities[locations, index] = _frame_probabilities(
-                frame[locations], thresholds, prior, beta, no_trough
-            )
-    return probabilities
+    prefix = np.asarray([np.sum(beta[:end]) for end in range(len(beta) + 1)])
+    return np.asarray(
+        trough_probabilities(frames, troughs, thresholds, prior, beta, prefix, no_trough)
+    )
 
 
 def _observations(

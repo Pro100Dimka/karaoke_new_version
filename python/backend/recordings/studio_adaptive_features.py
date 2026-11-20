@@ -17,6 +17,7 @@ import soundfile as sf
 
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_parallel import ordered_map
 
 FloatArray = NDArray[np.float64]
 BAND_EDGES = (
@@ -32,7 +33,7 @@ BAND_EDGES = (
 
 
 @dataclass(frozen=True, slots=True)
-class VoiceFeatures:
+class FrameFeatures:
     rate: int
     frames: int
     channels: int
@@ -46,14 +47,18 @@ class VoiceFeatures:
     protected: NDArray[np.bool_]
     noise_floor_db: float
     noise_confident: bool
-    frequencies: FloatArray
-    spectrum_db: FloatArray
-    spectral_frames: FloatArray
-    low_edge_hz: float
 
     @property
     def active_seconds(self) -> float:
         return float(np.count_nonzero(self.active) * self.step)
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceFeatures(FrameFeatures):
+    frequencies: FloatArray
+    spectrum_db: FloatArray
+    spectral_frames: FloatArray
+    low_edge_hz: float
 
 
 def regions(mask: NDArray[np.bool_]) -> list[tuple[int, int]]:
@@ -83,7 +88,6 @@ def active_mask(levels: FloatArray) -> tuple[NDArray[np.bool_], float, bool]:
 def _measure_blocks(
     path: Path, cancel: threading.Event
 ) -> tuple[FloatArray, FloatArray, FloatArray, NDArray[np.bool_], int, int, int]:
-    rows: list[tuple[FloatArray, FloatArray, FloatArray, NDArray[np.bool_]]] = []
     with sf.SoundFile(path) as audio:
         if audio.frames == 0 or audio.samplerate < 1000:
             raise DependencyError("StudioMasterInvalidAudio", "Audio has no valid samples")
@@ -93,9 +97,15 @@ def _measure_blocks(
         masks = [
             (frequency >= lo) & (frequency < min(hi, audio.samplerate / 2)) for lo, hi in BAND_EDGES
         ]
-        for block in audio.blocks(blocksize=frame_size * 128, dtype="float64", always_2d=True):
+
+        def measure(
+            block: FloatArray,
+        ) -> tuple[FloatArray, FloatArray, FloatArray, NDArray[np.bool_]]:
             _check_cancel(cancel)
-            rows.append(_frame_statistics(block, frame_size, window, masks))
+            return _frame_statistics(block, frame_size, window, masks)
+
+        blocks = audio.blocks(blocksize=frame_size * 128, dtype="float64", always_2d=True)
+        rows = list(ordered_map(measure, blocks))
         return (
             np.concatenate([row[0] for row in rows]),
             np.concatenate([row[1] for row in rows]),
@@ -163,25 +173,26 @@ def _read_spectrum(
     )
 
 
-def _normalized_spectrum(
-    spectrum: FloatArray,
+def _normalized_spectra(
+    spectra: FloatArray,
     frequencies: FloatArray,
     centers: FloatArray,
     masks: list[NDArray[np.bool_]],
 ) -> FloatArray:
-    values = np.asarray(
-        [
-            float(np.mean(spectrum[mask]))
-            if mask.any()
-            else float(np.interp(center, frequencies, spectrum))
-            for center, mask in zip(centers, masks)
-        ]
-    )
+    values = np.empty((len(spectra), len(centers)))
+    missing = np.asarray([not mask.any() for mask in masks])
+    for index, mask in enumerate(masks):
+        if not missing[index]:
+            # A contiguous row keeps NumPy's original one-spectrum reduction order.
+            values[:, index] = np.mean(np.ascontiguousarray(spectra[:, mask]), axis=1)
+    if missing.any():
+        values[:, missing] = [np.interp(centers[missing], frequencies, row) for row in spectra]
     decibels = 10 * np.log10(np.maximum(values, 1e-14))
-    anchor = float(np.percentile(decibels[(centers >= 200) & (centers <= 4000)], 75))
+    middle = np.ascontiguousarray(decibels[:, (centers >= 200) & (centers <= 4000)])
+    anchors = np.percentile(middle, 75, axis=1)
     # Sparse harmonics must be referenced to real energy, not numerical silence.
-    anchor = max(anchor, float(np.max(decibels)) - 12)
-    return np.asarray(decibels - anchor, dtype=np.float64)
+    anchors = np.maximum(anchors, np.max(decibels, axis=1) - 12)
+    return np.asarray(decibels - anchors[:, None], dtype=np.float64)
 
 
 def _low_edge(spectrum: FloatArray, frequencies: FloatArray) -> float | None:
@@ -240,7 +251,7 @@ def _spectral_summary(
         count = max(64, round(audio.samplerate * 0.12))
         frequency = np.fft.rfftfreq(count, 1 / audio.samplerate)
         window = np.hanning(count)
-        summary: list[FloatArray] = []
+        spectra: list[FloatArray] = []
         low_edges: list[float] = []
         masks = [
             (frequency >= center / 2 ** (1 / 12)) & (frequency <= center * 2 ** (1 / 12))
@@ -249,11 +260,11 @@ def _spectral_summary(
         for index in indices:
             _check_cancel(cancel)
             spectrum = _read_spectrum(audio, int(index), step, window)
-            summary.append(_normalized_spectrum(spectrum, frequency, centers, masks))
+            spectra.append(spectrum)
             edge = _low_edge(spectrum, frequency)
             if edge is not None:
                 low_edges.append(edge)
-        frames = np.asarray(summary, dtype=np.float64)
+        frames = _normalized_spectra(np.asarray(spectra), frequency, centers, masks)
         low = float(np.percentile(low_edges, 10)) if low_edges else 120.0
         quiet_low = _quiet_low_edge(audio, quiet_bass, step, window, frequency, cancel)
         return (
@@ -264,7 +275,7 @@ def _spectral_summary(
         )
 
 
-def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
+def _frame_features(path: Path, cancel: threading.Event) -> tuple[FrameFeatures, NDArray[np.bool_]]:
     _check_cancel(cancel)
     rms, peaks, bands, tonal, rate, frames, channels = _measure_blocks(path, cancel)
     step = max(1, round(rate * 0.02)) / rate
@@ -272,9 +283,7 @@ def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
     # Ambiguous quiet tone can be preserved without influencing vocal statistics.
     protected = active | (tonal & (rms > -100))
     protected |= (rms > floor + 6) if noise else False
-    quiet_bass = _quiet_bass_frames(rms, bands, tonal, active)
-    frequencies, spectrum, spectra, low = _spectral_summary(path, active, quiet_bass, step, cancel)
-    return VoiceFeatures(
+    measured = FrameFeatures(
         rate,
         frames,
         channels,
@@ -287,6 +296,34 @@ def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
         protected,
         floor,
         noise,
+    )
+    return measured, tonal
+
+
+def analyze_frames(path: Path, cancel: threading.Event) -> FrameFeatures:
+    """Measure complete level, band, activity, and preservation evidence for dynamics."""
+    return _frame_features(path, cancel)[0]
+
+
+def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
+    measured, tonal = _frame_features(path, cancel)
+    quiet_bass = _quiet_bass_frames(measured.rms_db, measured.bands_db, tonal, measured.active)
+    frequencies, spectrum, spectra, low = _spectral_summary(
+        path, measured.active, quiet_bass, measured.step, cancel
+    )
+    return VoiceFeatures(
+        measured.rate,
+        measured.frames,
+        measured.channels,
+        measured.step,
+        measured.times,
+        measured.rms_db,
+        measured.peak_db,
+        measured.bands_db,
+        measured.active,
+        measured.protected,
+        measured.noise_floor_db,
+        measured.noise_confident,
         frequencies,
         spectrum,
         spectra,
@@ -294,14 +331,14 @@ def analyze_voice(path: Path, cancel: threading.Event) -> VoiceFeatures:
     )
 
 
-def protected_activity(features: VoiceFeatures, hold_seconds: float = 0.3) -> NDArray[np.bool_]:
+def protected_activity(features: FrameFeatures, hold_seconds: float = 0.3) -> NDArray[np.bool_]:
     width = max(1, round(hold_seconds / features.step)) * 2 + 1
     return np.asarray(
         maximum_filter1d(features.protected.astype(np.int8), size=width, mode="nearest") > 0
     )
 
 
-def level_summary(features: VoiceFeatures) -> dict[str, float]:
+def level_summary(features: FrameFeatures) -> dict[str, float]:
     levels = features.rms_db[features.active]
     if not levels.size:
         levels = features.rms_db

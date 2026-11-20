@@ -12,7 +12,13 @@ from scipy.signal import find_peaks
 
 from backend.recordings.studio_audio import MasterRenderer
 from backend.recordings.studio_voice import render_voice_filters as _filter
-from backend.recordings.studio_adaptive_features import VoiceFeatures, analyze_voice, level_summary
+from backend.recordings.studio_adaptive_features import (
+    FrameFeatures,
+    VoiceFeatures,
+    analyze_frames,
+    analyze_voice,
+    level_summary,
+)
 from backend.recordings.studio_voice_analysis import VoiceAnalysisCache
 from backend.recordings.studio_arrangement import ArrangementMap
 from backend.recordings.studio_section_balance import render_section_tone
@@ -119,7 +125,7 @@ def _supported_cuts(
     return resonances
 
 
-def _color_noise_floor(voice: VoiceFeatures) -> np.ndarray:
+def _color_noise_floor(voice: FrameFeatures) -> np.ndarray:
     quiet = ~voice.active & (voice.rms_db < voice.noise_floor_db + 2.5)
     # Low-frequency room noise is not the noise floor of the presence/air band.
     # Use only established quiet intervals; otherwise retain the conservative
@@ -132,7 +138,7 @@ def _color_noise_floor(voice: VoiceFeatures) -> np.ndarray:
 
 
 def _color_plan(
-    voice: VoiceFeatures, reference: VoiceFeatures | None
+    voice: FrameFeatures, reference: FrameFeatures | None
 ) -> tuple[list[str], dict[str, object]]:
     bands: list[dict[str, float]] = []
     filters: list[str] = []
@@ -170,15 +176,15 @@ def _compress(
     renderer: MasterRenderer,
     source: Path,
     target: Path,
-    features: VoiceFeatures,
-    reference: VoiceFeatures | None,
+    features: FrameFeatures,
+    reference: FrameFeatures | None,
     cancel: threading.Event,
     *,
     fast: bool,
-) -> tuple[VoiceFeatures, dict[str, object]]:
+) -> tuple[FrameFeatures, dict[str, object]]:
     graph, report = compressor_plan(features, fast=fast, reference=reference)
     _filter(renderer, source, target, [graph] if graph else [], cancel)
-    after = analyze_voice(target, cancel)
+    after = analyze_frames(target, cancel)
     reduction = features.rms_db - after.rms_db
     selected = reduction[features.active]
     report["measuredMedianReductionDb"] = float(np.median(selected)) if selected.size else 0.0
@@ -221,7 +227,7 @@ def process_voice(
         "saturation",
     ]
     report["before"] = level_summary(measured)
-    report["after"] = level_summary(analyze_voice(target, cancel))
+    report["after"] = level_summary(analyze_frames(target, cancel))
     return report
 
 
@@ -241,19 +247,19 @@ def _insert_chain(
     subtractive, report["subtractiveEq"] = _subtractive_plan(measured, origin)
     equalized = work / "subtractive.wav"
     _filter(renderer, source, equalized, subtractive, cancel)
-    measured = analyze_voice(equalized, cancel)
+    frames = analyze_frames(equalized, cancel)
     peak, leveling = work / "peak.wav", work / "leveling.wav"
-    measured, report["peakCompressor"] = _compress(
-        renderer, equalized, peak, measured, origin, cancel, fast=True
+    frames, report["peakCompressor"] = _compress(
+        renderer, equalized, peak, frames, origin, cancel, fast=True
     )
     # Plan leveling from the actual first compressor output.
-    measured, report["levelingCompressor"] = _compress(
-        renderer, peak, leveling, measured, origin, cancel, fast=False
+    frames, report["levelingCompressor"] = _compress(
+        renderer, peak, leveling, frames, origin, cancel, fast=False
     )
     deessed = work / "deessed.wav"
-    report["deesser"] = deess_voice(leveling, deessed, cancel, features=measured)
-    measured = analyze_voice(deessed, cancel)
-    coloring, report["colorEq"] = _color_plan(measured, origin)
+    report["deesser"] = deess_voice(leveling, deessed, cancel, features=frames)
+    frames = analyze_frames(deessed, cancel)
+    coloring, report["colorEq"] = _color_plan(frames, origin)
     colored = work / "colored.wav"
     color_base = work / "color-base.wav" if arrangement is not None else colored
     _filter(renderer, deessed, color_base, coloring, cancel)
@@ -261,6 +267,6 @@ def _insert_chain(
         report["sectionTone"] = render_section_tone(
             color_base, colored, reference, arrangement, cancel
         )
-    measured = analyze_voice(colored, cancel)
-    report["saturation"] = saturate_voice(colored, target, work, cancel, measured)
+    frames = analyze_frames(colored, cancel)
+    report["saturation"] = saturate_voice(colored, target, work, cancel, frames)
     return report

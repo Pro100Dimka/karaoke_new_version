@@ -8,6 +8,7 @@ The map describes evidence; callers still gate gains and sends with the singer.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 import threading
 
@@ -20,6 +21,7 @@ import soundfile as sf
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_adaptive_features import BAND_EDGES, regions
 from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_parallel import ordered_map
 
 FloatArray = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
@@ -397,8 +399,8 @@ def analyze_arrangement(
     count = max(1, int(np.ceil(duration / _STEP)))
     ends = np.minimum((np.arange(count) + 1) * _STEP, duration)
     times = np.asarray((np.arange(count) * _STEP + ends) / 2)
-    music = _read_features(backing, count, duration, cancel)
-    reference = _read_features(reference_vocal, count, duration, cancel)
+    reader = partial(_read_features, count=count, duration=duration, cancel=cancel)
+    music, reference = ordered_map(reader, (backing, reference_vocal))
     valid = _reference_coverage(reference, times, reference_intervals)
     voice = _activity(reference, valid)
     raw_density = _density(music)

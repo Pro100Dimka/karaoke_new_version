@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -25,6 +26,7 @@ from backend.recordings.studio_audio import (
     _write_gain_envelope,
 )
 from backend.recordings.studio_adaptive_balance import (
+    BalancePlan,
     plan_balance as plan_balance,
     measure_balance,
     vocal_activity as _activity,
@@ -34,6 +36,8 @@ from backend.recordings.studio_adaptive_space import render_sends
 from backend.recordings.studio_arrangement import ArrangementMap, analyze_arrangement
 from backend.recordings.studio_section_balance import plan_section_balance
 from backend.recordings.studio_mix_audit import audit_mix
+from backend.recordings.studio_profiles import ProfileRequest, measure_profiles
+from backend.recordings.studio_parallel import schedule_map
 
 _STEP = 0.1
 
@@ -67,20 +71,15 @@ class DuckPlan:
 
 
 def _duck_frequency(
-    vocal: Path,
-    backing: Path,
+    vocal: tuple[np.ndarray, ...],
+    backing: tuple[np.ndarray, ...],
     voice: np.ndarray,
     music: np.ndarray,
     eligible: np.ndarray,
-    high: float,
-    cancel: threading.Event,
+    bands: tuple[tuple[float, float], ...],
 ) -> float:
     weights, centers = [], []
-    for begin, end in ((1500.0, 2000.0), (2000.0, 2700.0), (2700.0, high)):
-        if end <= begin:
-            continue
-        v = _profile(vocal, cancel, voice_band=True, band_hz=(begin, end))
-        b = _profile(backing, cancel, voice_band=True, band_hz=(begin, end))
+    for v, b, (begin, end) in zip(vocal, backing, bands, strict=True):
         relative = v[eligible] - voice[eligible] + b[eligible] - music[eligible]
         weights.append(float(np.mean(10 ** (relative / 20))))
         centers.append(math.sqrt(begin * end))
@@ -112,15 +111,22 @@ def _duck_plan(vocal: Path, backing: Path, cancel: threading.Event) -> DuckPlan 
     low, high = 1500.0, min(3500.0, sf.info(backing).samplerate * 0.45)
     if high <= low:
         return None
-    voice, music = _profile(vocal, cancel), _profile(backing, cancel)
-    vband = _profile(vocal, cancel, voice_band=True, band_hz=(low, high))
-    bband = _profile(backing, cancel, voice_band=True, band_hz=(low, high))
+    bands = tuple(
+        (begin, end)
+        for begin, end in ((1500.0, 2000.0), (2000.0, 2700.0), (2700.0, high))
+        if end > begin
+    )
+    requests = (ProfileRequest(), ProfileRequest(band_hz=(low, high))) + tuple(
+        ProfileRequest(band_hz=band) for band in bands
+    )
+    voice, vband, *vocal_bands = measure_profiles(vocal, cancel, requests)
+    music, bband, *music_bands = measure_profiles(backing, cancel, requests)
     active = _activity(voice)
     supported, evidence = _vocal_band_support(voice, vband, active)
     eligible = active & _activity(music) & supported & (bband - music > -18)
     if not eligible.any():
         return None
-    center = _duck_frequency(vocal, backing, voice, music, eligible, high, cancel)
+    center = _duck_frequency(tuple(vocal_bands), tuple(music_bands), voice, music, eligible, bands)
     requested = np.where(eligible, np.clip((bband - vband + 6) * 0.3, 0, 3), 0.0)
     reduction = gaussian_filter1d(requested, sigma=1.0, mode="constant")
     reduction[~active] = 0
@@ -223,6 +229,41 @@ def _reference_mix(
     return target
 
 
+def _mix_sends(
+    inputs: MixInputs,
+    paths: tuple[Path, Path, Path],
+    plan: BalancePlan,
+    cancel: threading.Event,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    balanced, music, spatial = paths
+
+    def prepare(_: None) -> tuple[dict[str, object], dict[str, object]]:
+        duck = duck_backing(balanced, inputs.backing, music, cancel)
+        return duck, measure_balance(plan, balanced, music, cancel)
+
+    result: tuple[dict[str, object], dict[str, object]] | None = None
+    with closing(schedule_map(prepare, (None,))) as pending:
+
+        def backing_ready() -> None:
+            nonlocal result
+            if result is None:
+                result = next(pending)
+
+        effects = render_sends(
+            balanced,
+            music,
+            spatial,
+            cancel,
+            reference=inputs.reference_vocal,
+            recorded_is_dry=inputs.recorded_is_dry,
+            arrangement=inputs.arrangement,
+            backing_ready=backing_ready,
+        )
+        backing_ready()
+        assert result is not None
+        return *result, effects
+
+
 def _mix_stages(
     renderer: MasterRenderer,
     inputs: MixInputs,
@@ -242,19 +283,10 @@ def _mix_stages(
     balanced, music, spatial = work / "balanced.wav", work / "backing.wav", work / "spatial.wav"
     _write_gain_envelope(inputs.vocal, balanced, plan.times, plan.gains, cancel)
     balance_seconds = time.perf_counter() - started
-    duck = duck_backing(balanced, inputs.backing, music, cancel)
-    plan.report.update(measure_balance(plan, balanced, music, cancel))
     if progress:
         progress("MixingStudioMaster", 0.55, 0.84)
-    effects = render_sends(
-        balanced,
-        music,
-        spatial,
-        cancel,
-        reference=inputs.reference_vocal,
-        recorded_is_dry=inputs.recorded_is_dry,
-        arrangement=inputs.arrangement,
-    )
+    duck, measured, effects = _mix_sends(inputs, (balanced, music, spatial), plan, cancel)
+    plan.report.update(measured)
     _sum_stems(renderer, spatial, music, work / "mix.wav", cancel)
     return {
         "balance": plan.report,

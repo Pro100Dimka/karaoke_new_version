@@ -102,8 +102,12 @@ def _spectral_anchor(
     voice: np.ndarray,
     expected: np.ndarray,
     cancel: threading.Event,
+    *,
+    presence: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, object]]:
-    band, reference_band = _presence_profile(vocal, cancel), _presence_profile(reference, cancel)
+    if presence is None:
+        presence = _presence_profile(vocal, cancel), _presence_profile(reference, cancel)
+    band, reference_band = presence
     supported, voice_report = _band_support(band, voice)
     reference_supported, reference_report = _band_support(reference_band, expected)
     active = vocal_activity(voice)

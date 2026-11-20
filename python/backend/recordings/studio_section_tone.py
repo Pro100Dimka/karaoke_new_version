@@ -16,13 +16,13 @@ import soundfile as sf
 
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_adaptive_balance import (
-    _lead_profile,
     _reference_core_masks,
     _spectral_anchor,
     vocal_activity,
 )
 from backend.recordings.studio_arrangement import ArrangementMap
-from backend.recordings.studio_audio import _check_cancel, _profile, _temporary_wave
+from backend.recordings.studio_audio import _check_cancel, _temporary_wave
+from backend.recordings.studio_profiles import ProfileRequest, measure_profiles
 
 FloatArray = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
@@ -58,13 +58,22 @@ def context_mask(times: FloatArray, arrangement: ArrangementMap, values: BoolArr
 
 def _voice_levels(
     path: Path, cancel: threading.Event
-) -> tuple[FloatArray, FloatArray, FloatArray, FloatArray]:
-    return (
-        _lead_profile(path, cancel),
-        _profile(path, cancel, voice_band=True, band_hz=(80.0, 800.0), center=True),
-        _profile(path, cancel, voice_band=True, band_hz=(800.0, 1500.0), center=True),
-        _profile(path, cancel, voice_band=True, band_hz=(1500.0, 3500.0), center=True),
+) -> tuple[FloatArray, FloatArray, FloatArray, FloatArray, FloatArray]:
+    info = sf.info(path)
+    bands = (
+        (80.0, 800.0),
+        (800.0, 1500.0),
+        (1500.0, 3500.0),
+        (800.0, min(3500.0, info.samplerate * 0.45)),
     )
+    requests = (ProfileRequest(), ProfileRequest(center=True)) + tuple(
+        ProfileRequest(center=True, band_hz=band) for band in bands
+    )
+    full, mid, body, lower, words, presence = measure_profiles(path, cancel, requests)
+    active = vocal_activity(full)
+    if info.channels == 2 and not (active.any() and np.median(full[active] - mid[active]) > 12):
+        full = mid
+    return full, body, lower, words, presence
 
 
 def section_evidence(
@@ -74,8 +83,8 @@ def section_evidence(
     info = sf.info(vocal)
     if (info.frames, info.samplerate) != (arrangement.frames, arrangement.rate):
         raise DependencyError("StudioMasterStemMismatch", "Vocal and arrangement timelines differ")
-    full, body, lower, words = _voice_levels(vocal, cancel)
-    expected, ref_body, ref_lower, ref_words = _voice_levels(reference, cancel)
+    full, body, lower, words, presence = _voice_levels(vocal, cancel)
+    expected, ref_body, ref_lower, ref_words, ref_presence = _voice_levels(reference, cancel)
     if len(expected) != len(full):
         raise DependencyError("StudioMasterStemMismatch", "Reference does not cover the vocal")
     width = max(1, round(info.samplerate * 0.1))
@@ -83,7 +92,7 @@ def section_evidence(
     times = np.asarray((starts + np.minimum(width, info.frames - starts) / 2) / info.samplerate)
     valid = context_mask(times, arrangement, arrangement.reference_valid)
     actual, desired, weights, trusted, _ = _spectral_anchor(
-        vocal, reference, full, expected, cancel
+        vocal, reference, full, expected, cancel, presence=(presence, ref_presence)
     )
     active, ref_active = vocal_activity(full), vocal_activity(expected, 24.0) & valid & trusted
     own_core, ref_core = _reference_core_masks(

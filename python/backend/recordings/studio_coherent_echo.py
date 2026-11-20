@@ -1,6 +1,7 @@
 """Sparse regional copies require predictive waveform evidence, not envelope lag."""
 
 from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 import threading
 
@@ -10,6 +11,7 @@ from scipy.signal import butter, correlate, find_peaks, resample_poly, sosfilt
 
 from backend.recordings.studio_arrangement import ArrangementMap
 from backend.recordings.studio_audio import _check_cancel, _temporary_wave
+from backend.recordings.studio_parallel import ordered_map
 from backend.recordings.studio_regional_evidence import _diffuse_spectrum, _valid_intervals
 from backend.recordings.studio_regional_returns import AmbienceRegion, EchoRegion, _input_curve
 
@@ -232,14 +234,12 @@ def _region(
     )
 
 
-def plan_coherent_echoes(
-    voice: Path, reference: Path | None, arrangement: ArrangementMap, cancel: threading.Event
-) -> list[EchoRegion]:
-    if reference is None or sf.info(voice).channels != 2:
-        return []
+def _context_jobs(
+    reference: Path, arrangement: ArrangementMap
+) -> list[tuple[float, float, tuple[float, float]]]:
     valid = _valid_intervals(0, arrangement.duration_seconds, arrangement)
     reference_end = min(sf.info(reference).duration, arrangement.duration_seconds)
-    regions = []
+    contexts = []
     for section in arrangement.sections:
         bounds = _valid_intervals(
             section.start_seconds, min(section.end_seconds, reference_end), arrangement
@@ -247,10 +247,29 @@ def plan_coherent_echoes(
         for start, end in bounds:
             validity = next((a, b) for a, b in valid if a <= start and b >= end)
             for begin, finish in _local_contexts(start, end):
-                region = _region(voice, reference, begin, finish, validity, cancel)
-                if region is not None:
-                    regions.append(region)
-    return regions
+                contexts.append((begin, finish, validity))
+    return contexts
+
+
+def _measure_context(
+    voice: Path,
+    reference: Path,
+    cancel: threading.Event,
+    context: tuple[float, float, tuple[float, float]],
+) -> EchoRegion | None:
+    begin, finish, validity = context
+    return _region(voice, reference, begin, finish, validity, cancel)
+
+
+def plan_coherent_echoes(
+    voice: Path, reference: Path | None, arrangement: ArrangementMap, cancel: threading.Event
+) -> list[EchoRegion]:
+    if reference is None or sf.info(voice).channels != 2:
+        return []
+    regions = ordered_map(
+        partial(_measure_context, voice, reference, cancel), _context_jobs(reference, arrangement)
+    )
+    return [region for region in regions if region is not None]
 
 
 def without_echo_regions(

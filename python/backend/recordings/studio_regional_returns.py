@@ -119,17 +119,20 @@ def convolve_return(
     region: AmbienceRegion | EchoRegion,
     impulse: np.ndarray,
     cancel: threading.Event,
+    *,
+    frame_bounds: tuple[int, int] | None = None,
 ) -> None:
     info = sf.info(voice)
     size = next_fast_len(32768 + len(impulse) - 1, real=True)
     response = rfft(impulse, n=size, axis=0)
     overlap = np.zeros((len(impulse) - 1, 2))
-    offset = 0
+    offset, stop = (0, info.frames) if frame_bounds is None else frame_bounds
     with (
         sf.SoundFile(voice) as source,
         _temporary_wave(target, samplerate=info.samplerate, channels=2) as output,
     ):
-        for block in source.blocks(blocksize=32768, always_2d=True):
+        source.seek(offset)
+        for block in source.blocks(blocksize=32768, frames=stop - offset, always_2d=True):
             _check_cancel(cancel)
             time = (offset + np.arange(len(block))) / info.samplerate
             mono = block.mean(axis=1) * _input_curve(time, region)
@@ -143,3 +146,24 @@ def convolve_return(
             overlap = wet[len(block) :].copy()
             output.write(wet[: len(block)])
             offset += len(block)
+
+
+def _coverage(
+    regions: list[AmbienceRegion], echoes: list[EchoRegion], duration: float
+) -> dict[str, object]:
+    cursor = 0.0
+    unresolved = []
+    covered: list[AmbienceRegion | EchoRegion] = [*regions, *echoes]
+    for region in sorted(covered, key=lambda region: region.start):
+        if region.start > cursor:
+            unresolved.append([cursor, region.start])
+        cursor = max(cursor, region.end)
+    if cursor < duration:
+        unresolved.append([cursor, duration])
+    return {
+        "localFitSeconds": sum(r.end - r.start for r in regions if r.local_fit),
+        "contextEstimatedSeconds": sum(r.end - r.start for r in regions if not r.local_fit),
+        "coherentEchoSeconds": sum(r.end - r.start for r in echoes),
+        "unresolvedIntervals": unresolved,
+        "uncertainty": "Context estimates are bounded production choices, not independent local effect identification.",
+    }

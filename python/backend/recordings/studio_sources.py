@@ -15,6 +15,13 @@ from backend.domain_errors import DependencyError
 from backend.recordings.studio_adaptive_timing import shift_audio
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel
 from backend.recordings.studio_reference import verified_backing_gain
+from backend.recordings.studio_parallel import ordered_map
+from backend.recordings.studio_pcm import (
+    copy_identity_timeline,
+    copy_pcm,
+    copy_repeated_stereo,
+    lossless_pcm,
+)
 
 IDENTITY_TIMELINE: tuple[Mapping[str, object], ...] = (
     {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
@@ -90,6 +97,18 @@ def render_timeline(
         )
         for point, end in zip(points, ends)
     )
+    if not copy_identity_timeline(source, target, cancel, points, frames, rate, channels):
+        output = ["-ac", str(channels), "-ar", str(rate), "-c:a", "pcm_f32le", str(target)]
+        renderer._mix(source, source, _timeline_graph(points, ends, rate, frames), output, cancel)
+    info = sf.info(target)
+    if (info.frames, info.samplerate, info.channels) != (frames, rate, channels):
+        raise DependencyError("StudioMasterInvalidAudio", "Reference timeline changed format")
+    return min(1.0, covered / (frames / rate))
+
+
+def _timeline_graph(
+    points: tuple[PlaybackAdjustment, ...], ends: list[float], rate: int, frames: int
+) -> str:
     graph = [f"[0:a]asplit={len(points)}" + "".join(f"[s{i}]" for i in range(len(points)))]
     graph.extend(
         _segment_filter(point, end, i, rate) for i, (point, end) in enumerate(zip(points, ends))
@@ -98,12 +117,7 @@ def render_timeline(
         "".join(f"[p{i}]" for i in range(len(points)))
         + f"concat=n={len(points)}:v=0:a=1,apad,atrim=end_sample={frames}[out]"
     )
-    output = ["-ac", str(channels), "-ar", str(rate), "-c:a", "pcm_f32le", str(target)]
-    renderer._mix(source, source, ";".join(graph), output, cancel)
-    info = sf.info(target)
-    if (info.frames, info.samplerate, info.channels) != (frames, rate, channels):
-        raise DependencyError("StudioMasterInvalidAudio", "Reference timeline changed format")
-    return min(1.0, covered / (frames / rate))
+    return ";".join(graph)
 
 
 @dataclass(slots=True)
@@ -190,23 +204,49 @@ class _SourcePreparation:
 
     def _normalize_channels(self) -> None:
         sources = (self.mix, self.vocal, self.recorded_backing)
-        if self.channels > 2 and all(
-            self.renderer._repeated_output_channels(path, self.cancel) for path in sources
-        ):
-            self.channels = 2
-            converted = []
-            for index, source in enumerate(sources):
-                target = self.work / f"stereo-{index}.wav"
-                self.renderer._mix(
-                    source,
-                    source,
-                    "[0:a]pan=stereo|c0=c0|c1=c1[out]",
-                    ["-c:a", "pcm_f32le", str(target)],
-                    self.cancel,
+        if self.channels > 2:
+            if all(lossless_pcm(sf.info(source)) for source in sources):
+                self._normalize_pcm(sources)
+            elif all(ordered_map(self._repeated_channels, sources)):
+                self.channels = 2
+                self.mix, self.vocal, self.recorded_backing = ordered_map(
+                    self._stereo_source, enumerate(sources)
                 )
-                converted.append(target)
-            self.mix, self.vocal, self.recorded_backing = converted
         self.report.update(outputChannels=self.channels, sourceFrames=self.info.frames)
+
+    def _normalize_pcm(self, sources: tuple[Path, Path, Path]) -> None:
+        converted = tuple(ordered_map(self._verified_stereo, enumerate(sources)))
+        if all(path is not None for path in converted):
+            self.channels = 2
+            self.mix, self.vocal, self.recorded_backing = (
+                path for path in converted if path is not None
+            )
+        else:
+            for path in converted:
+                if path is not None:
+                    path.unlink()
+
+    def _verified_stereo(self, item: tuple[int, Path]) -> Path | None:
+        index, source = item
+        return copy_repeated_stereo(source, self.work / f"stereo-{index}.wav", self.cancel)
+
+    def _repeated_channels(self, path: Path) -> bool:
+        return self.renderer._repeated_output_channels(path, self.cancel)
+
+    def _stereo_source(self, item: tuple[int, Path]) -> Path:
+        index, source = item
+        target = self.work / f"stereo-{index}.wav"
+        if lossless_pcm(sf.info(source)):
+            copy_pcm(source, target, self.cancel, frames=self.info.frames, channels=2)
+            return target
+        self.renderer._mix(
+            source,
+            source,
+            "[0:a]pan=stereo|c0=c0|c1=c1[out]",
+            ["-c:a", "pcm_f32le", str(target)],
+            self.cancel,
+        )
+        return target
 
     def _timeline(self, source: Path, target: Path) -> float:
         return render_timeline(
@@ -225,10 +265,8 @@ class _SourcePreparation:
             self.work / "project-timeline.wav",
             self.work / "reference-timeline.wav",
         )
-        coverage = min(
-            self._timeline(self.original_backing, self.project),
-            self._timeline(self.reference_vocal, self.reference),
-        )
+        jobs = ((self.original_backing, self.project), (self.reference_vocal, self.reference))
+        coverage = min(ordered_map(self._map_track, jobs))
         correction, confidence = self.renderer._reference_offset(
             self.recorded_backing, self.project, 0.0, self.cancel
         )
@@ -250,6 +288,9 @@ class _SourcePreparation:
             self.reference_shift = -round(correction * self.info.samplerate)
             self._align_reference(self.project)
             self._align_reference(self.reference)
+
+    def _map_track(self, item: tuple[Path, Path]) -> float:
+        return self._timeline(*item)
 
     def _align_reference(self, source: Path) -> None:
         if self.reference_shift:

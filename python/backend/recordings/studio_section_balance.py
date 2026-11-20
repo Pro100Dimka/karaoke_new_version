@@ -19,7 +19,8 @@ from backend.recordings.studio_adaptive_balance import (
 from backend.recordings.studio_adaptive_calibration import calibrate_gains
 from backend.recordings.studio_adaptive_phrases import _core
 from backend.recordings.studio_arrangement import ArrangementMap
-from backend.recordings.studio_audio import _check_cancel, _profile
+from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_profiles import ProfileRequest, measure_profiles
 from backend.recordings.studio_section_tone import (
     BoolArray,
     FloatArray,
@@ -49,33 +50,29 @@ class _Music:
 
 
 def _band_scale(
-    actual: Path,
-    reference: Path,
-    band: tuple[float, float],
+    first: FloatArray,
+    second: FloatArray,
     rest: BoolArray,
-    cancel: threading.Event,
 ) -> FloatArray:
-    first = _profile(actual, cancel, voice_band=True, band_hz=band)
-    second = _profile(reference, cancel, voice_band=True, band_hz=band)
     difference = first - second
     typical = float(np.median(difference[~rest])) if (~rest).any() else 0.0
     return np.asarray(np.where(rest, typical, difference), dtype=np.float64)
 
 
 def _music_profiles(backing: Path, reference: Path, cancel: threading.Event) -> _Music:
-    actual, expected = _profile(backing, cancel), _profile(reference, cancel)
+    requests = (ProfileRequest(),) + tuple(
+        ProfileRequest(band_hz=band) for band in ((1500.0, 3500.0), (80.0, 800.0), (800.0, 1500.0))
+    )
+    actual, *own_bands = measure_profiles(backing, cancel, requests)
+    expected, *reference_bands = measure_profiles(reference, cancel, requests)
     if len(actual) != len(expected):
         raise DependencyError("StudioMasterStemMismatch", "Backing and reference timelines differ")
     actual, expected, rest, level = _music_anchor_levels(actual, expected)
-    return _Music(
-        actual,
-        expected,
-        _band_scale(backing, reference, (1500.0, 3500.0), rest, cancel),
-        _band_scale(backing, reference, (80.0, 800.0), rest, cancel),
-        _band_scale(backing, reference, (800.0, 1500.0), rest, cancel),
-        rest,
-        level,
+    word, body, lower = (
+        _band_scale(first, second, rest)
+        for first, second in zip(own_bands, reference_bands, strict=True)
     )
+    return _Music(actual, expected, word, body, lower, rest, level)
 
 
 def _relative_level(

@@ -741,7 +741,7 @@ def test_master_pitch_propagates_local_analysis_failure(tmp_path: Path, monkeypa
 
 @pytest.mark.parametrize("shared_room", [False, True])
 def test_master_only_passes_pitch_analysis_to_solo_recordings(tmp_path: Path, shared_room):
-    from contextlib import contextmanager
+    from contextlib import contextmanager, nullcontext
     from types import SimpleNamespace
     from backend.recordings.start_studio_master import StartStudioMaster
 
@@ -772,6 +772,7 @@ def test_master_only_passes_pitch_analysis_to_solo_recordings(tmp_path: Path, sh
 
     service = StartStudioMaster.__new__(StartStudioMaster)
     service._pitch_session = session
+    service._render_budget = lambda recording: nullcontext(3)
     service._project_identity = lambda recording: ("song", 1)
     service._original_mix = lambda *args: None
     service._projects = SimpleNamespace(artifact_path=lambda *args: tmp_path / args[-1])

@@ -20,14 +20,28 @@ _MAX_BOOST_DB = 9.0
 _VOCAL_TARGET_OFFSET_DB = -3.5
 
 
+class _ScratchWave(sf.SoundFile):
+    def write(self, data: object) -> None:
+        if isinstance(data, np.ndarray) and data.dtype == np.float64:
+            # Match FLOAT encoding's rounding before its slower native double conversion.
+            with np.errstate(all="ignore"):
+                data = data.astype(np.float32)
+        super().write(data)
+
+    def flush(self) -> None:
+        # sf_close still finalizes the WAV header and closes the native handle.
+        # These owned, disposable intermediates need no sf_write_sync/fsync.
+        # Native I/O also avoids a Python callback for every libsndfile write.
+        self._check_if_closed()
+
+
 @contextmanager
 def _temporary_wave(path: Path, *, samplerate: int, channels: int) -> Iterator[sf.SoundFile]:
     """Close scratch PCM before reuse without forcing a disk durability flush per stage."""
-    with path.open("w+b") as stream:
-        with sf.SoundFile(
-            stream, "w", samplerate=samplerate, channels=channels, subtype="FLOAT", format="WAV"
-        ) as output:
-            yield output
+    with _ScratchWave(
+        path, "w", samplerate=samplerate, channels=channels, subtype="FLOAT", format="WAV"
+    ) as output:
+        yield output
 
 
 def _write_gain_envelope(

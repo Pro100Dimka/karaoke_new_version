@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 import os
 import shutil
@@ -28,8 +29,21 @@ from backend.recordings.studio_voice_analysis import VoiceAnalysisCache
 from backend.recordings.studio_adaptive_mix import mix_and_master
 from backend.recordings.studio_arrangement import ArrangementMap, analyze_arrangement
 from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
+from backend.recordings.studio_pitch_prefetch import LocalPitchAnalyzer
+from backend.recordings.studio_parallel import (
+    ScheduledMap,
+    ordered_map,
+    render_execution,
+    schedule_map,
+)
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_sources import IDENTITY_TIMELINE, MasterSources, prepare_sources
+
+
+def _timed_arrangement(action: Callable[[], ArrangementMap]) -> tuple[ArrangementMap, float]:
+    started = perf_counter()
+    result = action()
+    return result, perf_counter() - started
 
 
 @dataclass(slots=True)
@@ -49,6 +63,7 @@ class MasterRender:
     progress: Callable[[str, float, float], None] | None
     pitch: PitchAnalyzer | None = None
     original_mix: Path | None = None
+    workers: int | None = None
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
     sources: MasterSources = field(init=False)
@@ -70,26 +85,45 @@ class MasterRender:
     reference_origin: float = field(default=0.0, init=False)
     stage_seconds: dict[str, float] = field(default_factory=dict, init=False)
     voice_analysis: VoiceAnalysisCache = field(default_factory=VoiceAnalysisCache, init=False)
+    _arrangement_work: (
+        ScheduledMap[Callable[[], ArrangementMap], tuple[ArrangementMap, float]] | None
+    ) = field(default=None, init=False, repr=False)
 
     def run(self) -> StudioMasterBalance:
         self._validate_destination()
         started = perf_counter()
-        with TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory:
+        with (
+            TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory,
+            render_execution(self.cancel, self.workers),
+        ):
             self.work = Path(directory)
-            self.processing = self._initial_report()
-            self._stage("sources", "PreparingStudioSources", 0.58, self._prepare_stems)
-            self._stage("arrangement", "PreparingStudioSources", 0.60, self._arrange)
-            self._analyze()
-            self._stage("alignment", "AligningStudioVoice", 0.61, self._align)
-            self._stage("preparation", "PreparingStudioVoice", 0.64, self._prepare_voice)
-            before = perf_counter()
-            self.processing["pitchCorrection"] = apply_reference_pitch(self)
-            self.stage_seconds["pitch"] = perf_counter() - before
-            self._stage("vocalInserts", "ProcessingStudioVoice", 0.73, self._finish_voice)
-            self._stage("mixAndMaster", "MixingStudioMaster", 0.82, self._deliver)
-            self.processing["stageSeconds"] = self.stage_seconds
-            self.processing["elapsedSeconds"] = perf_counter() - started
-            return self._balance_report()
+            try:
+                self.processing = self._initial_report()
+                self._stage("sources", "PreparingStudioSources", 0.58, self._prepare_stems)
+                self._prefetch_reference_pitch()
+                self._stage("arrangement", "PreparingStudioSources", 0.60, self._arrange)
+                self._analyze()
+                self._stage("alignment", "AligningStudioVoice", 0.61, self._align)
+                self._stage("preparation", "PreparingStudioVoice", 0.64, self._prepare_voice)
+                before = perf_counter()
+                self.processing["pitchCorrection"] = apply_reference_pitch(self)
+                self.stage_seconds["pitch"] = perf_counter() - before
+                self._collect_arrangement()
+                self._stage("vocalInserts", "ProcessingStudioVoice", 0.73, self._finish_voice)
+                self._stage("mixAndMaster", "MixingStudioMaster", 0.82, self._deliver)
+                self.processing["stageSeconds"] = self.stage_seconds
+                self.processing["elapsedSeconds"] = perf_counter() - started
+                return self._balance_report()
+            finally:
+                self._close_arrangement()
+
+    def _prefetch_reference_pitch(self) -> None:
+        if (
+            isinstance(self.pitch, LocalPitchAnalyzer)
+            and self.timing_known
+            and self.sources.reference_vocal is not None
+        ):
+            self.pitch.prefetch(self.sources.reference_vocal)
 
     def _validate_destination(self) -> None:
         _check_cancel(self.cancel)
@@ -179,24 +213,50 @@ class MasterRender:
         self.adjustments = self.pitch_adjustments = IDENTITY_TIMELINE if self.timing_known else ()
 
     def _arrange(self) -> None:
-        self.arrangement = analyze_arrangement(
+        action = partial(
+            analyze_arrangement,
             self.backing,
             self.sources.reference_vocal,
             self.cancel,
             reference_intervals=self.sources.reference_intervals,
         )
-        self.processing["arrangement"] = self.arrangement.payload()
+        self._arrangement_work = schedule_map(_timed_arrangement, (action,), initial_tasks=1)
+
+    def _collect_arrangement(self) -> None:
+        if self._arrangement_work is None:
+            return
+        try:
+            self.arrangement, elapsed = next(self._arrangement_work)
+            self.processing["arrangement"] = self.arrangement.payload()
+            self.stage_seconds["arrangement"] = elapsed
+        finally:
+            self._close_arrangement()
+
+    def _close_arrangement(self) -> None:
+        pending, self._arrangement_work = self._arrangement_work, None
+        if pending is not None:
+            pending.close()
 
     def _analyze(self) -> None:
-        self.voice_db = _profile(self.vocal, self.cancel)
-        self.backing_db = _profile(self.backing, self.cancel)
+        paths = (
+            self.vocal,
+            self.backing,
+            self.sources.reference_vocal,
+            self.sources.reference_backing,
+        )
+        unique = tuple(dict.fromkeys(path for path in paths if path is not None))
+        profiles = dict(
+            zip(unique, ordered_map(partial(_profile, cancel=self.cancel), unique), strict=True)
+        )
+        self.voice_db = profiles[self.vocal]
+        self.backing_db = profiles[self.backing]
         self.reference_db = (
-            _profile(self.sources.reference_vocal, self.cancel)
+            profiles[self.sources.reference_vocal]
             if self.sources.reference_vocal is not None
             else np.full_like(self.voice_db, -120)
         )
         self.original_db = (
-            _profile(self.sources.reference_backing, self.cancel)
+            profiles[self.sources.reference_backing]
             if self.sources.reference_backing is not None
             else np.full_like(self.voice_db, -120)
         )

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,6 +14,8 @@ import soundfile as sf
 
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _profile
+from backend.recordings.studio_parallel import ordered_map
+from backend.recordings.studio_encoded_meter import EncodedMeterRenderer
 
 
 def measure_loudness(
@@ -29,27 +30,31 @@ def measure_loudness(
         cancel,
         quiet=False,
     )
+    return _parse_loudness(result.stderr, sf.info(source).duration)
+
+
+def _parse_loudness(stderr: bytes, duration: float) -> dict[str, float | None]:
     values: dict[str, float | None] = {}
     for key, pattern in (
         ("integratedLufs", rb"\bI:\s+([-\d.inf]+) LUFS"),
         ("truePeakDbtp", rb"Peak:\s+([-\d.inf]+) dBFS"),
         ("loudnessRangeLu", rb"\bLRA:\s+([-\d.inf]+) LU"),
     ):
-        matches = re.findall(pattern, result.stderr)
+        matches = re.findall(pattern, stderr)
         if not matches:
             raise DependencyError("StudioMasterInvalidAudio", "Loudness measurement is incomplete")
         value = float(matches[-1])
         values[key] = value if math.isfinite(value) else None
     # R128 cannot integrate a partial 400 ms block or a gated-out signal.
     integrated = values["integratedLufs"]
-    if sf.info(source).duration < 0.4 or (integrated is not None and integrated <= -70):
+    if duration < 0.4 or (integrated is not None and integrated <= -70):
         values["integratedLufs"] = None
     return values
 
 
 def _glue(
     renderer: MasterRenderer, source: Path, target: Path, cancel: threading.Event
-) -> tuple[Path, dict[str, object]]:
+) -> tuple[Path, dict[str, object], dict[str, float | None] | None]:
     levels = _profile(source, cancel)
     active = levels > max(-80.0, float(np.max(levels)) - 40)
     spread = (
@@ -58,29 +63,50 @@ def _glue(
         else 0.0
     )
     if np.count_nonzero(active) < 10 or spread < 4:
-        return source, {"applied": False, "reason": "no-excess-mix-dynamics", "maxReductionDb": 0.0}
+        report = {"applied": False, "reason": "no-excess-mix-dynamics", "maxReductionDb": 0.0}
+        return source, report, None
     threshold = float(np.clip(np.percentile(levels[active], 70), -54, -3))
     # Parallel dry fraction bounds even an extreme detector event to -1.94 dB.
-    renderer._mix(
+    measured = _render_glue(renderer, source, target, threshold, cancel)
+    after = _profile(target, cancel)
+    reduction = np.maximum(0, levels[active] - after[active])
+    return (
+        target,
+        {
+            "applied": True,
+            "method": "parallel-linked-rms-compressor",
+            "thresholdDbfs": threshold,
+            "ratio": 2.0,
+            "wetFraction": 0.2,
+            "maxReductionDb": float(np.max(reduction, initial=0)),
+            "medianReductionDb": float(np.median(reduction)),
+            "boundDb": -20 * math.log10(0.8),
+        },
+        measured,
+    )
+
+
+def _render_glue(
+    renderer: MasterRenderer,
+    source: Path,
+    target: Path,
+    threshold: float,
+    cancel: threading.Event,
+) -> dict[str, float | None]:
+    # The meter receives the same float32 samples as a separate read of target.
+    # Compressor internals are double precision, so this boundary is explicit.
+    result = renderer._mix(
         source,
         source,
         f"[0:a]acompressor=threshold={10 ** (threshold / 20):.9f}:ratio=2:"
-        "attack=30:release=200:knee=2:makeup=1:mix=0.2:link=maximum:detection=rms[out]",
-        ["-c:a", "pcm_f32le", str(target)],
+        "attack=30:release=200:knee=2:makeup=1:mix=0.2:link=maximum:detection=rms,"
+        "aformat=sample_fmts=flt,asplit=2[out][meter];"
+        "[meter]ebur128=peak=true:framelog=verbose[analysis]",
+        ["-c:a", "pcm_f32le", str(target), "-map", "[analysis]", "-f", "null", "-"],
         cancel,
+        quiet=False,
     )
-    after = _profile(target, cancel)
-    reduction = np.maximum(0, levels[active] - after[active])
-    return target, {
-        "applied": True,
-        "method": "parallel-linked-rms-compressor",
-        "thresholdDbfs": threshold,
-        "ratio": 2.0,
-        "wetFraction": 0.2,
-        "maxReductionDb": float(np.max(reduction, initial=0)),
-        "medianReductionDb": float(np.median(reduction)),
-        "boundDb": -20 * math.log10(0.8),
-    }
+    return _parse_loudness(result.stderr, sf.info(target).duration)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,10 +123,12 @@ class DeliveryPlan:
 def _measure_pair(
     renderer: MasterRenderer, source: Path, reference: Path | None, cancel: threading.Event
 ) -> tuple[dict[str, float | None], dict[str, float | None] | None]:
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="master-meter") as pool:
-        current = pool.submit(measure_loudness, renderer, source, cancel)
-        expected = pool.submit(measure_loudness, renderer, reference, cancel) if reference else None
-        return current.result(), expected.result() if expected else None
+    def measure(path: Path) -> dict[str, float | None]:
+        return measure_loudness(renderer, path, cancel)
+
+    paths = (source, reference) if reference is not None else (source,)
+    measured = list(ordered_map(measure, paths))
+    return measured[0], measured[1] if reference is not None else None
 
 
 def _delivery_plan(
@@ -154,7 +182,7 @@ def _encode_limited(
     plan: DeliveryPlan,
     info: sf._SoundFileInfo,
     cancel: threading.Event,
-) -> None:
+) -> dict[str, float | None] | None:
     graph = (
         f"[0:a]aresample={plan.oversampled},volume={plan.gain:.9f}dB,"
         "alimiter=limit=0.860993753:attack=5:release=80:level=0:latency=1,"
@@ -169,13 +197,22 @@ def _encode_limited(
         "pcm_s24le",
         str(candidate),
     ]
+    if isinstance(renderer, EncodedMeterRenderer):
+        result = renderer._mix_encoded(source, source, graph, output, cancel)
+        if result is not None:
+            return _parse_loudness(result.stderr, info.duration)
     renderer._mix(source, source, graph, output, cancel)
+    return None
 
 
 def _verify_output(
-    renderer: MasterRenderer, candidate: Path, info: sf._SoundFileInfo, cancel: threading.Event
+    renderer: MasterRenderer,
+    candidate: Path,
+    info: sf._SoundFileInfo,
+    cancel: threading.Event,
+    measured: dict[str, float | None] | None = None,
 ) -> tuple[Path, dict[str, float | None], float]:
-    final = measure_loudness(renderer, candidate, cancel)
+    final = measure_loudness(renderer, candidate, cancel) if measured is None else measured
     correction, peak = 0.0, final["truePeakDbtp"]
     if peak is not None and peak > -1.1:
         correction = -1.3 - peak
@@ -252,12 +289,13 @@ def deliver_master(
         work = Path(directory)
         initial, original = _measure_pair(renderer, source, reference, cancel)
         staged, working_gain = _gain_stage(renderer, source, work / "staged.wav", initial, cancel)
-        glued, compression = _glue(renderer, staged, work / "glue.wav", cancel)
-        measured = initial if glued == source else measure_loudness(renderer, glued, cancel)
+        glued, compression, measured = _glue(renderer, staged, work / "glue.wav", cancel)
+        if measured is None:
+            measured = initial if glued == source else measure_loudness(renderer, glued, cancel)
         plan = _delivery_plan(measured, original, info.samplerate)
         candidate = work / "candidate.wav"
-        _encode_limited(renderer, glued, candidate, plan, info, cancel)
-        candidate, final, correction = _verify_output(renderer, candidate, info, cancel)
+        encoded = _encode_limited(renderer, glued, candidate, plan, info, cancel)
+        candidate, final, correction = _verify_output(renderer, candidate, info, cancel, encoded)
         _check_cancel(cancel)
         candidate.replace(target)
     return _delivery_report(

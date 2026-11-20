@@ -22,6 +22,7 @@ from backend.recordings.register_recording import RegisterRecording, RegisterRec
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
 from backend.recordings.studio_audio import StudioMasterBalance
 from backend.recordings.studio_pitch_analysis import analyze_pitch
+from backend.recordings.studio_pitch_prefetch import LocalPitchAnalyzer
 from backend.runtime import Clock, IdGenerator
 from backend.settings.domain import ProcessingBackend
 from backend.settings.queries import SettingsReader
@@ -106,7 +107,7 @@ class StartStudioMaster:
         context: JobContext,
     ) -> StudioMasterBalance:
         song_id, revision = self._project_identity(recording)
-        with self._pitch_session(context) as pitch:
+        with self._render_budget(recording) as workers, self._pitch_session(context) as pitch:
             return self._renderer.render(
                 *stems,
                 self._projects.artifact_path(song_id, revision, "referenceVocal"),
@@ -122,7 +123,18 @@ class StartStudioMaster:
                 # Shared room stems can contain simultaneous singers on different notes.
                 pitch=None if "roomPerformance" in (recording.session_metadata or {}) else pitch,
                 original_mix=self._original_mix(song_id, revision),
+                workers=workers,
             )
+
+    @contextmanager
+    def _render_budget(self, recording: Recording) -> Iterator[int]:
+        lease = self._resources.claim_cpu(
+            recording.file_path.stat().st_size, cpu_threads=self._settings().cpu_threads
+        )
+        try:
+            yield lease.execution.cpu_threads
+        finally:
+            lease.release()
 
     def _original_mix(self, song_id: str, revision: int) -> Path | None:
         """The local original is optional; portable projects still have reference stems."""
@@ -147,9 +159,13 @@ class StartStudioMaster:
             context.ensure_not_cancelled()
             return analyze_pitch(vocal, context.cancel)
 
-        # Local, monophonic analysis is lazy and bounded by the take's duration.
-        # It does not start a model worker or claim a GPU merely to master a take.
-        yield pitch
+        # The renderer may prefetch its trusted reference inside the same budget.
+        # Session ownership drains speculative reads even if pitch is skipped.
+        analyzer = LocalPitchAnalyzer(context.cancel, pitch)
+        try:
+            yield analyzer
+        finally:
+            analyzer.close()
 
     def _separate(
         self, recording: Recording, workspace: Path, context: JobContext

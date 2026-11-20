@@ -123,14 +123,26 @@ class ProcessRunner:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError
-            try:
-                process.wait(timeout=min(0.1, remaining))
-            except subprocess.TimeoutExpired:
+            if process.poll() is not None:
+                pipes.stop_input()
+            # EOF wakes ordinary child completion without POSIX wait's polling delay.
+            if not pipes.finished.wait(timeout=min(0.1, remaining)):
                 continue
+            if cancel and cancel.is_set():
+                raise DomainError("ProcessCancelled", "External process was cancelled", 499)
+            pipes.raise_if_failed()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError
+            if process.poll() is None:
+                # A child can close stdio before exit; retain bounded, cancellable waiting.
+                try:
+                    process.wait(timeout=min(0.1, remaining))
+                except subprocess.TimeoutExpired:
+                    continue
             pipes.stop_input()
-            if pipes.finished.wait(timeout=min(0.1, remaining)):
-                stdout, stderr = pipes.output()
-                return ProcessResult(process.returncode, stdout, stderr)
+            stdout, stderr = pipes.output()
+            return ProcessResult(process.returncode, stdout, stderr)
 
     @staticmethod
     def _terminate_tree(process: subprocess.Popen[bytes]) -> None:

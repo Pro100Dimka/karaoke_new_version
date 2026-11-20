@@ -236,7 +236,15 @@ def test_master_balance_uses_absolute_reference_before_space_sends(
     sends = adaptive_mix.render_sends
 
     def observe_space(
-        voice, music, target, cancel, *, reference, recorded_is_dry, arrangement=None
+        voice,
+        music,
+        target,
+        cancel,
+        *,
+        reference,
+        recorded_is_dry,
+        arrangement=None,
+        backing_ready=None,
     ):
         assert recorded_is_dry
         samples, rate = sf.read(voice)
@@ -254,6 +262,7 @@ def test_master_balance_uses_absolute_reference_before_space_sends(
             reference=reference,
             recorded_is_dry=recorded_is_dry,
             arrangement=arrangement,
+            backing_ready=backing_ready,
         )
 
     monkeypatch.setattr(adaptive_mix, "render_sends", observe_space)

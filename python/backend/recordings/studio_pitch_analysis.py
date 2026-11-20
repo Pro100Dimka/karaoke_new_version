@@ -8,6 +8,8 @@ the original recording's exact 10 ms timeline.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 import threading
 
@@ -20,6 +22,7 @@ import soundfile as sf
 from backend.ai.domain import PitchPoint
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_parallel import ScheduledMap, ordered_map, schedule_map
 from backend.recordings.studio_pitch_probabilities import fast_pyin
 
 FloatArray = NDArray[np.float64]
@@ -144,14 +147,37 @@ def _chunk_points(
 
 def analyze_pitch(path: Path, cancel: threading.Event) -> tuple[PitchPoint, ...]:
     """Measure trusted monophonic F0 without loading the full audio or a CNN."""
-    _check_cancel(cancel)
+    worker, offsets = _pitch_work(path, cancel)
     points: list[PitchPoint] = []
+    for result in ordered_map(worker, offsets):
+        points.extend(result)
+    _check_cancel(cancel)
+    return tuple(points)
+
+
+def prefetch_pitch(path: Path, cancel: threading.Event) -> ScheduledMap[int, list[PitchPoint]]:
+    """Start existing chunks within the render's bounded shared worker queue."""
+    worker, offsets = _pitch_work(path, cancel)
+    return schedule_map(worker, offsets)
+
+
+def _pitch_work(
+    path: Path, cancel: threading.Event
+) -> tuple[Callable[[int], list[PitchPoint]], range]:
+    _check_cancel(cancel)
     with sf.SoundFile(path) as audio:
         if audio.frames == 0 or audio.samplerate < 1000:
             raise DependencyError("StudioMasterInvalidAudio", "Audio has no valid samples")
         count = (audio.frames * 100 + audio.samplerate - 1) // audio.samplerate
-        chunk = round(_CHUNK_SECONDS * 100)
-        for first in range(0, count, chunk):
-            points.extend(_chunk_points(audio, first, min(count, first + chunk), count, cancel))
+    chunk = round(_CHUNK_SECONDS * 100)
+    worker = partial(_path_points, path, count, chunk, cancel)
+    return worker, range(0, count, chunk)
+
+
+def _path_points(
+    path: Path, count: int, chunk: int, cancel: threading.Event, first: int
+) -> list[PitchPoint]:
     _check_cancel(cancel)
-    return tuple(points)
+    # Each worker seeks its own handle; pYIN context and crop remain unchanged.
+    with sf.SoundFile(path) as audio:
+        return _chunk_points(audio, first, min(count, first + chunk), count, cancel)

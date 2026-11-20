@@ -24,6 +24,7 @@ from backend.recordings.studio_dynamics import _balance_curve, _voice_filters
 from backend.recordings.studio_spectrum import _repeated_output_channels, _unmask_backing
 from backend.recordings.studio_reference import _reference_offset
 from backend.recordings.studio_pitch import PitchAnalyzer
+from backend.recordings.studio_encoded_meter import EncodedMeterSupport, encoded_meter_output
 
 
 class FfmpegStudioMasterRenderer:
@@ -38,6 +39,7 @@ class FfmpegStudioMasterRenderer:
     def __init__(self, runner: ProcessRunner, ffmpeg: str = "ffmpeg") -> None:
         self._runner = runner
         self._ffmpeg = ffmpeg
+        self._encoded_meter = EncodedMeterSupport(runner, ffmpeg)
 
     def preserve_stems(self, path: Path) -> None:
         # Older native versions saved a paired backing, but no voice. Recover it once from
@@ -78,6 +80,7 @@ class FfmpegStudioMasterRenderer:
         progress: Callable[[str, float, float], None] | None = None,
         pitch: PitchAnalyzer | None = None,
         original_mix: Path | None = None,
+        workers: int | None = None,
     ) -> StudioMasterBalance:
         return MasterRender(
             self,
@@ -95,7 +98,22 @@ class FfmpegStudioMasterRenderer:
             progress,
             pitch,
             original_mix,
+            workers,
         ).run()
+
+    def _mix_encoded(
+        self,
+        first: Path,
+        second: Path,
+        filter_graph: str,
+        output: list[str],
+        cancel: threading.Event,
+    ) -> ProcessResult | None:
+        if not self._encoded_meter.available(cancel):
+            return None
+        return self._mix(
+            first, second, filter_graph, encoded_meter_output(output), cancel, quiet=False
+        )
 
     def _mix(
         self,

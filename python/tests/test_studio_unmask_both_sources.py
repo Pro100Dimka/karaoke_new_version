@@ -21,6 +21,8 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
     sends = adaptive_mix.render_sends
 
     def capture_sends(voice, backing, target, cancel, **kwargs):
+        if kwargs.get("backing_ready") is not None:
+            kwargs["backing_ready"]()
         np.testing.assert_allclose(sf.read(backing)[0], music, atol=1e-7)
         result = sends(voice, backing, target, cancel, **kwargs)
         stems.append(sf.read(target)[0])

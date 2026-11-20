@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -249,19 +250,37 @@ def _tempo_delay(delay: float, bpm: float | None) -> tuple[float, bool]:
     return (nearest if synced else delay), synced
 
 
+def _backing_tempo(
+    backing: Path, amount: float, cancel: threading.Event, ready: Callable[[], None] | None
+) -> tuple[float | None, float]:
+    if amount >= 0.015:
+        if ready is not None:
+            ready()
+        return estimate_tempo(backing, cancel)
+    return None, 0.0
+
+
+def _reverb_decision(expected: float, amount: float) -> str:
+    if amount >= 0.015:
+        return "supported-diffuse-tail"
+    return "unresolved-reference-space" if expected == 0 else "already-present"
+
+
 def _plan_sends(
     voice: Path,
     backing: Path,
     reference: Path | None,
     recorded_is_dry: bool,
     cancel: threading.Event,
+    *,
+    backing_ready: Callable[[], None] | None = None,
 ) -> SendPlan:
     decay, expected, support = _tail_evidence(reference, cancel) if reference else (0.0, 0.0, 0)
     # Digital dry capture still includes acoustic room decay and breathy releases.
     existing_decay, existing, existing_count = _tail_evidence(voice, cancel)
     amount = math.sqrt(max(0.0, expected**2 - existing**2))
     delay, delay_amount, delay_report = _delay_plan(voice, reference, cancel)
-    bpm, confidence = estimate_tempo(backing, cancel) if delay_amount >= 0.015 else (None, 0.0)
+    bpm, confidence = _backing_tempo(backing, delay_amount, cancel, backing_ready)
     delay, synced = _tempo_delay(delay, bpm)
     report: dict[str, object] = {
         "method": "separate-diffuse-reverb-and-phrase-delay-sends",
@@ -273,11 +292,7 @@ def _plan_sends(
         "existingDecaySeconds": existing_decay,
         "existingTailCount": existing_count,
         "qualifiedExistingWetRatio": existing if existing_count >= 3 else 0.0,
-        "reverbDecision": "supported-diffuse-tail"
-        if amount >= 0.015
-        else "unresolved-reference-space"
-        if expected == 0
-        else "already-present",
+        "reverbDecision": _reverb_decision(expected, amount),
         "reverbEvidenceMethod": "local-decay-fit-with-multiple-bands-and-aperiodic-support",
         "delayTempoSynchronized": synced,
         "recordedIsDry": recorded_is_dry,
@@ -425,7 +440,11 @@ def _regional_returns(
     buses: list[tuple[str, Path, float]],
     cancel: threading.Event,
 ) -> dict[str, object]:
-    ducker = WetDucker(sf.info(voice).samplerate, _voice_activity_level(voice, cancel))
+    ducker = (
+        WetDucker(sf.info(voice).samplerate, _voice_activity_level(voice, cancel))
+        if buses
+        else None
+    )
     return render_regional_sends(
         voice,
         target,
@@ -434,7 +453,7 @@ def _regional_returns(
         arrangement=arrangement,
         base_report=plan.report,
         legacy=buses,
-        legacy_duck=ducker.envelope,
+        legacy_duck=ducker.envelope if ducker is not None else None,
         existing_wet=math.hypot(cast(float, plan.report["qualifiedExistingWetRatio"]), plan.amount),
     )
 
@@ -448,9 +467,12 @@ def render_sends(
     reference: Path | None = None,
     recorded_is_dry: bool = True,
     arrangement: ArrangementMap | None = None,
+    backing_ready: Callable[[], None] | None = None,
 ) -> dict[str, object]:
     _check_cancel(cancel)
-    plan = _plan_sends(voice, backing, reference, recorded_is_dry, cancel)
+    plan = _plan_sends(
+        voice, backing, reference, recorded_is_dry, cancel, backing_ready=backing_ready
+    )
     with TemporaryDirectory(prefix=".sends-", dir=target.parent) as directory:
         field_reference = reference if arrangement is None else None
         buses, dry_energy = _render_send_buses(
