@@ -54,25 +54,25 @@ float PitchEstimator::estimate(std::span<const float> samples, std::uint32_t cha
     // Each lag still accumulates in the same sample order. Independent lags in one block
     // let the compiler vectorize across lags without reassociating floating-point additions.
     constexpr std::uint32_t LagsPerBlock = 8;
-    std::uint32_t lag = 0;
-    for (; lag + LagsPerBlock <= maximumLag + 2U; lag += LagsPerBlock) {
+    std::uint32_t correlationLag = 0;
+    for (; correlationLag + LagsPerBlock <= maximumLag + 2U; correlationLag += LagsPerBlock) {
         std::array<double, LagsPerBlock> sums{};
-        const auto commonStart = lag + LagsPerBlock - 1U;
+        const auto commonStart = correlationLag + LagsPerBlock - 1U;
         for (std::uint32_t offset = 0; offset < LagsPerBlock; ++offset)
-            for (auto frame = lag + offset; frame < commonStart; ++frame)
-                sums[offset] += centred_[frame] * centred_[frame - lag - offset];
+            for (auto frame = correlationLag + offset; frame < commonStart; ++frame)
+                sums[offset] += centred_[frame] * centred_[frame - correlationLag - offset];
         for (auto frame = commonStart; frame < frames; ++frame)
             for (std::uint32_t offset = 0; offset < LagsPerBlock; ++offset)
-                sums[offset] += centred_[frame] * centred_[frame - lag - offset];
-        std::copy(sums.begin(), sums.end(), correlations_.begin() + lag);
+                sums[offset] += centred_[frame] * centred_[frame - correlationLag - offset];
+        std::copy(sums.begin(), sums.end(), correlations_.begin() + correlationLag);
     }
-    for (; lag <= maximumLag + 1U; ++lag) {
+    for (; correlationLag <= maximumLag + 1U; ++correlationLag) {
         double correlation = 0.0;
-        for (std::uint32_t frame = lag; frame < frames; ++frame)
-            correlation += centred_[frame] * centred_[frame - lag];
-        correlations_[lag] = correlation;
+        for (std::uint32_t frame = correlationLag; frame < frames; ++frame)
+            correlation += centred_[frame] * centred_[frame - correlationLag];
+        correlations_[correlationLag] = correlation;
     }
-    for (lag = 0; lag <= maximumLag + 1U; ++lag) {
+    for (std::uint32_t lag = 0; lag <= maximumLag + 1U; ++lag) {
         const auto currentEnergy = energyPrefix_[frames] - energyPrefix_[lag];
         const auto delayedEnergy = energyPrefix_[frames - lag];
         const auto denominator = currentEnergy + delayedEnergy;
