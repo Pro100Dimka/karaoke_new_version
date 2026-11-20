@@ -45,6 +45,11 @@ export class RoomInvitationCoordinator {
     this.version += 1;
     for (const listener of this.listeners) listener();
   }
+  private queueRoomTransition(action: () => Promise<void>): Promise<void> {
+    const operation = this.roomTransition.then(action);
+    this.roomTransition = operation.catch(() => undefined);
+    return operation;
+  }
   /** Server acceptance removes the inbox entry before the local room join finishes. */
   availableInvites(incoming: readonly SocialInvite[]): SocialInvite[] {
     const invites = new Map(
@@ -109,7 +114,7 @@ export class RoomInvitationCoordinator {
     const invite =
       typeof invitation === 'string' ? existing?.invite : invitation;
     let acceptedRoom = existing?.type === 'retry' ? existing.roomId : undefined;
-    const operation = this.roomTransition.then(async () => {
+    const operation = this.queueRoomTransition(async () => {
       const roomId =
         acceptedRoom ?? (await this.social.acceptInvite(inviteId)).roomId;
       acceptedRoom = roomId;
@@ -119,7 +124,6 @@ export class RoomInvitationCoordinator {
       this.invitations.set(inviteId, { type: 'accepted' });
       this.changed();
     });
-    this.roomTransition = operation.catch(() => undefined);
     this.invitations.set(inviteId, {
       type: 'accepting',
       promise: operation,
@@ -142,13 +146,15 @@ export class RoomInvitationCoordinator {
     return operation;
   }
 
-  async createTogether(accountId: string, displayName: string): Promise<void> {
-    const created = await this.room.join(displayName);
-    await this.social.setPresence({
-      displayName,
-      participantId: this.participantId,
-      roomId: created.code,
+  createTogether(accountId: string, displayName: string): Promise<void> {
+    return this.queueRoomTransition(async () => {
+      const created = await this.room.join(displayName);
+      await this.social.setPresence({
+        displayName,
+        participantId: this.participantId,
+        roomId: created.code,
+      });
+      await this.social.invite(accountId, created.code);
     });
-    await this.social.invite(accountId, created.code);
   }
 }
