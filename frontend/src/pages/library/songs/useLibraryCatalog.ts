@@ -90,35 +90,53 @@ export const useLibraryCatalog = (
     previousJobs.current = jobStates;
     libraryChanged();
   }, [jobStates]);
+  const activeJobs = useMemo(
+    () =>
+      new Map(
+        jobs
+          .filter((job) =>
+            ['queued', 'processing', 'cancelling'].includes(job.state),
+          )
+          .map((job) => [job.songId, job]),
+      ),
+    [jobs],
+  );
+  // Progress and stage do not change catalog membership or order. Keep those
+  // updates out of room merging, filtering and sorting, then apply them below.
+  const activeStates = JSON.stringify(
+    [...activeJobs.values()].map(({ songId, id, state }) => [
+      songId,
+      id,
+      state === 'queued' ? 'queued' : 'processing',
+    ]),
+  );
+  const statuses = useMemo(
+    () =>
+      new Map(
+        [...activeJobs].map(([songId, job]) => [
+          songId,
+          {
+            jobId: job.id,
+            status:
+              job.state === 'queued'
+                ? ('queued' as const)
+                : ('processing' as const),
+          },
+        ]),
+      ),
+    [activeStates],
+  );
   const localSongs = useMemo(() => {
     const songs = catalog.data?.pages.flatMap((page) => page.items) ?? [];
     const pending =
       filters.sort === 'recent' && filters.direction === 'asc'
         ? [...imports].reverse()
         : imports;
-    const active = new Map(
-      jobs
-        .filter((job) =>
-          ['queued', 'processing', 'cancelling'].includes(job.state),
-        )
-        .map((job) => [job.songId, job]),
-    );
     return [...pending, ...songs].map((song) => {
-      const job = active.get(song.id);
-      return job
-        ? {
-            ...song,
-            jobId: job.id,
-            stage: job.stage,
-            progress: job.progress,
-            status:
-              job.state === 'queued'
-                ? ('queued' as const)
-                : ('processing' as const),
-          }
-        : song;
+      const status = statuses.get(song.id);
+      return status ? { ...song, ...status } : song;
     });
-  }, [catalog.data, imports, jobs, filters.sort, filters.direction]);
+  }, [catalog.data, imports, statuses, filters.sort, filters.direction]);
   const selfId = room?.participants.find((person) => person.self)?.id ?? '';
   const songs = useMemo(
     () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
@@ -154,13 +172,34 @@ export const useLibraryCatalog = (
       : matching;
   }, [songs, completeCatalog, imports, serverFilter, played, playlist]);
 
+  const liveSongs = useMemo(() => {
+    const updated = new Map<SongDto, SongDto>();
+    const progress = (items: readonly SongDto[]) =>
+      activeJobs.size === 0
+        ? items
+        : items.map((song) => {
+            const job = activeJobs.get(song.id);
+            // A room copy may have replaced this local processing song.
+            if (!job || song.jobId !== job.id) return song;
+            let next = updated.get(song);
+            if (!next) {
+              next = { ...song, progress: job.progress, stage: job.stage };
+              updated.set(song, next);
+            }
+            return next;
+          });
+    return {
+      localSongs: progress(localSongs),
+      songs: progress(songs),
+      visibleSongs: progress(visibleSongs),
+    };
+  }, [localSongs, songs, visibleSongs, activeJobs]);
+
   return {
     catalog,
     summary,
     client,
-    localSongs,
-    songs,
-    visibleSongs,
+    ...liveSongs,
     completeCatalog,
   };
 };
