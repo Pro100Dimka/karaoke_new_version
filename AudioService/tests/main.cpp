@@ -729,6 +729,8 @@ constexpr std::array tests{
     Test{"unloadQuiescesDecoderWorker", Tests::unloadQuiescesDecoderWorker},
     Test{"audioReconfigurePreservesActiveKaraokeMedia",
          Tests::audioReconfigurePreservesActiveKaraokeMedia},
+    Test{"mediaReconfigurePreservesScheduledPlayback",
+         Tests::mediaReconfigurePreservesScheduledPlayback},
     Test{"karaokeTracksShareTransport", Tests::karaokeTracksShareTransport},
     Test{"radioStopsWhenPreviewActivates", Tests::radioStopsWhenPreviewActivates},
     Test{"staleDecodedPcmNeverLeaksAfterSeek", Tests::staleDecodedPcmNeverLeaksAfterSeek},

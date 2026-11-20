@@ -511,6 +511,7 @@ void previewLoopStaysInsideRange();
 void seekUpdatesAuthoritativePosition();
 void unloadQuiescesDecoderWorker();
 void audioReconfigurePreservesActiveKaraokeMedia();
+void mediaReconfigurePreservesScheduledPlayback();
 void karaokeTracksShareTransport();
 void radioStopsWhenPreviewActivates();
 void staleDecodedPcmNeverLeaksAfterSeek();
