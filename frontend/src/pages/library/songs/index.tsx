@@ -440,7 +440,7 @@ const LibrarySongs = observer(
         {catalog.isFetchingNextPage && !!catalog.data && (
           <StatusIndicator status="processing" label={tr('library.loading')} />
         )}
-        {(catalog.isFetchNextPageError || summary.isError) && (
+        {((catalog.isError && !!catalog.data) || summary.isError) && (
           <Card
             title={tr('libraryLoadFailed')}
             actions={
