@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import anyio
@@ -13,14 +14,38 @@ from backend.infrastructure.event_stream import EventStream
 from tests.fakes import FakeClock
 
 
-async def _subscribed(events: EventStream) -> None:
-    with anyio.fail_after(2):
-        while not events._subscribers and not events._async_subscribers:
-            await anyio.sleep(0)
+class _ObservedEvents(EventStream):
+    def __init__(self):
+        super().__init__(FakeClock())
+        self.subscribed = threading.Event()
+
+    @contextmanager
+    def subscribe(self):
+        with super().subscribe() as subscriber:
+            self.subscribed.set()
+            yield subscriber
+
+    @contextmanager
+    def subscribe_async(self):
+        with super().subscribe_async() as subscriber:
+            self.subscribed.set()
+            yield subscriber
+
+
+async def _subscribed(events: _ObservedEvents) -> None:
+    assert await anyio.to_thread.run_sync(events.subscribed.wait, 2)
+
+
+async def _after_scheduled_callbacks() -> None:
+    loop = asyncio.get_running_loop()
+    finished = loop.create_future()
+    loop.call_soon(finished.set_result, None)
+    await finished
 
 
 def _connection(events: EventStream):
     disconnected = asyncio.Event()
+    sent = asyncio.Event()
     chunks = []
 
     async def receive():
@@ -30,18 +55,19 @@ def _connection(events: EventStream):
     async def send(message):
         if message["type"] == "http.response.body":
             chunks.append(message["body"])
+            sent.set()
 
     response = event_response(SimpleNamespace(events=events))
     task = asyncio.create_task(
         response({"type": "http", "asgi": {"spec_version": "2.3"}}, receive, send)
     )
-    return disconnected, chunks, task
+    return disconnected, chunks, task, sent
 
 
 def test_idle_event_stream_does_not_reserve_an_api_worker() -> None:
     async def scenario():
-        events = EventStream(FakeClock())
-        disconnected, _chunks, task = _connection(events)
+        events = _ObservedEvents()
+        disconnected, _chunks, task, _sent = _connection(events)
         await _subscribed(events)
         try:
             borrowed = anyio.to_thread.current_default_thread_limiter().borrowed_tokens
@@ -56,8 +82,8 @@ def test_idle_event_stream_does_not_reserve_an_api_worker() -> None:
 
 def test_event_disconnect_finishes_without_waiting_for_a_heartbeat() -> None:
     async def scenario():
-        events = EventStream(FakeClock())
-        disconnected, _chunks, task = _connection(events)
+        events = _ObservedEvents()
+        disconnected, _chunks, task, _sent = _connection(events)
         await _subscribed(events)
         disconnected.set()
         finished = False
@@ -95,7 +121,7 @@ def test_async_event_burst_is_bounded_before_the_event_loop_can_drain(monkeypatc
             publisher.join(2)
             assert not publisher.is_alive()
             assert len(scheduled) <= 1, f"One burst queued {len(scheduled)} event-loop callbacks"
-            await asyncio.sleep(0)
+            await _after_scheduled_callbacks()
             pending = []
             while not subscriber.empty():
                 pending.append(subscriber.get_nowait())
@@ -113,14 +139,12 @@ def test_async_event_burst_is_bounded_before_the_event_loop_can_drain(monkeypatc
 
 def test_event_stream_preserves_sse_payload_and_unsubscribes() -> None:
     async def scenario():
-        events = EventStream(FakeClock())
-        disconnected, chunks, task = _connection(events)
+        events = _ObservedEvents()
+        disconnected, chunks, task, sent = _connection(events)
         await _subscribed(events)
         try:
             events.publish("job.changed", {"jobId": "job", "state": "Succeeded"})
-            with anyio.fail_after(2):
-                while not chunks:
-                    await anyio.sleep(0)
+            await asyncio.wait_for(sent.wait(), 2)
             assert chunks[0].startswith(b"data: ") and chunks[0].endswith(b"\n\n")
             payload = json.loads(chunks[0].removeprefix(b"data: "))
             assert payload["type"] == "job.changed"
@@ -161,7 +185,7 @@ def test_async_event_delivery_preserves_order_and_drops_closed_subscribers() -> 
                 subscriber.task_done()
                 assert item.data == {"index": index}
             events.publish("closed-before-delivery", {})
-        await asyncio.sleep(0)
+        await _after_scheduled_callbacks()
         assert subscriber.empty()
         await asyncio.wait_for(subscriber.join(), 1)
         with events.subscribe_async() as replacement:
