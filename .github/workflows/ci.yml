@@ -31,7 +31,9 @@ jobs:
       - name: Static and architecture gates
         run: python scripts/run_checks.py --require-dev-tools --skip-tests
       - name: Fast tests
-        run: python -m pytest -q -m "not integration and not slow and not network and not gpu" --basetemp=../.dev-data/temp/checks/pytest-fast
+        run: |
+          New-Item -ItemType Directory -Force -Path ../.dev-data/temp/checks | Out-Null
+          python -m pytest -q -m "not integration and not slow and not network and not gpu" --basetemp=../.dev-data/temp/checks/pytest-fast
 
   integration:
     runs-on: windows-latest
