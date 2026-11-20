@@ -10,7 +10,14 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { useQuery } from '@tanstack/react-query';
-import { memo, useCallback, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
 import type { RecordingDto } from '../../../../contracts/models';
 import { desktopClient as files } from '../../../../services/desktopClient';
@@ -98,20 +105,7 @@ const TakeName = ({
   );
 };
 
-/** One take: its picture, name, file and analysis state, player and actions. */
-const RecordingCardView = ({
-  recording,
-  versions = [],
-  name,
-  index,
-  onRename,
-  onAnalyze,
-  onDelete,
-  progress = {},
-  failures = {},
-  onCancelAnalysis,
-  measureElement,
-}: {
+interface RecordingCardProps {
   recording: RecordingDto;
   measureElement?: (element: Element | null) => void;
   versions?: readonly RecordingDto[];
@@ -123,7 +117,24 @@ const RecordingCardView = ({
   progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
   failures?: Readonly<Record<string, string>>;
   onCancelAnalysis?(jobId: string): void;
-}) => {
+  /** Long galleries defer the whole body, including its query observer. */
+  deferBody?: boolean;
+}
+
+/** One take: its picture, name, file and analysis state, player and actions. */
+const RecordingCardBody = ({
+  recording,
+  versions = [],
+  name,
+  index,
+  onRename,
+  onAnalyze,
+  onDelete,
+  progress = {},
+  failures = {},
+  onCancelAnalysis,
+  nearView,
+}: RecordingCardProps & { nearView: boolean }) => {
   useLocale();
   const guarded = useGuardedAction();
   const [versionId, setVersionId] = useState(recording.id);
@@ -136,17 +147,6 @@ const RecordingCardView = ({
   const hasAnalysis =
     selected.analysisStatus === 'Succeeded' ||
     (selected.analyzed && !selected.analysisStatus);
-  // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
-  // drawn only once its card scrolls near the view and the list opens at once.
-  const card = useRef<HTMLLIElement>(null);
-  const setCardRef = useCallback(
-    (element: HTMLLIElement | null) => {
-      card.current = element;
-      measureElement?.(element);
-    },
-    [measureElement],
-  );
-  const nearView = useNearView(card);
   const analysis = useQuery({
     queryKey: ['recording-analysis', selected.id, selected.analysisStatus],
     queryFn: () => catalog.latestAnalysis(selected.id),
@@ -163,121 +163,256 @@ const RecordingCardView = ({
   );
 
   return (
-    <li ref={setCardRef} data-index={index}>
-      <Card border padding="sm" className="recordingCard">
-        <img
-          className="recordingArt"
-          src={`${performanceArtUrl}#pf-view-${(index % 6) + 1}`}
-          alt=""
+    <Card border padding="sm" className="recordingCard">
+      <img
+        className="recordingArt"
+        src={`${performanceArtUrl}#pf-view-${(index % 6) + 1}`}
+        alt=""
+      />
+      <div className="recordingMain">
+        <TakeName
+          name={name}
+          onRename={(value) => onRename(recording, value)}
         />
-        <div className="recordingMain">
-          <TakeName
-            name={name}
-            onRename={(value) => onRename(recording, value)}
+        {versions.length > 0 && (
+          <SegmentedControl
+            size="sm"
+            label={tr('recordingVersion')}
+            value={selected.id}
+            onValueChange={setVersionId}
+            items={[recording, ...versions].map((item) => ({
+              value: item.id,
+              label: tr(
+                item.sourceRecordingId
+                  ? 'studioMasterTitle'
+                  : 'recordingOriginal',
+              ),
+            }))}
           />
-          {versions.length > 0 && (
-            <SegmentedControl
-              size="sm"
-              label={tr('recordingVersion')}
-              value={selected.id}
-              onValueChange={setVersionId}
-              items={[recording, ...versions].map((item) => ({
-                value: item.id,
-                label: tr(
-                  item.sourceRecordingId
-                    ? 'studioMasterTitle'
-                    : 'recordingOriginal',
-                ),
-              }))}
-            />
-          )}
-          <Typography variant="caption" tone="muted">
-            {statuses.map((key) => tr(key)).join('  •  ')}
-          </Typography>
-          {task && (
-            <>
-              <Typography variant="caption" role="status">
-                {tr(analysisStageLabel(task.stage))} · {task.progress}%
-              </Typography>
-              <ProgressBar
-                label={tr(analysisStageLabel(task.stage))}
-                value={task.progress}
-                indeterminate={task.state === 'Queued'}
-              />
-            </>
-          )}
-          {failure && <MessageBar tone="error">{tr(failure)}</MessageBar>}
-          {analysis.isError && (
-            <MessageBar tone="error">
-              {tr(toAppError(analysis.error).message)}
-            </MessageBar>
-          )}
-          {nearView ? (
-            <RecordingPlayer key={selected.id} recording={selected} />
-          ) : (
-            <div
-              className="recordingPlayer recordingPlayerPending"
-              aria-hidden="true"
-            />
-          )}
-        </div>
-        <div className="recordingActions">
-          {analysis.data && (
-            <Typography
-              as="strong"
-              variant="h3"
-              tone="accent"
-              title={tr('analysisOverall')}
-            >
-              {analysis.data.score}
+        )}
+        <Typography variant="caption" tone="muted">
+          {statuses.map((key) => tr(key)).join('  •  ')}
+        </Typography>
+        {task && (
+          <>
+            <Typography variant="caption" role="status">
+              {tr(analysisStageLabel(task.stage))} · {task.progress}%
             </Typography>
-          )}
-          {preparing ? null : task ? (
-            <IconButton
-              icon="stop"
-              label={tr('analysisCancel')}
-              disabled={!task.jobId}
-              onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)}
+            <ProgressBar
+              label={tr(analysisStageLabel(task.stage))}
+              value={task.progress}
+              indeterminate={task.state === 'Queued'}
             />
-          ) : hasAnalysis ? (
-            <IconButton
-              size="sm"
-              variant="secondary"
-              icon="levels"
-              label={tr('recordingOpenAnalysis')}
-              onClick={() => onAnalyze(selected)}
-            />
-          ) : (
-            <IconButton
-              icon="levels"
-              label={tr(
-                selected.fileStatus === 'RecoveredIncomplete'
-                  ? 'errorRecordingTimingUnavailable'
-                  : 'recordingAnalyze',
-              )}
-              disabled={selected.fileStatus === 'RecoveredIncomplete'}
-              onClick={() => onAnalyze(selected)}
-            />
-          )}
-          <IconButton
-            icon="folder"
-            label={tr('openFolder')}
-            onClick={() =>
-              void guarded(async () => {
-                const current = await catalog.getRecording(selected.id);
-                await files.revealInExplorer(current.filePath);
-              })
-            }
+          </>
+        )}
+        {failure && <MessageBar tone="error">{tr(failure)}</MessageBar>}
+        {analysis.isError && (
+          <MessageBar tone="error">
+            {tr(toAppError(analysis.error).message)}
+          </MessageBar>
+        )}
+        {nearView ? (
+          <RecordingPlayer key={selected.id} recording={selected} />
+        ) : (
+          <div
+            className="recordingPlayer recordingPlayerPending"
+            aria-hidden="true"
           />
+        )}
+      </div>
+      <div className="recordingActions">
+        {analysis.data && (
+          <Typography
+            as="strong"
+            variant="h3"
+            tone="accent"
+            title={tr('analysisOverall')}
+          >
+            {analysis.data.score}
+          </Typography>
+        )}
+        {preparing ? null : task ? (
           <IconButton
-            icon="trash"
-            variant="danger"
-            label={tr('recordingDelete')}
-            disabled={selected.fileStatus === 'Preparing'}
-            onClick={() => onDelete(selected)}
+            icon="stop"
+            label={tr('analysisCancel')}
+            disabled={!task.jobId}
+            onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)}
           />
+        ) : hasAnalysis ? (
+          <IconButton
+            size="sm"
+            variant="secondary"
+            icon="levels"
+            label={tr('recordingOpenAnalysis')}
+            onClick={() => onAnalyze(selected)}
+          />
+        ) : (
+          <IconButton
+            icon="levels"
+            label={tr(
+              selected.fileStatus === 'RecoveredIncomplete'
+                ? 'errorRecordingTimingUnavailable'
+                : 'recordingAnalyze',
+            )}
+            disabled={selected.fileStatus === 'RecoveredIncomplete'}
+            onClick={() => onAnalyze(selected)}
+          />
+        )}
+        <IconButton
+          icon="folder"
+          label={tr('openFolder')}
+          onClick={() =>
+            void guarded(async () => {
+              const current = await catalog.getRecording(selected.id);
+              await files.revealInExplorer(current.filePath);
+            })
+          }
+        />
+        <IconButton
+          icon="trash"
+          variant="danger"
+          label={tr('recordingDelete')}
+          disabled={selected.fileStatus === 'Preparing'}
+          onClick={() => onDelete(selected)}
+        />
+      </div>
+    </Card>
+  );
+};
+
+/** Plain rows reserve the card's layout without animated controls or query subscriptions. */
+const RecordingCardPlaceholder = ({
+  recording,
+  versions = [],
+  name,
+  progress = {},
+  failures = {},
+}: RecordingCardProps) => {
+  useLocale();
+  const task = progress[recording.id];
+  const failure = failures[recording.id];
+  const statuses = recordingStatusLabels(
+    recording.fileStatus ?? 'Ready',
+    task
+      ? task.state === 'Queued'
+        ? 'Queued'
+        : 'Running'
+      : (recording.analysisStatus ?? 'NotAnalyzed'),
+  );
+  return (
+    <div className="recordingCardPlaceholder" aria-hidden="true">
+      <div className="recordingArt" />
+      <div className="recordingMain">
+        <div className="recordingName">
+          <strong>{name}</strong>
         </div>
-      </Card>
+        {versions.length > 0 && (
+          <div
+            className="recordingPlaceholderVersions"
+            data-placeholder="versions"
+          >
+            {tr('recordingOriginal')} · {tr('studioMasterTitle')}
+          </div>
+        )}
+        <span className="recordingPlaceholderCaption">
+          {statuses.map((key) => tr(key)).join('  •  ')}
+        </span>
+        {task && (
+          <>
+            <span className="recordingPlaceholderCaption">
+              {tr(analysisStageLabel(task.stage))} · {task.progress}%
+            </span>
+            <div
+              className="recordingPlaceholderProgress"
+              data-placeholder="progress"
+            />
+          </>
+        )}
+        {failure && (
+          <div
+            className="recordingPlaceholderFailure"
+            data-placeholder="failure"
+          >
+            <span>{tr(failure)}</span>
+          </div>
+        )}
+        <div className="recordingPlayer recordingPlayerPending" />
+      </div>
+      <div className="recordingActions" />
+    </div>
+  );
+};
+
+const RecordingCardView = (props: RecordingCardProps) => {
+  const { deferBody = false, measureElement } = props;
+  const card = useRef<HTMLLIElement>(null);
+  const setCardRef = useCallback(
+    (element: HTMLLIElement | null) => {
+      card.current = element;
+      measureElement?.(element);
+    },
+    [measureElement],
+  );
+  const nearView = useNearView(card);
+  const [mounted, setMounted] = useState(!deferBody);
+  const focusActivated = useRef(false);
+  const focusEntry = useRef<'first' | 'last' | null>(null);
+  const showBody = !deferBody || mounted || nearView;
+  // A focused view can become a large gallery (or vice versa). Once created,
+  // keep the body so version, draft and playback state survive these transitions.
+  useEffect(() => {
+    if (!deferBody) setMounted(true);
+  }, [deferBody]);
+  useLayoutEffect(() => {
+    const direction = focusEntry.current;
+    focusEntry.current = null;
+    const element = card.current;
+    if (
+      !direction ||
+      !element ||
+      element.ownerDocument.activeElement !== element
+    )
+      return;
+    const controls = Array.from(
+      element.querySelectorAll<HTMLElement>(
+        'button, input, select, textarea, a[href], [tabindex]',
+      ),
+    ).filter(
+      (control) =>
+        control.tabIndex >= 0 &&
+        !control.matches(':disabled') &&
+        !control.closest('[hidden], [inert], [aria-hidden="true"]'),
+    );
+    (direction === 'last' ? controls.at(-1) : controls[0])?.focus();
+  }, [showBody]);
+
+  return (
+    <li
+      ref={setCardRef}
+      data-index={props.index}
+      tabIndex={showBody ? undefined : 0}
+      aria-label={showBody ? undefined : props.name}
+      onFocus={(event) => {
+        if (showBody || event.target !== event.currentTarget) return;
+        const from = event.relatedTarget;
+        focusEntry.current =
+          from instanceof Node &&
+          event.currentTarget.compareDocumentPosition(from) &
+            Node.DOCUMENT_POSITION_FOLLOWING
+            ? 'last'
+            : 'first';
+        focusActivated.current = true;
+        setMounted(true);
+      }}
+    >
+      {showBody ? (
+        <RecordingCardBody
+          {...props}
+          nearView={nearView || focusActivated.current}
+        />
+      ) : (
+        <RecordingCardPlaceholder {...props} />
+      )}
     </li>
   );
 };
@@ -307,6 +442,7 @@ export const RecordingCard = memo(
     previous.name === next.name &&
     previous.index === next.index &&
     previous.measureElement === next.measureElement &&
+    previous.deferBody === next.deferBody &&
     previous.onRename === next.onRename &&
     previous.onAnalyze === next.onAnalyze &&
     previous.onDelete === next.onDelete &&

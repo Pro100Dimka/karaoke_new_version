@@ -272,6 +272,7 @@ export const RecordingsModal = observer(
                 recording={recording}
                 versions={versions.get(recording.id)}
                 index={index}
+                deferBody={view === 'grid' && performances.length > 40}
                 name={names.get(recording.id) ?? ''}
                 onRename={renameTake}
                 onAnalyze={analyzeTake}

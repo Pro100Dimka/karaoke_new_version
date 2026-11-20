@@ -274,7 +274,8 @@
 .recordingsList[data-view='grid'] {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
 }
-.recordingCard.ad-card {
+.recordingCard.ad-card,
+.recordingCardPlaceholder {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -296,7 +297,8 @@
 .recordingCard > .ad-border {
   opacity: 0.8;
 }
-.recordingsList[data-view='grid'] .recordingCard.ad-card {
+.recordingsList[data-view='grid']
+  :is(.recordingCard.ad-card, .recordingCardPlaceholder) {
   grid-template-columns: auto minmax(0, 1fr);
 }
 .recordingsList[data-view='grid'] .recordingActions {
@@ -339,6 +341,68 @@
 }
 .recordingActions .ad-icon {
   filter: none;
+}
+/* Keep the same rows while the whole card waits to come near the viewport.
+   Optional text wraps naturally; a fixed total height would jump for failures. */
+.recordingCardPlaceholder {
+  color: var(--ad-muted);
+}
+.recordingCardPlaceholder .recordingArt {
+  background: var(--app-edge);
+  box-shadow: none;
+  filter: none;
+}
+.recordingCardPlaceholder .recordingName {
+  min-block-size: 1.8rem;
+  padding-inline-end: calc(1.8rem + var(--ad-space-2));
+}
+.recordingCardPlaceholder .recordingName > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: var(--ad-line-height-title);
+}
+.recordingPlaceholderCaption {
+  font-family: var(--ad-font-family-sans);
+  font-size: var(--ad-font-size-caption);
+  line-height: var(--ad-line-height-compact);
+}
+.recordingPlaceholderVersions {
+  /* Small Tabs: tab height plus the track's padding and borders. */
+  min-block-size: 2.7rem;
+  overflow: hidden;
+  font-size: var(--ad-font-size-caption);
+  white-space: nowrap;
+}
+.recordingPlaceholderProgress {
+  block-size: 0.5625rem;
+  border-radius: 0.5rem;
+  background: var(--app-edge);
+}
+.recordingPlaceholderFailure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.7rem 1rem 0.7rem 1.1rem;
+  border: 0.0625rem solid transparent;
+  font-size: var(--ad-font-size-body-sm);
+  line-height: 1.5;
+}
+.recordingPlaceholderFailure::before {
+  content: '';
+  flex: none;
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+.recordingPlaceholderFailure > span {
+  flex: 1 1 12ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.recordingCardPlaceholder .recordingActions {
+  min-block-size: 2.125rem;
 }
 .recordingsEmpty {
   align-self: center;
