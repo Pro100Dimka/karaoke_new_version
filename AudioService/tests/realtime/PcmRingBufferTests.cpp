@@ -34,6 +34,60 @@ void pcmRingRejectsOverflow() {
     expect(!ring.push(std::vector<float>(18), 9), "ring rejects overflow");
 }
 
+void pcmRingKeepsCaptureTimesAcrossWrapAndUntimedBlocks() {
+    struct Frame {
+        float sample;
+        MonotonicTicks time;
+    };
+    for (const auto trackTimes : {false, true}) {
+        PcmRingBuffer ring;
+        ring.prepare(7, 2, false, trackTimes);
+        std::vector<Frame> expected;
+        std::array<float, 14> input{}, output{};
+        std::array<MonotonicTicks, 7> sent{}, received{};
+        std::uint32_t sequence = 0;
+        RealtimeInstrumentation::reset();
+        for (std::uint32_t step = 0; step < 48; ++step) {
+            if (step % 11U == 0) {
+                ring.clear();
+                expected.clear();
+            }
+            const auto frames = std::min(ring.freeFrames(), step % 4U + 1U);
+            const auto timed = trackTimes && step % 2U == 0;
+            for (std::uint32_t frame = 0; frame < frames; ++frame) {
+                const auto sample = static_cast<float>(++sequence);
+                input[frame * 2U] = sample;
+                input[frame * 2U + 1U] = -sample;
+                sent[frame] = 1'000'000 + static_cast<MonotonicTicks>(sequence) * 20'833;
+                expected.push_back({sample, timed ? sent[frame] : 0});
+            }
+            const auto requested = step * 3U % 5U + 1U;
+            const auto available = std::min(expected.size(), static_cast<std::size_t>(requested));
+            received.fill(-1);
+            bool accepted = false;
+            std::uint32_t copied = 0;
+            {
+                RealtimeScope realtime;
+                accepted = ring.push(input, frames, 1, nullptr,
+                                     timed ? std::span<const MonotonicTicks>{sent} : std::span<const MonotonicTicks>{});
+                copied = ring.pop(output, requested, {}, nullptr, received);
+            }
+            bool aligned = accepted && copied == available;
+            for (std::size_t frame = 0; frame < available; ++frame)
+                aligned = aligned && output[frame * 2U] == expected[frame].sample &&
+                          output[frame * 2U + 1U] == -expected[frame].sample &&
+                          received[frame] == expected[frame].time;
+            for (auto frame = available; frame < received.size(); ++frame)
+                aligned = aligned && received[frame] == -1;
+            expect(aligned, "timed and untimed blocks retain exact PCM/timestamp alignment through partial reads, wrap and clear");
+            expected.erase(expected.begin(), expected.begin() + static_cast<std::ptrdiff_t>(available));
+        }
+        const auto activity = RealtimeInstrumentation::snapshot();
+        expect(activity.allocations == 0 && activity.deallocations == 0 && activity.blockingCalls == 0,
+               "capture timestamp transfers add no realtime allocation or blocking");
+    }
+}
+
 void pcmRingKeepsSourceTagsAlignedAcrossWrapAndReset() {
     PcmRingBuffer ring;
     ring.prepare(5, 1, true);

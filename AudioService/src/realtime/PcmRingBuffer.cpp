@@ -81,20 +81,24 @@ bool PcmRingBuffer::pushAvailable(std::span<const float> interleaved,
     const auto write = writeFrame_.load(std::memory_order_relaxed);
     if (frames != 0) {
         const auto start = static_cast<std::uint32_t>(write % capacityFrames_);
-        const auto first =
-            static_cast<std::size_t>(std::min(frames, capacityFrames_ - start)) * channels_;
+        const auto firstFrames = std::min(frames, capacityFrames_ - start);
+        const auto first = static_cast<std::size_t>(firstFrames) * channels_;
         const auto remaining = static_cast<std::size_t>(frames) * channels_ - first;
         std::copy_n(interleaved.data(), first,
                     data_.data() + static_cast<std::size_t>(start) * channels_);
         std::copy_n(interleaved.data() + first, remaining, data_.data());
         if (!frameTags_.empty()) {
-            const auto firstFrames = std::min(frames, capacityFrames_ - start);
             std::fill_n(frameTags_.data() + start, firstFrames, frameTag);
             std::fill_n(frameTags_.data(), frames - firstFrames, frameTag);
         }
         if (!frameTimes_.empty()) {
-            for (std::uint32_t frame = 0; frame < frames; ++frame)
-                frameTimes_[(start + frame) % capacityFrames_] = frameTimes.empty() ? 0 : frameTimes[frame];
+            if (frameTimes.empty()) {
+                std::fill_n(frameTimes_.data() + start, firstFrames, MonotonicTicks{0});
+                std::fill_n(frameTimes_.data(), frames - firstFrames, MonotonicTicks{0});
+            } else {
+                std::copy_n(frameTimes.data(), firstFrames, frameTimes_.data() + start);
+                std::copy_n(frameTimes.data() + firstFrames, frames - firstFrames, frameTimes_.data());
+            }
         }
     }
     writeFrame_.store(write + frames, std::memory_order_release);
@@ -127,8 +131,8 @@ std::uint32_t PcmRingBuffer::peekAvailable(std::span<float> output,
 
     if (count != 0) {
         const auto start = static_cast<std::uint32_t>(read % capacityFrames_);
-        const auto first =
-            static_cast<std::size_t>(std::min(count, capacityFrames_ - start)) * channels_;
+        const auto firstFrames = std::min(count, capacityFrames_ - start);
+        const auto first = static_cast<std::size_t>(firstFrames) * channels_;
         const auto remaining = static_cast<std::size_t>(count) * channels_ - first;
         std::copy_n(data_.data() + static_cast<std::size_t>(start) * channels_, first,
                     output.data());
@@ -137,14 +141,17 @@ std::uint32_t PcmRingBuffer::peekAvailable(std::span<float> output,
             if (frameTags_.empty()) {
                 std::fill_n(frameTags.data(), count, std::uint8_t{1});
             } else {
-                const auto firstFrames = std::min(count, capacityFrames_ - start);
                 std::copy_n(frameTags_.data() + start, firstFrames, frameTags.data());
                 std::copy_n(frameTags_.data(), count - firstFrames, frameTags.data() + firstFrames);
             }
         }
         if (!frameTimes.empty()) {
-            for (std::uint32_t frame = 0; frame < count; ++frame)
-                frameTimes[frame] = frameTimes_.empty() ? 0 : frameTimes_[(start + frame) % capacityFrames_];
+            if (frameTimes_.empty()) {
+                std::fill_n(frameTimes.data(), count, MonotonicTicks{0});
+            } else {
+                std::copy_n(frameTimes_.data() + start, firstFrames, frameTimes.data());
+                std::copy_n(frameTimes_.data(), count - firstFrames, frameTimes.data() + firstFrames);
+            }
         }
     }
     if (transfer && capacityFrames_ != 0 && channels_ != 0)

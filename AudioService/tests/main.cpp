@@ -554,6 +554,7 @@ constexpr std::array tests{
     Test{"pitchEstimatorPreservesReferenceResults", Tests::pitchEstimatorPreservesReferenceResults},
     Test{"pitchEstimatorReusesPreparedStorage", Tests::pitchEstimatorReusesPreparedStorage},
     Test{"pitchEstimatorRejectsIncompleteWindows", Tests::pitchEstimatorRejectsIncompleteWindows},
+    Test{"pcmRingKeepsCaptureTimesAcrossWrapAndUntimedBlocks", Tests::pcmRingKeepsCaptureTimesAcrossWrapAndUntimedBlocks},
     Test{"analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration",
          Tests::analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration},
     Test{"analysisAccumulatesDeviceSizedBlocksForPitch",

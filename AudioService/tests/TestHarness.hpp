@@ -402,6 +402,7 @@ void analysisDetectsLivePitch();
 void pitchEstimatorPreservesReferenceResults();
 void pitchEstimatorReusesPreparedStorage();
 void pitchEstimatorRejectsIncompleteWindows();
+void pcmRingKeepsCaptureTimesAcrossWrapAndUntimedBlocks();
 void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration();
 void analysisAccumulatesDeviceSizedBlocksForPitch();
 void analysisPrefersFundamentalOverStrongerHarmonic();
