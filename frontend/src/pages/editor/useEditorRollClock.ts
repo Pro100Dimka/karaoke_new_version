@@ -10,6 +10,7 @@ export const useEditorRollClock = (
   duration: number,
   zoom: number,
   follow: boolean,
+  viewportChanged?: () => void,
 ): void => {
   useLayoutEffect(() => {
     const root = page.current;
@@ -68,8 +69,10 @@ export const useEditorRollClock = (
           item.sung = sung;
         }
       }
-      if (follow && scroll && (x < left || x > left + width * 0.8))
+      if (follow && scroll && (x < left || x > left + width * 0.8)) {
         scroll.scrollLeft = Math.max(0, x - width * 0.3);
+        viewportChanged?.();
+      }
     });
-  }, [page, document, readPosition, duration, zoom, follow]);
+  }, [page, document, readPosition, duration, zoom, follow, viewportChanged]);
 };

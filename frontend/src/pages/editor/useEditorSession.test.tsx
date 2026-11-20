@@ -17,15 +17,17 @@ import { EditorPage } from './index';
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
   useRouter: () => ({ params: { songId: 'song' }, navigate: vi.fn() }),
-  PianoRoll: ({
-    notes,
+}));
+vi.mock('./EditorPianoRoll', () => ({
+  EditorPianoRoll: ({
+    document,
     onSelect,
   }: {
-    notes: EditorDocument['notes'];
+    document: EditorDocument;
     onSelect(id: string, additive: boolean): void;
   }) => (
     <button data-testid="notes" onClick={() => onSelect('note', false)}>
-      {notes.length}
+      {document.notes.length}
     </button>
   ),
 }));

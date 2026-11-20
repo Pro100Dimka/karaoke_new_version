@@ -1,4 +1,4 @@
-import { setLocale, tr, type PianoRollProps } from '@neo-ui-kit/react';
+import { setLocale, tr } from '@neo-ui-kit/react';
 import {
   act,
   fireEvent,
@@ -15,6 +15,7 @@ import { clearStorage } from '../../shared/storage/localStore';
 import '../../providers/localization';
 import { editorApi } from './editorApi';
 import { EditorPage } from './index';
+import type { EditorPianoRollProps } from './EditorPianoRoll';
 
 const probe = vi.hoisted(() => ({ rollRenders: 0 }));
 vi.mock('@neo-ui-kit/react', async (importOriginal) => {
@@ -22,10 +23,22 @@ vi.mock('@neo-ui-kit/react', async (importOriginal) => {
   return {
     ...actual,
     useRouter: () => ({ params: { songId: 'song' }, navigate: vi.fn() }),
-    PianoRoll: (props: PianoRollProps) => {
-      probe.rollRenders++;
-      return <actual.PianoRoll {...props} />;
-    },
+  };
+});
+vi.mock('./EditorPianoRoll', async (original) => {
+  const actual = await original<typeof import('./EditorPianoRoll')>();
+  const { Profiler } = await import('react');
+  return {
+    EditorPianoRoll: (props: EditorPianoRollProps) => (
+      <Profiler
+        id="editor-roll"
+        onRender={() => {
+          probe.rollRenders++;
+        }}
+      >
+        <actual.EditorPianoRoll {...props} />
+      </Profiler>
+    ),
   };
 });
 vi.mock('../../app/TitleBar', () => ({
