@@ -804,6 +804,8 @@ constexpr std::array tests{
          Tests::sequenceDuplicateHistoryAcceptsMaximumWireValue},
     Test{"performanceMixExcludesMelody", Tests::performanceMixExcludesMelody},
     Test{"disabledDspIsExactBypass", Tests::disabledDspIsExactBypass},
+    Test{"dspSilenceSettlesWithoutSubnormalTails", Tests::dspSilenceSettlesWithoutSubnormalTails},
+    Test{"realtimeScopeRestoresFloatingPointMode", Tests::realtimeScopeRestoresFloatingPointMode},
     Test{"loudnessWeightingFollowsHearing", Tests::loudnessWeightingFollowsHearing},
     Test{"aQuietMicrophoneIsMeasuredAboveItsOwnNoise",
          Tests::aQuietMicrophoneIsMeasuredAboveItsOwnNoise},

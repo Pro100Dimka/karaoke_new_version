@@ -1,11 +1,66 @@
 #include "TestHarness.hpp"
 #include "dsp/DspChain.hpp"
+#include "realtime/RealtimeInstrumentation.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
+#if defined(_M_X64) || defined(__x86_64__)
+#include <xmmintrin.h>
+#endif
+
 namespace Tests {
+void dspSilenceSettlesWithoutSubnormalTails() {
+#if defined(_M_X64) || defined(__x86_64__)
+    DspChain chain;
+    chain.prepare(48000, 128, 2);
+    chain.setEnabled(true);
+    std::array<float, 256> block{};
+    block[0] = block[1] = 0.5F;
+    constexpr auto FlushModes = 0x8040U;
+    const auto callerMode = _mm_getcsr();
+    const auto gradualMode = callerMode & ~FlushModes;
+    _mm_setcsr(gradualMode);
+    chain.process(block, 128);
+    for (int index = 0; index < 1000; ++index) {
+        block.fill(0.0F);
+        chain.process(block, 128);
+    }
+    const auto restoredMode = _mm_getcsr();
+    _mm_setcsr(callerMode);
+    expect(std::ranges::all_of(block, [](float value) { return value == 0.0F; }),
+           "silent DSP must not keep processing a permanent subnormal filter tail");
+    expect(restoredMode == gradualMode,
+           "DSP must restore the caller's floating-point environment");
+#endif
+}
+
+void realtimeScopeRestoresFloatingPointMode() {
+#if defined(_M_X64) || defined(__x86_64__)
+    constexpr auto FlushModes = 0x8040U;
+    const auto originalMode = _mm_getcsr();
+    bool protectedScopes = true, restoredModes = true;
+    for (const auto mode : {0U, 0x8000U, 0x0040U, FlushModes}) {
+        const auto callerMode = (originalMode & ~FlushModes) | mode;
+        _mm_setcsr(callerMode);
+        {
+            RealtimeScope outer;
+            protectedScopes &= (_mm_getcsr() & FlushModes) == FlushModes;
+            {
+                RealtimeScope inner;
+                protectedScopes &= (_mm_getcsr() & FlushModes) == FlushModes;
+            }
+            protectedScopes &= (_mm_getcsr() & FlushModes) == FlushModes;
+        }
+        restoredModes &= _mm_getcsr() == callerMode;
+    }
+    _mm_setcsr(originalMode);
+    expect(protectedScopes, "nested audio callbacks must suppress subnormal arithmetic");
+    expect(restoredModes, "audio callbacks must preserve every caller floating-point mode");
+#endif
+}
+
 void disabledDspIsExactBypass() {
     DspChain chain;
     chain.prepare(48000, 256, 2);

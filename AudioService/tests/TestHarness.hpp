@@ -552,6 +552,8 @@ void performanceMixExcludesReferenceVocal();
 void roomMediaRendersWithoutDelayOrStretching();
 void performanceMixExcludesMelody();
 void disabledDspIsExactBypass();
+void dspSilenceSettlesWithoutSubnormalTails();
+void realtimeScopeRestoresFloatingPointMode();
 void loudnessWeightingFollowsHearing();
 void aQuietMicrophoneIsMeasuredAboveItsOwnNoise();
 void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds();

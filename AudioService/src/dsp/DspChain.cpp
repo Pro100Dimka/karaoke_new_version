@@ -1,4 +1,5 @@
 #include "dsp/DspChain.hpp"
+#include "dsp/ScopedNoDenormals.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -30,6 +31,7 @@ void DspChain::reset() noexcept {
 void DspChain::process(std::span<float> samples, std::uint32_t frames) noexcept {
     if (!enabled_.load(std::memory_order_relaxed))
         return;
+    ScopedNoDenormals noDenormals;
     highPass_.process(samples, frames);
     equalizer_.process(samples, frames);
     compressor_.process(samples, frames);

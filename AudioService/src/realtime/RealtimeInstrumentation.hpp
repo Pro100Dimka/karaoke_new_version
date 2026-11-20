@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dsp/ScopedNoDenormals.hpp"
+
 #include <atomic>
 #include <cstdint>
 #include <mutex>
@@ -11,6 +13,9 @@ class RealtimeScope {
     RealtimeScope(const RealtimeScope&) = delete;
     RealtimeScope& operator=(const RealtimeScope&) = delete;
     [[nodiscard]] static bool active() noexcept;
+
+  private:
+    ScopedNoDenormals noDenormals_;
 };
 
 struct RealtimeViolationSnapshot {
