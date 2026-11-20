@@ -81,6 +81,8 @@ export const selectLibrarySongs = (
         return false;
       if (filter.language !== 'all' && song.language !== filter.language)
         return false;
+      if (filter.duration !== 'all' && song.durationKnown === false)
+        return false;
       if (!durationMatches[filter.duration](song.durationSeconds)) return false;
       if (filter.artwork === 'with' && !song.artworkUrl) return false;
       if (filter.artwork === 'without' && song.artworkUrl) return false;

@@ -13,6 +13,7 @@ import { clearStorage } from '../../../shared/storage/localStore';
 import LibrarySongs from './index';
 import tiedApi from './catalog-order.api-fixture.json';
 import unicodeApi from './catalog-order-unicode.api-fixture.json';
+import shortApi from './catalog-short.api-fixture.json';
 
 const fixtures = { ties: tiedApi, unicode: unicodeApi };
 
@@ -57,7 +58,10 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 
-const installResponses = (api: (typeof fixtures)[keyof typeof fixtures]) => {
+const installResponses = (
+  api: (typeof fixtures)[keyof typeof fixtures],
+  shortIds?: readonly string[],
+) => {
   store.updatePreferences({
     karaokePlaylists: [
       {
@@ -83,6 +87,11 @@ const installResponses = (api: (typeof fixtures)[keyof typeof fixtures]) => {
           const key =
             `${url.searchParams.get('sort')}-${url.searchParams.get('descending') === 'true' ? 'desc' : 'asc'}` as keyof typeof api.orders;
           ids = api.orders[key];
+          if (url.searchParams.get('duration') === 'short') {
+            if (!shortIds)
+              throw new Error('Missing short-duration API fixture');
+            ids = shortIds;
+          }
         } else if (url.pathname !== '/songs') {
           throw new Error(`Unexpected ${request.path}`);
         }
@@ -108,11 +117,15 @@ afterEach(() => {
   Reflect.deleteProperty(window, 'desktop');
 });
 
-const Catalog = () => {
+const Catalog = ({
+  duration = 'all',
+}: {
+  duration?: LibraryFilters['duration'];
+}) => {
   const [filters, setFilters] = useState<LibraryFilters>({
     status: 'all',
     language: 'all',
-    duration: 'all',
+    duration,
     artwork: 'all',
     playlist: 'all',
     sort: store.preferences.librarySort,
@@ -199,5 +212,62 @@ it.each(
     await waitFor(() => expect(client.isFetching()).toBe(0));
 
     expect(cardOrder()).toEqual(expected);
+  },
+);
+
+it.each(['selection', 'playlist'] as const)(
+  'keeps an unknown-duration song outside the short filter after %s, and restores it for all durations',
+  async (mode) => {
+    installResponses(unicodeApi, shortApi.ids);
+    store.updatePreferences({
+      librarySort: 'title',
+      librarySortDirection: 'asc',
+    });
+    const unknown = unicodeApi.songs.find((song) => song.duration === null)!;
+    const known = unicodeApi.songs.find(
+      (song) => song.songId === shortApi.ids[0],
+    )!;
+    const unknownLabel = tr('Выбрать {name}', { name: unknown.title });
+    render(<Catalog duration="short" />);
+    const selectKnown = await screen.findByRole('checkbox', {
+      name: tr('Выбрать {name}', { name: known.title }),
+    });
+    expect(
+      screen.queryByRole('checkbox', { name: unknownLabel }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(shortApi.ids.length);
+
+    if (mode === 'selection') {
+      fireEvent.click(selectKnown);
+    } else {
+      fireEvent.click(
+        screen.getByRole('button', { name: tr('filtersAndSorting') }),
+      );
+      fireEvent.click(screen.getByLabelText(tr('library.search.playlist')));
+      fireEvent.click(screen.getByRole('option', { name: 'My selection' }));
+    }
+    await waitFor(() =>
+      expect(requested.some(({ path }) => path === '/songs?limit=200')).toBe(
+        true,
+      ),
+    );
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(
+      screen.queryByRole('checkbox', { name: unknownLabel }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(shortApi.ids.length);
+
+    const filters = screen.getByRole('button', {
+      name: tr('filtersAndSorting'),
+    });
+    if (filters.getAttribute('aria-expanded') !== 'true')
+      fireEvent.click(filters);
+    fireEvent.click(screen.getByLabelText(tr('library.search.duration')));
+    fireEvent.click(
+      screen.getByRole('option', { name: tr('library.search.all') }),
+    );
+    expect(
+      await screen.findByRole('checkbox', { name: unknownLabel }),
+    ).toBeVisible();
   },
 );

@@ -76,6 +76,7 @@ export const queueSongImport = (client: QueryClient, path: string) => {
     progress: 0,
     stage: 'Queued',
     durationSeconds: 0,
+    durationKnown: false,
     createdAt: new Date().toISOString(),
     coverState: 'Fallback',
     activeRevision: 0,

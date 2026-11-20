@@ -50,6 +50,8 @@ export interface SongDto {
   stage?: string;
   jobId?: string;
   durationSeconds: number;
+  /** False when durationSeconds is only a display fallback for unknown media length. */
+  durationKnown?: boolean;
   createdAt: string;
   coverState: CoverState;
   activeRevision: number;

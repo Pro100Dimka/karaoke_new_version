@@ -150,6 +150,7 @@ export const mapSong = (song: BackendSong): SongDto => ({
   language: songLanguage(song.language),
   status: songStatus(song.status),
   durationSeconds: song.duration ?? 0,
+  durationKnown: song.duration != null,
   createdAt: song.createdAt,
   coverState: coverState(song.coverState),
   activeRevision: song.activeRevision,
