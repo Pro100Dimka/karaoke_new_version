@@ -4,6 +4,7 @@ import pytest
 from threading import Event
 from dataclasses import replace
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from tests.conftest import write_wav
 from tests.helpers import import_song
@@ -213,12 +214,17 @@ def test_custom_cover_can_be_served_and_removed(
         monkeypatch.setattr(storage, "copy_cover", copy_with_publication)
 
     updated = client.patch(f"/songs/{song_id}", json={"coverPath": str(cover)})
-    served = client.get(f"/songs/{song_id}/cover")
+    assert updated.status_code == 200, updated.text
+    cover_url = updated.json()["artworkUrl"]
+    served = client.get(cover_url)
     removed = client.delete(f"/songs/{song_id}/cover")
 
     assert updated.status_code == 200
     assert updated.json()["coverState"] == "Custom"
-    assert updated.json()["artworkUrl"] == f"http://testserver/songs/{song_id}/cover"
+    assert (
+        urlsplit(cover_url)._replace(query="").geturl()
+        == f"http://testserver/songs/{song_id}/cover"
+    )
     assert served.status_code == 200
     assert served.content == cover.read_bytes()
     assert removed.status_code == 200

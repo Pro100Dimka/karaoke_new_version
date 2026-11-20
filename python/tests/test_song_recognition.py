@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from dataclasses import replace
+from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -138,7 +139,9 @@ def test_import_uses_recognized_song_metadata_for_the_library_and_later_searches
     assert response.json()["album"] == recognized.album
     assert response.json()["genre"] == recognized.genre
     # A recognised remote cover is served through the local cache, never hot-linked by the UI.
-    assert response.json()["artworkUrl"].endswith(f"/songs/{response.json()['songId']}/cover")
+    assert urlsplit(response.json()["artworkUrl"])._replace(query="").geturl() == (
+        f"http://testserver/songs/{response.json()['songId']}/cover"
+    )
     assert response.json()["videoUrl"] == recognized.video_url
 
 
@@ -217,7 +220,9 @@ def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprint
     assert refreshed["artist"] == recognized.artist
     assert refreshed["album"] == recognized.album
     assert refreshed["genre"] == recognized.genre
-    assert refreshed["artworkUrl"].endswith(f"/songs/{imported['songId']}/cover")
+    assert urlsplit(refreshed["artworkUrl"])._replace(query="").geturl() == (
+        f"http://testserver/songs/{imported['songId']}/cover"
+    )
     assert refreshed["videoUrl"] == recognized.video_url
     assert refreshed["recognitionProvider"] == "AudD"
 
@@ -360,15 +365,22 @@ def test_processing_does_not_replace_an_identified_song_with_an_unrelated_finger
         imported = client.post("/songs", json={"sourcePath": str(source)}).json()
         refreshed = process_song(client, imported["songId"])
 
+        with client.app.state.container.database.create() as transaction:
+            stored = transaction.songs.get(imported["songId"])
+            assert stored is not None
+            assert stored.artwork_url == (original.artwork_url if provider else None)
+
     for field in (
         "title",
         "artist",
         "album",
-        "artworkUrl",
         "recognitionProvider",
         "videoUrl",
     ):
         assert refreshed[field] == imported[field], field
+    assert urlsplit(refreshed["artworkUrl"] or "")._replace(query="") == urlsplit(
+        imported["artworkUrl"] or ""
+    )._replace(query="")
 
 
 def test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog(
@@ -407,5 +419,7 @@ def test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_ca
 
     assert (enriched["artist"], enriched["title"]) == ("O.Torvald", "Ліхтарі")
     assert enriched["album"] == "Бісайди"
-    assert enriched["artworkUrl"].endswith(f"/songs/{song['songId']}/cover")
+    assert urlsplit(enriched["artworkUrl"])._replace(query="").geturl() == (
+        f"http://testserver/songs/{song['songId']}/cover"
+    )
     assert not recognizer.results

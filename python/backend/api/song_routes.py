@@ -185,7 +185,11 @@ def _song_dto(song: Song, request: Request) -> SongDto:
     app: ApplicationContainer = request.app.state.container
     result.project_hash = app.songs.get_song.project_hash(song)
     if song.cover_path is not None or (song.artwork_url or "").startswith(("https://", "http://")):
-        result.artwork_url = str(request.url_for("song_cover", song_id=song.song_id))
+        result.artwork_url = str(
+            request.url_for("song_cover", song_id=song.song_id).include_query_params(
+                v=song.updated_at.isoformat()
+            )
+        )
     if song.video_url == LOCAL_CLIP:
         result.video_url = str(request.url_for("song_clip", song_id=song.song_id))
     return result

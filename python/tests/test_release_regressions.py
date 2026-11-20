@@ -6,6 +6,7 @@ import threading
 import tracemalloc
 import wave
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import numpy as np
 import pytest
@@ -238,13 +239,15 @@ def test_a_recognised_cover_is_fetched_once_card_sized_and_then_served_offline(
             transaction.commit()
 
         listed = client.get(f"/songs/{song_id}").json()["artworkUrl"]
-        first = client.get(f"/songs/{song_id}/cover")
+        first = client.get(listed)
         container.artwork = ArtworkCache(
             tmp_path / "artwork", httpx.MockTransport(lambda request: 1 / 0)
         )
-        second = client.get(f"/songs/{song_id}/cover")
+        second = client.get(listed)
 
-    assert listed == f"http://testserver/songs/{song_id}/cover"
+    assert (
+        urlsplit(listed)._replace(query="").geturl() == f"http://testserver/songs/{song_id}/cover"
+    )
     assert first.status_code == 200 and first.content == b"\xff\xd8cover"
     assert first.headers["content-type"] == "image/jpeg"
     assert requested == [remote.replace("1200x1200bb", "600x600bb")]
