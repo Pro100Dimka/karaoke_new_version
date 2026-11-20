@@ -1,6 +1,95 @@
 import { expect, it, vi } from 'vitest';
 import { installBridge } from './audioVoiceFixture';
 
+it.each([
+  { room: false, tripped: false, observation: 'snapshot' },
+  { room: true, tripped: false, observation: 'snapshot' },
+  { room: false, tripped: true, observation: 'snapshot' },
+  { room: true, tripped: true, observation: 'snapshot' },
+  { room: false, tripped: true, observation: 'notification' },
+  { room: true, tripped: true, observation: 'notification' },
+])(
+  'keeps observed monitoring intent across Windows reconfiguration: %j',
+  async ({ room, tripped, observation }) => {
+    let backend = 'WASAPI Shared';
+    let monitoring = false;
+    let safetyTripped = false;
+    let sampleRate = 48_000;
+    let notify: Parameters<DesktopApi['onAudioNotification']>[2] = () => {};
+    const nativeSnapshot = () =>
+      `SessionState: Running\nBackend: ${backend}\nMonitoringEnabled: ${Number(monitoring)}\nMonitoringSafetyTripped: ${Number(safetyTripped)}\nRuntimeOutputSampleRate: ${sampleRate}\nPlaybackState: 2`;
+    const requests = installBridge(
+      ({ command, args }) => {
+        if (command === 'Reconfigure') {
+          backend = args?.backend === 'wasapi-exclusive'
+            ? 'WASAPI Exclusive' : 'WASAPI Shared';
+          sampleRate = Number(args?.rate) || sampleRate;
+          // Endpoint preparation resets the native monitor and its safety flag.
+          monitoring = false;
+          safetyTripped = false;
+        }
+        if (command === 'SetMonitoring') {
+          monitoring = args?.enabled === true;
+          if (monitoring) safetyTripped = false;
+        }
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+            ? nativeSnapshot() : 'Ok',
+        };
+      },
+      {
+        joinRoomVoice: vi.fn(async () => undefined),
+        leaveRoomVoice: vi.fn(async () => undefined),
+        onAudioNotification: (_command, _interval, listener) => {
+          notify = listener;
+          return () => {};
+        },
+      },
+    );
+    const { audioClient } = await import('./audioClient');
+    const { waitForAudioOperations } = await import('./audioSession');
+    audioClient.setPreferredConfiguration({
+      backend: 'WASAPI Shared', sampleRate: 48_000, periodFrames: 0,
+    });
+    if (room) await audioClient.joinVoiceSession('room', 'self');
+    await audioClient.setMonitoring(true);
+    expect(monitoring).toBe(true);
+    if (tripped) {
+      monitoring = false;
+      safetyTripped = true;
+    }
+    if (observation === 'notification') {
+      const onValue = vi.fn();
+      const onError = vi.fn();
+      const unsubscribe = audioClient.observeSnapshots(onValue, onError);
+      notify({ status: 0, text: `${nativeSnapshot()}\nMonotonicTicks: 1`, observedAt: 1 });
+      await waitForAudioOperations();
+      unsubscribe();
+      expect(onError).not.toHaveBeenCalled();
+      expect(onValue).toHaveBeenCalledWith(expect.objectContaining({ monitoring: false }));
+    } else {
+      expect((await audioClient.snapshot()).monitoring).toBe(!tripped);
+    }
+    requests.length = 0;
+    await audioClient.applyConfiguration({
+      backend: 'WASAPI Shared', sampleRate: 44_100, periodFrames: 0,
+    });
+    expect.soft((await audioClient.snapshot()).monitoring).toBe(!tripped);
+    expect.soft(backend).toBe(room || !tripped ? 'WASAPI Exclusive' : 'WASAPI Shared');
+    expect.soft(requests.filter(({ command }) => command === 'SetMonitoring')
+      .map(({ args }) => args?.enabled)).toEqual([!tripped]);
+    if (room) {
+      await audioClient.leaveVoiceSession();
+      expect.soft(backend).toBe(tripped ? 'WASAPI Shared' : 'WASAPI Exclusive');
+    }
+    // An explicit later request may enable monitoring again.
+    await audioClient.setMonitoring(true);
+    expect(monitoring).toBe(true);
+    expect(backend).toBe('WASAPI Exclusive');
+  },
+);
+
 it.each(['monitor-first', 'room-first'] as const)(
   'releases Exclusive only after both reasons end: %s',
   async (order) => {
