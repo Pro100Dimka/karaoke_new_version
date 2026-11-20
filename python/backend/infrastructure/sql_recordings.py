@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
+from backend.domain_errors import NotFoundError
 from backend.infrastructure.sql_time import as_utc
 from backend.infrastructure.orm import AnalysisRow, RecordingRow
 from backend.serialization import dumps, loads_list, loads_optional_object
@@ -78,7 +79,9 @@ class SqlRecordingRepository:
             execution_options={"populate_existing": True},
         )
         if row is None:
-            raise KeyError(recording.recording_id)
+            raise NotFoundError(
+                "RecordingNotFound", "Recording was not found", recordingId=recording.recording_id
+            )
         self.changed.add(recording.recording_id)
         return _to_domain(row)
 
