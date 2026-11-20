@@ -130,12 +130,22 @@ export const createTaskbarIntegration = ({
   const jobs = new JobProgress();
   let lastButtons = '';
   let lastOverlay = '';
+  let lastProgress:
+    | { window: BrowserWindow; progress: number; mode: string }
+    | undefined;
 
   const applyProgress = () => {
     const current = window();
     if (!current || current.isDestroyed()) return;
     const { progress, mode } = jobs.bar();
+    if (
+      lastProgress?.window === current &&
+      lastProgress.progress === progress &&
+      lastProgress.mode === mode
+    )
+      return;
     current.setProgressBar(progress, mode === 'none' ? undefined : { mode });
+    lastProgress = { window: current, progress, mode };
   };
 
   const applyStatus = (status: ShellStatus) => {
@@ -192,6 +202,7 @@ export const createTaskbarIntegration = ({
     refresh(): void {
       lastButtons = '';
       lastOverlay = '';
+      lastProgress = undefined;
       applyStatus(shell.status());
       applyProgress();
     },
