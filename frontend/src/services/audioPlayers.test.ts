@@ -108,6 +108,107 @@ describe('radio transport intents', () => {
 });
 
 describe('recording preview ownership', () => {
+  it.each(['lookup', 'native-load'])(
+    'cancels a deleted recording while its %s is pending',
+    async (stage) => {
+      const { players, command, pythonRequest } = setup();
+      const active = Symbol('active');
+      await players.playRecording('active', active);
+      command.mockClear();
+      let finish!: () => void;
+      if (stage === 'lookup')
+        pythonRequest.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = () =>
+                resolve({
+                  ok: true,
+                  status: 200,
+                  body: { filePath: 'deleted.wav' },
+                });
+            }),
+        );
+      else
+        command.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = () => resolve('');
+            }),
+        );
+      const outcome = players.playRecording('deleted', Symbol('deleted')).then(
+        () => 'played',
+        () => 'cancelled',
+      );
+      await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+      await players.stopRecordingPreview(undefined, 'deleted');
+      finish();
+
+      expect(await outcome).toBe('cancelled');
+      expect(command).not.toHaveBeenCalledWith('PlayRecordingPreview');
+      expect(
+        command.mock.calls.filter(([name]) => name === 'StopRecordingPreview'),
+      ).toHaveLength(stage === 'lookup' ? 0 : 1);
+      expect((await players.recordingPreviewStatus(active)).recordingId).toBe(
+        stage === 'lookup' ? 'active' : null,
+      );
+    },
+  );
+
+  it('keeps a new preview selected when an older stop reply arrives late', async () => {
+    const { players, command } = setup();
+    const first = Symbol('first');
+    const next = Symbol('next');
+    await players.playRecording('first', first);
+    let finish!: () => void;
+    command.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve('');
+        }),
+    );
+    const stopping = players.stopRecordingPreview(first);
+    await players.playRecording('next', next);
+    finish();
+    await stopping;
+
+    expect((await players.recordingPreviewStatus(next)).recordingId).toBe(
+      'next',
+    );
+    expect(
+      (await players.recordingPreviewStatus(first)).recordingId,
+    ).toBeNull();
+  });
+
+  it('lets another take finish loading when the previous take is deleted', async () => {
+    const { players, pythonRequest } = setup();
+    await players.playRecording('old', Symbol('old'));
+    const next = Symbol('next');
+    let finish!: () => void;
+    pythonRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () =>
+            resolve({
+              ok: true,
+              status: 200,
+              body: { filePath: 'next.wav' },
+            });
+        }),
+    );
+    const outcome = players.playRecording('next', next).then(
+      () => 'played',
+      () => 'cancelled',
+    );
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    await players.stopRecordingPreview(undefined, 'old');
+    finish();
+
+    expect(await outcome).toBe('played');
+    expect((await players.recordingPreviewStatus(next)).recordingId).toBe(
+      'next',
+    );
+  });
+
   it('keeps a pending player volume separate from the active player and discards it on cancellation', async () => {
     const { players, command, pythonRequest } = setup();
     const active = Symbol('active');

@@ -58,7 +58,9 @@ export const createAudioPlayers = (
   let radioGeneration = 0;
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
-  let loadingOwner: symbol | undefined;
+  let loadingPreview:
+    | { recordingId: string; owner: symbol | undefined; active: boolean }
+    | undefined;
   let pendingGain:
     { owner: symbol | undefined; value: number | undefined } | undefined;
   let previewKind: 'recording' | 'song' = 'recording';
@@ -108,7 +110,8 @@ export const createAudioPlayers = (
     const generation = ++previewGeneration;
     const previousOwner = previewOwner;
     const previousRecordingId = previewRecordingId;
-    loadingOwner = owner;
+    const pending = { recordingId, owner, active: false };
+    loadingPreview = pending;
     const requestedGain = { owner, value: gain };
     pendingGain = requestedGain;
     try {
@@ -142,6 +145,7 @@ export const createAudioPlayers = (
         (values.ServiceInstanceId !== undefined &&
           values.ServiceInstanceId !== previewServiceInstanceId);
       previewOwner = owner;
+      pending.active = true;
       if (loadRequired) {
         await ops.command('LoadRecordingPreview', { path: filePath });
         await waitFor(
@@ -178,7 +182,7 @@ export const createAudioPlayers = (
       throw error;
     } finally {
       if (generation === previewGeneration) {
-        loadingOwner = undefined;
+        loadingPreview = undefined;
         pendingGain = undefined;
       }
     }
@@ -188,20 +192,27 @@ export const createAudioPlayers = (
     owner,
     recordingId,
   ) => {
-    if (owner !== undefined && owner === loadingOwner && !ownsPreview(owner)) {
+    const pending = loadingPreview;
+    const pendingMatches =
+      pending !== undefined &&
+      (owner === undefined || owner === pending.owner) &&
+      (recordingId === undefined || recordingId === pending.recordingId);
+    const activeMatches =
+      ownsPreview(owner) &&
+      (recordingId === undefined || recordingId === previewRecordingId) &&
+      (!pending?.active || pendingMatches);
+    if (!pendingMatches && !activeMatches) return;
+    // Deleting the old take must not cancel an unrelated replacement still being looked up.
+    if (pendingMatches || !pending) {
       previewGeneration += 1;
-      loadingOwner = undefined;
+      loadingPreview = undefined;
       pendingGain = undefined;
-      return;
     }
-    if (recordingId !== undefined && previewRecordingId !== recordingId) return;
-    if (!ownsPreview(owner)) return;
-    previewGeneration += 1;
+    if (!activeMatches && !pending?.active) return;
     previewOwner = undefined;
-    loadingOwner = undefined;
-    pendingGain = undefined;
-    await ops.command('StopRecordingPreview');
+    // A later Play may finish before this Stop's reply; do not clear its identity afterwards.
     previewRecordingId = null;
+    await ops.command('StopRecordingPreview');
   };
 
   return {

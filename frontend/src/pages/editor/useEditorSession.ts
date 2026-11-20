@@ -60,7 +60,10 @@ export const useEditorSession = (songId: string) => {
   const [saving, setSaving] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const generation = useRef(0);
-  const savingGeneration = useRef<number | null>(null);
+  const pendingSave = useRef<{
+    generation: number;
+    result: Promise<boolean>;
+  } | null>(null);
 
   const document = history?.present ?? null;
   const dirty = useMemo(
@@ -217,14 +220,12 @@ export const useEditorSession = (songId: string) => {
     [preview.restore, audioReady],
   );
 
-  const save = useCallback(async (): Promise<boolean> => {
+  const persist = useCallback(async (): Promise<boolean> => {
     const target = latest.current.song;
     const current = latest.current.history?.present;
     const base = latest.current.saved;
     if (!target || !current || !base) return true;
     const requestGeneration = generation.current;
-    if (savingGeneration.current === requestGeneration) return false;
-    savingGeneration.current = requestGeneration;
     setSaving(true);
     try {
       let expected = base.revision;
@@ -293,14 +294,29 @@ export const useEditorSession = (songId: string) => {
       return false;
     } finally {
       if (requestGeneration === generation.current) {
-        savingGeneration.current = null;
         setSaving(false);
       }
     }
   }, [ask, notify, locale, refreshSavedAudio]);
 
+  const save = useCallback((): Promise<boolean> => {
+    const requestGeneration = generation.current;
+    if (pendingSave.current?.generation === requestGeneration)
+      return pendingSave.current.result;
+    const result = persist().finally(() => {
+      if (pendingSave.current?.generation === requestGeneration)
+        pendingSave.current = null;
+    });
+    pendingSave.current = { generation: requestGeneration, result };
+    return result;
+  }, [persist]);
+
   /** Save / Discard / Cancel; resolves true when the caller may leave. */
   const resolveUnsaved = useCallback(async (): Promise<boolean> => {
+    const requestGeneration = generation.current;
+    if (pendingSave.current?.generation === requestGeneration)
+      await pendingSave.current.result;
+    if (requestGeneration !== generation.current) return false;
     if (!latest.current.dirty) return true;
     const choice = await ask({
       title: tr('unsavedEditorTitle'),
@@ -311,9 +327,17 @@ export const useEditorSession = (songId: string) => {
         { id: 'save', label: tr('save'), appearance: 'primary' },
       ],
     });
+    if (requestGeneration !== generation.current) return false;
     if (choice === 'save') return save();
     if (choice === 'discard') {
       if (latest.current.song) clearDraft(latest.current.song.id);
+      const base = latest.current.saved;
+      if (base) {
+        const history = startHistory(base);
+        latest.current = { ...latest.current, history, dirty: false };
+        setHistory(history);
+        setSelection(new Set());
+      }
       return true;
     }
     return false;

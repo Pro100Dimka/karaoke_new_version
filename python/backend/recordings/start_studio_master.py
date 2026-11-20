@@ -4,15 +4,18 @@ from pathlib import Path
 import logging
 from collections.abc import Callable, Iterator, Sequence, Mapping
 from contextlib import contextmanager
+from functools import partial
+from threading import Lock
 
 from backend.ai.domain import AiCapability, PitchPoint
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.local_storage import LocalWorkStorage
 from backend.infrastructure.atomic_files import atomic_write_text
+from backend.infrastructure.job_executor import job_failure
 from backend.serialization import dumps
 from backend.persistence import UnitOfWorkFactory
-from backend.processing.domain import Job, JobType
+from backend.processing.domain import Job, JobState, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.projects.ports import ProjectStorage
@@ -53,9 +56,26 @@ class StartStudioMaster:
         self._workspaces = workspaces
         self._renderer = renderer
         self._publisher = publisher
+        self._submission_lock = Lock()
 
     def execute(self, recording_id: str) -> Job:
-        recording = self._recording(recording_id)
+        with self._jobs.prepare_submission(), self._submission_lock:
+            recording = self._recording(recording_id)
+            previous = self._jobs.list(
+                limit=1,
+                offset=0,
+                job_type=JobType.RECORDING_MASTERING,
+                entity_id=recording.recording_id,
+            )
+            if previous and previous[0].state in {
+                JobState.QUEUED,
+                JobState.RUNNING,
+                JobState.CANCELLING,
+            }:
+                return previous[0]
+            return self._start(recording)
+
+    def _start(self, recording: Recording) -> Job:
         song_id, revision = self._project_identity(recording)
         for artifact in ("referenceVocal", "instrumental"):
             if not self._projects.artifact_path(song_id, revision, artifact).is_file():
@@ -83,7 +103,9 @@ class StartStudioMaster:
             # Resolve/recover stems only after job admission prevents archive publication.
             stems = self._stems(recording)
             logger.info(
-                "Studio Master requested: recording=%s stems=%s", recording.recording_id, bool(stems)
+                "Studio Master requested: recording=%s stems=%s",
+                recording.recording_id,
+                bool(stems),
             )
             exact_stems = stems is not None
             if stems is None:
@@ -320,6 +342,15 @@ class PublishStudioMaster:
                 display_name=None,
             )
         )
-        if self._on_completed:
-            self._on_completed(master.recording_id)
+        self._notify_completed(master.recording_id)
         return master
+
+    def _notify_completed(self, recording_id: str) -> None:
+        if self._on_completed is None:
+            return
+        # Publication has committed. Deferred archival must not turn a saved Master into a failure.
+        with job_failure(
+            partial(logger.exception, "Studio Master archival queue failed"),
+            suppress=True,
+        ):
+            self._on_completed(recording_id)

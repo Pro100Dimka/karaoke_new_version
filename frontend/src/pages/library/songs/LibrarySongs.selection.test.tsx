@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { tr } from '@neo-ui-kit/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { SongDto } from '../../../contracts/models';
 import LibrarySongs from './index';
@@ -29,6 +30,7 @@ vi.mock('../../../providers/store', () => ({
   },
 }));
 vi.mock('../../../providers/application', () => ({
+  useJobs: () => ({ jobs: [] }),
   useRoomLibraryCommands: () => null,
 }));
 vi.mock('../../../providers/notifications', () => ({
@@ -60,11 +62,17 @@ vi.mock('./useLibraryCatalog', () => ({
   }),
 }));
 
+let client: QueryClient;
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={client}>{children}</QueryClientProvider>
+);
 beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   state.visible = true;
   state.exists = true;
   state.phase = 'ready';
 });
+afterEach(() => client.clear());
 vi.mock('./song-grid', () => ({
   VirtualGrid: ({
     items,
@@ -106,7 +114,7 @@ it('keeps the selection controls available when a search hides every selected so
     onPlay: vi.fn(),
     songSelection: () => undefined,
   };
-  const view = render(<LibrarySongs {...props} />);
+  const view = render(<LibrarySongs {...props} />, { wrapper });
   fireEvent.click(screen.getByRole('button', { name: 'Select song' }));
   expect(
     screen.getByRole('button', { name: tr('cancel') }),
@@ -144,7 +152,7 @@ it.each(['loading', 'placeholder', 'failed'] as const)(
       onPlay: vi.fn(),
       songSelection: () => undefined,
     };
-    const view = render(<LibrarySongs {...props} />);
+    const view = render(<LibrarySongs {...props} />, { wrapper });
     fireEvent.click(screen.getByRole('button', { name: 'Select song' }));
     state.exists = false;
     state.visible = false;

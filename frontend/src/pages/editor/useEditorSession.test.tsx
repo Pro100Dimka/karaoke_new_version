@@ -263,12 +263,97 @@ describe('editor session', () => {
       duplicate = result.current.save();
     });
     expect(editorApi.save).toHaveBeenCalledTimes(1);
-    expect(await duplicate).toBe(false);
     await act(async () => {
       finishSave(2);
       await saving;
     });
+    expect(await duplicate).toBe(true);
     expect(result.current.saving).toBe(false);
+  });
+
+  it('finishes Save and leave when the already running save succeeds', async () => {
+    let finishSave!: (revision: number) => void;
+    editorApi.save.mockImplementation(
+      () =>
+        new Promise<number>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    dialogs.ask.mockResolvedValue('save');
+    const { result } = renderHook(() => useEditorSession('song'));
+    await waitFor(() => expect(result.current.audioReady).toBe(true));
+    act(() => result.current.move(new Set(['note']), 1, 0));
+    let saving!: Promise<boolean>;
+    let leaving!: Promise<boolean>;
+    act(() => {
+      saving = result.current.save();
+    });
+    await act(async () => {
+      leaving = result.current.resolveUnsaved();
+    });
+    await act(async () => {
+      finishSave(2);
+      await saving;
+    });
+
+    expect(await leaving).toBe(true);
+    expect(editorApi.save).toHaveBeenCalledTimes(1);
+    expect(result.current.dirty).toBe(false);
+  });
+
+  it('does not recreate discarded edits while another close guard keeps the editor open', async () => {
+    dialogs.ask.mockResolvedValue('discard');
+    const { result } = renderHook(() => useEditorSession('song'));
+    await waitFor(() => expect(result.current.audioReady).toBe(true));
+    vi.useFakeTimers();
+    act(() => result.current.move(new Set(['note']), 1, 0));
+    await act(async () =>
+      expect(await result.current.resolveUnsaved()).toBe(true),
+    );
+    // App shutdown may still be waiting for processing to stop, or be cancelled there.
+    await act(() => vi.advanceTimersByTimeAsync(600));
+
+    expect(loadDraft('song')).toBeNull();
+    expect(result.current.document).toEqual(document);
+    expect(result.current.dirty).toBe(false);
+    expect(editorApi.save).not.toHaveBeenCalled();
+  });
+
+  it('discards only later edits after an already submitted save finishes', async () => {
+    let finishSave!: (revision: number) => void;
+    editorApi.save.mockImplementation(
+      () =>
+        new Promise<number>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    dialogs.ask.mockResolvedValue('discard');
+    const { result } = renderHook(() => useEditorSession('song'));
+    await waitFor(() => expect(result.current.audioReady).toBe(true));
+    act(() => result.current.move(new Set(['note']), 1, 0));
+    let saving!: Promise<boolean>;
+    let leaving!: Promise<boolean>;
+    act(() => {
+      saving = result.current.save();
+    });
+    act(() => result.current.move(new Set(['note']), 1, 0));
+    await act(async () => {
+      leaving = result.current.resolveUnsaved();
+    });
+    await act(async () => {
+      finishSave(2);
+      await saving;
+      await leaving;
+    });
+
+    expect(await leaving).toBe(true);
+    expect(result.current.document).toMatchObject({
+      revision: 2,
+      notes: [{ pitch: 61 }],
+    });
+    expect(result.current.dirty).toBe(false);
+    expect(loadDraft('song')).toBeNull();
+    expect(editorApi.save).toHaveBeenCalledTimes(1);
   });
 
   it('does not replace the next song with a late save response', async () => {

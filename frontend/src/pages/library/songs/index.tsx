@@ -6,6 +6,7 @@ import {
   tr,
   useRouter,
 } from '@neo-ui-kit/react';
+import { useQuery } from '@tanstack/react-query';
 import { observer } from 'mobx-react-lite';
 import {
   useCallback,
@@ -23,6 +24,11 @@ import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
 import { store } from '../../../providers/store';
 import { pythonClient } from '../../../services/pythonClient';
+import {
+  backendPollInterval,
+  onLibraryChange,
+  readBackendSnapshot,
+} from '../../../services/backendEvents';
 import { LibraryEmptyState } from '../empty-library';
 import type { LibraryViewFilters } from '../hero/filters&actions/search-field';
 import { RecordingsModal } from '../modals/recordings';
@@ -38,7 +44,10 @@ import {
   AddToPlaylistDialog,
   PlaylistDialog,
 } from '../../../features/playlists/PlaylistDialog';
-import { useRoomLibraryCommands } from '../../../providers/application';
+import {
+  useJobs,
+  useRoomLibraryCommands,
+} from '../../../providers/application';
 import { routes } from '../../../shared/routes';
 import { canControlRoom } from '../../../application/room/roomModel';
 import { readText, writeText } from '../../../shared/storage/localStore';
@@ -127,6 +136,47 @@ const LibrarySongs = observer(
       visibleSongs,
       completeCatalog,
     } = useLibraryCatalog(query, viewFilters, selecting || playlistsOpen);
+
+    const settingsId = settingsSong?.id ?? '';
+    const settingsJobState = useJobs().jobs.find(
+      (job) =>
+        job.songId === settingsId &&
+        ['queued', 'processing', 'cancelling'].includes(job.state),
+    )?.state;
+    const { data: currentSettings } = useQuery({
+      queryKey: ['song-settings-song', settingsId],
+      queryFn: ({ signal }) =>
+        readBackendSnapshot(
+          () => pythonClient.getSong(settingsId),
+          onLibraryChange,
+          signal,
+        ),
+      enabled: Boolean(settingsId),
+      initialData: settingsSong ?? undefined,
+      gcTime: 0,
+      refetchInterval: backendPollInterval(15_000),
+    });
+    useEffect(() => {
+      if (!settingsId) return;
+      return onLibraryChange(() => {
+        void client.invalidateQueries({
+          queryKey: ['song-settings-song', settingsId],
+        });
+      });
+    }, [client, settingsId]);
+    useEffect(() => {
+      if (!currentSettings) return;
+      const status = settingsJobState
+        ? settingsJobState === 'queued'
+          ? 'queued'
+          : 'processing'
+        : currentSettings.status;
+      setSettingsSong((current) =>
+        current?.id === currentSettings.id
+          ? { ...currentSettings, status }
+          : current,
+      );
+    }, [currentSettings, settingsJobState]);
 
     useEffect(() => {
       if (
