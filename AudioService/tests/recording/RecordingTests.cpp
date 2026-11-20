@@ -989,22 +989,30 @@ void performanceDrainNeverSuspendsTheAudibleRender() {
 }
 
 void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
-    using Transition = void (*)(AudioService&, FakeAudioBackend&);
-    const std::array<Transition, 4> transitions{
-        [](AudioService& service, FakeAudioBackend& fake) {
+    struct Transition {
+        void (*run)(AudioService&, FakeAudioBackend&);
+        bool invalidatesGeneration{true};
+    };
+    const std::array<Transition, 4> transitions{{
+        {[](AudioService& service, FakeAudioBackend& fake) {
             fake.inject(BackendEventType::DeviceLost, -17);
             expect(service.handleLine("1|GetDiagnostics").status == ControlStatus::Ok,
                    "device loss is handled through the normal command dispatcher");
-        },
-        [](AudioService& service, FakeAudioBackend&) {
+        }},
+        {[](AudioService& service, FakeAudioBackend&) {
             RequestedConfiguration requested;
             requested.sampleRateHz = 44100;
             service.session().reconfigure(requested);
-        },
-        [](AudioService& service, FakeAudioBackend&) { service.session().stop(); },
-        [](AudioService& service, FakeAudioBackend&) { service.session().suspend(); },
-    };
-    for (const auto transition : transitions) {
+        }},
+        {[](AudioService& service, FakeAudioBackend&) { service.session().stop(); }},
+        {[](AudioService& service, FakeAudioBackend&) {
+             expect(!service.session().suspend() &&
+                        service.session().state() == SessionState::Running &&
+                        service.recording().state() == RecordingState::Recording,
+                    "suspension is rejected while the performance recording remains active");
+         }, false},
+    }};
+    for (const auto& transition : transitions) {
         auto backend = std::make_unique<FakeAudioBackend>();
         auto* fake = backend.get();
         AudioService service{std::move(backend)};
@@ -1030,9 +1038,10 @@ void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
         std::vector<float> input(480, 0.0F), expected(960);
         fake->pump(input, 1, expected, 2, 0, 0);
         const auto generation = service.session().generationId();
-        transition(service, *fake);
-        expect(service.session().generationId() > generation,
-               "the transition invalidates the old device generation");
+        transition.run(service, *fake);
+        expect(transition.invalidatesGeneration ? service.session().generationId() > generation
+                                               : service.session().generationId() == generation,
+               "accepted transitions invalidate the generation; rejected suspension preserves it");
         expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
                "the retained take remains available after the transition");
         const auto result = service.recording().result();
