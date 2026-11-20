@@ -162,6 +162,10 @@ export const SongSettingsModal = ({
               close();
               navigate(routes.editor(song.id));
             },
+            onOpenFolder: () =>
+              void guarded(() =>
+                files.revealProject(song.id, song.activeRevision),
+              ),
             onRemoveCover: () => void onRemoveCover(song),
             onDelete: () => void confirmDelete(song),
           })}

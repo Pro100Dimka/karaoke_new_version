@@ -6,6 +6,7 @@ from functools import partial
 
 from backend.ai.ports import AiProvider
 from backend.ai.registry import AiProviderRegistry
+from backend.analysis.job_results import ReconcileInterruptedAnalyses
 from backend.bootstrap.config import BackendConfig
 from backend.bootstrap.container import ApplicationContainer, SystemCases
 from backend.bootstrap.model_wiring import build_model_cases
@@ -258,13 +259,15 @@ def _startup_recovery(
         project.journal,
         recordings,
     )
-    return StartupRecovery(
+    summary = StartupRecovery(
         processing.jobs,
         ReconcileRecordings(recordings, register),
         project.journal,
         transactions,
         ReconcileInterruptedSongs(runtime.database, runtime.clock),
     ).execute()
+    ReconcileInterruptedAnalyses(runtime.database, runtime.clock).execute()
+    return summary
 
 
 def _assemble_container(

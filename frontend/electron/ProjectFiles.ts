@@ -143,12 +143,20 @@ export const registerProjectFileHandlers = (
     }
   });
 
-  ipc.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
+  ipc.handle(ipcChannels.revealProject, async (_event, raw: unknown) => {
     const record = requireObject(raw, 'Project request');
-    const root = projectRevisionRoot(
-      requireString(record.songId, 'songId'),
-      requireNumber(record.revision, 'revision'),
-    );
+    const songId = requireString(record.songId, 'songId');
+    const revision = requireNumber(record.revision, 'revision');
+    if (revision === 0) {
+      if (!isSafePathComponent(songId))
+        throw new TypeError('Invalid project identity');
+      const error = await shell.openPath(
+        path.join(dataRoot(), 'songs', songId),
+      );
+      if (error) throw new Error(error);
+      return;
+    }
+    const root = projectRevisionRoot(songId, revision);
     shell.showItemInFolder(path.join(root, 'manifest.json'));
   });
   ipc.handle(ipcChannels.inspectWave, (_event, value: unknown) =>

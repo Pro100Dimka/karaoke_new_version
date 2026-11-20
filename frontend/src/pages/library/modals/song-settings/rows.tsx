@@ -13,7 +13,6 @@ import type { SongPreferences } from '../../../../application/library/songPrefer
 import type { SongDto } from '../../../../contracts/models';
 import { TempoField } from '../../../../features/karaoke/console/PracticeParameters';
 import { musicalKeyLabel } from '../../../../features/karaoke/console/musicalKey';
-import { desktopClient as files } from '../../../../services/desktopClient';
 import { languageLabels } from '../../songs/songMetadataPresentation';
 
 const MediaField = ({
@@ -76,6 +75,7 @@ type SongSettingsValues = {
 type TRows = {
   failure: string | undefined;
   onEdit(): void;
+  onOpenFolder(): void;
   onRefine(): void;
   refining: boolean;
   onRemoveCover(): void;
@@ -97,6 +97,7 @@ export const getRows = ({
   chooseMedia,
   failure,
   onEdit,
+  onOpenFolder,
   onRefine,
   refining,
   onRemoveCover,
@@ -276,9 +277,7 @@ export const getRows = ({
             variant="secondary"
             icon="folder"
             label={tr('openFolder')}
-            onClick={() =>
-              void files.revealProject(song.id, song.activeRevision)
-            }
+            onClick={onOpenFolder}
             items={[
               {
                 id: 'detected',

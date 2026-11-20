@@ -8,9 +8,10 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { useState } from 'react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SongDto } from '../../../../contracts/models';
 import { pythonClient } from '../../../../services/pythonClient';
+import { desktopClient } from '../../../../services/desktopClient';
 import { SongSettingsModal } from './index';
 import { refreshSongs } from '../../../../components/api-service';
 
@@ -18,6 +19,7 @@ const actions = vi.hoisted(() => ({
   confirmDelete: vi.fn(),
   retryProcessing: vi.fn(async () => true),
   retrying: null as string | null,
+  notify: vi.fn(),
 }));
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
@@ -27,7 +29,7 @@ vi.mock('../../../../services/pythonClient', () => ({
   pythonClient: { updateSong: vi.fn(), removeSongCover: vi.fn() },
 }));
 vi.mock('../../../../providers/notifications', () => ({
-  useNotify: () => vi.fn(),
+  useNotify: () => actions.notify,
 }));
 vi.mock('../../songs/useSongActions', () => ({
   useSongActions: () => actions,
@@ -59,6 +61,50 @@ beforeEach(() => {
   actions.retrying = null;
   vi.mocked(pythonClient.updateSong).mockResolvedValue(song);
 });
+afterEach(() => vi.restoreAllMocks());
+
+it.each([0, 7])(
+  'reports a failed Open folder for revision %s and permits retry without closing settings',
+  async (activeRevision) => {
+    const reveal = vi
+      .spyOn(desktopClient, 'revealProject')
+      .mockRejectedValueOnce(new Error('Folder is unavailable'))
+      .mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <SongSettingsModal
+          song={{ ...song, activeRevision }}
+          onClose={onClose}
+          onChange={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: tr('title') }), {
+      target: { value: 'Unsaved title' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: tr('openFolder') }));
+
+    await waitFor(() =>
+      expect(actions.notify).toHaveBeenCalledExactlyOnceWith(
+        tr('actionFailed'),
+        'error',
+      ),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: tr('title') })).toHaveValue(
+      'Unsaved title',
+    );
+    fireEvent.click(screen.getByRole('button', { name: tr('openFolder') }));
+    await waitFor(() => expect(reveal).toHaveBeenCalledTimes(2));
+    expect(reveal).toHaveBeenLastCalledWith(song.id, activeRevision);
+    expect(pythonClient.updateSong).not.toHaveBeenCalled();
+    client.clear();
+  },
+);
 
 it.each(['ready', 'processing', 'not-processed'] as const)(
   'offers words-and-notes refinement only for a ready project (%s)',

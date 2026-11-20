@@ -142,7 +142,9 @@ export const EditorPage = () => {
       )
         return;
       const command = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
+      const key = event.code.startsWith('Key')
+        ? event.code.slice(3).toLowerCase()
+        : event.key.toLowerCase();
       if (command && key === 's') {
         event.preventDefault();
         void session.save();
@@ -211,6 +213,12 @@ export const EditorPage = () => {
     const before = dragStart.current ?? document;
     dragStart.current = before;
     if (gesture.kind === 'move') {
+      // Pointer-down selects one note; an actual group drag retains its original selection.
+      if (
+        gesture.ids.length > 1 &&
+        (gesture.pitch !== 0 || gesture.seconds !== 0)
+      )
+        session.setSelection(new Set(gesture.ids));
       previewDrag(
         moveNotes(
           before,

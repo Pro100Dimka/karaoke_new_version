@@ -94,3 +94,9 @@ class SqlAnalysisRepository:
         query = select(AnalysisRow).where(AnalysisRow.recording_id == recording_id)
         query = query.order_by(AnalysisRow.created_at.desc(), AnalysisRow.analysis_id)
         return [_to_domain(row) for row in self._session.scalars(query).all()]
+
+    def list_unfinished(self) -> Sequence[AnalysisResult]:
+        query = select(AnalysisRow).where(
+            AnalysisRow.state.in_((AnalysisState.QUEUED.value, AnalysisState.RUNNING.value))
+        )
+        return [_to_domain(row) for row in self._session.scalars(query).all()]

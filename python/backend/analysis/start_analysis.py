@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 import threading
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
+from backend.analysis.job_results import settled_analysis
 from backend.analysis.ports import RecordingPitchExtractor
 from backend.analysis.scoring import ScoreSummary, reference_audio_start, score_pitch
 from backend.analysis.queries import live_result
@@ -105,7 +106,7 @@ class StartRecordingAnalysis:
                 current = self._active.get(recording_id)
                 if current and current.entity_id == analysis_id:
                     self._active.pop(recording_id)
-                self._cancel_queued(analysis_id)
+                self._settle_queued(analysis_id)
         finally:
             admission.close()
 
@@ -135,10 +136,16 @@ class StartRecordingAnalysis:
             if not settled:
                 self._fail(running, "AnalysisFailed", "Recording analysis failed")
 
-    def _cancel_queued(self, analysis_id: str) -> None:
+    def _settle_queued(self, analysis_id: str) -> None:
         result = self._get(analysis_id)
-        if result.state is AnalysisState.QUEUED:
-            self._fail(result, "JobCancelled", "Recording analysis was cancelled before execution")
+        if result.state is not AnalysisState.QUEUED:
+            return
+        jobs = self._jobs.list(
+            limit=1, offset=0, job_type=JobType.RECORDING_ANALYSIS, entity_id=analysis_id
+        )
+        updated = settled_analysis(result, jobs[0] if jobs else None, self._clock.now())
+        if updated is not None:
+            self._save(updated)
 
     def _fail(self, running: AnalysisResult, code: str, message: str) -> None:
         self._save(
