@@ -1,6 +1,12 @@
 export const historyKinds = {
   performances: ['RecordingRegistered', 'AnalysisCompleted'],
-  processing: ['ProcessingStarted', 'ProcessingSucceeded', 'ProcessingFailed'],
+  processing: [
+    'ProcessingStarted',
+    'ProcessingSucceeded',
+    'ProcessingFailed',
+    'ProcessingCancelled',
+    'ProcessingInterrupted',
+  ],
 } as const;
 export type HistoryTab = keyof typeof historyKinds;
 type HistoryKind = (typeof historyKinds)[HistoryTab][number];

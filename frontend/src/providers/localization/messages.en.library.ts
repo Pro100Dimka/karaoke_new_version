@@ -156,6 +156,8 @@ export const enLibrary = {
   historyKindProcessingStarted: 'Processing started',
   historyKindProcessingSucceeded: 'Processing finished',
   historyKindProcessingFailed: 'Processing failed',
+  historyKindProcessingCancelled: 'Processing cancelled',
+  historyKindProcessingInterrupted: 'Processing interrupted',
   historySongRemoved: 'Song removed',
   libraryTagline: 'Add tracks, control processing and open them in karaoke',
   importFailed: 'Import failed.',

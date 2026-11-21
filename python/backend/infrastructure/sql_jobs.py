@@ -4,14 +4,18 @@ from collections.abc import Sequence
 
 from typing import cast
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, literal, select, update
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from backend.infrastructure.sql_time import as_utc, optional_utc
-from backend.infrastructure.orm import JobRow
+from backend.infrastructure.orm import HistoryRow, JobRow
 from backend.serialization import dumps, loads_object
 from backend.processing.domain import Job, JobState, JobType, ProcessingMode
+
+
+_UNSUCCESSFUL_OUTCOMES = (JobState.FAILED, JobState.CANCELLED, JobState.INTERRUPTED)
 
 
 def _mapping(raw: str | None) -> dict[str, object] | None:
@@ -75,6 +79,9 @@ class SqlJobRepository:
         if row is None:
             raise KeyError(job.job_id)
         _apply(row, job)
+        if job.job_type is JobType.SONG_PROCESSING and job.state in _UNSUCCESSFUL_OUTCOMES:
+            self._session.flush()
+            self._record_processing_outcomes(job.job_id)
 
     def list(
         self,
@@ -103,4 +110,26 @@ class SqlJobRepository:
         result = self._session.execute(
             update(JobRow).where(JobRow.state.in_(states)).values(state=JobState.INTERRUPTED.value)
         )
+        self._record_processing_outcomes()
         return int(cast(CursorResult[tuple[()]], result).rowcount or 0)
+
+    def _record_processing_outcomes(self, job_id: str | None = None) -> None:
+        # On startup, also fill in outcomes from databases created before these events existed.
+        rows = select(
+            JobRow.job_id + literal("-") + JobRow.state,
+            literal("Processing") + JobRow.state,
+            literal("Song"),
+            JobRow.entity_id,
+            func.coalesce(JobRow.finished_at, JobRow.updated_at),
+        ).where(
+            JobRow.job_type == JobType.SONG_PROCESSING,
+            JobRow.state.in_(_UNSUCCESSFUL_OUTCOMES),
+            JobRow.entity_id.is_not(None),
+        )
+        if job_id is not None:
+            rows = rows.where(JobRow.job_id == job_id)
+        self._session.execute(
+            insert(HistoryRow)
+            .from_select(["event_id", "event_type", "entity_type", "entity_id", "created_at"], rows)
+            .on_conflict_do_nothing(index_elements=[HistoryRow.event_id])
+        )

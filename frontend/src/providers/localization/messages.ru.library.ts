@@ -158,6 +158,8 @@ export const ruLibrary = {
   historyKindProcessingStarted: 'Обработка начата',
   historyKindProcessingSucceeded: 'Обработка завершена',
   historyKindProcessingFailed: 'Ошибка обработки',
+  historyKindProcessingCancelled: 'Обработка отменена',
+  historyKindProcessingInterrupted: 'Обработка прервана',
   historySongRemoved: 'Песня удалена',
   libraryTagline:
     'Добавляйте треки, следите за обработкой и открывайте их в караоке',

@@ -155,6 +155,8 @@ export const ukLibrary = {
   historyKindProcessingStarted: 'Обробку розпочато',
   historyKindProcessingSucceeded: 'Обробку завершено',
   historyKindProcessingFailed: 'Помилка обробки',
+  historyKindProcessingCancelled: 'Обробку скасовано',
+  historyKindProcessingInterrupted: 'Обробку перервано',
   historySongRemoved: 'Пісню видалено',
   libraryTagline:
     'Додавайте треки, стежте за обробкою та відкривайте їх у караоке',
