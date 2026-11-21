@@ -45,8 +45,9 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   useLocale();
   const { backend, audio } = health;
   const { lighting, deliverReport } = useDiagnosticsActions(health);
-  const backendStateText = (state: string) =>
+  const serviceStateText = (state: string) =>
     isBackendState(state) ? tr(`backendState${state}`) : state;
+  const audioState = audio?.ServiceState;
 
   const rows: {
     label: string;
@@ -58,7 +59,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       label: tr('pythonBackend'),
       level: health.loading && !backend ? 'warning' : backendLevel(backend),
       value: backend
-        ? backendStateText(backend.state)
+        ? serviceStateText(backend.state)
         : tr(health.loading ? 'loadingSettings' : 'unavailable'),
       primary: true,
     },
@@ -84,8 +85,8 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
     {
       label: tr('audioServiceLabel'),
       level: health.loading && !audio ? 'warning' : audioLevel(audio),
-      value: audio
-        ? (audio.ServiceState ?? '')
+      value: audioState
+        ? serviceStateText(audioState === 'Running' ? 'Ready' : audioState)
         : tr(health.loading ? 'loadingSettings' : 'unavailable'),
       primary: true,
     },
