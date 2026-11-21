@@ -21,17 +21,18 @@ export const useStorageCleanup = (onChanged: () => void) => {
     try {
       const choice = await ask({
         title: tr(kind === 'cache' ? 'clearCache' : 'removeTemporaryFiles'),
-        body: tr('cleanupBody'),
+        body: tr(kind === 'temp' ? 'cleanupTemporaryBody' : 'cleanupBody'),
         actions: [
           { id: 'cancel', label: tr('cancel') },
           { id: 'confirm', label: tr('confirm'), appearance: 'primary' },
         ],
       });
       if (choice !== 'confirm') return;
-      await (kind === 'cache'
+      const removed = await (kind === 'cache'
         ? backend.clearCache()
         : backend.clearTemporaryFiles());
-      notify(tr('cleanupDone'), 'success');
+      if (removed) notify(tr('cleanupDone'), 'success');
+      else notify(tr('cleanupNothingRemoved'), 'info');
       onChanged();
     } catch (error) {
       const failure = toAppError(error);

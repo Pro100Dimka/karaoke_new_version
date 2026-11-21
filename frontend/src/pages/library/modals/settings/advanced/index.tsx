@@ -19,6 +19,7 @@ export const AdvancedSettings = () => {
       <Grid span={{ base: 'full', sm: 4 }}>
         <StoragePanel
           usage={health.backend?.storage ?? null}
+          loading={health.loading}
           onChanged={health.refresh}
         />
       </Grid>

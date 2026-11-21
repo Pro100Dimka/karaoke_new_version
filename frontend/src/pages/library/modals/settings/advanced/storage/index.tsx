@@ -33,9 +33,11 @@ const cleanups = [
 /** Disk usage by kind, with confirmed cleanup of the cache and temporary files. */
 export const StoragePanel = ({
   usage,
+  loading,
   onChanged,
 }: {
   usage: StorageUsageDto | null;
+  loading: boolean;
   onChanged(): void;
 }) => {
   useLocale();
@@ -59,7 +61,7 @@ export const StoragePanel = ({
       description={
         usage
           ? tr('storageFree', { value: formatBytes(usage.free) })
-          : tr('unavailable')
+          : tr(loading ? 'loadingSettings' : 'unavailable')
       }
       actions={<DatabaseArt className="advancedArt" />}
     >
