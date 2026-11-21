@@ -187,7 +187,7 @@ export const enLibrary = {
   sortBpm: 'Tempo BPM',
   processingSongUnavailable: 'Song removed from library',
   processingFailedHelp:
-    'Processing did not finish. You can retry or send a report. If no detailed cause is shown, it was not saved with the job.',
+    'Processing did not finish. You can retry or send a report.',
   processingRetry: 'Retry processing',
   processingRetryStarted: 'The song has been queued for processing again',
   processingRetryFailed: 'Could not retry processing',

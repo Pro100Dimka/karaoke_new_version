@@ -211,7 +211,7 @@ export const ukLibrary = {
   processingStarted: 'Обробку запущено',
   processingSongUnavailable: 'Пісню видалено з бібліотеки',
   processingFailedHelp:
-    'Обробку не завершено. Можна повторити спробу або надіслати звіт. Якщо докладної причини немає, її не було збережено в завданні.',
+    'Обробку не завершено. Можна повторити спробу або надіслати звіт.',
   processingSummary:
     'Усього завдань: {total} · У роботі: {active} · Очікують: {queued}',
   processingMoveUp: 'Вище в черзі',
