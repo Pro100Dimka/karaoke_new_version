@@ -19,7 +19,7 @@ it('allows playlist selection during processing while retaining deletion protect
     onSelect: select,
     onDelete: remove,
     onAddToPlaylist: add,
-    canDeleteSelected: true,
+    deleteCount: 2,
   };
   const view = render(<SelectionToolbar {...props} />);
   fireEvent.click(screen.getByRole('button', { name: 'Добавить в плейлист' }));
@@ -43,12 +43,12 @@ it('allows playlist selection during processing while retaining deletion protect
     }),
   );
   view.rerender(
-    <SelectionToolbar {...props} songs={songs} canDeleteSelected={false} />,
+    <SelectionToolbar {...props} songs={songs} deleteCount={0} />,
   );
   fireEvent.click(screen.getByRole('button', { name: 'Добавить в плейлист' }));
   expect(add).toHaveBeenCalledTimes(2);
   const deleteButton = screen.getByRole('button', {
-    name: 'Удалить выбранные (2)',
+    name: 'Удалить выбранные (0)',
   });
   expect(deleteButton).toBeDisabled();
   fireEvent.click(deleteButton);

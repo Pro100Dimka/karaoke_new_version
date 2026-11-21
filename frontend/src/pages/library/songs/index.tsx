@@ -279,14 +279,16 @@ const LibrarySongs = observer(
         songSelection,
       ],
     );
+    const deleteTargets = selecting
+      ? localSongs.filter(
+          (song) => selected.has(song.id) && !activeJobStatuses.has(song.status),
+        )
+      : [];
     const deleteSelected = async () => {
-      const targets = localSongs.filter(
-        (song) => selected.has(song.id) && !activeJobStatuses.has(song.status),
-      );
-      if (!targets.length || deleting) return;
+      if (!deleteTargets.length || deleting) return;
       const choice = await ask({
         title: tr('deleteSelectedSongsTitle', {
-          count: targets.length,
+          count: deleteTargets.length,
         }),
         body: tr('deleteSelectedSongsBody'),
         tone: 'warning',
@@ -294,7 +296,7 @@ const LibrarySongs = observer(
           { id: 'cancel', label: tr('cancel') },
           {
             id: 'delete',
-            label: tr('deleteSelectedSongs', { count: targets.length }),
+            label: tr('deleteSelectedSongs', { count: deleteTargets.length }),
             appearance: 'primary',
           },
         ],
@@ -303,7 +305,7 @@ const LibrarySongs = observer(
       setDeleting(true);
       let changed = false;
       try {
-        for (const song of targets) {
+        for (const song of deleteTargets) {
           try {
             await pythonClient.deleteSong(song.id);
             changed = true;
@@ -484,10 +486,7 @@ const LibrarySongs = observer(
             deleting={deleting}
             onSelect={setSelected}
             onDelete={() => void deleteSelected()}
-            canDeleteSelected={localSongs.some(
-              (song) =>
-                selected.has(song.id) && !activeJobStatuses.has(song.status),
-            )}
+            deleteCount={deleteTargets.length}
             onAddToPlaylist={() => setAddingToPlaylist(true)}
           />
         )}
