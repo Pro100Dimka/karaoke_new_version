@@ -22,45 +22,39 @@ export const SelectionToolbar = ({
   onDelete,
   onAddToPlaylist,
   canDeleteSelected,
-}: Props) => (
-  <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
-    <Button
-      icon="check"
-      disabled={disabled || deleting}
-      onClick={() => onSelect(new Set())}
-    >
-      {tr('cancel')}
-    </Button>
-    <Button
-      disabled={disabled || deleting}
-      onClick={() =>
-        onSelect(
-          new Set(
-            songs
-              .filter(
-                ({ roomOwnerId, status }) =>
-                  !roomOwnerId && status !== 'importing',
-              )
-              .map(({ id }) => id),
-          ),
-        )
-      }
-    >
-      {tr('selectVisibleSongs')}
-    </Button>
-    <Button
-      icon="list"
-      disabled={disabled || deleting || selected.size === 0}
-      onClick={onAddToPlaylist}
-    >
-      {tr('playlistAddTo')}
-    </Button>
-    <Button
-      icon="trash"
-      disabled={disabled || deleting || !canDeleteSelected}
-      onClick={onDelete}
-    >
-      {tr('deleteSelectedSongs', { count: selected.size })}
-    </Button>
-  </Stack>
-);
+}: Props) => {
+  const selectable = songs.filter(
+    ({ roomOwnerId, status }) => !roomOwnerId && status !== 'importing',
+  );
+  return (
+    <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
+      <Button
+        icon="check"
+        disabled={disabled || deleting}
+        onClick={() => onSelect(new Set())}
+      >
+        {tr('cancel')}
+      </Button>
+      <Button
+        disabled={disabled || deleting || selectable.length === 0}
+        onClick={() => onSelect(new Set(selectable.map(({ id }) => id)))}
+      >
+        {tr('selectVisibleSongs')}
+      </Button>
+      <Button
+        icon="list"
+        disabled={disabled || deleting || selected.size === 0}
+        onClick={onAddToPlaylist}
+      >
+        {tr('playlistAddTo')}
+      </Button>
+      <Button
+        icon="trash"
+        disabled={disabled || deleting || !canDeleteSelected}
+        onClick={onDelete}
+      >
+        {tr('deleteSelectedSongs', { count: selected.size })}
+      </Button>
+    </Stack>
+  );
+};
