@@ -71,7 +71,9 @@ const AudioPanel = observer(() => {
           </Grid>
         )}
         {status.values.backend === 'ASIO' &&
-          (!drivers.length || asio4all || status.asioReadyToRestart) && (
+          ((!drivers.length && status.audioAvailable) ||
+            asio4all ||
+            status.asioReadyToRestart) && (
             <Grid span="full">
               <AsioSetupCard
                 hasAsio4All={drivers.some((device) =>
