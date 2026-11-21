@@ -101,7 +101,9 @@ export const selectLibrarySongs = (
     .filter((song) => {
       if (filter.status !== 'all' && song.status !== filter.status)
         return false;
-      if (filter.language !== 'all' && song.language !== filter.language)
+      const language =
+        song.language === 'Auto' ? song.detectedLanguage ?? song.language : song.language;
+      if (filter.language !== 'all' && language !== filter.language)
         return false;
       if (filter.duration !== 'all' && song.durationKnown === false)
         return false;

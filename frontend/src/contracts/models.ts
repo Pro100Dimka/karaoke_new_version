@@ -42,6 +42,7 @@ export interface SongDto {
   videoUrl?: string;
   recognitionProvider?: string;
   language: SongLanguage;
+  detectedLanguage?: SongLanguage;
   filename?: string;
   detectedBpm?: number;
   detectedKey?: string;

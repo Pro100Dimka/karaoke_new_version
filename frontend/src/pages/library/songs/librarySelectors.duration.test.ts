@@ -17,6 +17,15 @@ const filters: SongSearch = {
   direction: 'asc',
 };
 
+it('filters by detected language for Auto and prefers a manually chosen language', () => {
+  const automatic = mapSong({ ...source, language: 'Auto', detectedLanguage: 'Ukrainian' });
+  const manual = { ...automatic, language: 'Russian' as const };
+  expect(selectLibrarySongs([automatic, manual], { ...filters, language: 'Ukrainian' }))
+    .toEqual([automatic]);
+  expect(selectLibrarySongs([automatic, manual], { ...filters, language: 'Russian' }))
+    .toEqual([manual]);
+});
+
 it.each(['short', 'medium', 'long'] as const)(
   'does not infer %s duration from the display fallback for an unknown-length file',
   (duration) => {

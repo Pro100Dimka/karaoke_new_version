@@ -6,12 +6,13 @@ from contextlib import nullcontext
 from collections.abc import Callable
 
 from backend.domain_errors import DomainError
+from backend.lyrics.discovery import lyrics_language
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.ports import ProjectCatalog
 from backend.projects.validator import ProjectValidator, READY_ARTIFACTS
 from backend.recovery.domain import RecoveryAction, ReconciliationIssue
 from backend.runtime import Clock
-from backend.songs.domain import Song, SongStatus, SourceState
+from backend.songs.domain import Language, Song, SongStatus, SourceState
 from backend.songs.ports import SongStorage
 
 
@@ -106,22 +107,41 @@ class ReconcileLibrary:
             )
             self._mark(song, SongStatus.PROJECT_INVALID)
         else:
+            status = song.status
             if song.status in {
                 SongStatus.CANCELLED,
                 SongStatus.FAILED,
             } and READY_ARTIFACTS.issubset(
                 artifact.logical_name for artifact in manifest.artifacts
             ):
-                self._mark(song, SongStatus.READY)
+                status = SongStatus.READY
+            detected = song.detected_language
+            text = manifest.provenance.get("lyricsSourceText")
+            if (
+                detected is None
+                and status is SongStatus.READY
+                and isinstance(text, str)
+                and text.strip()
+            ):
+                candidate = lyrics_language(replace(song, language=Language.AUTO), text)
+                detected = candidate if candidate is not Language.AUTO else None
+            self._mark(song, status, detected)
         return issues
 
     @staticmethod
     def _issue(code: str, entity_id: str, action: RecoveryAction) -> ReconciliationIssue:
         return ReconciliationIssue(code, entity_id, action, {})
 
-    def _mark(self, expected: Song, status: SongStatus) -> None:
-        with self._uow.create() as transaction:
+    def _mark(
+        self, expected: Song, status: SongStatus, detected: Language | None = None
+    ) -> None:
+        detected = detected if detected is not None else expected.detected_language
+        if expected.status is status and expected.detected_language is detected:
+            return
+        with self._uow.create(write=True) as transaction:
             song = transaction.songs.get(expected.song_id)
-            if song is not None and song == expected and song.status is not status:
-                transaction.songs.update(replace(song, status=status, updated_at=self._clock.now()))
+            if song is not None and song == expected:
+                transaction.songs.update(
+                    replace(song, status=status, detected_language=detected, updated_at=self._clock.now())
+                )
                 transaction.commit()

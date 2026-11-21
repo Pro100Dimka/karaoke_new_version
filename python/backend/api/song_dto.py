@@ -29,6 +29,7 @@ class SongDto(ApiModel):
     detected_key: str | None
     duration: float | None
     language: Language
+    detected_language: Language | None = None
     status: SongStatus
     active_revision: int
     project_format_version: int
@@ -136,6 +137,7 @@ def song_dto(song: Song) -> SongDto:
         original_filename=song.original_filename,
         detected_bpm=song.detected_bpm,
         detected_key=song.detected_key,
+        detected_language=song.detected_language,
         duration=song.duration,
         language=song.language,
         status=song.status,

@@ -13,6 +13,7 @@ from backend.infrastructure.lossless_audio import compress_audio
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.infrastructure.project_audio import compact_stems, copy_audio
 from backend.lyrics.codec import encode_document
+from backend.lyrics.discovery import lyrics_language
 from backend.lyrics.domain import LyricsDocument
 from backend.persistence import UnitOfWork, UnitOfWorkFactory
 from backend.projects.content_lock import KeyedLockManager
@@ -29,7 +30,7 @@ from backend.projects.validator import ProjectValidator
 from backend.recovery.domain import RecoveryOperation
 from backend.recovery.ports import RecoveryJournal
 from backend.runtime import Clock, IdGenerator
-from backend.songs.domain import Song, SongStatus
+from backend.songs.domain import Language, Song, SongStatus
 from backend.songs.ports import FileHasher
 from backend.version import PROJECT_FORMAT_VERSION
 
@@ -223,6 +224,7 @@ class ProjectPublisher:
         lyrics: LyricsDocument,
     ) -> None:
         now = self._clock.now()
+        detected = lyrics_language(replace(song, language=Language.AUTO), lyrics.lyrics)
         transaction.songs.update(
             replace(
                 song,
@@ -231,6 +233,7 @@ class ProjectPublisher:
                 status=SongStatus.READY,
                 detected_bpm=lyrics.bpm,
                 detected_key=lyrics.key,
+                detected_language=detected if detected is not Language.AUTO else None,
                 updated_at=now,
             )
         )

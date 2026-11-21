@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from backend.infrastructure.lossless_audio import compress_audio
@@ -12,7 +14,7 @@ from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.codec import encode_document
 from backend.lyrics.domain import LyricsDocument, Note, Word
 from tests.conftest import app_client, write_wav
-from tests.helpers import import_song
+from tests.helpers import import_song, wait_for_job
 
 
 def _inputs(directory: Path):
@@ -29,6 +31,43 @@ def _inputs(directory: Path):
         "Title", "Artist", 2, 120, "A", "la", (Word("la", 0.2, 1.2, (Note(69, 0.3, 1.1),)),)
     )
     return source, paths, lyrics
+
+
+@pytest.mark.parametrize("language", ["Auto", "Russian"])
+@pytest.mark.parametrize("existing", [False, True])
+def test_published_and_existing_ukrainian_song_is_searchable_by_language(
+    tmp_path, language, existing
+):
+    source, inputs, lyrics = _inputs(tmp_path)
+    lyrics = replace(lyrics, lyrics="Я йшов по воді")
+    with app_client(tmp_path / "runtime") as client:
+        song = import_song(client, source)
+        song_id = song["songId"]
+        response = client.patch(f"/songs/{song_id}", json={"language": language})
+        assert response.status_code == 200, response.text
+        container = client.app.state.container
+        publisher = container.songs.start_processing._pipeline._publisher
+        publisher.publish_generated(
+            song_id, 1, *inputs, lyrics, {"lyricsSourceText": lyrics.lyrics}, "lineage"
+        )
+        if existing:
+            with container.database.create(write=True) as transaction:
+                stored = transaction.songs.get(song_id)
+                transaction.songs.update(replace(stored, detected_language=None))
+                transaction.commit()
+            response = client.post("/recovery/reconcile")
+            assert response.status_code == 202, response.text
+            assert wait_for_job(client, response.json()["jobId"])["state"] == "Succeeded"
+        expected = "Ukrainian" if language == "Auto" else language
+        stored = client.get(f"/songs/{song_id}").json()
+        assert stored["detectedLanguage"] == "Ukrainian"
+        assert stored["language"] == language
+        for selected in ("Ukrainian", "Russian", "Auto"):
+            response = client.get("/songs/search", params={"language": selected})
+            assert response.status_code == 200, response.text
+            assert [item["songId"] for item in response.json()["items"]] == (
+                [song_id] if selected == expected else []
+            )
 
 
 def test_generated_project_compacts_only_playback_and_keeps_original_notes_and_melody(tmp_path):

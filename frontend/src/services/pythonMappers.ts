@@ -24,6 +24,7 @@ export interface BackendSong {
   sourcePath?: string | null;
   detectedBpm?: number | null;
   detectedKey?: string | null;
+  detectedLanguage?: string | null;
   duration: number | null;
   language: string;
   status: string;
@@ -147,6 +148,7 @@ export const mapSong = (song: BackendSong): SongDto => ({
   sourcePath: song.sourcePath ?? undefined,
   detectedBpm: song.detectedBpm ?? undefined,
   detectedKey: song.detectedKey ?? undefined,
+  detectedLanguage: song.detectedLanguage ? songLanguage(song.detectedLanguage) : undefined,
   language: songLanguage(song.language),
   status: songStatus(song.status),
   durationSeconds: song.duration ?? 0,

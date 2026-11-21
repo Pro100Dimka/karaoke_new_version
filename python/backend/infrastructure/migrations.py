@@ -126,6 +126,12 @@ class DatabaseMigrator:
                         "DatabaseTooNew", "Database schema is newer than this backend"
                     )
                 if version == 4:
+                    # Older clients ignore this nullable catalog field and can still read the library.
+                    columns = connection.execute(text("PRAGMA table_info(songs)")).fetchall()
+                    if columns and all(row[1] != "detected_language" for row in columns):
+                        connection.execute(
+                            text("ALTER TABLE songs ADD COLUMN detected_language VARCHAR(32)")
+                        )
                     _ensure_query_indexes(connection)
                 return version
         except SQLAlchemyError as exc:

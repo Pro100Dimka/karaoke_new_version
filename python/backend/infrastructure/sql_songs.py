@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
+from sqlalchemy import Select, and_, asc, case, delete, desc, func, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement, SQLColumnExpression
 
@@ -30,6 +30,11 @@ from backend.songs.domain import (
     Song,
     SongStatus,
     SourceState,
+)
+
+_CATALOG_LANGUAGE = case(
+    (SongRow.language == Language.AUTO, func.coalesce(SongRow.detected_language, SongRow.language)),
+    else_=SongRow.language,
 )
 
 
@@ -58,6 +63,7 @@ def _to_domain(row: SongRow) -> Song:
         media_format=row.media_format,
         embedded_lyrics=row.embedded_lyrics,
         language=Language(row.language),
+        detected_language=Language(row.detected_language) if row.detected_language else None,
         cover_state=CoverState(row.cover_state),
         cover_path=Path(row.cover_path) if row.cover_path else None,
         status=SongStatus(row.status),
@@ -90,6 +96,7 @@ def _apply(row: SongRow, song: Song) -> None:
     row.media_format = song.media_format
     row.embedded_lyrics = song.embedded_lyrics
     row.language = song.language.value
+    row.detected_language = song.detected_language
     row.cover_state = song.cover_state.value
     row.cover_path = str(song.cover_path) if song.cover_path else None
     row.metadata_provenance_json = dumps(song.metadata_provenance)
@@ -212,8 +219,8 @@ class SqlSongRepository:
 
     def summary(self) -> SongSummary:
         groups = self._session.execute(
-            select(SongRow.language, SongRow.status, func.count()).group_by(
-                SongRow.language, SongRow.status
+            select(_CATALOG_LANGUAGE, SongRow.status, func.count()).group_by(
+                _CATALOG_LANGUAGE, SongRow.status
             )
         ).all()
         return SongSummary(
@@ -325,7 +332,7 @@ def _search_filters(query: SongSearch) -> list[ColumnElement[bool]]:
     if query.status != "all":
         conditions.append(SongRow.status.in_(statuses[query.status]))
     if query.language:
-        conditions.append(SongRow.language == query.language.value)
+        conditions.append(_CATALOG_LANGUAGE == query.language.value)
     duration = {
         "short": SongRow.duration < 180,
         "medium": and_(SongRow.duration >= 180, SongRow.duration < 300),

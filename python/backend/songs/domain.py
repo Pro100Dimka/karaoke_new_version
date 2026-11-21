@@ -73,3 +73,4 @@ class Song:
     original_filename: str | None = None
     detected_bpm: float | None = None
     detected_key: str | None = None
+    detected_language: Language | None = None

@@ -33,6 +33,7 @@ class SongRow(Base):
     media_format: Mapped[str | None] = mapped_column(String(64))
     embedded_lyrics: Mapped[str | None] = mapped_column(Text)
     language: Mapped[str] = mapped_column(String(32))
+    detected_language: Mapped[str | None] = mapped_column(String(32))
     cover_state: Mapped[str] = mapped_column(String(32))
     cover_path: Mapped[str | None] = mapped_column(String(1200))
     metadata_provenance_json: Mapped[str] = mapped_column(Text)
