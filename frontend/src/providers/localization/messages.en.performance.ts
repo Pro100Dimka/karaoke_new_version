@@ -250,6 +250,7 @@ export const enPerformance = {
   recordingAnalyze: 'Analyze recording',
   recordingDelete: 'Delete recording',
   recordingFailed: 'Recording failed',
+  recordingInterrupted: 'Recording was interrupted. Resuming starts a new take.',
   recordingSaved: 'Recording saved',
   roomActions: 'Room actions',
   roomDetach: 'Open in a separate window',

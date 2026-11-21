@@ -83,7 +83,6 @@ export const useKaraokeSession = (
   const [keyShift, setKeyShift] = useState(0);
   const [monitoring, setMonitoring] = useState(false);
 
-  const [recoveredNotice, setRecoveredNotice] = useState(false);
   const initialGains = useRef<MixerChannelGains>({
     music: preferences.musicGain,
     mic: preferences.voiceGain,
@@ -257,10 +256,11 @@ export const useKaraokeSession = (
     },
     [notify, locale, playback, room],
   );
+  const localPlayback = !room && mode !== 'RoomPrepared';
   const onLost = useCallback(() => {
     if (['playing', 'paused'].includes(stateRef.current.kind)) {
       recoveryIntent.current.playing ||=
-        !room && mode !== 'RoomPrepared' && stateRef.current.kind === 'playing';
+        localPlayback && stateRef.current.kind === 'playing';
       recoveryIntent.current.recording ||= ['starting', 'recording'].includes(
         recordingRef.current,
       );
@@ -272,7 +272,7 @@ export const useKaraokeSession = (
       ['starting', 'recording'].includes(current) ? 'failed' : current,
     );
     dispatch({ type: 'AUDIO_LOST' });
-  }, [recordingWork, recordingCoordinator, room, mode]);
+  }, [recordingWork, recordingCoordinator, localPlayback]);
   const onFinished = useCallback(
     () => void finishPerformance(true),
     [finishPerformance],
@@ -288,11 +288,14 @@ export const useKaraokeSession = (
   });
 
   const onRecovered = useCallback(() => {
-    setRecoveredNotice(true);
     setMonitoring(false);
-    if (recoveryIntent.current.recording) setRecording('idle');
+    if (recoveryIntent.current.recording) {
+      setRecording('idle');
+      if (localPlayback)
+        notify(tr('recordingInterrupted'), 'warning', { silent: true });
+    }
     dispatch({ type: 'AUDIO_RECOVERED' });
-  }, []);
+  }, [localPlayback, notify, setRecording]);
   useAudioRecovery({
     recovering: state.kind === 'recovering',
     song: songRef,
@@ -358,7 +361,6 @@ export const useKaraokeSession = (
   const togglePlay = useCallback(async () => {
     if (!room && playPending.current) return;
     const generation = playbackGeneration.current;
-    setRecoveredNotice(false);
     try {
       if (room) {
         const command = roomToggleCommand(room);
@@ -506,7 +508,6 @@ export const useKaraokeSession = (
     monitoring,
     recording,
     recordingId,
-    recoveredNotice,
     gains,
     interactive,
     practiceLocked: Boolean(

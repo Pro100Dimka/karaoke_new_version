@@ -253,6 +253,7 @@ export const ruPerformance = {
   recordingAnalyze: 'Анализировать запись',
   recordingDelete: 'Удалить запись',
   recordingFailed: 'Ошибка записи',
+  recordingInterrupted: 'Запись прервалась. При продолжении начнётся новый дубль.',
   recordingSaved: 'Запись сохранена',
   roomActions: 'Действия комнаты',
   roomDetach: 'В отдельное окно',

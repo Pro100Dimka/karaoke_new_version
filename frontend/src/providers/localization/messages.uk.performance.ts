@@ -198,6 +198,7 @@ export const ukPerformance = {
   studioMasterSourceMissing:
     'Не знайдено вихідний запис для Studio Master. Виберіть збережений вихідний дубль.',
   recordingFailed: 'Помилка запису',
+  recordingInterrupted: 'Запис перервався. Після відновлення почнеться новий дубль.',
   recordingSaved: 'Запис збережено',
   recordingFileReady: 'Файл готовий',
   recordingRecoveredIncomplete: 'Відновлено / не завершено',
