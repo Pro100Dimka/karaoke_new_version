@@ -132,6 +132,8 @@ export const ruLibrary = {
   libraryImportedWithRecordings:
     'Песни: добавлено {imported}, уже в библиотеке {skipped}. Записи: добавлено {recordingsAdded}, уже в библиотеке {recordingsSkipped}.',
   libraryTransferFailed: 'Не удалось перенести библиотеку',
+  libraryArchiveInvalid:
+    'Не удалось прочитать архив библиотеки. Выберите ZIP, созданный экспортом библиотеки.',
   addSong: 'Добавить песню',
   songPerformances: 'Выступления песни',
   library: 'Библиотека',

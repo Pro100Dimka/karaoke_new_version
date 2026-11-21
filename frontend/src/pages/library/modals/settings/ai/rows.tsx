@@ -19,6 +19,7 @@ import {
 } from '../../../../../providers/notifications';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
+import { toAppError } from '../../../../../shared/errors';
 export const LibraryArchive = () => {
   const client = useQueryClient();
   const notify = useNotify();
@@ -54,7 +55,11 @@ export const LibraryArchive = () => {
         notify(message, 'success');
       }
     },
-    onError,
+    onError: (error) => {
+      if (toAppError(error).code === 'PackageInvalid')
+        notify(tr('libraryArchiveInvalid'), 'error');
+      else onError(error);
+    },
   });
   const transferFile = (file?: File) => {
     if (!client.isMutating({ mutationKey: ['library-transfer'] }))

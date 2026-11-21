@@ -132,6 +132,8 @@ export const ukLibrary = {
   libraryImportedWithRecordings:
     'Пісні: додано {imported}, уже в бібліотеці {skipped}. Записи: додано {recordingsAdded}, уже в бібліотеці {recordingsSkipped}.',
   libraryTransferFailed: 'Не вдалося перенести бібліотеку',
+  libraryArchiveInvalid:
+    'Не вдалося прочитати архів бібліотеки. Виберіть ZIP, створений експортом бібліотеки.',
   addSong: 'Додати пісню',
   library: 'Бібліотека',
   libraryLoadFailed: 'Не вдалося завантажити бібліотеку пісень.',
