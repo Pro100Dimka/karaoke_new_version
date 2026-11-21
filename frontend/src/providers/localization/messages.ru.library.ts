@@ -188,6 +188,7 @@ export const ruLibrary = {
   sortDuration: 'Длительность',
   sortBpm: 'Темп BPM',
   processingSongUnavailable: 'Песня удалена из библиотеки',
+  processingSongImport: 'Импорт песни',
   processingFailedHelp:
     'Обработка не завершена. Можно повторить попытку или отправить отчёт.',
   processingRetry: 'Повторить обработку',

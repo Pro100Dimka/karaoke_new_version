@@ -1,3 +1,4 @@
+import { tr } from '@neo-ui-kit/react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
 import { compareAddedSongs } from '../../songs/librarySelectors';
 
@@ -33,7 +34,9 @@ export const processingTitle = (
 ): string | undefined => {
   const title = song?.title ?? job.songTitle;
   const artist = song?.artist ?? job.songArtist;
-  return title ? [artist, title].filter(Boolean).join(' — ') : undefined;
+  if (title) return [artist, title].filter(Boolean).join(' — ');
+  if (job.type === 'SongImport' && !job.songId)
+    return tr('processingSongImport');
 };
 
 export const isActive = (job: ProcessingJobDto) =>
@@ -93,6 +96,12 @@ export const phases = [
   'processingPhasePublish',
 ] as const satisfies readonly string[];
 const stagePhase: Readonly<Record<string, number>> = {
+  Validating: 0,
+  Hashing: 0,
+  ReadingMetadata: 0,
+  Recognizing: 0,
+  Copying: 0,
+  Saving: 0,
   Recognition: 0,
   DecodeNormalize: 0,
   MusicAnalysis: 0,

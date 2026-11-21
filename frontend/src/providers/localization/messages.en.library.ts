@@ -186,6 +186,7 @@ export const enLibrary = {
   sortDuration: 'Duration',
   sortBpm: 'Tempo BPM',
   processingSongUnavailable: 'Song removed from library',
+  processingSongImport: 'Song import',
   processingFailedHelp:
     'Processing did not finish. You can retry or send a report.',
   processingRetry: 'Retry processing',

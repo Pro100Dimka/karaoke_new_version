@@ -10,6 +10,7 @@ import {
 } from '@neo-ui-kit/react';
 import type { ProcessingJobDto } from '../../../../contracts/models';
 import { errorstring } from '../../../../shared/errors';
+import { phaseOf, phases } from './processingModel';
 
 export const processingErrorText = (
   job?: ProcessingJobDto,
@@ -17,6 +18,7 @@ export const processingErrorText = (
 ): string => {
   const error = job?.error;
   const explanation = error && errorstring(error);
+  const phase = job ? phases[phaseOf(job) ?? -1] : undefined;
   return [
     tr(
       explanation ??
@@ -24,7 +26,7 @@ export const processingErrorText = (
     ),
     error?.message,
     error?.code && `${tr('processingErrorCode')}: ${error.code}`,
-    job?.stage && `${tr('processingDetailsStage')}: ${job.stage}`,
+    job?.stage && `${tr('processingDetailsStage')}: ${phase ? tr(phase) : job.stage}`,
   ]
     .filter(Boolean)
     .join('\n');

@@ -210,6 +210,7 @@ export const ukLibrary = {
   processingBackendLocal: 'цей ПК',
   processingStarted: 'Обробку запущено',
   processingSongUnavailable: 'Пісню видалено з бібліотеки',
+  processingSongImport: 'Імпорт пісні',
   processingFailedHelp:
     'Обробку не завершено. Можна повторити спробу або надіслати звіт.',
   processingSummary:
