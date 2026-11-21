@@ -194,11 +194,11 @@ it.each([
       }),
     );
     const confirmation = await screen.findByRole('dialog', {
-      name: tr('Удалить выбранные песни ({count})?', { count: 2 }),
+      name: tr('deleteSelectedSongsTitle', { count: 2 }),
     });
     fireEvent.click(
       within(confirmation).getByRole('button', {
-        name: tr('Удалить'),
+        name: tr('deleteSelectedSongs', { count: 2 }),
       }),
     );
 
@@ -230,11 +230,11 @@ it.each([
     await waitFor(() => expect(retry).toBeEnabled());
     fireEvent.click(retry);
     const secondConfirmation = await screen.findByRole('dialog', {
-      name: tr('Удалить выбранные песни ({count})?', { count: 1 }),
+      name: tr('deleteSelectedSongsTitle', { count: 1 }),
     });
     fireEvent.click(
       within(secondConfirmation).getByRole('button', {
-        name: tr('Удалить'),
+        name: tr('deleteSelectedSongs', { count: 1 }),
       }),
     );
     await waitFor(() =>

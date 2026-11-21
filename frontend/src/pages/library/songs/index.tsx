@@ -285,16 +285,18 @@ const LibrarySongs = observer(
       );
       if (!targets.length || deleting) return;
       const choice = await ask({
-        title: tr('Удалить выбранные песни ({count})?', {
+        title: tr('deleteSelectedSongsTitle', {
           count: targets.length,
         }),
-        body: tr(
-          'Будут удалены выбранные песни, их обработки и записи. Это действие нельзя отменить.',
-        ),
+        body: tr('deleteSelectedSongsBody'),
         tone: 'warning',
         actions: [
           { id: 'cancel', label: tr('cancel') },
-          { id: 'delete', label: tr('Удалить'), appearance: 'primary' },
+          {
+            id: 'delete',
+            label: tr('deleteSelectedSongs', { count: targets.length }),
+            appearance: 'primary',
+          },
         ],
       });
       if (choice !== 'delete') return;
