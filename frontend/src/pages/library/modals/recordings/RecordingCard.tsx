@@ -30,6 +30,13 @@ import { analysisStageLabel } from '../analysis/analysisPresentation';
 import performanceArtUrl from '../analysis/performance-art.svg';
 import { RecordingPlayer } from './RecordingPlayer';
 
+const unavailableAnalysisLabels: Partial<
+  Record<NonNullable<RecordingDto['fileStatus']>, string>
+> = {
+  Missing: 'recordingFileMissing',
+  RecoveredIncomplete: 'errorRecordingTimingUnavailable',
+};
+
 /** The take's name, renamed in place: Enter or the check saves, Escape keeps the old one. */
 const TakeName = ({
   name,
@@ -139,9 +146,9 @@ const RecordingCardBody = ({
   const guarded = useGuardedAction();
   const [versionId, setVersionId] = useState(recording.id);
   const selected = versions.find((item) => item.id === versionId) ?? recording;
-  const preparing = ['Preparing', 'PreparationFailed'].includes(
-    selected.fileStatus ?? '',
-  );
+  const fileStatus = selected.fileStatus ?? 'Ready';
+  const preparing = ['Preparing', 'PreparationFailed'].includes(fileStatus);
+  const unavailableAnalysis = unavailableAnalysisLabels[fileStatus];
   const task = progress[selected.id];
   const failure = failures[selected.id];
   const hasAnalysis =
@@ -154,7 +161,7 @@ const RecordingCardBody = ({
     staleTime: 60_000,
   });
   const statuses = recordingStatusLabels(
-    selected.fileStatus ?? 'Ready',
+    fileStatus,
     task
       ? task.state === 'Queued'
         ? 'Queued'
@@ -249,12 +256,8 @@ const RecordingCardBody = ({
         ) : (
           <IconButton
             icon="levels"
-            label={tr(
-              selected.fileStatus === 'RecoveredIncomplete'
-                ? 'errorRecordingTimingUnavailable'
-                : 'recordingAnalyze',
-            )}
-            disabled={selected.fileStatus === 'RecoveredIncomplete'}
+            label={tr(unavailableAnalysis ?? 'recordingAnalyze')}
+            disabled={Boolean(unavailableAnalysis)}
             onClick={() => onAnalyze(selected)}
           />
         )}

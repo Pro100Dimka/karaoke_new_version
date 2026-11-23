@@ -169,7 +169,7 @@ export const PerformanceAnalysisModal = ({
           </span>
           {song && (
             <span className="analysisArtist">
-              {song.artist}
+              {song.artistMissing ? tr('artistMissing') : song.artist}
               <span className="analysisEyebrow">
                 {tr('performanceAnalysis')}
               </span>
