@@ -241,8 +241,8 @@ export const RecordingsModal = observer(
                       <span className="recordingChoiceCopy">
                         <strong>{names.get(recording.id)}</strong>
                         <span>
-                          {formatTime(recording.durationSeconds)} ·{' '}
-                          {formatBytes(recording.sizeBytes)}
+                          {formatTime(recording.durationSeconds)}
+                          {recording.sizeBytes > 0 && ` · ${formatBytes(recording.sizeBytes)}`}
                         </span>
                       </span>
                       <Icon
@@ -313,7 +313,9 @@ export const RecordingsModal = observer(
                   {tr('songPerformances')}
                 </Typography>
                 {song.title}
-                <span className="recordingsArtist">{song.artist}</span>
+                <span className="recordingsArtist">
+                  {song.artistMissing ? tr('artistMissing') : song.artist}
+                </span>
               </>
             }
             closeLabel={tr('closeDialog')}

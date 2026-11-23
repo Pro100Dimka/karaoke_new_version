@@ -1,5 +1,5 @@
 import type { AudioServiceClient } from '../contracts/clients';
-import type { PlaybackSnapshot } from '../contracts/models';
+import type { AppError, PlaybackSnapshot } from '../contracts/models';
 import { observeAudioTelemetry } from './audioSession';
 import { parseKeyValues } from './audioProtocol';
 
@@ -131,6 +131,12 @@ export const createAudioPlayers = (
       const data = response.body as Record<string, unknown>;
       const { fileStatus } = data;
       const filePath = data[kind === 'song' ? 'sourcePath' : 'filePath'];
+      if (kind === 'recording' && fileStatus === 'Missing')
+        throw {
+          code: 'RecordingFileMissing',
+          message: 'Recording file is missing',
+          source: 'python',
+        } satisfies AppError;
       if (['Preparing', 'PreparationFailed'].includes(String(fileStatus)))
         throw new Error('Recording preparation is not complete');
       if (typeof filePath !== 'string')

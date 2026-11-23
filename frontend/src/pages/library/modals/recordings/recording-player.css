@@ -58,6 +58,9 @@
   align-self: start;
   margin-block-start: calc((var(--recording-wave-height) - 58px) / 2);
 }
+.recordingUnavailable {
+  grid-column: 1 / -1;
+}
 /* A take's player before its card scrolls near the view: the same height, nothing drawn. */
 .recordingPlayerPending {
   block-size: 6.5rem;

@@ -10,9 +10,9 @@ export const languageLabels = {
 const fileStatusKeys = {
   Preparing: 'recordingPreparing',
   PreparationFailed: 'recordingPreparationFailed',
-  Ready: 'recordingFileReady',
+  Ready: null,
   RecoveredIncomplete: 'recordingRecoveredIncomplete',
-  Missing: 'recordingFileMissing',
+  Missing: null,
   Failed: 'recordingFileFailed',
 } as const;
 
@@ -28,7 +28,8 @@ const analysisStatusKeys = {
 export const recordingStatusLabels = (
   fileStatus: NonNullable<RecordingDto['fileStatus']>,
   analysisStatus: NonNullable<RecordingDto['analysisStatus']>,
-): readonly [string, string] => [
-  fileStatusKeys[fileStatus],
-  analysisStatusKeys[analysisStatus],
-];
+): readonly string[] => {
+  const file = fileStatusKeys[fileStatus];
+  const analysis = analysisStatusKeys[analysisStatus];
+  return file ? [file, analysis] : [analysis];
+};

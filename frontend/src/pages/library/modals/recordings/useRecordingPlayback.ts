@@ -2,8 +2,10 @@ import {
   observeOperation,
   reportOperationFailure,
   clearOperationFailure,
+  toAppError,
 } from '../../../../shared/errors';
 import { audioClient as preview } from '../../../../services/audioClient';
+import { recordingsChanged } from '../../../../services/backendEvents';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecordingDto } from '../../../../contracts/models';
 
@@ -12,12 +14,13 @@ import type { RecordingDto } from '../../../../contracts/models';
  * this one notices the lost ownership and falls back to idle.
  */
 export const useRecordingPlayback = (
-  recording: Pick<RecordingDto, 'id'>,
+  recording: Pick<RecordingDto, 'id' | 'fileStatus'>,
   original = false,
 ) => {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [fileMissing, setFileMissing] = useState(recording.fileStatus === 'Missing');
   const owns = useRef(false);
   const loading = useRef(false);
   const owner = useRef(Symbol('recording-preview'));
@@ -69,17 +72,22 @@ export const useRecordingPlayback = (
       }
       loading.current = false;
       clearOperationFailure('errors.previewPlayback');
+      setFileMissing(false);
       setPlaying(true);
+      if (fileMissing) recordingsChanged();
     } catch (error) {
       if (request === generation.current) {
         void preview.stopRecordingPreview(owner.current).catch(() => undefined);
         release();
-        reportOperationFailure('errors.previewPlayback', error);
+        if (toAppError(error).code === 'RecordingFileMissing') {
+          setFileMissing(true);
+          if (!fileMissing) recordingsChanged();
+        } else reportOperationFailure('errors.previewPlayback', error);
       }
     } finally {
       if (request === generation.current) loading.current = false;
     }
-  }, [id, original, playing, release, preview, volume]);
+  }, [id, original, playing, fileMissing, release, preview, volume]);
 
   const changeVolume = (value: number) => {
     setVolume(value);
@@ -168,5 +176,5 @@ export const useRecordingPlayback = (
     };
   }, [id, original, preview, release]);
 
-  return { playing, position, toggle, seek, volume, changeVolume };
+  return { playing, position, toggle, seek, volume, changeVolume, fileMissing };
 };

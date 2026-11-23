@@ -248,8 +248,13 @@ def _recording(
     if analysis_status is None:
         analysis_status = app.recordings.list_analyses.statuses([recording])[recording.recording_id]
     source_recording_id = _source_recording_id(recording)
+    file_status = recording.file_status
     try:
         size_bytes = recording.file_path.stat().st_size
+    except (FileNotFoundError, NotADirectoryError):
+        size_bytes = 0
+        if file_status in {"Ready", "RecoveredIncomplete"}:
+            file_status = "Missing"
     except OSError:
         size_bytes = 0
     return RecordingDto(
@@ -262,7 +267,7 @@ def _recording(
         song_id=recording.song_id,
         song_revision=recording.song_revision,
         display_name=recording.display_name,
-        file_status=recording.file_status,
+        file_status=file_status,
         analysis_status=analysis_status,
         source_recording_id=source_recording_id,
         size_bytes=size_bytes,

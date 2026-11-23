@@ -6,6 +6,7 @@ import {
   tr,
   IconButton,
   Loader,
+  MessageBar,
   RotaryKnob,
   Typography,
   Waveform,
@@ -100,13 +101,27 @@ const RecordingTransport = ({
   media,
   original,
 }: {
-  media: Pick<RecordingDto, 'id' | 'durationSeconds'>;
+  media: Pick<RecordingDto, 'id' | 'durationSeconds' | 'fileStatus'>;
   original: boolean;
 }) => {
   useLocale();
   const peaks = useRecordingPeaks(media.id, original);
-  const { playing, position, toggle, seek, volume, changeVolume } =
+  const { playing, position, toggle, seek, volume, changeVolume, fileMissing } =
     useRecordingPlayback(media, original);
+  if (fileMissing)
+    return (
+      <MessageBar
+        className="recordingUnavailable"
+        tone="error"
+        action={
+          <Button size="sm" icon="refresh" onClick={() => void toggle()}>
+            {tr('retry')}
+          </Button>
+        }
+      >
+        {tr('recordingFileMissing')}
+      </MessageBar>
+    );
   return (
     <>
       <IconButton
