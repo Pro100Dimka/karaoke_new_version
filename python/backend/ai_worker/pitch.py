@@ -9,12 +9,13 @@ from types import MappingProxyType
 from librosa.util import tiny
 from numba import njit
 import numpy as np
+from scipy.ndimage import uniform_filter1d
 import torch
 import torchcrepe
 
 from backend.ai_worker.audio_io import read_mono
 from backend.ai_worker.runtime import device
-from backend.ai_worker.timing import audible_frames
+from backend.ai_worker.timing import _runs, audible_frames
 
 _SAMPLE_RATE = 16_000
 _HOP_SAMPLES = 160  # 10 ms
@@ -142,6 +143,64 @@ def _predict_active(
     return frequency, periodicity
 
 
+@njit(cache=True)
+def _period_correlation(samples: np.ndarray, center: int, lag: int) -> float:
+    # Compare 40 ms of the vowel on both sides of the same frame center.
+    first = center - 320 - lag // 2
+    last = first + 640
+    if first < 0 or last + lag > len(samples):
+        return 0.0
+    best = 0.0
+    for period in range(lag - 2, lag + 3):
+        if last + period > len(samples):
+            continue
+        product = left_energy = right_energy = 0.0
+        for index in range(first, last):
+            left, right = samples[index], samples[index + period]
+            product += left * right
+            left_energy += left * left
+            right_energy += right * right
+        best = max(best, product / (np.sqrt(left_energy * right_energy) + 1e-12))
+    return best
+
+
+@njit(cache=True)
+def _octave_evidence(
+    samples: np.ndarray, frequencies: np.ndarray, voiced: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    lower = np.zeros(len(frequencies), dtype=np.float32)
+    gain = np.zeros_like(lower)
+    for index, frequency in enumerate(frequencies):
+        if voiced[index] and frequency >= 2 * _FMIN:
+            center = index * _HOP_SAMPLES
+            lag = _SAMPLE_RATE / frequency
+            lower[index] = _period_correlation(samples, center, round(2 * lag))
+            gain[index] = lower[index] - _period_correlation(samples, center, round(lag))
+    return lower, gain
+
+
+def _correct_octave(
+    samples: np.ndarray, frequency: torch.Tensor, periodicity: torch.Tensor, active: np.ndarray
+) -> torch.Tensor:
+    values = frequency[0].numpy()
+    voiced = active & (periodicity[0].numpy() >= 0.5)
+    if not voiced.any():
+        return frequency
+    lower, gain = _octave_evidence(samples, values, voiced)
+    # Strong odd harmonics can make two cycles match much better than one.
+    # Require sustained evidence so a transient or vibrato cannot shift the octave.
+    supported = (lower >= 0.85) & (gain >= 0.065)
+    sustained = uniform_filter1d(supported.astype(np.float32), 11) >= 0.5
+    eligible = (lower >= 0.8) & (gain >= 0.015)
+    corrected = sustained & eligible
+    for start, end in _runs(eligible, True):
+        evidence = np.flatnonzero(corrected[start:end])
+        if evidence.size:
+            # Keep a held octave through quieter harmonics only between confirmed frames.
+            corrected[start + evidence[0] : start + evidence[-1] + 1] = True
+    return torch.from_numpy(np.where(corrected, values / 2, values))[None]
+
+
 def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
     target = device()
     samples = read_mono(vocal, _SAMPLE_RATE)
@@ -153,5 +212,6 @@ def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
         frequency, periodicity = _predict_active(samples, active, target)
     if periodicity.shape[-1] > _SMOOTHING // 2:
         periodicity = torchcrepe.filter.median(periodicity, _SMOOTHING)
+    frequency = _correct_octave(samples, frequency, periodicity, active)
     step = _HOP_SAMPLES / _SAMPLE_RATE
     return {"points": _pitch_points(frequency, periodicity, step, active)}
