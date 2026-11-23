@@ -26,6 +26,10 @@ import {
   setRadioVolume,
   toggleRadio,
 } from '../../../../../providers/radio';
+import {
+  volumeFromKnob,
+  volumeToKnob,
+} from '../../../../../shared/utils/mixerLevel';
 import type { useKeyboardLighting } from './keyboardlighting/useKeyboardLighting';
 
 export const AppearanceFields = observer(
@@ -173,8 +177,10 @@ export const AppearanceFields = observer(
                       showLabel
                       suffix="%"
                       disabled={!radio.canControl}
-                      value={radio.volume}
-                      onValueChange={setRadioVolume}
+                      value={volumeToKnob(radio.volume / 100) * 100}
+                      onValueChange={(value) =>
+                        setRadioVolume(volumeFromKnob(value / 100) * 100)
+                      }
                     />
                   </Grid>
                   <Grid
