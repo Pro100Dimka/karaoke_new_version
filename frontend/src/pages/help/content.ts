@@ -60,6 +60,7 @@ const normalize = (text: string) =>
     .toLocaleLowerCase()
     .normalize('NFKC')
     .replace(/ё/g, 'е')
+    .replace(/(?<=\p{L})['’ʼ](?=\p{L})/gu, '')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 const ignoredWords = new Set(

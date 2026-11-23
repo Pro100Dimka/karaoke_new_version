@@ -147,7 +147,7 @@ export const karaokeArticles: GuideArticle[] = [
     title: 'Запись исполнения',
     next: 'listen',
     keywords:
-      'записать первую песню себя голос включить запись красная кнопка записати виконання record myself first song recording',
+      'записать первую песню себя голос включить запись красная кнопка записати пісню виконання record myself first song recording',
     steps: [
       {
         title: 'Запишите свою первую песню',
