@@ -284,6 +284,7 @@ export interface BackendHistoryPage {
     details: Record<string, unknown> | null;
   }[];
   total: number;
+  snapshot?: number;
 }
 
 /** Any non-null object, arrays included: backend payloads read field by field. */
@@ -343,6 +344,7 @@ export const mapDiagnostics = (
 export const mapHistory = (page: BackendHistoryPage): HistoryPageDto => {
   return {
     total: page.total,
+    snapshot: page.snapshot,
     items: page.items.map((item) => ({
       id: item.eventId,
       kind: item.eventType,

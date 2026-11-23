@@ -426,6 +426,7 @@ export interface HistoryEventDto {
 export interface HistoryPageDto {
   items: readonly HistoryEventDto[];
   total: number;
+  snapshot?: number;
 }
 
 export interface StorageUsageDto {

@@ -518,12 +518,13 @@ export const pythonClient: PythonClient = {
     return mapDiagnostics(raw, version);
   },
 
-  async history(limit, offset, types): Promise<HistoryPageDto> {
+  async history(limit, offset, types, snapshot): Promise<HistoryPageDto> {
     const query = new URLSearchParams({
       limit: String(limit),
       offset: String(offset),
     });
     for (const type of types ?? []) query.append('types', type);
+    if (snapshot !== undefined) query.set('snapshot', String(snapshot));
     const page = await request<BackendHistoryPage>('GET', `/history?${query}`);
     return mapHistory(page);
   },

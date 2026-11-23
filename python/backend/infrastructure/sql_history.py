@@ -42,17 +42,31 @@ class SqlHistoryRepository:
             )
         )
 
+    def latest_id(self) -> int:
+        return int(self._session.scalar(select(func.max(HistoryRow.id))) or 0)
+
     def list(
-        self, *, limit: int, offset: int, event_types: Collection[str] | None = None
+        self,
+        *,
+        limit: int,
+        offset: int,
+        event_types: Collection[str] | None = None,
+        snapshot: int | None = None,
     ) -> Sequence[HistoryEvent]:
         query = select(HistoryRow).order_by(HistoryRow.created_at.desc(), HistoryRow.event_id)
         if event_types is not None:
             query = query.where(HistoryRow.event_type.in_(tuple(event_types)))
+        if snapshot is not None:
+            query = query.where(HistoryRow.id <= snapshot)
         query = query.limit(limit).offset(offset)
         return [_to_domain(row) for row in self._session.scalars(query).all()]
 
-    def count(self, event_types: Collection[str] | None = None) -> int:
+    def count(
+        self, event_types: Collection[str] | None = None, *, snapshot: int | None = None
+    ) -> int:
         query = select(func.count()).select_from(HistoryRow)
         if event_types is not None:
             query = query.where(HistoryRow.event_type.in_(tuple(event_types)))
+        if snapshot is not None:
+            query = query.where(HistoryRow.id <= snapshot)
         return int(self._session.scalar(query) or 0)

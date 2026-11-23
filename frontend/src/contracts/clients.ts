@@ -227,6 +227,7 @@ export interface PythonClient {
     limit: number,
     offset: number,
     types?: readonly string[],
+    snapshot?: number,
   ): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;
   clearTemporaryFiles(): Promise<number>;

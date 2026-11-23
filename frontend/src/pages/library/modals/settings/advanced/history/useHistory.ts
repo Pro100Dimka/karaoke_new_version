@@ -10,6 +10,7 @@ const requests = {
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 } as const;
+const firstPage: { offset: number; snapshot?: number } = { offset: 0 };
 
 /** History pages and their title catalog have independent requests and retries. */
 export const useHistory = () => {
@@ -18,9 +19,11 @@ export const useHistory = () => {
   const history = useInfiniteQuery({
     ...requests,
     queryKey: ['history', view, tab],
-    initialPageParam: 0,
+    initialPageParam: firstPage,
     queryFn: async ({ pageParam, signal }) => {
-      const page = await backend.history(50, pageParam, historyKinds[tab]);
+      const { offset, snapshot } = pageParam;
+      const boundary: [snapshot?: number] = snapshot === undefined ? [] : [snapshot];
+      const page = await backend.history(50, offset, historyKinds[tab], ...boundary);
       signal.throwIfAborted();
       return page;
     },
@@ -29,7 +32,7 @@ export const useHistory = () => {
         (count, page) => count + page.items.length,
         0,
       );
-      return offset < last.total ? offset : undefined;
+      return offset < last.total ? { offset, snapshot: last.snapshot } : undefined;
     },
   });
   const titles = useQuery({

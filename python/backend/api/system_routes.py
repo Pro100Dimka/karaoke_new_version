@@ -89,6 +89,7 @@ class HistoryPageDto(ApiModel):
     total: int
     limit: int
     offset: int
+    snapshot: int
 
 
 @router.get("/health/live", response_model=HealthDto)
@@ -126,8 +127,11 @@ def history(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
     types: Annotated[list[str] | None, Query(max_length=20)] = None,
+    snapshot: Annotated[int | None, Query(ge=0, le=2**63 - 1)] = None,
 ) -> HistoryPageDto:
-    return _history_page(app.system.history.execute(limit=limit, offset=offset, event_types=types))
+    return _history_page(
+        app.system.history.execute(limit=limit, offset=offset, event_types=types, snapshot=snapshot)
+    )
 
 
 @router.get("/jobs", response_model=JobPageDto)
@@ -243,6 +247,7 @@ def _history_page(page: HistoryPage) -> HistoryPageDto:
         total=page.total,
         limit=page.limit,
         offset=page.offset,
+        snapshot=page.snapshot,
     )
 
 
