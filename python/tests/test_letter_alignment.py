@@ -1588,6 +1588,29 @@ def test_transcription_keeps_phrase_breaks_after_dropping_an_untimed_word(monkey
     assert speech.transcribe(Path("vocal.wav"), "English")["text"] == "we sing\nwe go"
 
 
+def test_speech_context_keeps_quiet_words_and_drops_text_over_silence(monkeypatch):
+    from types import SimpleNamespace
+    import torch
+    from backend.ai_worker import speech
+
+    segments = [
+        {"text": " Thank you.", "start": 0.3, "end": 0.5, "words": []},
+        {"text": " We sing.", "start": 1.1, "end": 1.5, "words": []},
+        {"text": " Goodbye.", "start": 2.4, "end": 2.7, "words": []},
+    ]
+    payload = {"text": "".join(segment["text"] for segment in segments), "segments": segments}
+    model = SimpleNamespace(encoder=torch.nn.Identity(), transcribe=lambda *_a, **_k: payload)
+    monkeypatch.setattr(speech, "_speech_model", lambda _target: model)
+    samples = np.zeros(48_000, dtype=np.float32)
+    samples[17_600:24_000] = 0.003
+    samples[29_000:30_000] = 0.7
+
+    decoded = speech._decode_context(samples, "English", None, 0.0, [], None)
+
+    assert decoded["text"] == " We sing."
+    assert decoded["segments"] == [segments[1]]
+
+
 @pytest.mark.parametrize("reuse_vocal", [False, True])
 def test_alignment_reuses_independent_recognition_instead_of_decoding_it_again(
     monkeypatch, reuse_vocal
@@ -1796,7 +1819,10 @@ def test_default_recognizer_recovers_all_performed_choruses_from_a_fresh_import(
             ),
         ),
     )
-    monkeypatch.setattr(speech, "read_mono", lambda *_: "recorded audio")
+    end = max(word["end"] for segment in case["strong"]["segments"] for word in segment["words"])
+    monkeypatch.setattr(
+        speech, "read_mono", lambda *_: np.full(round((end + 1) * _RATE), 0.01, np.float32)
+    )
 
     transcript = speech.transcribe(Path("vocal.wav"), "Ukrainian")["text"]
     recovered = _complete_repeats(case["catalog"], transcript, threading.Event())

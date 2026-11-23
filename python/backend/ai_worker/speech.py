@@ -22,7 +22,11 @@ import backend.ai_worker.asr_substitution as asr_substitution
 from backend.ai_worker.asr_recovery import recover_transcript_lyrics as _recover_transcript_lyrics
 from backend.ai_worker.guidance_prefix import preserve_prefix
 from backend.ai_worker.speech_alignment import _AlignmentPass as _AlignmentPass
-from backend.ai_worker.speech_observations import RecognitionObservations, recognition_views
+from backend.ai_worker.speech_observations import (
+    RecognitionObservations,
+    discard_silent_segments,
+    recognition_views,
+)
 from backend.ai_worker.ctc_bounds import _preserved_onset_letters as _preserved_onset_letters
 from backend.ai_worker.audio_io import read_mono as read_mono
 from backend.ai_worker.ctc import (
@@ -220,7 +224,9 @@ def _decode_context(
             fp16=device() == "cuda",
             temperature=0.0,
         )
-    for segment in result.get("segments", []):
+    result = discard_silent_segments(result, audio)
+    segments = result.get("segments")
+    for segment in segments if isinstance(segments, list) else []:
         for item in [segment, *segment.get("words", [])]:
             for key in ("start", "end"):
                 item[key] += start

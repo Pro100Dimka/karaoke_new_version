@@ -3,12 +3,53 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path
 
 import numpy as np
 
-from backend.ai_worker.speech_windows import _SAMPLE_RATE
+from backend.ai_worker.speech_windows import _HOP, _SAMPLE_RATE
+from backend.ai_worker.timing import _ABSOLUTE_FLOOR_DB, _levels
 from backend.text_normalization import clean_lyrics
+
+
+def discard_silent_segments(
+    result: Mapping[str, object], samples: np.ndarray
+) -> Mapping[str, object]:
+    segments, text = result.get("segments"), result.get("text")
+    if not isinstance(segments, list) or not isinstance(text, str):
+        return result
+    lines = [
+        segment
+        for segment in segments
+        if isinstance(segment, dict) and isinstance(segment.get("text"), str)
+    ]
+    if (
+        len(lines) != len(segments)
+        or "".join(segment["text"] for segment in lines).split() != text.split()
+    ):
+        return result
+    levels, _ = _levels(samples, _HOP)
+    audible = levels >= _ABSOLUTE_FLOOR_DB
+    retained = [segment for segment in lines if _touches_audible_audio(segment, audible)]
+    if len(retained) == len(lines):
+        return result
+    return dict(result, segments=retained, text="".join(segment["text"] for segment in retained))
+
+
+def _touches_audible_audio(segment: Mapping[str, object], audible: np.ndarray) -> bool:
+    start, end = segment.get("start"), segment.get("end")
+    if (
+        not isinstance(start, int | float)
+        or not isinstance(end, int | float)
+        or not (isfinite(start) and isfinite(end) and 0 <= start < end)
+    ):
+        return True
+    # Allow timing jitter around the segment and keep quiet vocals above the absolute floor.
+    frames_per_second = _SAMPLE_RATE / _HOP
+    first = round(max(0.0, start - 0.2) * frames_per_second)
+    last = round((end + 0.2) * frames_per_second) + 1
+    return bool(audible[first:last].any())
 
 
 def recognition_views(recognition: Mapping[str, object] | None) -> list[Mapping[str, object]]:
