@@ -8,8 +8,8 @@ import {
   tr,
 } from '@neo-ui-kit/react';
 import {
-  useIsMutating,
   useMutation,
+  useMutationState,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -23,7 +23,11 @@ import { toAppError } from '../../../../../shared/errors';
 export const LibraryArchive = () => {
   const client = useQueryClient();
   const notify = useNotify();
-  const transferring = useIsMutating({ mutationKey: ['library-transfer'] }) > 0;
+  const [transferLabel] = useMutationState({
+    filters: { mutationKey: ['library-transfer'], status: 'pending' },
+    select: ({ state }) =>
+      state.variables ? 'libraryImport' : 'libraryExport',
+  });
   const [progress, setProgress] = useState(0);
   const onError = useErrorHandler();
   const transfer = useMutation({
@@ -78,7 +82,7 @@ export const LibraryArchive = () => {
           <Stack direction="row" gap={2} wrap>
             <Button
               icon="download"
-              disabled={transferring}
+              disabled={Boolean(transferLabel)}
               onClick={() => transferFile()}
               style={{ flex: 1 }}
               label={tr('libraryExport')}
@@ -89,7 +93,7 @@ export const LibraryArchive = () => {
               label={tr('libraryImport')}
               style={{ flex: 1, width: '100%' }}
               accept=".zip"
-              disabled={transferring}
+              disabled={Boolean(transferLabel)}
               onFiles={(files) => {
                 if (files[0]) transferFile(files[0]);
               }}
@@ -97,12 +101,12 @@ export const LibraryArchive = () => {
           </Stack>
         </Card>
       </Grid>
-      {transferring && (
+      {transferLabel && (
         <ProgressBar
           style={{ gridColumn: '1 / -1' }}
           value={progress}
           indeterminate={!transfer.isPending}
-          label={tr('libraryArchiveHint')}
+          label={tr(transferLabel)}
         />
       )}
     </>
