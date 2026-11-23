@@ -154,6 +154,7 @@ export const ukLibrary = {
   historyColumnSong: 'Пісня',
   historyColumnKind: 'Тип',
   historyKindRecordingRegistered: 'Запис збережено',
+  historyStudioMasterSaved: 'Studio Master створено',
   historyKindAnalysisCompleted: 'Аналіз готовий',
   historyKindProcessingStarted: 'Обробку розпочато',
   historyKindProcessingSucceeded: 'Обробку завершено',

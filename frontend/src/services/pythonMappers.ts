@@ -350,6 +350,7 @@ export const mapHistory = (page: BackendHistoryPage): HistoryPageDto => {
       kind: item.eventType,
       createdAt: item.createdAt,
       songId: item.songId ?? undefined,
+      studioMaster: item.details?.studioMaster === true ? true : undefined,
       detail: item.details ? JSON.stringify(item.details) : undefined,
     })),
   };

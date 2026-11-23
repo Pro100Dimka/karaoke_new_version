@@ -273,6 +273,7 @@ class RegisterRecording:
                     self._clock.now(),
                     "Recording",
                     recording.recording_id,
+                    {"studioMaster": bool((recording.session_metadata or {}).get("studioMaster"))},
                 )
             )
             if key:

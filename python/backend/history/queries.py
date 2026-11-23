@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Mapping, Sequence
 
 from backend.history.domain import HistoryEvent
@@ -47,10 +47,34 @@ class ListHistory:
                 }
             )
             recording_songs = transaction.recordings.song_ids(recording_ids)
+            legacy_recordings = transaction.recordings.get_many(
+                tuple(
+                    {
+                        event.entity_id
+                        for event in items
+                        if event.event_type == "RecordingRegistered"
+                        and event.entity_type == "Recording"
+                        and event.entity_id
+                        and "studioMaster" not in (event.details or {})
+                    }
+                )
+            )
             song_ids: dict[str, str | None] = {}
+            enriched: list[HistoryEvent] = []
             for event in items:
                 if event.entity_type == "Song":
                     song_ids[event.event_id] = event.entity_id
                 elif event.entity_type == "Recording" and event.entity_id:
                     song_ids[event.event_id] = recording_songs.get(event.entity_id)
-        return HistoryPage(items, total, limit, offset, song_ids, snapshot)
+                    recording = legacy_recordings.get(event.entity_id)
+                    if (
+                        event.event_type == "RecordingRegistered"
+                        and recording
+                        and "studioMaster" not in (event.details or {})
+                        and (recording.session_metadata or {}).get("studioMaster")
+                    ):
+                        event = replace(
+                            event, details={**(event.details or {}), "studioMaster": True}
+                        )
+                enriched.append(event)
+        return HistoryPage(enriched, total, limit, offset, song_ids, snapshot)

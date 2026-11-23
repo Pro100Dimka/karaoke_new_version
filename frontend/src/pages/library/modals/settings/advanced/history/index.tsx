@@ -37,6 +37,7 @@ export const HistoryPanel = () => {
     return [artist, song.title].filter(Boolean).join(' - ');
   };
   const kindOf = (event: HistoryEventDto) => {
+    if (event.studioMaster) return tr('historyStudioMasterSaved');
     const label = historyKindLabel(event.kind);
     return label ? tr(label) : event.kind;
   };

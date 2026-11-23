@@ -157,6 +157,7 @@ export const ruLibrary = {
   historyColumnSong: 'Песня',
   historyColumnKind: 'Тип',
   historyKindRecordingRegistered: 'Запись сохранена',
+  historyStudioMasterSaved: 'Studio Master создан',
   historyKindAnalysisCompleted: 'Анализ готов',
   historyKindProcessingStarted: 'Обработка начата',
   historyKindProcessingSucceeded: 'Обработка завершена',

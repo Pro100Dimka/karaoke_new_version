@@ -420,6 +420,7 @@ export interface HistoryEventDto {
   kind: string;
   createdAt: string;
   songId?: string;
+  studioMaster?: boolean;
   detail?: string;
 }
 

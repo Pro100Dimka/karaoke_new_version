@@ -155,6 +155,7 @@ export const enLibrary = {
   historyColumnSong: 'Song',
   historyColumnKind: 'Type',
   historyKindRecordingRegistered: 'Recording saved',
+  historyStudioMasterSaved: 'Studio Master created',
   historyKindAnalysisCompleted: 'Analysis ready',
   historyKindProcessingStarted: 'Processing started',
   historyKindProcessingSucceeded: 'Processing finished',
