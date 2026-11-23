@@ -152,6 +152,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           <Button
             size="sm"
             icon="copy"
+            disabled={health.loading}
             onClick={() => void deliverReport('clipboard')}
             label={tr('copyDiagnostics')}
           />
@@ -159,6 +160,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
             size="sm"
             icon="download"
             label={tr('exportDiagnostics')}
+            disabled={health.loading}
             onClick={() => void deliverReport('file')}
           />
           <IconButton
