@@ -247,6 +247,10 @@ export const enLibrary = {
   processingStopText:
     'The current processing stops. Files already created stay on the computer.',
   processingStop: 'Stop',
+  processingStopAll: 'Stop all ({count})',
+  processingStopAllTitle: 'Stop processing all songs?',
+  processingStopAllText:
+    'This stops running and queued jobs ({count} total). Completed songs stay in the library.',
   processingRemoveTitle: 'Remove the job from the list?',
   processingRemoveText:
     'Only the card is removed from the queue. Files on the computer stay unchanged.',

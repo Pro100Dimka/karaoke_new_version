@@ -249,6 +249,10 @@ export const ruLibrary = {
   processingStopText:
     'Текущая обработка будет остановлена. Уже созданные файлы останутся на компьютере.',
   processingStop: 'Остановить',
+  processingStopAll: 'Остановить все ({count})',
+  processingStopAllTitle: 'Остановить обработку всех песен?',
+  processingStopAllText:
+    'Будут остановлены задачи в работе и в очереди. Всего: {count}. Завершённые песни останутся в библиотеке.',
   processingRemoveTitle: 'Убрать задачу из списка?',
   processingRemoveText:
     'Будет удалена только карточка из очереди. Файлы на компьютере останутся без изменений.',

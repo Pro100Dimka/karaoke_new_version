@@ -1,8 +1,10 @@
 import {
+  Button,
   Dialog,
   IconButton,
   NeonWaves,
   SplitButton,
+  Stack,
   Typography,
   tr,
   useLocale,
@@ -45,6 +47,7 @@ interface Notice {
   text: string;
   confirm: string;
   cancel?: string;
+  danger?: boolean;
   onConfirm?(): void;
 }
 type Disk = { free: number; used: number } | null;
@@ -155,6 +158,7 @@ export const ProcessingModal = observer(
       [songs],
     );
     const queue = useProcessingQueue(songsById);
+    const [stoppingAll, setStoppingAll] = useState(false);
     const disk = useDisk(open);
     const [notice, setNotice] = useState<Notice>();
     const [motionPaused, setMotionPaused] = useState(false);
@@ -215,6 +219,36 @@ export const ProcessingModal = observer(
         cancel: tr('cancel'),
         onConfirm: () => void onCancel(job),
       });
+    const stopAll = () => {
+      const jobs = queue.stoppable;
+      setNotice({
+        title: tr('processingStopAllTitle'),
+        text: tr('processingStopAllText', { count: jobs.length }),
+        confirm: tr('processingStop'),
+        cancel: tr('cancel'),
+        danger: true,
+        onConfirm: () => {
+          setStoppingAll(true);
+          void guarded(async () => {
+            const results = [];
+            for (const state of ['queued', 'processing']) {
+              results.push(
+                ...(await Promise.allSettled(
+                  jobs
+                    .filter((job) => job.state === state)
+                    .map((job) => catalog.cancelProcessing(job.id)),
+                )),
+              );
+            }
+            await refreshSongs(client);
+            const failure = results.find(
+              (result) => result.status === 'rejected',
+            );
+            if (failure) throw failure.reason;
+          }).finally(() => setStoppingAll(false));
+        },
+      });
+    };
     const remove = (job: ProcessingJobDto) =>
       setNotice({
         title: tr('processingRemoveTitle'),
@@ -250,17 +284,33 @@ export const ProcessingModal = observer(
         closeLabel={tr('closeDialog')}
         cancelLabel={false}
         confirmLabel={false}
-        description={tr('processingSummary', {
-          total: queue.visible.length,
-          active: queue.count(['processing', 'cancelling']),
-          queued: queue.count(['queued']),
-        })}
         art={<NeonWaves className="processingWaves" strands={26} />}
       >
         <div
           className="processingBody"
           data-ad-motion={motionPaused ? 'off' : undefined}
         >
+          <Stack direction="row" align="center" justify="between" gap={2} wrap>
+            <Typography variant="caption" tone="muted">
+              {tr('processingSummary', {
+                total: queue.visible.length,
+                active: queue.count(['processing', 'cancelling']),
+                queued: queue.count(['queued']),
+              })}
+            </Typography>
+            {(queue.stoppable.length > 0 || stoppingAll) && (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="stop"
+                loading={stoppingAll}
+                disabled={stoppingAll}
+                onClick={stopAll}
+              >
+                {tr('processingStopAll', { count: queue.stoppable.length })}
+              </Button>
+            )}
+          </Stack>
           <div className="processingScroll" ref={scrollRef}>
             {queue.failed && (
               <Typography role="alert" tone="danger">
@@ -398,6 +448,7 @@ export const ProcessingModal = observer(
           className="processingNotice"
           title={notice?.title}
           description={notice?.text}
+          danger={notice?.danger}
           confirmLabel={notice?.confirm}
           cancelLabel={notice?.cancel ?? false}
           onConfirm={() => notice?.onConfirm?.()}

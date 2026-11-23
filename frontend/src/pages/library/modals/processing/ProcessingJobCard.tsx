@@ -57,6 +57,9 @@ export const ProcessingJobCard = ({
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const active = isInQueue(job) && actions.canCancel !== false;
+  const canRetry =
+    ['failed', 'interrupted'].includes(job.state) ||
+    (job.type === 'SongProcessing' && job.state === 'cancelled');
   const duration = processingDuration(job);
   const steps = job.type === 'SongImport' ? ['processingSongImport'] : phases;
   const phase =
@@ -196,7 +199,7 @@ export const ProcessingJobCard = ({
         )}
       </div>
       <div className="processingJobActions">
-        {['failed', 'interrupted'].includes(job.state) &&
+        {canRetry &&
           song &&
           !['queued', 'processing', 'importing'].includes(song.status) && (
             <IconButton

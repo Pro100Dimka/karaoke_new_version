@@ -7,7 +7,7 @@
 }
 .processingDialog > .ad-dialog-body {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   max-height: none;
   padding: var(--ad-space-3) 0 0;
@@ -24,7 +24,7 @@
 }
 .processingBody {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--ad-space-4);
   min-height: 0;
 }

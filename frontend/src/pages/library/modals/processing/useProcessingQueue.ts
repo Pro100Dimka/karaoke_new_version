@@ -38,6 +38,11 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
       ),
     [jobs],
   );
+  const stoppable = jobs.filter(
+    (job) =>
+      job.type === 'SongProcessing' &&
+      ['queued', 'processing'].includes(job.state),
+  );
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => {
     const stored = readJson(hiddenJobsKey);
     return new Set(
@@ -119,6 +124,7 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
     ordered,
     visible,
     failed,
+    stoppable,
     count,
     hide,
     canCancel: (id: string) => cancellable.has(id),

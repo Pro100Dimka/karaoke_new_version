@@ -249,6 +249,10 @@ export const ukLibrary = {
   processingStopText:
     "Поточну обробку буде зупинено. Уже створені файли залишаться на комп'ютері.",
   processingStop: 'Зупинити',
+  processingStopAll: 'Зупинити всі ({count})',
+  processingStopAllTitle: 'Зупинити обробку всіх пісень?',
+  processingStopAllText:
+    'Завдання в роботі та в черзі буде зупинено. Усього: {count}. Завершені пісні залишаться в бібліотеці.',
   processingRemoveTitle: 'Прибрати завдання зі списку?',
   processingRemoveText:
     "Буде видалено лише картку з черги. Файли на комп'ютері залишаться без змін.",
