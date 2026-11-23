@@ -16,7 +16,23 @@ from backend.infrastructure.process_runner import (
     _ProcessIo,
 )
 from backend.infrastructure.windows_child_job import WindowsChildJob
+from backend.processing.compute_policy import ExecutionContext
 from backend.serialization import dumps, loads_object
+
+
+def execution_environment(execution: ExecutionContext) -> Mapping[str, str]:
+    threads = execution.numeric_cpu_threads
+    value = str(execution.cpu_threads if threads is None else threads)
+    environment = {
+        "OMP_NUM_THREADS": value,
+        "MKL_NUM_THREADS": value,
+        "OPENBLAS_NUM_THREADS": value,
+        "NUMEXPR_NUM_THREADS": value,
+        "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
+    }
+    if execution.cpu_fraction is not None:
+        environment.update(KMP_BLOCKTIME="0", OMP_WAIT_POLICY="PASSIVE")
+    return environment
 
 
 class SpeechSession:

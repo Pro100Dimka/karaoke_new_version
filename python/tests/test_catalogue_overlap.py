@@ -100,6 +100,43 @@ def test_corroborated_overlapping_cue_keeps_the_prefix_and_other_version_outro()
     assert [hint.text for hint in actual.timing_hints] == expected
 
 
+@pytest.mark.parametrize("confirmed", [False, True])
+def test_short_timed_repeat_can_be_confirmed_by_a_local_audio_window(confirmed):
+    original, _alternate, heard = _case()
+    calls = []
+
+    def recognize(start, end):
+        calls.append((start, end))
+        return (heard,) if confirmed else ("hold me close",)
+
+    actual = reconcile_timed_overlaps(
+        original, [], ["the full recording missed the repeat"], _lyrics_key, recognize
+    )
+    expected = original.lyrics.splitlines()
+    if confirmed:
+        expected[3] = _PREFIX
+    assert actual.lyrics.splitlines() == expected
+    assert [hint.text for hint in actual.timing_hints] == expected
+    assert len(calls) == 1 and calls[0][0] < 19.5 < 25.5 < calls[0][1]
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_local_cue_allows_a_missed_connective_but_never_removes_a_complete_repeat(complete):
+    original, _alternate, _heard = _case()
+    verse = "Горит и рвётся умирает суета и бред"
+    original = replace(
+        original,
+        lyrics=original.lyrics.replace(_VERSE, verse),
+        timing_hints=tuple(
+            replace(hint, text=verse) if hint.text == _VERSE else hint
+            for hint in original.timing_hints
+        ),
+    )
+    heard = f"{_FULL if complete else _PREFIX} {_FRAGMENT} горит рвется умирает"
+    actual = reconcile_timed_overlaps(original, [], ["unrelated"], _lyrics_key, lambda *_: (heard,))
+    assert actual.lyrics.splitlines()[3] == (_FULL if complete else _PREFIX)
+
+
 @pytest.mark.parametrize("surplus_supported", [False, True])
 def test_repeat_verification_preserves_the_reconciled_catalogue_floor(surplus_supported):
     from backend.ai.domain import WordTiming

@@ -5,7 +5,7 @@ import threading
 from contextlib import contextmanager
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterator, Mapping, Sequence
+from typing import Iterator, Sequence
 
 from backend.ai.domain import (
     AlignedTranscript,
@@ -22,12 +22,15 @@ from backend.infrastructure.ai_payloads import (
     _pitch as _pitch,
     _source_view as _source_view,
     _text as _text,
+    _transcription_requests,
+    _transcription_text,
+    _transcription_values,
     _word as _word,
 )
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.process_runner import ProcessInput, ProcessRunner, ProcessResult
-from backend.infrastructure.speech_session import SpeechSession
+from backend.infrastructure.speech_session import SpeechSession, execution_environment
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.serialization import JsonValue, dumps, loads_object
@@ -152,16 +155,21 @@ class CommandAiProvider:
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
+        end_seconds: float | None = None,
     ) -> Sequence[str]:
         if not requests:
             return ()
         if self._descriptor.provider_id != "local-torch":
+            if end_seconds is not None:
+                return ()
             return tuple(
                 self.transcribe(audio, language, cancel, execution=execution, start_seconds=start)
                 for audio, start in requests
             )
         keys = [
             self._recognition_key(audio, language, cancel, execution, start)
+            if end_seconds is None
+            else None
             for audio, start in requests
         ]
         payload = self._invoke(
@@ -170,18 +178,28 @@ class CommandAiProvider:
             cancel,
             execution=execution,
             timeout_seconds=self._timeout * len(requests),
-            input_data=dumps(
-                {
-                    "requests": [
-                        {"input": str(audio), "startSeconds": start} for audio, start in requests
-                    ]
-                }
-            ).encode("utf-8"),
+            input_data=_transcription_requests(requests, end_seconds),
         )
-        values = payload.get("transcriptions")
-        if not isinstance(values, list) or len(values) != len(requests):
-            raise DependencyError("AiProviderInvalidOutput", "Transcription group is malformed")
+        values = _transcription_values(payload, len(requests))
         return tuple(self._transcript(value, key) for value, key in zip(values, keys, strict=True))
+
+    def transcribe_window(
+        self,
+        sources: Sequence[Path],
+        start: float,
+        end: float,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> Sequence[str]:
+        return self.transcribe_many(
+            [(source, start) for source in sources],
+            language,
+            cancel,
+            execution=execution,
+            end_seconds=end,
+        )
 
     def transcribe_stream(
         self,
@@ -213,22 +231,18 @@ class CommandAiProvider:
             input_data=chunks,
             timeout_seconds=self._timeout * request_count,
         )
-        values = payload.get("transcriptions")
-        if (
-            not isinstance(values, list)
-            or len(values) != request_count
-            or len(keys) != request_count
-        ):
+        values = _transcription_values(payload, request_count, "stream")
+        if len(keys) != request_count:
             raise DependencyError("AiProviderInvalidOutput", "Transcription stream is malformed")
         return tuple(self._transcript(value, key) for value, key in zip(values, keys, strict=True))
 
     def _transcript(self, payload: JsonValue, key: _RecognitionKey | None) -> str:
-        if not isinstance(payload, dict):
-            raise DependencyError("AiProviderInvalidOutput", "Transcription response is malformed")
-        transcript = payload.get("text")
-        if not isinstance(transcript, str):
-            raise DependencyError("AiProviderInvalidOutput", "AI provider field text is invalid")
-        if key is not None and isinstance(payload.get("segments"), list):
+        transcript = _transcription_text(payload)
+        if (
+            key is not None
+            and isinstance(payload, dict)
+            and isinstance(payload.get("segments"), list)
+        ):
             with self._recognition_lock:
                 self._recognitions[key] = (
                     {**payload, "startSeconds": key[-1]} if key[-1] else payload
@@ -468,7 +482,7 @@ class CommandAiProvider:
         ):
             return reusable[0].run(
                 [action, *arguments],
-                environment=_execution_environment(execution),
+                environment=execution_environment(execution),
                 input_data=input_data,
                 timeout_seconds=timeout_seconds,
                 cancel=cancel,
@@ -479,21 +493,6 @@ class CommandAiProvider:
                 timeout_seconds=timeout_seconds,
                 cancel=cancel,
                 input_data=input_data,
-                environment=_execution_environment(execution),
+                environment=execution_environment(execution),
                 cpu_fraction=execution.cpu_fraction,
             )
-
-
-def _execution_environment(execution: ExecutionContext) -> Mapping[str, str]:
-    threads = execution.numeric_cpu_threads
-    value = str(execution.cpu_threads if threads is None else threads)
-    environment = {
-        "OMP_NUM_THREADS": value,
-        "MKL_NUM_THREADS": value,
-        "OPENBLAS_NUM_THREADS": value,
-        "NUMEXPR_NUM_THREADS": value,
-        "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
-    }
-    if execution.cpu_fraction is not None:
-        environment.update(KMP_BLOCKTIME="0", OMP_WAIT_POLICY="PASSIVE")
-    return environment

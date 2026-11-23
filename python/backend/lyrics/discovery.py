@@ -4,7 +4,7 @@ import threading
 from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 from backend.ai.ports import AiProvider, BatchTranscriber
 from backend.domain_errors import DependencyError, DomainError
@@ -15,8 +15,9 @@ from backend.lyrics.catalogue_lookup import (
     select_catalogue,
     supported_alternative,
 )
-from backend.lyrics.catalogue_versions import reconcile_timed_overlaps
+from backend.lyrics.catalogue_versions import catalogue_window_recognizer, reconcile_timed_overlaps
 from backend.lyrics.codec import (
+    cached_catalog_text,
     decode_document,
     decode_timing_hints,
     decode_lrc,
@@ -37,10 +38,7 @@ from backend.lyrics.phrases import (
     performed_phrases as performed_phrases,
 )
 from backend.projects.ports import ProjectStorage
-from backend.text_normalization import (
-    clean_lyrics,
-    strip_catalog_credits,
-)
+from backend.text_normalization import clean_lyrics
 from backend.lyrics.ports import (
     LyricLineTiming,
     LyricsCandidate,
@@ -162,8 +160,9 @@ class LyricsDiscovery:
         found = self._recognized_catalogue(
             song, source, transcripts, cancel, warnings, online_enabled
         )
-        if found:
-            found = _reconcile_catalogue(song, found, transcripts)
+        language = lyrics_language(song, found.lyrics if found else "")
+        recognize_window = catalogue_window_recognizer(asr, sources, language, cancel, execution)
+        found = _reconcile_catalogue(song, found, transcripts, recognize_window)
         for lyrics in transcripts:
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
@@ -306,7 +305,7 @@ class LyricsDiscovery:
             hints = decode_timing_hints(
                 manifest.provenance.get("lyricsTimingHints"), document.duration
             )
-            lyrics = _cached_catalog_text(
+            lyrics = cached_catalog_text(
                 document.lyrics, manifest.provenance.get("lyricsSourceText"), hints
             )
             saved_warnings = manifest.provenance.get("warnings", ())
@@ -419,13 +418,20 @@ class LyricsDiscovery:
 
 
 def _reconcile_catalogue(
-    song: Song, found: LyricsDiscoveryResult, transcripts: Sequence[str]
-) -> LyricsDiscoveryResult:
+    song: Song,
+    found: LyricsDiscoveryResult | None,
+    transcripts: Sequence[str],
+    recognize_window: Callable[[float, float], Sequence[str]] | None = None,
+) -> LyricsDiscoveryResult | None:
+    if found is None:
+        return None
     # Reconcile before repeat recovery drops ambiguous cues or stores its verification baseline.
     candidate = LyricsCandidate(
         found.lyrics, song.title, song.artist, song.duration, found.source, found.timing_hints
     )
-    reconciled = reconcile_timed_overlaps(candidate, found.alternatives, transcripts, _lyrics_key)
+    reconciled = reconcile_timed_overlaps(
+        candidate, found.alternatives, transcripts, _lyrics_key, recognize_window
+    )
     return replace(found, lyrics=reconciled.lyrics, timing_hints=reconciled.timing_hints)
 
 
@@ -438,13 +444,6 @@ def _clean_match(song: Song, found: LyricsDiscoveryResult) -> LyricsDiscoveryRes
             replace(hint, text=clean_lyrics(hint.text, language)) for hint in found.timing_hints
         ),
     )
-
-
-def _cached_catalog_text(lyrics: str, saved: object, hints: tuple[LyricLineTiming, ...]) -> str:
-    text = saved if isinstance(saved, str) and saved.split() == lyrics.split() else lyrics
-    catalog = "\n".join(hint.text for hint in hints)
-    # Recover phrase boundaries only when the complete catalogue has the same words.
-    return strip_catalog_credits(catalog if catalog.split() == text.split() else text)
 
 
 def lyrics_language(song: Song, lyrics: str = "") -> Language:

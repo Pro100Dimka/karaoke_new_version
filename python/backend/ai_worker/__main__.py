@@ -69,7 +69,11 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
             else (loads_object(sys.stdin.buffer.read().decode("utf-8")),)
         )
         requests = (
-            (Path(item["input"]), float(item["startSeconds"]))
+            (
+                (Path(item["input"]), float(item["startSeconds"]), float(item["endSeconds"]))
+                if "endSeconds" in item
+                else (Path(item["input"]), float(item["startSeconds"]))
+            )
             for payload in payloads
             for item in payload["requests"]
         )

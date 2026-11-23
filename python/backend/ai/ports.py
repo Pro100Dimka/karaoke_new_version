@@ -94,6 +94,20 @@ class BatchTranscriber(Protocol):
     ) -> Sequence[str]: ...
 
 
+@runtime_checkable
+class WindowTranscriber(Protocol):
+    def transcribe_window(
+        self,
+        sources: Sequence[Path],
+        start: float,
+        end: float,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> Sequence[str]: ...
+
+
 class AiProvider(Protocol):
     @property
     def descriptor(self) -> AiProviderDescriptor: ...

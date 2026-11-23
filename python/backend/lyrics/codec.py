@@ -6,6 +6,7 @@ import re
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.lyrics.domain import LyricsDocument, Note, Word
 from backend.lyrics.ports import LyricLineTiming
+from backend.text_normalization import strip_catalog_credits
 
 _TIMED_LINE = re.compile(r"^\s*\[(\d{1,2}):(\d{2}(?:\.\d+)?)]\s*(.*)$")
 _SPACED_DASH = re.compile(r"(?<=\s)[\u2013\u2014-](?=\s)")
@@ -44,6 +45,13 @@ def decode_timing_hints(value: object, duration: float) -> tuple[LyricLineTiming
         and isinstance(text, str)
         and text.strip()
     )
+
+
+def cached_catalog_text(lyrics: str, saved: object, hints: tuple[LyricLineTiming, ...]) -> str:
+    text = saved if isinstance(saved, str) and saved.split() == lyrics.split() else lyrics
+    catalog = "\n".join(hint.text for hint in hints)
+    # Recover phrase boundaries only when the complete catalogue has the same words.
+    return strip_catalog_credits(catalog if catalog.split() == text.split() else text)
 
 
 def reconcile_timing_hints(

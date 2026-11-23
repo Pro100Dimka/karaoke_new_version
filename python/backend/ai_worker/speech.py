@@ -253,11 +253,16 @@ def transcribe(
     language: str,
     *,
     start_seconds: float = 0.0,
+    end_seconds: float | None = None,
     model_cache: list[whisper.Whisper] | None = None,
 ) -> dict[str, object]:
     source = (
-        read_mono(vocal, _SAMPLE_RATE)[round(start_seconds * _SAMPLE_RATE) :]
-        if start_seconds
+        read_mono(vocal, _SAMPLE_RATE)[
+            round(start_seconds * _SAMPLE_RATE) : round(end_seconds * _SAMPLE_RATE)
+            if end_seconds is not None
+            else None
+        ]
+        if start_seconds or end_seconds is not None
         else vocal
     )
     result = _guidance(source, language, None, prefer_accelerated=True, model_cache=model_cache)
@@ -293,13 +298,19 @@ def _transcription_payload(result: Mapping[str, object]) -> dict[str, object]:
 
 
 def transcribe_many(
-    requests: Iterable[tuple[Path, float]], language: str
+    requests: Iterable[tuple[Path, float] | tuple[Path, float, float]], language: str
 ) -> dict[str, list[dict[str, object]]]:
     models: list[whisper.Whisper] = []
     return {
         "transcriptions": [
-            transcribe(audio, language, start_seconds=start, model_cache=models)
-            for audio, start in requests
+            transcribe(
+                audio,
+                language,
+                start_seconds=start,
+                model_cache=models,
+                **({"end_seconds": end[0]} if end else {}),
+            )
+            for audio, start, *end in requests
         ]
     }
 

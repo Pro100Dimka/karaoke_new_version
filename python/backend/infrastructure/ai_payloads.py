@@ -10,6 +10,39 @@ from backend.serialization import JsonValue, dumps
 from backend.songs.domain import Language
 
 
+def _transcription_requests(requests: Sequence[tuple[Path, float]], end: float | None) -> bytes:
+    return dumps(
+        {
+            "requests": [
+                {
+                    "input": str(audio),
+                    "startSeconds": start,
+                    **({"endSeconds": end} if end is not None else {}),
+                }
+                for audio, start in requests
+            ]
+        }
+    ).encode("utf-8")
+
+
+def _transcription_values(
+    payload: dict[str, JsonValue], count: int, kind: str = "group"
+) -> list[JsonValue]:
+    values = payload.get("transcriptions")
+    if not isinstance(values, list) or len(values) != count:
+        raise DependencyError("AiProviderInvalidOutput", f"Transcription {kind} is malformed")
+    return values
+
+
+def _transcription_text(payload: JsonValue) -> str:
+    if not isinstance(payload, dict):
+        raise DependencyError("AiProviderInvalidOutput", "Transcription response is malformed")
+    transcript = payload.get("text")
+    if not isinstance(transcript, str):
+        raise DependencyError("AiProviderInvalidOutput", "AI provider field text is invalid")
+    return transcript
+
+
 def _alignment_request(
     vocal: Path,
     lyrics: str,

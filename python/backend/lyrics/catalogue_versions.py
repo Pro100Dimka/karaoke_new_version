@@ -3,15 +3,42 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import replace
 from difflib import SequenceMatcher
+from pathlib import Path
 from statistics import median
+from threading import Event
 
+from backend.ai.ports import AiProvider, WindowTranscriber
+from backend.domain_errors import DomainError
 from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
+from backend.processing.compute_policy import ExecutionContext
+from backend.songs.domain import Language
 from backend.text_normalization import clean_lyrics
 
 type _WordKey = Callable[[str], str]
 type _LineMatches = Callable[[str, list[str], int], Iterator[tuple[int, int]]]
 type _LinePath = tuple[tuple[int, int, int], ...]
 type _State = tuple[int, _LinePath]
+
+
+def catalogue_window_recognizer(
+    asr: AiProvider,
+    sources: Sequence[Path],
+    language: Language,
+    cancel: Event,
+    execution: ExecutionContext,
+) -> Callable[[float, float], Sequence[str]] | None:
+    if not isinstance(asr, WindowTranscriber):
+        return None
+
+    def recognize(start: float, end: float) -> Sequence[str]:
+        try:
+            return asr.transcribe_window(sources, start, end, language, cancel, execution=execution)
+        except DomainError:
+            if cancel.is_set():
+                raise
+            return ()
+
+    return recognize
 
 
 def corroborated_versions(
@@ -52,8 +79,9 @@ def reconcile_timed_overlaps(
     alternatives: Sequence[LyricsCandidate],
     transcripts: Sequence[str],
     key: _WordKey,
+    recognize_window: Callable[[float, float], Sequence[str]] | None = None,
 ) -> LyricsCandidate:
-    """Reconcile a copied full cue with a positively supported shorter catalogue prefix."""
+    """Reconcile a copied full cue with a positively supported shorter prefix."""
     lines, hints = candidate.lyrics.splitlines(), candidate.timing_hints
     words = [_words(line, key) for line in lines]
     if not transcripts or not all(words) or words != [_words(hint.text, key) for hint in hints]:
@@ -67,23 +95,85 @@ def reconcile_timed_overlaps(
         ratio = _copied_cue_ratio(words, hints, index)
         if ratio is None:
             continue
-        prefix_size = _catalogue_prefix_size(alternatives, full, fragment, following, ratio, key)
-        if prefix_size is None:
-            continue
-        replacement = " ".join(clean_lyrics(lines[index - 1], "Auto").split()[:prefix_size])
-        suffix = fragment + following[:3]
-        if _heard_shorter_cue(_words(replacement, key)[-3:] + suffix, full + suffix, heard):
-            changes[index - 1] = replacement
-    return (
-        replace(
-            candidate,
-            lyrics="\n".join(changes.get(i, line) for i, line in enumerate(lines)),
-            timing_hints=tuple(
-                replace(hint, text=changes.get(i, hint.text)) for i, hint in enumerate(hints)
-            ),
+        prefix = _confirmed_prefix(
+            alternatives,
+            (full, fragment, following),
+            hints[index - 1 : index + 2],
+            ratio,
+            key,
+            heard,
+            recognize_window,
         )
-        if changes
-        else candidate
+        if prefix is not None:
+            changes[index - 1] = " ".join(clean_lyrics(lines[index - 1], "Auto").split()[:prefix])
+    if not changes:
+        return candidate
+    lyrics = "\n".join(changes.get(i, line) for i, line in enumerate(lines))
+    cues = tuple(replace(hint, text=changes.get(i, hint.text)) for i, hint in enumerate(hints))
+    return replace(candidate, lyrics=lyrics, timing_hints=cues)
+
+
+def _confirmed_prefix(
+    alternatives: Sequence[LyricsCandidate],
+    phrases: tuple[list[str], list[str], list[str]],
+    hints: Sequence[LyricLineTiming],
+    ratio: float,
+    key: _WordKey,
+    heard: Sequence[list[str]],
+    recognize_window: Callable[[float, float], Sequence[str]] | None,
+) -> int | None:
+    full, fragment, following = phrases
+    suffix = fragment + following[:3]
+    original = full + suffix
+    if any(_cue_count(view, original) for view in heard):
+        return None
+    size = _catalogue_prefix_size(alternatives, full, fragment, following, ratio, key)
+    if size is not None and _heard_shorter_cue(full[size - 3 : size] + suffix, original, heard):
+        return size
+    if recognize_window is None:
+        return None
+    if size is None:
+        sizes = [
+            i
+            for i in range(3, len(full) - len(fragment) + 1)
+            if full[i : i + len(fragment)] == fragment and abs(ratio - i / len(full)) <= 0.05
+        ]
+        if len(sizes) != 1:
+            return None
+        size = sizes[0]
+    start, overlap, following_start = (hint.start for hint in hints)
+    margin = min(8.0, 2 * (overlap - start))
+    crop = [
+        _words(text, key)
+        for text in recognize_window(max(0.0, start - margin), following_start + margin)
+    ]
+    return (
+        size
+        if _heard_shorter_window(full, full[size - 3 : size], fragment, following, crop)
+        else None
+    )
+
+
+def _heard_shorter_window(
+    full: list[str],
+    prefix: list[str],
+    fragment: list[str],
+    following: list[str],
+    heard: Sequence[list[str]],
+) -> bool:
+    anchor = following[:3]
+    endings = [fragment + anchor]
+    # The next verse anchors the occurrence. A missed one-letter conjunction
+    # there is harmless; the repeat and the two surrounding words must match.
+    if len(anchor) == 3 and len(anchor[1]) == 1:
+        endings.append(fragment + [anchor[0], anchor[2]])
+    views = [[word.replace("ё", "е") for word in view] for view in heard]
+    endings = [[word.replace("ё", "е") for word in ending] for ending in endings]
+    full = [word.replace("ё", "е") for word in full]
+    prefix = [word.replace("ё", "е") for word in prefix]
+    return not any(_cue_count(view, full + ending) for view in views for ending in endings) and any(
+        max((_cue_count(view, prefix + ending) for view in views), default=0) == 1
+        for ending in endings
     )
 
 
@@ -134,10 +224,13 @@ def _catalogue_prefix_size(
 
 
 def _heard_shorter_cue(chain: list[str], original: list[str], heard: Sequence[list[str]]) -> bool:
-    counts = [sum(view[i : i + len(chain)] == chain for i in range(len(view))) for view in heard]
-    return max(counts, default=0) == 1 and not any(
-        view[i : i + len(original)] == original for view in heard for i in range(len(view))
+    return max((_cue_count(view, chain) for view in heard), default=0) == 1 and not any(
+        _cue_count(view, original) for view in heard
     )
+
+
+def _cue_count(view: list[str], phrase: list[str]) -> int:
+    return sum(view[i : i + len(phrase)] == phrase for i in range(len(view) - len(phrase) + 1))
 
 
 def _words(text: str, key: _WordKey) -> list[str]:
