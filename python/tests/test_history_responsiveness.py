@@ -58,13 +58,15 @@ def test_history_resolves_recording_songs_without_repeated_metadata_reads(tmp_pa
         page = ListHistory(database).execute(limit=100, offset=0)
         assert page.total == 63
         assert page.song_ids == {**expected, "missing": None, "direct": "direct-song"}
-        assert len(statements) <= 3, f"History repeated per-event reads: {len(statements)} SELECTs"
+        snapshot_reads = [query for query in statements if query.startswith("SELECT max(")]
+        assert len(snapshot_reads) == 1
+        assert len(statements) - len(snapshot_reads) <= 3
         assert all("session_json" not in statement for statement in statements)
         assert all("gaps_json" not in statement for statement in statements)
 
         statements.clear()
         filtered = ListHistory(database).execute(
-            limit=10, offset=5, event_types=["AnalysisCompleted"]
+            limit=10, offset=5, event_types=["AnalysisCompleted"], snapshot=page.snapshot
         )
         assert filtered.total == 60
         assert [item.event_id for item in filtered.items] == sorted(expected)[5:15]
@@ -74,7 +76,7 @@ def test_history_resolves_recording_songs_without_repeated_metadata_reads(tmp_pa
         assert len(statements) <= 3
 
         statements.clear()
-        empty = ListHistory(database).execute(limit=10, offset=100)
+        empty = ListHistory(database).execute(limit=10, offset=100, snapshot=page.snapshot)
         assert not empty.items and not empty.song_ids
         assert len(statements) == 2
     finally:

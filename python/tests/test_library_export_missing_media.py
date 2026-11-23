@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.infrastructure.recording_archive import RecordingArchive
 from tests.conftest import app_client, write_wav
 from tests.helpers import import_song, wait_for_job
 
@@ -41,8 +42,10 @@ def _export(client):
 
 @pytest.mark.parametrize("has_companion", [False, True])
 def test_library_export_rejects_a_missing_recording_without_losing_rows_or_prior_archives(
-    tmp_path: Path, has_companion: bool
+    tmp_path: Path, has_companion: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Keep the intentionally removed file from being opened by archival at the same time.
+    monkeypatch.setattr(RecordingArchive, "_archive_one", lambda _archive, _marker: None)
     source = tmp_path / "Song.wav"
     write_wav(source)
     with app_client(tmp_path / "source-runtime") as client:

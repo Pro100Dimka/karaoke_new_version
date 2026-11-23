@@ -176,7 +176,7 @@ def test_storage_usage_survives_a_file_removed_between_listing_and_size_read(tmp
             return present
 
         def stat(self):
-            return self.actual.stat()
+            return os.stat(self.path)
 
     class Directory:
         def __init__(self, path):

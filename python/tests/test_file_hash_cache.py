@@ -47,10 +47,12 @@ def test_same_size_edits_and_replacements_invalidate_memory_and_disk(
 def test_a_file_changed_during_hashing_is_not_cached(tmp_path):
     path = _clip(tmp_path)
     root = tmp_path / "cache"
+    old_time = path.stat().st_mtime_ns
 
     def changed(source):
         digest = sha256_file(source)
         source.write_bytes(b"modified")
+        os.utime(source, ns=(old_time + 1_000_000, old_time + 1_000_000))
         return digest
 
     first = FileHashCache(root, changed)(path)
@@ -63,7 +65,15 @@ def test_a_file_changed_during_hashing_is_not_cached(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "raw", [b"{truncated", b"\xff", b"x" * 65537, b'{"version":2}', b'{"version":1,"entries":[]}']
+    "raw",
+    [b"{truncated", b"\xff", b"x" * 65537, b'{"version":2}', b'{"version":1,"entries":[]}'],
+    ids=[
+        "truncated-json",
+        "invalid-utf8",
+        "oversized-bucket",
+        "unknown-version",
+        "invalid-entries",
+    ],
 )
 def test_corrupt_or_unknown_cache_data_falls_back_to_real_hash(tmp_path, raw):
     path = _clip(tmp_path)

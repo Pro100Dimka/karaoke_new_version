@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Lock
 from types import SimpleNamespace
 
 import numpy as np
@@ -158,7 +159,12 @@ def test_compact_recordings_keep_sources_metadata_and_library_roundtrip(tmp_path
         hashes = _recording_hashes(source_root)
         bundle = Path(transfer(client, "export")["path"])
     with app_client(restored_root) as client:
-        assert transfer(client, "import", bundle) == {"imported": 1, "skipped": 0}
+        assert transfer(client, "import", bundle) == {
+            "imported": 1,
+            "skipped": 0,
+            "recordingsAdded": 2,
+            "recordingsSkipped": 0,
+        }
         _verify_rows_and_audio(client, archived)
         assert _recording_hashes(restored_root) == hashes
         assert _history(client) == history
@@ -197,7 +203,10 @@ def test_master_admission_tolerates_archival_without_prejob_stem_io(tmp_path, sw
     service = StartStudioMaster.__new__(StartStudioMaster)
     service._uow = SimpleNamespace(create=transaction)
     service._projects = SimpleNamespace(artifact_path=lambda *args: compact)
-    service._jobs = SimpleNamespace(start=submit)
+    service._jobs = SimpleNamespace(
+        start=submit, prepare_submission=nullcontext, list=lambda **_: ()
+    )
+    service._submission_lock = Lock()
     service._stems = lambda recording: pytest.fail("Stem I/O must run after job admission")
     assert service.execute("take") == "submitted"
     assert submitted == ["take"]

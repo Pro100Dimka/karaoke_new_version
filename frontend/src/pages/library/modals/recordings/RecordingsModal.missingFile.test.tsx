@@ -1,11 +1,11 @@
 import { tr } from '@neo-ui-kit/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
-  waitFor,
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -144,11 +144,17 @@ it('explains a missing AD Master source file and retries the same take after res
   api.createStudioMaster
     .mockRejectedValueOnce(missingFile)
     .mockResolvedValue(master);
-  openArchive();
-  fireEvent.click(await screen.findByLabelText(tr('recordingAnalyze')));
-  fireEvent.click(await screen.findByText(tr('studioMasterCreate')));
+  await act(async () => {
+    openArchive();
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByLabelText(tr('recordingAnalyze')));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByText(tr('studioMasterCreate')));
+  });
 
-  expect(await screen.findByText(tr('recordingFileMissing'))).toBeVisible();
+  expect(screen.getByText(tr('recordingFileMissing'))).toBeVisible();
   expect(
     screen.queryByText(missingFile.message, { exact: false }),
   ).not.toBeInTheDocument();
@@ -156,12 +162,12 @@ it('explains a missing AD Master source file and retries the same take after res
     take.id,
     expect.any(Function),
   );
-  fireEvent.click(screen.getByText(tr('studioMasterCreate')));
+  await act(async () => {
+    fireEvent.click(screen.getByText(tr('studioMasterCreate')));
+  });
 
-  expect(await screen.findByText(tr('studioMasterReady'))).toBeVisible();
-  await waitFor(() =>
-    expect(desktop.recordingPeaks).toHaveBeenCalledWith(master.id, 240),
-  );
+  expect(screen.getByText(tr('studioMasterReady'))).toBeVisible();
+  expect(desktop.recordingPeaks).toHaveBeenCalledWith(master.id, 240);
   expect(api.createStudioMaster).toHaveBeenCalledTimes(2);
   expect(api.createStudioMaster).toHaveBeenLastCalledWith(
     take.id,

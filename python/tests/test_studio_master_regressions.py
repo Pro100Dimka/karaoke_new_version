@@ -452,7 +452,12 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, 
     )
     changed, actual_rate = sf.read(vocal)
     assert actual_rate == rate and changed.shape == actual.shape
-    for start, end, frequency in [(0.03, 0.13, 400), (0.43, 0.49, 800)]:
+    # Measure the stable part of the second tone between its entry and the segment end.
+    second_center = ((0.5 - 0.2) / speed + 0.5) / 2
+    for start, end, frequency in [
+        (0.03, 0.13, 400),
+        (second_center - 0.03, second_center + 0.03, 800),
+    ]:
         block = changed[round(start * rate) : round(end * rate)]
         spectrum = abs(np.fft.rfft(block * np.hanning(len(block)), n=16384))
         peak = np.fft.rfftfreq(16384, 1 / rate)[np.argmax(spectrum)]

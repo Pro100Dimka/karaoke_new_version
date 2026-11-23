@@ -2415,6 +2415,7 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
     )
     monkeypatch.setattr(speech_alignment, "align_words", lambda *_args: words)
     monkeypatch.setattr(speech_alignment, "align_guided", lambda *_args, **_options: words)
+    monkeypatch.setattr(speech_alignment, "with_word_guidance", lambda aligned, **_options: aligned)
 
     word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
 
