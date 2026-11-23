@@ -450,9 +450,9 @@ def align(
         )
         heard = preserve_prefix(prior, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
     recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
-    payload = _AlignmentPass(
-        audio, backing, scores, step, lyrics.split(), lyrics, heard, views
-    ).run(timing_hints, recognize)
+    alignment = _AlignmentPass(audio, backing, scores, step, lyrics.split(), lyrics, heard, views)
+    alignment.emit = partial(_alignment_emission, reuse=reuse)
+    payload = alignment.run(timing_hints, recognize)
     if not asr_lyrics:
         return dict(payload)
     return _asr_payload(lyrics, payload, observations, scores, step, verified)

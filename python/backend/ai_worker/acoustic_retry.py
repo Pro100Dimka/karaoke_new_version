@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import ceil, floor, isfinite
-from statistics import median
+from statistics import mean, median
 
 import numpy as np
 import torch
@@ -14,6 +14,128 @@ from backend.ai_worker.speech_windows import _MARGIN_SECONDS, _MINIMUM_BLOCK, _S
 
 Emission = Callable[[np.ndarray], tuple[torch.Tensor, float]]
 Interval = tuple[float, float]
+Fit = Callable[[list[str], float, float], list[ctc.AlignedWord]]
+
+
+def recover_weak_cue_entries(
+    words: list[ctc.AlignedWord],
+    cues: Sequence[tuple[int, float, str]],
+    onsets: Sequence[float],
+    fit: Fit,
+) -> list[ctc.AlignedWord]:
+    """Refit a weak phrase opening without moving its measured neighbours."""
+    result = list(words)
+    for first, cue, written in cues:
+        stop = first + _MINIMUM_BLOCK
+        if not 0 < first or stop > len(words) or len(written.split()) < _MINIMUM_BLOCK:
+            continue
+        head, *following = words[first:stop]
+        if head.score > ctc._PREFERENCE or any(w.score <= ctc._PREFERENCE for w in following):
+            continue
+        before = result[first - 1].end
+        floor = max(before, cue - _MARGIN_SECONDS, head.start - _MARGIN_SECONDS)
+        ceiling = min(cue + _MARGIN_SECONDS, head.start - ctc._ONSET_SEARCH_BEFORE_SECONDS)
+        # A weaker onset in the separated stem may fall below the detector.
+        # The cue bounds the retry; it cannot replace the measured phonemes.
+        onset = max(
+            (at for at in onsets if floor <= at <= ceiling),
+            default=cue if floor <= cue <= ceiling else None,
+        )
+        if onset is None:
+            continue
+        proposed = fit(
+            [head.text, *(w.text for w in following)],
+            max(before, onset - _MARGIN_SECONDS),
+            following[-1].end + _MARGIN_SECONDS,
+        )
+        if _supported_cue_entry(proposed, head, following, onset, before):
+            result[first] = replace(
+                proposed[0], diagnostics=(*proposed[0].diagnostics, "OnsetRecovered")
+            )
+    return result
+
+
+def recover_compressed_cues(
+    words: list[ctc.AlignedWord], cues: Sequence[tuple[int, float, str]], fit: Fit
+) -> list[ctc.AlignedWord]:
+    """Retry a repeated phrase compressed against one end of its catalogue cue."""
+    result = list(words)
+    for first, cue, text in cues:
+        tokens = text.split()
+        stop = first + len(tokens)
+        if not 0 < first < stop < len(words) or not _repeated_prefix(tokens):
+            continue
+        span = words[first:stop]
+        if not _compressed_phrase(span):
+            continue
+        start = max(
+            result[first - 1].end,
+            span[0].start - ctc._ONSET_SEARCH_BEFORE_SECONDS,
+            cue - _MARGIN_SECONDS,
+        )
+        end = min(result[stop].start, span[-1].end + _MARGIN_SECONDS)
+        if not 0 < end - start <= ctc._CHUNK_SECONDS:
+            continue
+        candidate = fit(tokens, start, end)
+        if _restored_phrase(candidate, span, start, end):
+            result[first:stop] = candidate
+    return result
+
+
+def _repeated_prefix(tokens: list[str]) -> bool:
+    keys = [token.casefold() for token in tokens]
+    return any(
+        keys[:size] == keys[size : size * 2] and len(set(keys[:size])) >= _MINIMUM_BLOCK
+        for size in range(_MINIMUM_BLOCK, len(keys) // 2 + 1)
+    )
+
+
+def _compressed_phrase(words: Sequence[ctc.AlignedWord]) -> bool:
+    return sum(w.score <= ctc._PREFERENCE for w in words) * 2 >= len(words) and any(
+        right.start - left.end > _MARGIN_SECONDS for left, right in zip(words, words[1:])
+    )
+
+
+def _restored_phrase(
+    candidate: Sequence[ctc.AlignedWord],
+    original: Sequence[ctc.AlignedWord],
+    start: float,
+    end: float,
+) -> bool:
+    return (
+        len(candidate) == len(original)
+        and start <= candidate[0].start < candidate[-1].end <= end
+        and abs(candidate[0].start - original[0].start) <= _MARGIN_SECONDS
+        and abs(candidate[-1].end - original[-1].end) <= _MARGIN_SECONDS
+        and all(a.text == b.text for a, b in zip(candidate, original, strict=True))
+        and mean(w.score for w in candidate) > mean(w.score for w in original) + ctc._PREFERENCE
+    )
+
+
+def _supported_cue_entry(
+    candidate: Sequence[ctc.AlignedWord],
+    head: ctc.AlignedWord,
+    following: Sequence[ctc.AlignedWord],
+    onset: float,
+    before: float,
+) -> bool:
+    return (
+        len(candidate) == 1 + len(following)
+        and candidate[0].score >= 0.1
+        and candidate[0].text == head.text
+        and max(before, onset - ctc._ONSET_SEARCH_BEFORE_SECONDS)
+        <= candidate[0].start
+        <= min(
+            onset + ctc._ONSET_SEARCH_AFTER_SECONDS, head.start - ctc._ONSET_SEARCH_AFTER_SECONDS
+        )
+        and candidate[0].end <= following[0].start
+        and all(
+            new.text == old.text
+            and new.score > ctc._PREFERENCE
+            and abs(new.start - old.start) <= ctc._ONSET_SEARCH_AFTER_SECONDS
+            for new, old in zip(candidate[1:], following, strict=True)
+        )
+    )
 
 
 @dataclass(frozen=True, slots=True)

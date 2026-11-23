@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 import numpy as np
 import torch
+from backend.ai_worker.acoustic_retry import recover_compressed_cues, recover_weak_cue_entries
 from backend.ai_worker.ctc_bounds import _preserved_onset_letters as _preserved_onset_letters
 from backend.ai_worker.ctc import (
     AlignedWord,
@@ -38,12 +39,14 @@ from backend.ai_worker.recognition import (
     rate_review_indices,
 )
 from backend.ai_worker.word_guidance import with_word_guidance
+from backend.ai_worker.vocal_recovery import replace_displaced_outro
 from backend.ai_worker.speech_windows import (
     _HOP as _HOP,
     _MARGIN_SECONDS as _MARGIN_SECONDS,
     _MINIMUM_BLOCK as _MINIMUM_BLOCK,
     _SAMPLE_RATE as _SAMPLE_RATE,
     _alignment_windows as _alignment_windows,
+    _line_first_words,
 )
 
 
@@ -57,6 +60,7 @@ class _AlignmentPass:
     lyrics: str
     heard: list[HeardWord]
     views: list[list[HeardWord]]
+    emit: Callable[[np.ndarray], tuple[torch.Tensor, float]] | None = None
 
     def run(
         self,
@@ -97,6 +101,15 @@ class _AlignmentPass:
             _heard_timings(self.words, self.heard, whole, windows=windows) | supported, windows
         )
         guided, guide, voiced = self._guided_words(windows, supported, whole, positions)
+        if self.emit is not None and timing_hints:
+            cues = _line_first_words(self.words, timing_hints)
+            guided = recover_compressed_cues(guided, cues, self._fit_voice)
+            guided = recover_weak_cue_entries(
+                guided,
+                cues,
+                vocal_onsets(self.audio, _SAMPLE_RATE, _HOP).tolist(),
+                self._fit_voice,
+            )
         return guided, guide, voiced, activity, supported
 
     def _guided_words(
@@ -187,9 +200,50 @@ class _AlignmentPass:
             independent_timings(self.words, [self.heard, *self.views], timed),
         )
         timed = with_lead_vocals(timed, self.views, activity, acoustic[1], recognize=recognize)
+        timed, intervals, recovered = self._retime_outro(timed, activity, intervals, recovered)
         return self._vocalization_payload(
             timed, activity, acoustic[1], recognize, recovered, intervals
         )
+
+    def _retime_outro(
+        self,
+        original: list[AlignedWord],
+        activity: np.ndarray,
+        intervals: Mapping[int, tuple[float, float]],
+        recovered: frozenset[int],
+    ) -> tuple[list[AlignedWord], Mapping[int, tuple[float, float]], frozenset[int]]:
+        timed, displaced = (
+            replace_displaced_outro(original, self.lyrics, activity, intervals, self._fit_voice)
+            if self.emit is not None
+            else (original, None)
+        )
+        intervals = {
+            **intervals,
+            **independent_timings(self.words, [self.heard, *self.views], original),
+        }
+        if displaced is None:
+            return timed, intervals, recovered
+        first, stop = displaced
+        indices = {
+            index: index if index < first else index - (stop - first)
+            for index in range(len(original))
+            if not first <= index < stop
+        }
+        return (
+            timed,
+            {indices[index]: span for index, span in intervals.items() if index in indices},
+            frozenset(indices[index] for index in recovered if index in indices),
+        )
+
+    def _fit_voice(self, words: list[str], start: float, end: float) -> list[AlignedWord]:
+        if self.emit is None:
+            return []
+        first, last = round(start * _SAMPLE_RATE), round(end * _SAMPLE_RATE)
+        try:
+            scores, step = self.emit(self.audio[first:last])
+            return align_words(scores, step, words, first / _SAMPLE_RATE)
+        except (ValueError, OSError, RuntimeError):
+            return []
 
     def _vocalization_payload(
         self,
@@ -212,7 +266,7 @@ class _AlignmentPass:
         recovered_vowels = [word for word in vowels if "RecoveredVocalization" in word.diagnostics]
         payload = alignment_payload(
             timed,
-            {**intervals, **independent_timings(self.words, [self.heard, *self.views], timed)},
+            intervals,
             recovered=recovered,
             reviewed=frozenset(
                 rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)

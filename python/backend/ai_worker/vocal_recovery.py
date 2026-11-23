@@ -6,7 +6,13 @@ from itertools import groupby
 import numpy as np
 import torch
 from whisper.audio import CHUNK_LENGTH
-from backend.ai_worker.ctc import AlignedWord, _PREFERENCE, _evenly
+from backend.ai_worker.ctc import (
+    AlignedWord,
+    _CONTEXT_SECONDS,
+    _PAUSE_SECONDS,
+    _PREFERENCE,
+    _evenly,
+)
 from backend.ai_worker.ctc_tokens import _character_tokens
 from backend.ai_worker.guidance_phrases import _key
 from backend.ai_worker.timing import _bridged, _runs
@@ -14,6 +20,72 @@ from backend.processing.reporting import _timing_load
 
 _MARGIN = 0.6
 _STEP = 0.01
+
+
+def replace_displaced_outro(
+    words: list[AlignedWord],
+    lyrics: str,
+    activity: np.ndarray,
+    heard: Mapping[int, tuple[float, float]],
+    fit: Callable[[list[str], float, float], list[AlignedWord]],
+) -> tuple[list[AlignedWord], tuple[int, int] | None]:
+    """Replace an unsupported early repeat with the same phrase sung after a pause."""
+    tail = _repeated_outro(words, lyrics)
+    if tail is None:
+        return words, None
+    first, phrase = tail
+    group = words[first:]
+    if _outro_word_supported(group[0], heard.get(first)) or any(
+        word.score > _PREFERENCE for word in group[: len(phrase)]
+    ):
+        return words, None
+    last = words[-1].end
+    span = _outro_voice_span(activity, last)
+    if span is None:
+        return words, None
+    start, end = span
+    candidate = fit(phrase, max(last, start - _MARGIN), end + _MARGIN)
+    if len(candidate) != len(phrase) or any(
+        w.text != text or w.score < 0.1 or not start - _MARGIN <= w.start < w.end <= end + _MARGIN
+        for text, w in zip(phrase, candidate)
+    ):
+        return words, None
+    candidate[-1] = replace(candidate[-1], end=max(candidate[-1].end, end))
+    return [*words[:first], *group[len(phrase) :], *candidate], (first, first + len(phrase))
+
+
+def _repeated_outro(words: list[AlignedWord], lyrics: str) -> tuple[int, list[str]] | None:
+    lines = [line.split() for line in lyrics.splitlines() if line.strip()]
+    if len(lines) < 2 or len(lines[-1]) < 2 or lines[-1] != lines[-2]:
+        return None
+    phrase = lines[-1]
+    first = len(words)
+    for line in reversed(lines):
+        if line != phrase:
+            break
+        first -= len(phrase)
+    if first < 0 or any(w.text != phrase[i % len(phrase)] for i, w in enumerate(words[first:])):
+        return None
+    return first, phrase
+
+
+def _outro_word_supported(word: AlignedWord, heard: tuple[float, float] | None) -> bool:
+    return word.score > _PREFERENCE or (
+        heard is not None and heard[0] < word.end and word.start < heard[1]
+    )
+
+
+def _outro_voice_span(activity: np.ndarray, last: float) -> tuple[float, float] | None:
+    previous = last
+    limit = last + 2 * _CONTEXT_SECONDS
+    for first, stop in _runs(activity, True):
+        start, end = first * _STEP, stop * _STEP
+        if start > limit:
+            break
+        if start - previous >= _PAUSE_SECONDS and end - start >= _PAUSE_SECONDS:
+            return start, end
+        previous = max(previous, end)
+    return None
 
 
 def with_acoustic_repeats(

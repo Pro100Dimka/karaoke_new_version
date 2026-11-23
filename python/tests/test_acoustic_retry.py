@@ -147,3 +147,70 @@ def test_malformed_empty_input_does_not_call_the_model():
 
     assert recover_emission(audio, old, STEP, LYRICS, views, emit) is old
     assert emit.crops == []
+
+
+@pytest.mark.parametrize("keeps_neighbors", [False, True])
+@pytest.mark.parametrize("has_onset", [False, True])
+def test_weak_phrase_entry_keeps_its_stable_following_words(
+    keeps_neighbors,
+    has_onset,
+):
+    from backend.ai_worker.acoustic_retry import recover_weak_cue_entries
+
+    def word(text, start, end, score):
+        return ctc.AlignedWord(text, start, end, (), score)
+
+    words = [
+        word("you", 23.84, 24.16, 0.22),
+        word("Maybe", 25.42, 25.66, 0.015),
+        word("it", 25.66, 25.82, 0.1),
+        word("hurts", 25.9, 26.38, 0.33),
+    ]
+    calls = []
+
+    def fit(text, start, end):
+        calls.append((text, start, end))
+        return [
+            word("Maybe", 25.16, 25.55, 0.4),
+            word("it", 25.58 if keeps_neighbors else 25.38, 25.82, 0.11),
+            word("hurts", 25.9, 26.38, 0.35),
+        ]
+
+    onsets = [24.07, 25.11] if has_onset else [24.07, 25.58]
+    result = recover_weak_cue_entries(words, [(1, 25.08, "Maybe it hurts")], onsets, fit)
+    assert calls == [
+        (
+            ["Maybe", "it", "hurts"],
+            pytest.approx(24.51 if has_onset else 24.48),
+            pytest.approx(26.98),
+        )
+    ]
+    assert result[1].start == (25.16 if keeps_neighbors else 25.42)
+    assert result[0] == words[0] and result[2:] == words[2:]
+
+
+@pytest.mark.parametrize("recovered", [False, True])
+def test_a_compressed_repeated_cue_refits_the_phrase_inside_its_neighbours(recovered):
+    from backend.ai_worker.acoustic_retry import recover_compressed_cues
+
+    text = "We sing now we sing now we sing now again"
+
+    def group(starts, score):
+        return [
+            ctc.AlignedWord(t, start, start + 0.08, (), score)
+            for t, start in zip(text.split(), starts, strict=True)
+        ]
+
+    previous = ctc.AlignedWord("begin", 1.0, 1.5, (), 0.9)
+    following = ctc.AlignedWord("after", 9.6, 10.0, (), 0.9)
+    words = [previous, *group([2, 2.3, 6, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 9], 0.025), following]
+    candidate = group([2, 2.3, 2.6, 3.3, 3.6, 4, 5, 5.3, 5.6, 9], 0.3 if recovered else 0.02)
+
+    def fit(tokens, start, end):
+        assert tokens == text.split()
+        assert 1.5 <= start <= 2 and 9 < end <= following.start
+        return candidate
+
+    result = recover_compressed_cues(words, [(1, 2, text)], fit)
+    assert result[0] == previous and result[-1] == following
+    assert result[1:-1] == (candidate if recovered else words[1:-1])

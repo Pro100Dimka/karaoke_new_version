@@ -10,6 +10,44 @@ from backend.ai_worker import ctc, speech_alignment
 from backend.ai_worker.ctc_occurrences import displaced_prefix
 
 
+@pytest.mark.parametrize("phonemes_confirmed", [False, True])
+def test_a_displaced_outro_uses_the_later_sung_repeat(phonemes_confirmed):
+    from backend.ai_worker.vocal_recovery import replace_displaced_outro
+
+    def word(text, start, end, score):
+        return ctc.AlignedWord(text, start, end, (start,) * len(text), score)
+
+    lyrics = "we sing\nhold me\nhold me\nhold me"
+    words = [
+        word("we", 1, 1.4, 0.4),
+        word("sing", 1.4, 2, 0.4),
+        word("hold", 2.1, 2.3, 0),
+        word("me", 2.3, 2.5, 0),
+        word("hold", 3, 3.5, 0.2),
+        word("me", 3.5, 4, 0.2),
+        word("hold", 4.2, 4.7, 0.2),
+        word("me", 4.7, 5, 0.2),
+    ]
+    activity = np.zeros(850, dtype=bool)
+    activity[300:525] = True
+    activity[600:760] = True
+
+    def fit(text, start, end):
+        assert text == ["hold", "me"]
+        assert start < 6.2 < 7.15 < end
+        score = 0.2 if phonemes_confirmed else 0.01
+        return [word("hold", 6.2, 6.8, score), word("me", 6.8, 7.15, score)]
+
+    result, displaced = replace_displaced_outro(words, lyrics, activity, {}, fit)
+    if phonemes_confirmed:
+        assert result[:6] == [*words[:2], *words[4:]]
+        assert [w.start for w in result[-2:]] == [6.2, 6.8]
+        assert result[-1].end == pytest.approx(7.6)
+        assert displaced == (2, 4)
+    else:
+        assert result is words and displaced is None
+
+
 def _scenario():
     words = "we sing now we sing now we sing now stay".split()
     scores = torch.full((400, 28), np.log(0.0001))
