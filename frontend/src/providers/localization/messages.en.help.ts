@@ -71,6 +71,8 @@ export const enHelp = {
     'Try a shorter phrase: “microphone”, “delay”, “record”, or choose a section.',
   'Увеличить изображение: {name}': 'Enlarge image: {name}',
   'Нажмите, чтобы увеличить': 'Click to enlarge',
+  'Показать весь снимок': 'Show full screenshot',
+  'Увеличить область': 'Enlarge the highlighted area',
   'Пример экрана приложения. Нужный элемент выделен.':
     'An example app screen. The relevant control is highlighted.',
   'Посмотреть короткое видео': 'Watch a short video',

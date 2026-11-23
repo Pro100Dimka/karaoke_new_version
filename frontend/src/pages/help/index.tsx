@@ -2,6 +2,7 @@ import {
   Button,
   Dialog,
   Icon,
+  Stack,
   TextField,
   tr,
   useLocale,
@@ -35,6 +36,7 @@ const sectionEntries = Object.entries(sections) as [
   SectionId,
   (typeof sections)[SectionId],
 ][];
+const focusSizePercent = 78;
 
 export const HelpPage = observer(() => {
   const headingId = useId();
@@ -55,7 +57,9 @@ export const HelpPage = observer(() => {
     visual: GuideVisual;
     title: string;
     number: number;
+    full?: boolean;
   } | null>(null);
+  const zoomFocus = zoom ? visuals[zoom.visual].focus : null;
   const article = articles.find(({ id }) => id === articleId);
   const nextArticle = articles.find(({ id }) => id === article?.next);
   const searching = Boolean(query.trim());
@@ -82,12 +86,13 @@ export const HelpPage = observer(() => {
     visual: GuideVisual,
     title: string,
     number: number,
-    cropped = false,
+    maxScale = 1,
   ) => {
     const { image, focus } = visuals[visual];
-    const scale = cropped
-      ? Math.max(1, Math.min(2.4, 78 / Math.max(focus[2], focus[3])))
-      : 1;
+    const scale = Math.max(
+      1,
+      Math.min(maxScale, focusSizePercent / Math.max(focus[2], focus[3])),
+    );
     const translation = [focus[0] + focus[2] / 2, focus[1] + focus[3] / 2].map(
       (center) => Math.max(100 * (1 - scale), Math.min(0, 50 - center * scale)),
     );
@@ -331,7 +336,7 @@ export const HelpPage = observer(() => {
                             name: tr(step.title),
                           })}
                         >
-                          {screenshot(visual, step.title, index + 1, true)}
+                          {screenshot(visual, step.title, index + 1, 2.4)}
                           <span className="helpZoomHint">
                             <Icon name="search" size={14} />
                             {tr('Нажмите, чтобы увеличить')}
@@ -423,7 +428,28 @@ export const HelpPage = observer(() => {
         cancelLabel={false}
         confirmLabel={false}
       >
-        {zoom && screenshot(zoom.visual, zoom.title, zoom.number)}
+        {zoom && (
+          <Stack gap={2}>
+            {zoomFocus &&
+              Math.max(zoomFocus[2], zoomFocus[3]) < focusSizePercent && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  style={{ alignSelf: 'flex-start' }}
+                  label={tr(
+                    zoom.full ? 'Увеличить область' : 'Показать весь снимок',
+                  )}
+                  onClick={() => setZoom({ ...zoom, full: !zoom.full })}
+                />
+              )}
+            {screenshot(
+              zoom.visual,
+              zoom.title,
+              zoom.number,
+              zoom.full ? 1 : 4,
+            )}
+          </Stack>
+        )}
       </Dialog>
     </div>
   );
