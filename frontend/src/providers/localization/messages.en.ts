@@ -75,6 +75,7 @@ export const en = {
   save: 'Save',
   title: 'Title',
   artist: 'Artist',
+  artistMissing: 'Artist not specified',
   keyTranspose: 'Key transpose',
   practiceSpeed: 'Speed',
   defaultVocalRange: 'Default vocal range display',

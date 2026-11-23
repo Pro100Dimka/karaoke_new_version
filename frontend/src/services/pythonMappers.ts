@@ -15,6 +15,7 @@ export interface BackendSong {
   projectHash?: string | null;
   title: string;
   artist: string;
+  artistMissing?: boolean;
   album: string | null;
   genre?: string | null;
   artworkUrl?: string | null;
@@ -139,6 +140,7 @@ export const mapSong = (song: BackendSong): SongDto => ({
   projectHash: song.projectHash ?? undefined,
   title: song.title,
   artist: song.artist,
+  artistMissing: song.artistMissing,
   album: song.album ?? undefined,
   genre: song.genre ?? undefined,
   artworkUrl: song.artworkUrl ?? undefined,

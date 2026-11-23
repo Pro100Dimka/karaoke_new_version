@@ -44,6 +44,7 @@ export const SongSettingsModal = ({
   const guarded = useGuardedAction();
   const active = useRef(true);
   const original = useRef(song).current;
+  const originalArtist = original.artistMissing ? '' : original.artist;
   useEffect(() => {
     active.current = true;
     return () => {
@@ -78,7 +79,7 @@ export const SongSettingsModal = ({
   const form = useForm({
     initialValues: {
       title: song.title,
-      artist: song.artist,
+      artist: originalArtist,
       language: song.language,
       coverPath: '',
       videoPath: '',
@@ -99,7 +100,7 @@ export const SongSettingsModal = ({
               ? undefined
               : title.trim() || undefined,
           artist:
-            artist.trim() === original.artist.trim()
+            artist.trim() === originalArtist.trim()
               ? undefined
               : artist.trim(),
           language: language === original.language ? undefined : language,
@@ -151,7 +152,10 @@ export const SongSettingsModal = ({
       width="large"
       icon="settings"
       title={tr('songSettings')}
-      description={`${song.artist} — ${song.title}`}
+      description={[
+        song.artistMissing ? tr('artistMissing') : song.artist,
+        song.title,
+      ].filter(Boolean).join(' - ')}
       closeLabel={tr('closeDialog')}
       cancelLabel={false}
       confirmLabel={false}

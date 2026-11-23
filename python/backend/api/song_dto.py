@@ -10,6 +10,7 @@ from backend.editor.domain import EditorDocument
 from backend.lyrics.domain import LyricsDocument, Note, Word
 from backend.processing.domain import Job, ProcessingMode
 from backend.songs.domain import Language, Song, SongStatus
+from backend.songs.filename_metadata import UNKNOWN_ARTIST
 
 
 class SongDto(ApiModel):
@@ -19,6 +20,7 @@ class SongDto(ApiModel):
     source_path: str | None = None
     title: str
     artist: str
+    artist_missing: bool = False
     album: str | None
     genre: str | None
     artwork_url: str | None
@@ -129,6 +131,7 @@ def song_dto(song: Song) -> SongDto:
         ),
         title=song.title,
         artist=song.artist,
+        artist_missing=song.artist == UNKNOWN_ARTIST and "artist" not in song.user_overrides,
         album=song.album,
         genre=song.genre,
         artwork_url=song.artwork_url,

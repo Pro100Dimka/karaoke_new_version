@@ -183,6 +183,7 @@ export const SongCard = memo(
       delete: () => void confirmDelete(song),
     } satisfies Record<CardActionId, () => void>;
     const primary = presentation.primaryAction;
+    const artist = song.artistMissing ? tr('artistMissing') : song.artist;
 
     return (
       <Card
@@ -192,7 +193,7 @@ export const SongCard = memo(
         className="songCard"
         data-selected={selection?.checked || undefined}
         style={{ height: '100%' }}
-        aria-label={`${song.artist} - ${song.title}`}
+        aria-label={[artist, song.title].filter(Boolean).join(' - ')}
       >
         {selection && (
           <div className="songCardSelection">
@@ -252,9 +253,9 @@ export const SongCard = memo(
               <Typography as="h2" variant="title" truncate>
                 {song.title}
               </Typography>
-              {song.artist && (
+              {artist && (
                 <Typography variant="body-sm" tone="muted" truncate>
-                  {song.artist}
+                  {artist}
                 </Typography>
               )}
             </Stack>
@@ -311,7 +312,7 @@ export const SongCard = memo(
         </Grid>
         <ProcessingErrorDialog
           open={Boolean(failure)}
-          title={[song.artist, song.title].filter(Boolean).join(' - ')}
+          title={[artist, song.title].filter(Boolean).join(' - ')}
           job={failure?.job}
           onClose={() => setFailure(undefined)}
           fallback={

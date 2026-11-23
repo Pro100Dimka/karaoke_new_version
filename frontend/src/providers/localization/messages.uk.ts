@@ -76,6 +76,7 @@ export const uk = {
   save: 'Зберегти',
   title: 'Назва',
   artist: 'Виконавець',
+  artistMissing: 'Виконавця не вказано',
   keyTranspose: 'Тональність',
   practiceSpeed: 'Темп',
   defaultVocalRange: 'Діапазон голосу за замовчуванням',

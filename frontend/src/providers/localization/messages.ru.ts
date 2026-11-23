@@ -76,6 +76,7 @@ export const ru = {
   save: 'Сохранить',
   title: 'Название',
   artist: 'Исполнитель',
+  artistMissing: 'Исполнитель не указан',
   keyTranspose: 'Тональность',
   practiceSpeed: 'Темп',
   defaultVocalRange: 'Диапазон по умолчанию',

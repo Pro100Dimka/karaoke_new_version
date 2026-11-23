@@ -36,6 +36,7 @@ export interface SongDto {
   projectHash?: string;
   title: string;
   artist: string;
+  artistMissing?: boolean;
   album?: string;
   genre?: string;
   artworkUrl?: string;
