@@ -6,6 +6,7 @@
 export const keyBelongsToControl = (
   target: EventTarget | null,
   key: string,
+  escapeFromSlider = false,
 ): boolean => {
   const element = target as {
     tagName?: string;
@@ -16,6 +17,7 @@ export const keyBelongsToControl = (
     return true;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return true;
   const role = element?.getAttribute?.('role');
-  if (['slider', 'listbox', 'option'].includes(role ?? '')) return true;
+  if (role === 'slider') return key !== 'Escape' || !escapeFromSlider;
+  if (['listbox', 'option'].includes(role ?? '')) return true;
   return tag === 'BUTTON' && key === ' ';
 };

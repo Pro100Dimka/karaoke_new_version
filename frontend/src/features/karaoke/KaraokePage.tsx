@@ -180,6 +180,7 @@ export const KaraokeScreen = observer(
       song?.durationSeconds ?? 0,
       () => (onTv && tv ? tv.bringBack() : void backToLibrary()),
       host,
+      !room && mode !== 'RoomPrepared' && !onTv,
     );
     const capabilities = useMemo(
       () => ({

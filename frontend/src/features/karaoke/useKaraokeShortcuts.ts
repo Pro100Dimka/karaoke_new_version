@@ -26,6 +26,7 @@ export const useKaraokeShortcuts = (
   durationSeconds: number,
   onExit: () => void,
   host: Window = window,
+  escapeFromSlider = false,
 ) => {
   const latest = useRef({ session, durationSeconds, onExit });
   latest.current = { session, durationSeconds, onExit };
@@ -38,7 +39,7 @@ export const useKaraokeShortcuts = (
         event.metaKey
       )
         return;
-      if (keyBelongsToControl(event.target, event.key)) return;
+      if (keyBelongsToControl(event.target, event.key, escapeFromSlider)) return;
       if (host.document.querySelector("dialog[open], [role='menu']")) return;
       const {
         session: s,
@@ -113,5 +114,5 @@ export const useKaraokeShortcuts = (
     };
     host.addEventListener('keydown', handler);
     return () => host.removeEventListener('keydown', handler);
-  }, [host]);
+  }, [host, escapeFromSlider]);
 };
