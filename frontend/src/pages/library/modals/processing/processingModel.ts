@@ -33,7 +33,9 @@ export const processingTitle = (
   song?: SongDto,
 ): string | undefined => {
   const title = song?.title ?? job.songTitle;
-  const artist = song?.artist ?? job.songArtist;
+  const artist = song?.artistMissing
+    ? tr('artistMissing')
+    : song?.artist ?? job.songArtist;
   if (title) return [artist, title].filter(Boolean).join(' — ');
   if (job.type === 'SongImport' && !job.songId)
     return tr('processingSongImport');

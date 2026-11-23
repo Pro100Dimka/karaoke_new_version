@@ -58,11 +58,12 @@ export const ProcessingJobCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const active = isInQueue(job) && actions.canCancel !== false;
   const duration = processingDuration(job);
+  const steps = job.type === 'SongImport' ? ['processingSongImport'] : phases;
   const phase =
     song?.status === 'importing'
       ? 0
       : job.state === 'completed'
-        ? phases.length
+        ? steps.length
         : phaseOf(job);
   const menu: MenuItemData[] = [
     {
@@ -157,7 +158,7 @@ export const ProcessingJobCard = ({
         </Stack>
         <Steps
           className="processingSteps"
-          steps={phases.map((step) => tr(step))}
+          steps={steps.map((step) => tr(step))}
           current={phase ?? -1}
           aria-label={tr('processingDetailsStage')}
         />

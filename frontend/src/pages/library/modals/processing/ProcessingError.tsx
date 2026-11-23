@@ -24,7 +24,7 @@ export const processingErrorText = (
       explanation ??
         (job?.state === 'interrupted' ? 'processingInterruptedHelp' : fallback),
     ),
-    error?.message,
+    !explanation && error?.message,
     error?.code && `${tr('processingErrorCode')}: ${error.code}`,
     job?.stage && `${tr('processingDetailsStage')}: ${phase ? tr(phase) : job.stage}`,
   ]
@@ -57,7 +57,11 @@ export const ProcessingErrorDialog = ({
   reporting: boolean;
 }) => {
   useLocale();
-  const manualConflict = job?.error?.code === 'ManualLyricsConflict';
+  const error = job?.error;
+  const manualConflict = error?.code === 'ManualLyricsConflict';
+  const details = [error && errorstring(error) && error.message, error?.details]
+    .filter(Boolean)
+    .join('\n');
   return (
     <Dialog
       open={open}
@@ -76,14 +80,14 @@ export const ProcessingErrorDialog = ({
         >
           {processingErrorText(job, fallback)}
         </MessageBar>
-        {job?.error?.details && (
+        {details && (
           <CollapsibleSection title={tr('processingErrorDetails')}>
             <Typography
               as="pre"
               variant="caption"
               style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
             >
-              {job.error.details}
+              {details}
             </Typography>
           </CollapsibleSection>
         )}
