@@ -31,7 +31,10 @@ export const HistoryPanel = () => {
   const songOf = (event: HistoryEventDto) => {
     if (!event.songId) return '—';
     if (!catalog.titles) return catalog.failed ? tr('unavailable') : '—';
-    return catalog.titles.get(event.songId) ?? tr('historySongRemoved');
+    const song = catalog.titles.get(event.songId);
+    if (!song) return tr('historySongRemoved');
+    const artist = song.artistMissing ? tr('artistMissing') : song.artist;
+    return [artist, song.title].filter(Boolean).join(' - ');
   };
   const kindOf = (event: HistoryEventDto) => {
     const label = historyKindLabel(event.kind);

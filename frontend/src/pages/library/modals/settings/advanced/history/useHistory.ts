@@ -39,7 +39,10 @@ export const useHistory = () => {
       const songs = await backend.listSongs();
       signal.throwIfAborted();
       return new Map(
-        songs.map((song) => [song.id, `${song.artist} — ${song.title}`]),
+        songs.map(({ id, title, artist, artistMissing }) => [
+          id,
+          { title, artist, artistMissing },
+        ]),
       );
     },
   });
