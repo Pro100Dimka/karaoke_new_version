@@ -26,11 +26,6 @@ const api = vi.hoisted(() => ({
   createStudioMaster: vi.fn(),
 }));
 const desktop = vi.hoisted(() => ({ recordingPeaks: vi.fn() }));
-vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
-  Planet: () => null,
-  NeonWaves: () => null,
-}));
 vi.mock('../../../../services/pythonClient', () => ({ pythonClient: api }));
 vi.mock('../../../../services/desktopClient', () => ({
   desktopClient: desktop,
@@ -79,6 +74,12 @@ const master: RecordingDto = {
 let client: QueryClient;
 beforeEach(() => {
   vi.resetAllMocks();
+  // jsdom cannot resolve the native modal selector used to place notifications.
+  const query = document.querySelectorAll.bind(document);
+  vi.spyOn(document, 'querySelectorAll').mockImplementation(
+    <E extends Element = Element>(selector: string) =>
+      query<E>(selector === 'dialog:modal' ? 'dialog[open]' : selector),
+  );
   store.setLanguage('ru');
   store.returnFromKaraoke(null);
   api.listRecordings.mockResolvedValue([take]);
@@ -88,6 +89,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   client.clear();
   store.returnFromKaraoke(null);
 });
@@ -118,9 +120,10 @@ it('explains a missing take file in analysis and retries after the file is resto
   fireEvent.click(await screen.findByLabelText(tr('recordingAnalyze')));
 
   const retry = await screen.findByText(tr('retry'));
-  const dialog = retry.closest('dialog');
-  if (!dialog) throw new Error('The failed analysis dialog is missing');
-  expect(within(dialog).getByText(tr('recordingFileMissing'))).toBeVisible();
+  const alert = retry.closest('[role="alert"]');
+  if (!(alert instanceof HTMLElement))
+    throw new Error('The failed analysis alert is missing');
+  expect(within(alert).getByText(tr('recordingFileMissing'))).toBeVisible();
   expect(
     screen.queryByText(missingFile.message, { exact: false }),
   ).not.toBeInTheDocument();

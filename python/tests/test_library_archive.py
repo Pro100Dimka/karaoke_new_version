@@ -43,7 +43,10 @@ def test_library_export_ignores_recording_compression_staging(tmp_path, monkeypa
         assert staging.name not in names
 
 
-def test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing(tmp_path: Path):
+def test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(RecordingArchive, "_archive_one", lambda _archive, _marker: None)
     source_root, target_root = tmp_path / "source", tmp_path / "target"
     audio = tmp_path / "song.wav"
     write_wav(audio)

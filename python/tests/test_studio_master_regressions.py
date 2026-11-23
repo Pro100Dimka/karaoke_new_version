@@ -434,8 +434,8 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, 
     )
     assert coverage == 1
 
-    time = np.arange(rate) / rate
-    tones = np.sin(2 * np.pi * np.where(time < 0.5, 400, 800) * time) * 0.1
+    time = np.arange(2 * rate) / rate
+    tones = np.sin(2 * np.pi * np.where(time < 0.65, 400, 800) * time) * 0.1
     sf.write(path, tones, rate, subtype="FLOAT")
     adjustments = [
         {"elapsedSeconds": 0, "sourceSeconds": 0.2, "playbackRate": speed, "keyShift": key}
@@ -446,18 +446,17 @@ def test_seek_reference_contains_only_performed_sections(tmp_path: Path, speed, 
         vocal,
         threading.Event(),
         adjustments,
-        frames=rate // 2,
+        frames=rate,
         rate=rate,
         channels=1,
     )
     changed, actual_rate = sf.read(vocal)
-    assert actual_rate == rate and changed.shape == actual.shape
-    # Measure the stable part of the second tone between its entry and the segment end.
-    second_center = ((0.5 - 0.2) / speed + 0.5) / 2
-    for start, end, frequency in [
-        (0.03, 0.13, 400),
-        (second_center - 0.03, second_center + 0.03, 800),
-    ]:
+    assert actual_rate == rate and changed.shape == (rate,)
+    # Measure both tones away from the stretcher's startup, transition and tail.
+    tone_boundary = (0.65 - 0.2) / speed
+    for start, end, frequency in [(0.0, tone_boundary, 400), (tone_boundary, 1.0, 800)]:
+        start += 0.08
+        end -= 0.08
         block = changed[round(start * rate) : round(end * rate)]
         spectrum = abs(np.fft.rfft(block * np.hanning(len(block)), n=16384))
         peak = np.fft.rfftfreq(16384, 1 / rate)[np.argmax(spectrum)]
