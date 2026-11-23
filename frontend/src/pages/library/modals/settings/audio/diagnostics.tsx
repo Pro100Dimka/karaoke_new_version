@@ -37,12 +37,6 @@ export default function AudioDiagnostics({
     : [];
   return (
     <Stack style={{ maxHeight: '70vh', overflow: 'auto' }} gap={3}>
-      <Header
-        compact
-        icon="info"
-        level={4}
-        title={tr('latencyTechnicalDetails')}
-      />
       {notes.map((note) => (
         <Typography key={note} variant="caption" tone="muted">
           {tr(note)}
