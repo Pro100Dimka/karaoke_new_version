@@ -117,19 +117,18 @@ it('reports the reason for each rejected file and continues the rest of a batch'
   expect(
     vi.mocked(pythonClient.importSong).mock.calls.map(([path]) => path),
   ).toEqual(paths.slice(0, 3));
-  expect(notifications).toHaveBeenCalledWith(
-    tr('songsImportFailed', {
-      names: [
-        `notes.txt: ${tr('errorUnsupportedMedia')}`,
-        `duplicate.mp3: ${tr('errorDuplicateSong')}`,
-        `missing.mp3: ${tr('errorSourceMissing')}`,
-      ].join(', '),
-    }),
-    'error',
-  );
-  expect(notifications).toHaveBeenCalledWith(
-    tr('songsImported', { count: 1 }),
-    'success',
+  expect(notifications).toHaveBeenCalledExactlyOnceWith(
+    [
+      tr('songsImported', { count: 1 }),
+      tr('songsImportFailed', {
+        names: [
+          `notes.txt: ${tr('errorUnsupportedMedia')}`,
+          `duplicate.mp3: ${tr('errorDuplicateSong')}`,
+          `missing.mp3: ${tr('errorSourceMissing')}`,
+        ].join(', '),
+      }),
+    ].join('\n'),
+    'warning',
   );
   expect(client.getQueryData(['song-imports'])).toEqual([]);
 });

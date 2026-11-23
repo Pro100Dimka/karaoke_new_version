@@ -96,15 +96,13 @@ export const useLibraryImport = () => {
     const failure = failed.length
       ? tr('songsImportFailed', { names: failed.join(', ') })
       : '';
-    if (processingErrors.length) {
-      notify(
-        [success, failure, ...processingErrors].filter(Boolean).join('\n'),
-        failure ? 'error' : 'warning',
-      );
-      return;
+    const message = [success, failure, ...processingErrors]
+      .filter(Boolean)
+      .join('\n');
+    if (message) {
+      const tone = failure || processingErrors.length ? 'warning' : 'success';
+      notify(message, imported ? tone : 'error');
     }
-    if (success) notify(success, 'success');
-    if (failure) notify(failure, 'error');
   };
 
   // The system file dialog already restricts the choice to supported audio extensions, so there is
