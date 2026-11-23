@@ -300,7 +300,13 @@ export const HelpPage = observer(() => {
                           </details>
                         )}
                         {step.clip && (
-                          <details className="helpDetails helpClip">
+                          <details
+                            className="helpDetails helpClip"
+                            onToggle={({ currentTarget }) => {
+                              if (!currentTarget.open)
+                                currentTarget.querySelector('video')?.pause();
+                            }}
+                          >
                             <summary>
                               <Icon name="play" size={15} />
                               {tr('Посмотреть короткое видео')}
