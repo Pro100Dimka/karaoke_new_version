@@ -187,14 +187,14 @@ it.each(
         .map((card) => card.getAttribute('aria-label'));
     render(<Catalog />);
     await screen.findByRole('checkbox', {
-      name: tr('Выбрать {name}', { name: api.songs[0]!.title }),
+      name: tr('selectSongName', { name: api.songs[0]!.title }),
     });
     expect(cardOrder()).toEqual(expected);
 
     if (mode === 'selection') {
       fireEvent.click(
         screen.getByRole('checkbox', {
-          name: tr('Выбрать {name}', { name: api.songs[0]!.title }),
+          name: tr('selectSongName', { name: api.songs[0]!.title }),
         }),
       );
     } else {
@@ -227,10 +227,10 @@ it.each(['selection', 'playlist'] as const)(
     const known = unicodeApi.songs.find(
       (song) => song.songId === shortApi.ids[0],
     )!;
-    const unknownLabel = tr('Выбрать {name}', { name: unknown.title });
+    const unknownLabel = tr('selectSongName', { name: unknown.title });
     render(<Catalog duration="short" />);
     const selectKnown = await screen.findByRole('checkbox', {
-      name: tr('Выбрать {name}', { name: known.title }),
+      name: tr('selectSongName', { name: known.title }),
     });
     expect(
       screen.queryByRole('checkbox', { name: unknownLabel }),

@@ -200,7 +200,7 @@ export const SongCard = memo(
             <Checkbox
               checked={selection.checked}
               disabled={selection.disabled}
-              aria-label={tr('Выбрать {name}', { name: song.title })}
+              aria-label={tr('selectSongName', { name: song.title })}
               onValueChange={() => selection.toggle(song.id)}
             />
           </div>
