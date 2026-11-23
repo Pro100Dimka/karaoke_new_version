@@ -237,6 +237,7 @@ export const ruSettings = {
   errorInvalidMedia: 'Файл повреждён или не читается.',
   errorUnsupportedMedia: 'Неподдерживаемый формат аудио.',
   errorSourceMissing: 'Исходный файл отсутствует.',
+  errorLyricsUnavailable: 'Не удалось найти или распознать текст песни.',
   errorInsufficientDisk:
     'Недостаточно места на диске. Откройте настройки хранилища, чтобы освободить место.',
   errorStorageUnavailable: 'Хранилище недоступно.',

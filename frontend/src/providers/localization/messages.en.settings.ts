@@ -232,6 +232,7 @@ export const enSettings = {
   errorInvalidMedia: 'The file is corrupted or unreadable.',
   errorUnsupportedMedia: 'Unsupported audio format.',
   errorSourceMissing: 'The source file is missing.',
+  errorLyricsUnavailable: 'Lyrics could not be found or transcribed.',
   errorInsufficientDisk:
     'Insufficient disk space. Open Storage settings to free space.',
   errorStorageUnavailable: 'Storage is unavailable.',

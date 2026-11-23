@@ -228,6 +228,7 @@ export const ukSettings = {
   errorInvalidMedia: 'Файл пошкоджений або нечитабельний.',
   errorUnsupportedMedia: 'Непідтримуваний формат аудіо.',
   errorSourceMissing: 'Вихідний файл відсутній.',
+  errorLyricsUnavailable: 'Не вдалося знайти або розпізнати текст пісні.',
   errorInsufficientDisk:
     'Недостатньо місця на диску. Відкрийте налаштування сховища, щоб звільнити місце.',
   errorStorageUnavailable: 'Сховище недоступне.',

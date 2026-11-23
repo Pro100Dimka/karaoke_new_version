@@ -83,6 +83,7 @@ const knownCodes = {
   InvalidMedia: 'errorInvalidMedia',
   UnsupportedMedia: 'errorUnsupportedMedia',
   SourceMissing: 'errorSourceMissing',
+  LyricsUnavailable: 'errorLyricsUnavailable',
   InsufficientDiskSpace: 'errorInsufficientDisk',
   InsufficientRam: 'errorInsufficientRam',
   ModelsInUse: 'errorModelsInUse',
