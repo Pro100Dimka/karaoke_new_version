@@ -26,6 +26,23 @@ EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
 
 @pytest.mark.parametrize(
+    "source,language,expected",
+    [
+        (
+            "‘Don't’ take your eyes off\nMy body’s shaking",
+            "English",
+            "Don't take your eyes off\nMy body's shaking",
+        ),
+        ("Твоє імʼя і п’ять слів", "Ukrainian", "Твоє ім'я і п'ять слів"),
+    ],
+)
+def test_lyric_cleanup_preserves_apostrophes_inside_written_words(source, language, expected):
+    from backend.text_normalization import clean_lyrics
+
+    assert clean_lyrics(source, language) == expected
+
+
+@pytest.mark.parametrize(
     "key, heard, expected, comparisons",
     [
         ("aaaa", ["a", "b", "c", "d"], [], 0),
