@@ -288,7 +288,7 @@ export const ru = {
   firstSongTitle: 'Добавьте первую песню',
   configureAudio: 'Настроить аудио',
   dropToImport: 'Перетащите аудиофайл для импорта',
-  songsImported: 'Добавлено песен: {count}. Все они в очереди обработки',
+  songsImported: 'Добавлено песен: {count}',
   songsImportFailed: 'Не удалось добавить: {names}',
   defaultKey: 'Тональность по умолчанию (полутоны)',
   defaultPracticeSpeed: 'Скорость тренировки по умолчанию',

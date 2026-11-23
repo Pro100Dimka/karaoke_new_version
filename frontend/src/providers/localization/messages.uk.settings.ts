@@ -242,7 +242,7 @@ export const ukSettings = {
   errorRecordingTimingUnavailable:
     'Запис відновлено після збою. Його можна прослухати, але точність синхронізації для оцінювання не підтверджена.',
   errorMissingModels:
-    'Бракує AI-моделей. Завантажте їх у Налаштування → AI / Обробка.',
+    'Бракує моделей. Завантажте їх у налаштуваннях на вкладці «Обробка ШІ».',
   errorProcessingRunning: 'Ця пісня вже обробляється.',
   errorRevisionConflict: 'Проєкт змінився після відкриття.',
   errorProjectInvalid:

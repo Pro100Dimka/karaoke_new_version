@@ -59,9 +59,9 @@ export const useSongActions = (onDeleted?: () => void) => {
     } catch (failure) {
       const error = toAppError(failure);
       notify(
-        tr(errorstring(error) ?? 'processingRetryFailed') +
-          ': ' +
-          error.message,
+        error.code === 'MissingRequiredModels'
+          ? tr('errorMissingModels')
+          : `${tr(errorstring(error) ?? 'processingRetryFailed')}: ${error.message}`,
         'error',
       );
       return false;

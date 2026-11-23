@@ -251,7 +251,7 @@ export const ruSettings = {
   errorRecordingTimingUnavailable:
     'Запись восстановлена после сбоя. Её можно прослушать, но точность синхронизации для оценки не подтверждена.',
   errorMissingModels:
-    'Не хватает AI-моделей. Скачайте их в Настройки → AI / Обработка.',
+    'Не хватает моделей. Скачайте их в настройках на вкладке «Обработка ИИ».',
   errorProcessingRunning: 'Эта песня уже обрабатывается.',
   errorRevisionConflict: 'Проект изменился после открытия.',
   errorProjectInvalid:

@@ -285,7 +285,7 @@ export const en = {
   firstSongTitle: 'Add your first song',
   configureAudio: 'Configure audio',
   dropToImport: 'Drop an audio file to import',
-  songsImported: 'Songs added: {count}. All of them are queued for processing',
+  songsImported: 'Songs added: {count}',
   songsImportFailed: 'Could not add: {names}',
   defaultKey: 'Default key (semitones)',
   defaultPracticeSpeed: 'Default practice speed',

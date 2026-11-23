@@ -249,7 +249,7 @@ export const uk = {
   firstSongTitle: 'Додайте першу пісню',
   configureAudio: 'Налаштувати аудіо',
   dropToImport: 'Перетягніть аудіофайл для імпорту',
-  songsImported: 'Додано пісень: {count}. Усі вони в черзі обробки',
+  songsImported: 'Додано пісень: {count}',
   songsImportFailed: 'Не вдалося додати: {names}',
   defaultKey: 'Тональність за замовчуванням (півтони)',
   defaultPracticeSpeed: 'Швидкість тренування за замовчуванням',

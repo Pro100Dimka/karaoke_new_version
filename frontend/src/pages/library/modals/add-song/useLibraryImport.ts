@@ -16,11 +16,11 @@ import { errorstring, toAppError } from '../../../../shared/errors';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { isSupportedAudio } from './importModel';
 
-const importErrorText = (cause: unknown): string => {
+const importErrorText = (cause: unknown, fallback = 'importFailed'): string => {
   const error = toAppError(cause);
   const key = errorstring(error);
   const detail = !key && error.source === 'python' && error.message;
-  return `${tr(key ?? 'importFailed')}${detail ? `: ${detail}` : ''}`;
+  return `${tr(key ?? fallback)}${detail ? `: ${detail}` : ''}`;
 };
 
 /** Picked and dropped files share import progress in the query cache. */
@@ -43,13 +43,13 @@ export const useLibraryImport = () => {
       options,
       placeholderId,
     );
-    // A freshly added song is processed right away; a failure to start is reported by the action itself.
-    await guarded(async () => {
-      if (song.status !== 'not-processed') return;
+    if (song.status !== 'not-processed') return;
+    try {
       await pythonClient.processSong(song.id);
       await refreshSongs(client);
-      notify(tr('processingStarted'), 'info');
-    });
+    } catch (error) {
+      return importErrorText(error, 'actionFailed');
+    }
   };
 
   const handleImport = async (
@@ -57,14 +57,17 @@ export const useLibraryImport = () => {
     metadata: ImportMetadata,
     options?: ImportOptions,
   ) => {
-    await importAndProcess(path, metadata, options);
-    notify(tr('songImported'), 'success');
+    const processingError = await importAndProcess(path, metadata, options);
+    if (processingError)
+      notify(`${tr('songImported')}\n${processingError}`, 'warning');
+    else notify(tr('songImported'), 'success');
   };
 
   // Show the whole batch immediately; import and queue processing one file at a time.
   const importMany = async (paths: readonly string[]) => {
     let imported = 0;
     const failed: string[] = [];
+    const processingErrors: string[] = [];
     const pending = paths.flatMap((path) => {
       const name = path.split(/[\\/]/).pop() ?? path;
       const dot = name.lastIndexOf('.');
@@ -76,15 +79,32 @@ export const useLibraryImport = () => {
     });
     for (const { path, name, placeholderId } of pending) {
       try {
-        await importAndProcess(path, {}, undefined, placeholderId);
+        const processingError = await importAndProcess(
+          path,
+          {},
+          undefined,
+          placeholderId,
+        );
+        if (processingError)
+          processingErrors.push(`${name}: ${processingError}`);
         imported += 1;
       } catch (error) {
         failed.push(`${name}: ${importErrorText(error)}`);
       }
     }
-    if (imported) notify(tr('songsImported', { count: imported }), 'success');
-    if (failed.length)
-      notify(tr('songsImportFailed', { names: failed.join(', ') }), 'error');
+    const success = imported ? tr('songsImported', { count: imported }) : '';
+    const failure = failed.length
+      ? tr('songsImportFailed', { names: failed.join(', ') })
+      : '';
+    if (processingErrors.length) {
+      notify(
+        [success, failure, ...processingErrors].filter(Boolean).join('\n'),
+        failure ? 'error' : 'warning',
+      );
+      return;
+    }
+    if (success) notify(success, 'success');
+    if (failure) notify(failure, 'error');
   };
 
   // The system file dialog already restricts the choice to supported audio extensions, so there is

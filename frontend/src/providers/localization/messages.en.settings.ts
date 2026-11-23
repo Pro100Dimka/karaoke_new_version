@@ -246,7 +246,7 @@ export const enSettings = {
   errorRecordingTimingUnavailable:
     'This recording was recovered after an interruption. Playback is available, but its timing cannot be verified for scoring.',
   errorMissingModels:
-    'Required AI models are missing. Download them in Settings → AI / Processing.',
+    'Required models are missing. Download them on the AI processing tab in Settings.',
   errorProcessingRunning: 'This song is already being processed.',
   errorRevisionConflict: 'The project changed since it was opened.',
   errorProjectInvalid:
