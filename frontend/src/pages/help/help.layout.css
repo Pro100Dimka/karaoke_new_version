@@ -137,9 +137,11 @@
   text-align: start;
 }
 .helpMain {
+  --help-main-padding: 40px;
   overflow: auto;
   min-width: 0;
-  padding: 36px 40px;
+  padding: 36px var(--help-main-padding);
+  padding-right: max(var(--help-main-padding), var(--floating-controls-gutter));
   scroll-behavior: auto;
   scrollbar-width: thin;
 }

@@ -185,7 +185,8 @@
     grid-template-columns: 216px minmax(0, 1fr);
   }
   .helpMain {
-    padding: 28px;
+    --help-main-padding: 28px;
+    padding-block: 28px;
   }
   .helpStep {
     gap: 24px;
@@ -234,7 +235,8 @@
     display: none;
   }
   .helpMain {
-    padding: 20px;
+    --help-main-padding: 20px;
+    padding-block: 20px;
   }
   .helpPage[data-home] .helpSearch {
     padding: 24px;

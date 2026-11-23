@@ -131,10 +131,9 @@ const LibraryPage = observer(() => {
 
       <Stack
         as="section"
+        className="libraryContent"
         gap={4}
         style={{
-          width: '90%',
-          marginInline: 'auto',
           paddingBlock: '5vh',
           flexShrink: 0,
           position: 'relative',
