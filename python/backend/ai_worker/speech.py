@@ -274,26 +274,23 @@ def _transcription_payload(result: Mapping[str, object]) -> dict[str, object]:
     text = [
         token for token in str(result.get("text", "")).split() if any(c.isalpha() for c in token)
     ]
-    heard = heard_words(result, include_untimed=True)
-    # A decoder can repeat many words at one instant; these cannot establish sung repeats.
-    if any(start >= end for _, start, end in heard) and "".join(
-        _key(token) for token in text
-    ) == "".join(word for word, _, _ in heard):
-        intervals = _character_intervals(text, heard, 0)
-        text = [
-            token for index, token in enumerate(text) if intervals[index][0] < intervals[index][1]
-        ]
     segments = result.get("segments", [])
     lines = [
         [token for token in segment["text"].split() if any(c.isalpha() for c in token)]
         for segment in (segments if isinstance(segments, list) else [])
         if isinstance(segment, dict) and isinstance(segment.get("text"), str)
     ]
-    transcript = (
-        "\n".join(" ".join(line) for line in lines if line)
-        if [token for line in lines for token in line] == text
-        else " ".join(text)
-    )
+    if [token for line in lines for token in line] != text:
+        lines = [text]
+    heard = heard_words(result, include_untimed=True)
+    # Drop zero-duration words without merging the surrounding phrases.
+    if any(start >= end for _, start, end in heard) and "".join(
+        _key(token) for token in text
+    ) == "".join(word for word, _, _ in heard):
+        intervals = _character_intervals(text, heard, 0)
+        retained = (intervals[index][0] < intervals[index][1] for index in range(len(text)))
+        lines = [[token for token in line if next(retained)] for line in lines]
+    transcript = "\n".join(" ".join(line) for line in lines if line)
     return {"text": transcript, "segments": segments}
 
 

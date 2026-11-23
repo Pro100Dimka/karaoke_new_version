@@ -1560,6 +1560,34 @@ def test_transcription_keeps_word_evidence_for_the_following_alignment(monkeypat
     assert speech.transcribe(Path("vocal.wav"), "Russian")["text"] == " ".join(phrases)
 
 
+def test_transcription_keeps_phrase_breaks_after_dropping_an_untimed_word(monkeypatch):
+    from backend.ai_worker import speech
+
+    result = {
+        "text": "we sing again we go",
+        "segments": [
+            {
+                "text": "we sing again",
+                "words": [
+                    {"word": "we", "start": 1, "end": 2},
+                    {"word": "sing", "start": 2, "end": 3},
+                    {"word": "again", "start": 3, "end": 3},
+                ],
+            },
+            {
+                "text": "we go",
+                "words": [
+                    {"word": "we", "start": 4, "end": 5},
+                    {"word": "go", "start": 5, "end": 6},
+                ],
+            },
+        ],
+    }
+    monkeypatch.setattr(speech, "_guidance", lambda *_a, **_kw: result)
+
+    assert speech.transcribe(Path("vocal.wav"), "English")["text"] == "we sing\nwe go"
+
+
 @pytest.mark.parametrize("reuse_vocal", [False, True])
 def test_alignment_reuses_independent_recognition_instead_of_decoding_it_again(
     monkeypatch, reuse_vocal
