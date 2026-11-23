@@ -111,7 +111,8 @@ export const selectLibrarySongs = (
       if (filter.artwork === 'with' && !song.artworkUrl) return false;
       if (filter.artwork === 'without' && song.artworkUrl) return false;
       if (!query) return true;
-      return [song.title, song.artist, song.filename ?? ''].some((value) =>
+      const artist = song.artistMissing ? '' : song.artist;
+      return [song.title, artist, song.filename ?? ''].some((value) =>
         normalizeSearch(value).includes(query),
       );
     })

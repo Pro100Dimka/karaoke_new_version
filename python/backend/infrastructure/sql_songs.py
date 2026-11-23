@@ -21,6 +21,7 @@ from backend.infrastructure.orm import (
     SongRow,
 )
 from backend.serialization import dumps, loads_list, loads_object
+from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.songs.ports import SongPage, SongSearch, SongSummary
 from backend.text_normalization import normalize_search
 from backend.songs.domain import (
@@ -400,13 +401,15 @@ def _search_order(
 
 
 def _text_match(search: str) -> ColumnElement[bool]:
+    normalized = normalize_search(search)
     return or_(
-        *(
-            field.contains(normalize_search(search), autoescape=True)
-            for field in (
-                SongRow.title_normalized,
-                SongRow.artist_normalized,
-                SongRow.original_filename_normalized,
-            )
-        )
+        SongRow.title_normalized.contains(normalized, autoescape=True),
+        SongRow.original_filename_normalized.contains(normalized, autoescape=True),
+        and_(
+            SongRow.artist_normalized.contains(normalized, autoescape=True),
+            or_(
+                SongRow.artist != UNKNOWN_ARTIST,
+                func.json_type(SongRow.user_overrides_json, "$.artist") == "true",
+            ),
+        ),
     )
