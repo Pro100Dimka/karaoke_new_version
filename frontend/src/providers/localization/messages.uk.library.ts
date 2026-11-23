@@ -17,7 +17,9 @@ export const ukLibrary = {
   playlistDestination: 'Плейлист для вибраних пісень',
   playlistCreateAndAdd: 'Створити й додати',
   playlistAdded: 'Додано пісень до плейлиста: {count}',
+  playlistAlreadyContainsSelection: 'Вибрані пісні вже є в цьому плейлисті.',
   playlistLimit: 'У плейлисті може бути не більше 200 пісень.',
+  playlistPrepareHint: 'Запустіть обробку пісень зі статусом «Не оброблено» в бібліотеці.',
   playlistUnavailableHint:
     'Перед запуском відновіть або приберіть недоступні пісні.',
   playlistRoomBusy:

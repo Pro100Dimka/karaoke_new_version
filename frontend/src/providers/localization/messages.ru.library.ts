@@ -17,7 +17,9 @@ export const ruLibrary = {
   playlistDestination: 'Плейлист для выбранных песен',
   playlistCreateAndAdd: 'Создать и добавить',
   playlistAdded: 'Добавлено песен в плейлист: {count}',
+  playlistAlreadyContainsSelection: 'Выбранные песни уже есть в этом плейлисте.',
   playlistLimit: 'В плейлисте может быть не больше 200 песен.',
+  playlistPrepareHint: 'Запустите обработку песен со статусом «Не обработано» в библиотеке.',
   playlistUnavailableHint:
     'Перед запуском восстановите или уберите недоступные песни.',
   playlistRoomBusy:

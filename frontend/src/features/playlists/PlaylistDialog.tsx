@@ -17,7 +17,7 @@ import './playlists.css';
 
 type PlaylistSong = Pick<
   SongDto,
-  'id' | 'title' | 'artist' | 'status' | 'activeRevision'
+  'id' | 'title' | 'artist' | 'artistMissing' | 'status' | 'activeRevision'
 >;
 
 /** Name edits do not change the song controls; keep that large subtree stable. */
@@ -49,7 +49,7 @@ const PlaylistSongs = observer(
               <span className="playlistNumber">{index + 1}</span>
               <span className="playlistSongTitle">
                 <strong>{song?.title ?? tr('playlistUnavailable')}</strong>
-                <small>{song?.artist}</small>
+                <small>{song?.artistMissing ? tr('artistMissing') : song?.artist}</small>
               </span>
               <div className="playlistSongActions">
                 <Button
@@ -225,7 +225,12 @@ export const PlaylistDialog = observer(
                   <p className="playlistHint">{tr('playlistEmpty')}</p>
                 )}
               </section>
-              {ready.length !== songIds.length && (
+              {ordered.some((song) => song?.status === 'not-processed') && (
+                <p role="status">{tr('playlistPrepareHint')}</p>
+              )}
+              {ordered.some(
+                (song) => !song || !['ready', 'not-processed'].includes(song.status),
+              ) && (
                 <p role="status">{tr('playlistUnavailableHint')}</p>
               )}
               {disabled && store.online.room?.songId && (
@@ -275,6 +280,12 @@ export const AddToPlaylistDialog = observer(
     const existing = saved.find((item) => item.id === id);
     const merged = [...new Set([...(existing?.songIds ?? []), ...songIds])];
     const added = merged.length - (existing?.songIds.length ?? 0);
+    const hint =
+      merged.length > 200
+        ? 'playlistLimit'
+        : existing && songIds.length && !added
+          ? 'playlistAlreadyContainsSelection'
+          : undefined;
     const save = () => {
       const playlist = {
         id: existing?.id ?? crypto.randomUUID(),
@@ -320,7 +331,7 @@ export const AddToPlaylistDialog = observer(
               onValueChange={setName}
             />
           )}
-          {merged.length > 200 && <p role="status">{tr('playlistLimit')}</p>}
+          {hint && <p role="status">{tr(hint)}</p>}
           <div className="playlistFooter">
             <Button onClick={onClose}>{tr('cancel')}</Button>
             <Button

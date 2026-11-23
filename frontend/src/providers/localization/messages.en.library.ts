@@ -15,7 +15,9 @@ export const enLibrary = {
   playlistDestination: 'Playlist for selected songs',
   playlistCreateAndAdd: 'Create and add',
   playlistAdded: 'Songs added to playlist: {count}',
+  playlistAlreadyContainsSelection: 'The selected songs are already in this playlist.',
   playlistLimit: 'A playlist can contain up to 200 songs.',
+  playlistPrepareHint: 'Process the unprocessed songs in the library before starting the playlist.',
   playlistUnavailableHint:
     'Restore or remove unavailable songs before starting.',
   playlistRoomBusy:
