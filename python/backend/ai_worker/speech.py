@@ -469,7 +469,8 @@ def _prepare_transcript(
     reuse: AlignmentReuse | None,
 ) -> tuple[str, list[HeardWord], bool]:
     lyrics, verified = _recover_transcript_lyrics(prior, observations, scores, step, baseline)
-    heard = preserve_prefix(prior, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
+    if lyrics != prior:
+        heard = preserve_prefix(prior, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
     decode = partial(
         _accelerated_guidance,
         language=observations.language,

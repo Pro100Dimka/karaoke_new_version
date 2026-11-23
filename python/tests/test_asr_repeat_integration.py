@@ -96,6 +96,23 @@ def test_native_floor_recovers_both_novel_words_and_repeat_in_one_worker_pass(mo
     assert result["insertionsVerified"] is True
 
 
+def test_unchanged_transcript_keeps_the_already_selected_recognition_view(monkeypatch):
+    selected = [("stars", 1.0, 1.5)]
+    alternative = [("stars", 5.0, 5.5)]
+    observation = speech.RecognitionObservations(np.zeros(16_000), "English", None)
+    scores = _scores([], duration=1)
+    monkeypatch.setattr(speech, "_recover_transcript_lyrics", lambda *_args: (BASELINE, False))
+    rescore = Mock(return_value=alternative)
+    monkeypatch.setattr(speech, "_best_alignment_view", rescore)
+
+    result = speech._prepare_transcript(
+        BASELINE, "", observation, None, scores, 0.02, selected, [selected, alternative], [], None
+    )
+
+    assert result == (BASELINE, selected, False)
+    rescore.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("second_view", "has_phonetic_support", "restored"),
     [
