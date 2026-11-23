@@ -132,9 +132,7 @@ class ReconcileLibrary:
     def _issue(code: str, entity_id: str, action: RecoveryAction) -> ReconciliationIssue:
         return ReconciliationIssue(code, entity_id, action, {})
 
-    def _mark(
-        self, expected: Song, status: SongStatus, detected: Language | None = None
-    ) -> None:
+    def _mark(self, expected: Song, status: SongStatus, detected: Language | None = None) -> None:
         detected = detected if detected is not None else expected.detected_language
         if expected.status is status and expected.detected_language is detected:
             return
@@ -142,6 +140,11 @@ class ReconcileLibrary:
             song = transaction.songs.get(expected.song_id)
             if song is not None and song == expected:
                 transaction.songs.update(
-                    replace(song, status=status, detected_language=detected, updated_at=self._clock.now())
+                    replace(
+                        song,
+                        status=status,
+                        detected_language=detected,
+                        updated_at=self._clock.now(),
+                    )
                 )
                 transaction.commit()

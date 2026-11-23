@@ -136,7 +136,9 @@ def recoverable_recording_sources(path: Path) -> tuple[Path, Path, Path] | None:
         ):
             # A lossy listening copy cannot recover the original microphone by subtraction.
             return None
-        shapes = {(info.frames, info.samplerate, info.channels) for info in (*inputs, sf.info(path))}
+        shapes = {
+            (info.frames, info.samplerate, info.channels) for info in (*inputs, sf.info(path))
+        }
         if len(shapes) != 1 or inputs[0].frames <= 0:
             raise DependencyError(
                 "StudioMasterInvalidStems", "Recording stems are not synchronized"

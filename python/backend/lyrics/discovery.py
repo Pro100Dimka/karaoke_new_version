@@ -163,22 +163,7 @@ class LyricsDiscovery:
             song, source, transcripts, cancel, warnings, online_enabled
         )
         if found:
-            # Reconcile while every catalogue cue is still available, before repeat recovery
-            # drops ambiguous cues or stores the catalogue as its verification baseline.
-            reconciled = reconcile_timed_overlaps(
-                LyricsCandidate(
-                    found.lyrics,
-                    song.title,
-                    song.artist,
-                    song.duration,
-                    found.source,
-                    found.timing_hints,
-                ),
-                found.alternatives,
-                transcripts,
-                _lyrics_key,
-            )
-            found = replace(found, lyrics=reconciled.lyrics, timing_hints=reconciled.timing_hints)
+            found = _reconcile_catalogue(song, found, transcripts)
         for lyrics in transcripts:
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
@@ -431,6 +416,17 @@ class LyricsDiscovery:
             timed.timing_hints if timed else candidate.timing_hints,
             tuple(dict.fromkeys([matched, *eligible])),
         )
+
+
+def _reconcile_catalogue(
+    song: Song, found: LyricsDiscoveryResult, transcripts: Sequence[str]
+) -> LyricsDiscoveryResult:
+    # Reconcile before repeat recovery drops ambiguous cues or stores its verification baseline.
+    candidate = LyricsCandidate(
+        found.lyrics, song.title, song.artist, song.duration, found.source, found.timing_hints
+    )
+    reconciled = reconcile_timed_overlaps(candidate, found.alternatives, transcripts, _lyrics_key)
+    return replace(found, lyrics=reconciled.lyrics, timing_hints=reconciled.timing_hints)
 
 
 def _clean_match(song: Song, found: LyricsDiscoveryResult) -> LyricsDiscoveryResult:

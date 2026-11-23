@@ -100,9 +100,7 @@ def test_lead_artist_matching_still_rejects_other_performances(changes) -> None:
 
     prepared = _discovery(
         _Provider([_candidate(**changes), _candidate(artist="N.W., River Lights")])
-    ).lookup(
-        song, threading.Event(), True
-    )
+    ).lookup(song, threading.Event(), True)
 
     assert prepared.found is None
 

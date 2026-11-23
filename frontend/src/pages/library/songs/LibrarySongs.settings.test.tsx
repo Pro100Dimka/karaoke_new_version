@@ -181,7 +181,7 @@ it.each(['tempo', 'artist'] as const)(
       language: 'Ukrainian',
     };
     act(() => libraryChanged());
-    await dialog.findByText('Recognized artist — Recognized title');
+    await dialog.findByText('Recognized artist - Recognized title');
     expect(dialog.getByRole('textbox', { name: tr('title') })).toHaveValue(
       initialSong.title,
     );

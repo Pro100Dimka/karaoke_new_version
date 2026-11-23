@@ -89,7 +89,9 @@ def test_incomplete_dry_audio_is_never_promoted_to_a_complete_source(tmp_path: P
     assert not list(tmp_path.glob("*.flac"))
 
 
-@pytest.mark.parametrize("frames,rate,channels", [(17, 48000, 2), (8192, 44100, 2), (8192, 48000, 1)])
+@pytest.mark.parametrize(
+    "frames,rate,channels", [(17, 48000, 2), (8192, 44100, 2), (8192, 48000, 1)]
+)
 def test_dry_archive_rejects_unsynchronized_sources(
     tmp_path: Path, archive, frames: int, rate: int, channels: int
 ):
@@ -249,7 +251,9 @@ def test_master_uses_archived_dry_source_and_prefers_the_native_wav(tmp_path: Pa
     assert recording_stems(mix) == (vocal, backing)
 
 
-@pytest.mark.parametrize("suffix,is_dry", [(".dry.wav", True), (".dry.flac", True), (".vocal.wav", False)])
+@pytest.mark.parametrize(
+    "suffix,is_dry", [(".dry.wav", True), (".dry.flac", True), (".vocal.wav", False)]
+)
 def test_master_processes_both_dry_formats(tmp_path: Path, suffix: str, is_dry: bool):
     service = StartStudioMaster.__new__(StartStudioMaster)
     service._pitch_session = lambda context: nullcontext(None)

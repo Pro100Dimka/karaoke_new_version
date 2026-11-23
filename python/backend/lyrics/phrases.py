@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import threading
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from difflib import SequenceMatcher
 from typing import Sequence
 
@@ -33,18 +33,7 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
     heard = [_lyrics_key(word) for word in transcript.split() if _lyrics_key(word)]
     tails = _tails(lyrics)
     matches = _repeat_entries(keys, heard, set(zip(original, original[1:])), tails, cancel)
-    # A catalogue's standalone prefix can steal the last reply ("дозволиш" / "дозволиш мені").
-    # Retain the full heard suffix when it supplies repeated complete answers.
-    stop = len(matches)
-    while stop and any(
-        tail.startswith(key) and tail != key
-        for key in [keys[matches[stop - 1][0]]]
-        for tail in tails
-    ):
-        stop -= 1
-    after = matches[stop - 1][2] if stop else 0
-    if stop < len(matches) and _repeat_ending(lyrics, heard[after:], cancel) != lyrics:
-        matches = matches[:stop]
+    matches = _trim_prefix_entries(lyrics, keys, heard, tails, matches, cancel)
     performed = tuple(index for index, _, _ in matches)
     written = {_lyrics_key(line): line for line in reversed(lines)}
     parts = [[_lyrics_key(word) for word in written[key].split()] for key in keys]
@@ -61,6 +50,27 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
         else "\n".join(written[keys[index]] for index in merged)
     )
     return _repeat_ending(completed, heard[matches[-1][2] :] if matches else [], cancel)
+
+
+def _trim_prefix_entries(
+    lyrics: str,
+    keys: list[str],
+    heard: list[str],
+    tails: dict[str, str],
+    matches: tuple[tuple[int, int, int], ...],
+    cancel: threading.Event,
+) -> tuple[tuple[int, int, int], ...]:
+    # A standalone prefix can steal the last reply. Keep a suffix with repeated complete answers.
+    stop = len(matches)
+    while stop:
+        key = keys[matches[stop - 1][0]]
+        if not any(tail.startswith(key) and tail != key for tail in tails):
+            break
+        stop -= 1
+    after = matches[stop - 1][2] if stop else 0
+    if stop < len(matches) and _repeat_ending(lyrics, heard[after:], cancel) != lyrics:
+        return matches[:stop]
+    return matches
 
 
 def _repeat_entries(
@@ -287,11 +297,21 @@ def _line_anchors(
                 if prefixes or match[0] == -math.inf
                 else match
             )
+    return _trace_line_anchors(original, performed, pairs, lengths, matched if prefixes else None)
+
+
+def _trace_line_anchors(
+    original: list[int],
+    performed: tuple[int, ...],
+    pairs: set[tuple[int, int]],
+    lengths: list[list[tuple[float, int]]],
+    matched: Callable[[int, int], tuple[float, int]] | None,
+) -> list[tuple[int, int]]:
     anchors: list[tuple[int, int]] = []
     i = j = 0
     while i < len(original) and j < len(performed):
         if (original[i], performed[j]) in pairs and (
-            not prefixes or lengths[i][j] == matched(i, j)
+            matched is None or lengths[i][j] == matched(i, j)
         ):
             anchors.append((i, j))
             i, j = i + 1, j + 1

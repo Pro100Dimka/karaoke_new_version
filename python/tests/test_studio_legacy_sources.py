@@ -35,9 +35,16 @@ def _legacy_take(root, suffix, *, original=False):
     return path, source, paired
 
 
-@pytest.mark.parametrize("suffix, original", [
-    (".wav", False), (".wav", True), (".flac", False), (".flac", True), (".mp3", True),
-])
+@pytest.mark.parametrize(
+    "suffix, original",
+    [
+        (".wav", False),
+        (".wav", True),
+        (".flac", False),
+        (".flac", True),
+        (".mp3", True),
+    ],
+)
 def test_legacy_recovery_uses_actual_lossless_audio_and_native_companion_names(
     tmp_path, suffix, original
 ):
@@ -74,7 +81,9 @@ def test_legacy_recovery_does_not_subtract_from_lossy_audio_even_with_a_wav_name
     assert recording_stems(path) is None
 
 
-def test_archived_legacy_take_can_create_ad_master_without_a_separation_provider(tmp_path, monkeypatch):
+def test_archived_legacy_take_can_create_ad_master_without_a_separation_provider(
+    tmp_path, monkeypatch
+):
     # Run the real archive deterministically after creating the historical backing-only layout.
     monkeypatch.setattr(RecordingArchive, "_step", lambda self: self._cancel.wait(0.05))
     source = tmp_path / "song.wav"
@@ -82,9 +91,15 @@ def test_archived_legacy_take_can_create_ad_master_without_a_separation_provider
     provider = FakeAiProvider()
     with app_client(tmp_path / "runtime", ai_providers=(provider,)) as client:
         song = ready_song(client, source)
-        take = register_recording(client, song, session_metadata={"playbackAdjustments": [
-            {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
-        ]})
+        take = register_recording(
+            client,
+            song,
+            session_metadata={
+                "playbackAdjustments": [
+                    {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0},
+                ]
+            },
+        )
         path = Path(take["filePath"])
         backing = Path(str(path) + ".backing.wav")
         write_wav(backing, frequency=220)

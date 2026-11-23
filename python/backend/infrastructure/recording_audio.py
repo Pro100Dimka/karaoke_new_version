@@ -49,8 +49,7 @@ def compact_recording(
                 raise
             return _lossless(source, runner, cancel, "PreserveExactTimeline")
         levels = _measure(candidate, runner, cancel)
-        peak = levels.get("input_tp", float("nan"))
-        if not math.isfinite(peak) or peak > (-1.0 if master else -0.1):
+        if not _within_peak_ceiling(levels, master=master):
             if info.format == "MP3":
                 raise ValueError("Existing MP3 does not meet the recording peak ceiling")
             return _lossless(source, runner, cancel, "RetainVerifiedPeakHeadroom")
@@ -59,6 +58,11 @@ def compact_recording(
         target = source.with_suffix(".mp3")
         _publish_candidate(candidate, target, levels, reused=info.format == "MP3")
         return target
+
+
+def _within_peak_ceiling(levels: dict[str, float], *, master: bool) -> bool:
+    peak = levels.get("input_tp", float("nan"))
+    return math.isfinite(peak) and peak <= (-1.0 if master else -0.1)
 
 
 def _retained_sources(source: Path, cancel: threading.Event) -> bool:

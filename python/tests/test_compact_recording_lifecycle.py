@@ -50,12 +50,16 @@ def _register_original(client, song):
     )
     assert response.status_code == 201, response.text
     assert response.json()["fileStatus"] == "Ready"
-    renamed = client.patch(f"/recordings/{target['recordingId']}", json={"displayName": "Мой дубль"})
+    renamed = client.patch(
+        f"/recordings/{target['recordingId']}", json={"displayName": "Мой дубль"}
+    )
     assert renamed.status_code == 200, renamed.text
     original = client.app.state.container.recordings.get.execute(target["recordingId"])
-    return original, sf.read(dry, dtype="float32")[0], {
-        path.name: sha256_file(path) for path in (vocal, backing)
-    }
+    return (
+        original,
+        sf.read(dry, dtype="float32")[0],
+        {path.name: sha256_file(path) for path in (vocal, backing)},
+    )
 
 
 def _publish_master(client, original, work: Path):
@@ -73,7 +77,9 @@ def _publish_master(client, original, work: Path):
 
 def _history(client):
     with client.app.state.container.database.create() as transaction:
-        return tuple(transaction.history.list(limit=100, offset=0, event_types=("RecordingRegistered",)))
+        return tuple(
+            transaction.history.list(limit=100, offset=0, event_types=("RecordingRegistered",))
+        )
 
 
 def _verify_rows_and_audio(client, expected):
@@ -84,8 +90,10 @@ def _verify_rows_and_audio(client, expected):
         assert recording.file_path.suffix == ".mp3"
         audio = sf.info(recording.file_path)
         assert (audio.format, audio.frames, audio.samplerate, audio.channels) == (
-            "MP3", round(previous.duration * previous.sample_rate),
-            previous.sample_rate, previous.channels,
+            "MP3",
+            round(previous.duration * previous.sample_rate),
+            previous.sample_rate,
+            previous.channels,
         )
         cache = json.loads(Path(str(recording.file_path) + ".peaks.json").read_text())
         assert cache["sha256"] == sha256_file(recording.file_path)
@@ -128,7 +136,10 @@ def test_compact_recordings_keep_sources_metadata_and_library_roundtrip(tmp_path
         original, dry_samples, retained = _register_original(client, song)
         master = _publish_master(client, original, tmp_path)
         history = _history(client)
-        assert {event.entity_id for event in history} == {original.recording_id, master.recording_id}
+        assert {event.entity_id for event in history} == {
+            original.recording_id,
+            master.recording_id,
+        }
         archive = client.app.state.container.recordings.archive
         assert len(archive._pending) == 2, "real Ready callbacks queue each recording independently"
         for marker in tuple(archive._pending):

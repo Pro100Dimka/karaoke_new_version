@@ -131,9 +131,8 @@ def song_dto(song: Song) -> SongDto:
         ),
         title=song.title,
         artist=song.artist,
-        artist_missing=not song.artist.strip() or (
-            song.artist == UNKNOWN_ARTIST and "artist" not in song.user_overrides
-        ),
+        artist_missing=not song.artist.strip()
+        or (song.artist == UNKNOWN_ARTIST and "artist" not in song.user_overrides),
         album=song.album,
         genre=song.genre,
         artwork_url=song.artwork_url,

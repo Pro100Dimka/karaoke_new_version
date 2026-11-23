@@ -14,7 +14,8 @@ vi.mock('../../../../services/audioClient', () => ({
     observeRecordingPreview: vi.fn(() => () => {}),
   },
 }));
-vi.mock('../../../../shared/errors', () => ({
+vi.mock('../../../../shared/errors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../shared/errors')>()),
   clearOperationFailure: vi.fn(),
   reportOperationFailure: vi.fn(),
   observeOperation: (_key: string, promise: Promise<unknown>) => promise,

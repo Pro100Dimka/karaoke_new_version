@@ -332,7 +332,9 @@ def test_recording_rejects_metadata_mismatch(tmp_path: Path) -> None:
         assert response.json()["code"] == "InvalidRecording"
 
 
-def test_offline_analysis_keeps_its_recorded_reference_after_project_revision(tmp_path: Path) -> None:
+def test_offline_analysis_keeps_its_recorded_reference_after_project_revision(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:

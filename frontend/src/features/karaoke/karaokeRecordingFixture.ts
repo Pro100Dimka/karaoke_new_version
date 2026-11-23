@@ -52,6 +52,7 @@ vi.mock('../../services/audioClient', () => ({
     setMonitoring: vi.fn(async (enabled: boolean) => ({ monitoring: enabled })),
     setDspEnabled: vi.fn(async () => undefined),
     setMixer: vi.fn(async () => undefined),
+    setPlaybackRate: vi.fn(async () => undefined),
     setPitchShift: vi.fn(async () => undefined),
   },
 }));
@@ -84,10 +85,13 @@ vi.mock('./useKaraokeLoadSession', async () => {
       _id: string,
       _mode: string,
       _gains: unknown,
-      prepared: () => void,
+      prepared: (rate: number, keyShift: number) => void,
+      _onFailure: (error: unknown) => void,
+      _onRestart: () => void,
+      playback?: { rate: number; keyShift: number },
     ) => {
       useEffect(() => {
-        prepared();
+        prepared(playback?.rate ?? 1, playback?.keyShift ?? 0);
       }, []);
       return {
         load: { kind: 'ready', song },

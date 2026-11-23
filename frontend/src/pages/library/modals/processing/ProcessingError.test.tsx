@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { setLocale } from '@neo-ui-kit/react';
+import { setLocale, tr } from '@neo-ui-kit/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import '../../../../providers/localization';
 import type { ProcessingJobDto } from '../../../../contracts/models';
@@ -21,10 +21,10 @@ const job: ProcessingJobDto = {
   },
 };
 
-it('keeps the failure message, stable code and stage in the shared explanation', () => {
+it('shows a localized explanation with the stable code and stage', () => {
   setLocale('ru');
   const text = processingErrorText(job);
-  expect(text).toContain('Worker timed out');
+  expect(text).toContain(tr('errorProcessingTimeout'));
   expect(text).toContain('ProcessingTimeout');
   expect(text).toContain('separation');
   expect(text).not.toContain('processingFailedHelp');

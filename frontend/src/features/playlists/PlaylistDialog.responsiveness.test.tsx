@@ -67,9 +67,12 @@ afterEach(() => {
 it('does not rebuild 1500 song action controls while typing a playlist name', () => {
   const songs = catalog(500);
   savePlaylist(songs);
-  render(<PlaylistDialog songs={songs} onClose={vi.fn()} onPlay={vi.fn()} />);
+  const { container } = render(
+    <PlaylistDialog songs={songs} onClose={vi.fn()} onPlay={vi.fn()} />,
+  );
   expect(probe.rowButtons).toBe(1500);
-  const input = screen.getByLabelText(tr('playlistName'));
+  const input = container.querySelector<HTMLInputElement>('input')!;
+  expect(input).toHaveAccessibleName(tr('playlistName'));
   const value = 'After show';
   probe.rowButtons = 0;
   const start = performance.now();

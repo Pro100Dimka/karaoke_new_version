@@ -37,14 +37,20 @@ def test_reanalysis_after_dirty_editor_save_keeps_the_recorded_reference(tmp_pat
         editor = client.get(editor_path).json()
         changed_text = editor["document"]["words"][0]["text"] + " corrected"
         editor["document"]["words"][0]["text"] = changed_text
-        saved = client.put(editor_path, json={
-            "expectedRevision": editor["revision"], "document": editor["document"],
-        })
+        saved = client.put(
+            editor_path,
+            json={
+                "expectedRevision": editor["revision"],
+                "document": editor["document"],
+            },
+        )
         assert saved.status_code == 200, saved.text
         assert saved.json()["revision"] > take["songRevision"]
         assert client.get(editor_path).json()["document"]["words"][0]["text"] == changed_text
         service = client.app.state.container.recordings.start_analysis
-        reference = service._projects.artifact_path(song["songId"], take["songRevision"], "referenceVocal")
+        reference = service._projects.artifact_path(
+            song["songId"], take["songRevision"], "referenceVocal"
+        )
         observed = []
         original_extract = service._pitch.extract_vocals
 
@@ -61,7 +67,10 @@ def test_reanalysis_after_dirty_editor_save_keeps_the_recorded_reference(tmp_pat
         assert current["songRevision"] == take["songRevision"]
         assert current["analysisStatus"] == "Succeeded"
         results = client.get(f"/recordings/{take['recordingId']}/analyses").json()
-        assert {item["analysisId"] for item in results} == {first["analysisId"], result["analysisId"]}
+        assert {item["analysisId"] for item in results} == {
+            first["analysisId"],
+            result["analysisId"],
+        }
         assert all(item["state"] == "Succeeded" for item in results)
 
 
@@ -81,8 +90,15 @@ def test_analysis_validity_uses_its_own_recorded_song_reference(case, expected):
     now = datetime.now(UTC)
     take = Recording("take", Path("recording.wav"), 1, 16000, 1, now, "song", 2)
     result = AnalysisResult(
-        "analysis", "take", "song", 2, ANALYSIS_ALGORITHM_VERSION,
-        AnalysisState.SUCCEEDED, now, now, "recording-hash",
+        "analysis",
+        "take",
+        "song",
+        2,
+        ANALYSIS_ALGORITHM_VERSION,
+        AnalysisState.SUCCEEDED,
+        now,
+        now,
+        "recording-hash",
     )
     song = SimpleNamespace(active_revision=3)
     if case == "master-with-deleted-source":

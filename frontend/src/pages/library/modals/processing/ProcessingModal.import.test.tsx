@@ -333,16 +333,16 @@ it.each(['queued', 'processing', 'cancelling'] as const)(
     fixture.jobs = [failure, { ...active, state: 'cancelled' }];
     // The mocked job snapshot has no provider subscription; change a prop to render the observer.
     view.rerender(<ProcessingModal {...props} onClose={vi.fn()} />);
-    expect(
-      screen.getByRole('button', { name: 'processingRetry' }),
-    ).toBeEnabled();
+    const retries = screen.getAllByRole('button', { name: 'processingRetry' });
+    expect(retries).toHaveLength(2);
+    for (const retry of retries) expect(retry).toBeEnabled();
     expect(
       screen.getByRole('button', { name: 'Retry failed job' }),
     ).toBeEnabled();
   },
 );
 
-it('blocks manual-lyrics reset while a hidden refinement is active and releases it after cancellation', () => {
+it('restores a hidden active refinement and blocks manual-lyrics reset until cancellation', () => {
   fixture.songs = [{ ...song, status: 'ready' }];
   const failure: ProcessingJobDto = {
     ...job,
@@ -367,9 +367,7 @@ it('blocks manual-lyrics reset while a hidden refinement is active and releases 
   writeJson(storageKey('processingQueue.hidden'), [active.id]);
   const props = { open: true, onClose: vi.fn(), onPlay: vi.fn() };
   const view = render(<ProcessingModal {...props} />);
-  expect(
-    screen.queryByRole('button', { name: 'cancel' }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'cancel' })).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: 'viewError' }));
   const reset = screen.getByRole('button', {
     name: 'Reset lyrics after conflict',

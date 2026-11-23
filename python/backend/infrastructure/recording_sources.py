@@ -16,9 +16,7 @@ from numpy.typing import NDArray
 
 _BLOCK_FRAMES = 65536
 _FLAC_OPTIONS = (
-    {"compression_level": 0.0}
-    if "compression_level" in signature(sf.SoundFile).parameters
-    else {}
+    {"compression_level": 0.0} if "compression_level" in signature(sf.SoundFile).parameters else {}
 )
 
 
@@ -87,7 +85,9 @@ def _prepare_file(
     try:
         if not _encode(source, temporary, cancel):
             return None
-        if temporary.stat().st_size >= identity.size or not _same_samples(source, temporary, cancel):
+        if temporary.stat().st_size >= identity.size or not _same_samples(
+            source, temporary, cancel
+        ):
             return None
         _require_identity(source, identity)
         with temporary.open("r+b") as stream:
@@ -111,9 +111,7 @@ def _encode(source: Path, target: Path, cancel: threading.Event) -> bool:
             subtype="PCM_24",
             **_FLAC_OPTIONS,
         ) as encoded:
-            for block in original.blocks(
-                blocksize=_BLOCK_FRAMES, dtype="float32", always_2d=True
-            ):
+            for block in original.blocks(blocksize=_BLOCK_FRAMES, dtype="float32", always_2d=True):
                 _check_cancel(cancel)
                 if not _pcm24_exact(block):
                     return False
@@ -127,8 +125,7 @@ def _pcm24_exact(block: NDArray[np.float32]) -> bool:
         return False
     scaled = block * (1 << 23)
     return bool(
-        np.equal(scaled, np.trunc(scaled)).all()
-        and not np.any((block == 0) & np.signbit(block))
+        np.equal(scaled, np.trunc(scaled)).all() and not np.any((block == 0) & np.signbit(block))
     )
 
 

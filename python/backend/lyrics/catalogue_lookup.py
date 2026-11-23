@@ -62,33 +62,7 @@ def select_catalogue(
         )
         matched = next((item for item in eligible if matches_metadata(song, item, policy)), None)
         if matched is None:
-            # A solo lead credit needs an equivalent catalogue entry crediting the guests.
-            artists = tuple(map(normalize_catalog_identity, split_artist_credit(song.artist)))
-            title = normalize_catalog_identity(strip_annotations(song.title))
-            matched = next(
-                (
-                    item
-                    for item in eligible
-                    if len(artists) > 1
-                    and all(artists)
-                    and song.duration is not None
-                    and item.duration is not None
-                    and len(split_artist_credit(item.artist)) == 1
-                    and normalize_catalog_identity(strip_annotations(item.artist)) == artists[0]
-                    and normalize_catalog_identity(strip_annotations(item.title)) == title
-                    and any(
-                        other != item
-                        and other.duration is not None
-                        and normalize_catalog_identity(strip_annotations(other.title)) == title
-                        and _words(other.lyrics) == _words(item.lyrics)
-                        and set(artists[1:]).issubset(
-                            map(normalize_catalog_identity, split_artist_credit(other.artist))
-                        )
-                        for other in eligible
-                    )
-                ),
-                None,
-            )
+            matched = _corroborated_lead_credit(song, eligible)
         if matched:
             if transcripts:
                 eligible = tuple(
@@ -100,6 +74,41 @@ def select_catalogue(
         aliases.update((item, provider.provider_id) for item in eligible)
     confirmed = confirmed_catalogue(tuple(aliases), transcripts)
     return CatalogueSelection((confirmed,), confirmed, aliases[confirmed]) if confirmed else None
+
+
+def _corroborated_lead_credit(
+    song: Song, eligible: Sequence[LyricsCandidate]
+) -> LyricsCandidate | None:
+    # A solo lead credit needs an equivalent catalogue entry crediting the guests.
+    artists = tuple(map(normalize_catalog_identity, split_artist_credit(song.artist)))
+    if len(artists) < 2 or not all(artists) or song.duration is None:
+        return None
+    title = normalize_catalog_identity(strip_annotations(song.title))
+    guests = set(artists[1:])
+    matching = [
+        item
+        for item in eligible
+        if item.duration is not None
+        and normalize_catalog_identity(strip_annotations(item.title)) == title
+    ]
+    guest_credits = [
+        item
+        for item in matching
+        if guests.issubset(map(normalize_catalog_identity, split_artist_credit(item.artist)))
+    ]
+    return next(
+        (
+            item
+            for item in matching
+            if len(split_artist_credit(item.artist)) == 1
+            and normalize_catalog_identity(strip_annotations(item.artist)) == artists[0]
+            and any(
+                other != item and _words(other.lyrics) == _words(item.lyrics)
+                for other in guest_credits
+            )
+        ),
+        None,
+    )
 
 
 def cached_candidates(

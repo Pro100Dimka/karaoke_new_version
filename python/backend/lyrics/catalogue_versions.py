@@ -5,7 +5,7 @@ from dataclasses import replace
 from difflib import SequenceMatcher
 from statistics import median
 
-from backend.lyrics.ports import LyricsCandidate
+from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.text_normalization import clean_lyrics
 
 type _WordKey = Callable[[str], str]
@@ -64,50 +64,16 @@ def reconcile_timed_overlaps(
         full, fragment, following = words[index - 1 : index + 2]
         if len(set(fragment)) < 3 or words.count(fragment) != 1 or following == fragment:
             continue
-        spans = [
-            hints[i + 1].start - hints[i].start
-            for i in range(len(words) - 1)
-            if words[i] == words[i + 1] == full and hints[i + 1].start > hints[i].start
-        ]
-        typical = median(spans) if spans else 0
-        actual_span = hints[index].start - hints[index - 1].start
-        if (
-            not 0 < actual_span < typical
-            or sum(abs(span / typical - 1) <= 0.15 for span in spans) < 3
-        ):
+        ratio = _copied_cue_ratio(words, hints, index)
+        if ratio is None:
             continue
-        prefixes = set()
-        for other in alternatives:
-            raw = [line for line in other.lyrics.splitlines() if line.strip()]
-            variants = [_words(line, key) for line in raw]
-            if variants.count(fragment) != 1:
-                continue
-            at = variants.index(fragment)
-            if not 0 < at < len(variants) - 1 or variants[at + 1] != following:
-                continue
-            prefix = variants[at - 1]
-            if (
-                len(prefix) >= 3
-                and prefix == full[: len(prefix)]
-                and full[len(prefix) : len(prefix) + len(fragment)] == fragment
-                and abs(actual_span / typical - len(prefix) / len(full)) <= 0.05
-            ):
-                prefixes.add(tuple(prefix))
-        if len(prefixes) != 1:
+        prefix_size = _catalogue_prefix_size(alternatives, full, fragment, following, ratio, key)
+        if prefix_size is None:
             continue
-        replacement = " ".join(
-            clean_lyrics(lines[index - 1], "Auto").split()[: len(next(iter(prefixes)))]
-        )
-        chain = _words(replacement, key)[-3:] + fragment + following[:3]
-        original = full + fragment + following[:3]
-        counts = [
-            sum(view[i : i + len(chain)] == chain for i in range(len(view))) for view in heard
-        ]
-        if max(counts, default=0) != 1 or any(
-            view[i : i + len(original)] == original for view in heard for i in range(len(view))
-        ):
-            continue
-        changes[index - 1] = replacement
+        replacement = " ".join(clean_lyrics(lines[index - 1], "Auto").split()[:prefix_size])
+        suffix = fragment + following[:3]
+        if _heard_shorter_cue(_words(replacement, key)[-3:] + suffix, full + suffix, heard):
+            changes[index - 1] = replacement
     return (
         replace(
             candidate,
@@ -118,6 +84,59 @@ def reconcile_timed_overlaps(
         )
         if changes
         else candidate
+    )
+
+
+def _copied_cue_ratio(
+    words: Sequence[list[str]], hints: Sequence[LyricLineTiming], index: int
+) -> float | None:
+    full = words[index - 1]
+    spans = [
+        hints[i + 1].start - hints[i].start
+        for i in range(len(words) - 1)
+        if words[i] == words[i + 1] == full and hints[i + 1].start > hints[i].start
+    ]
+    typical = median(spans) if spans else 0
+    actual_span = hints[index].start - hints[index - 1].start
+    if not 0 < actual_span < typical:
+        return None
+    if sum(abs(span / typical - 1) <= 0.15 for span in spans) < 3:
+        return None
+    return actual_span / typical
+
+
+def _catalogue_prefix_size(
+    alternatives: Sequence[LyricsCandidate],
+    full: list[str],
+    fragment: list[str],
+    following: list[str],
+    ratio: float,
+    key: _WordKey,
+) -> int | None:
+    prefixes = set()
+    for other in alternatives:
+        variants = [_words(line, key) for line in other.lyrics.splitlines() if line.strip()]
+        if variants.count(fragment) != 1:
+            continue
+        at = variants.index(fragment)
+        if not 0 < at < len(variants) - 1 or variants[at + 1] != following:
+            continue
+        prefix = variants[at - 1]
+        size = len(prefix)
+        if (
+            size >= 3
+            and prefix == full[:size]
+            and full[size : size + len(fragment)] == fragment
+            and abs(ratio - size / len(full)) <= 0.05
+        ):
+            prefixes.add(tuple(prefix))
+    return len(next(iter(prefixes))) if len(prefixes) == 1 else None
+
+
+def _heard_shorter_cue(chain: list[str], original: list[str], heard: Sequence[list[str]]) -> bool:
+    counts = [sum(view[i : i + len(chain)] == chain for i in range(len(view))) for view in heard]
+    return max(counts, default=0) == 1 and not any(
+        view[i : i + len(original)] == original for view in heard for i in range(len(view))
     )
 
 

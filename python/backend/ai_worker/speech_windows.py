@@ -149,41 +149,46 @@ def _shifted_hints(
     supported = _heard_timings(words, list(heard), whole, minimum_block=_MINIMUM_BLOCK)
     result: list[dict[str, object]] = []
     previous_entry: float | None = None
-    for line_index, (first, start, text) in enumerate(lines):
+    for index, (first, start, text) in enumerate(lines):
         entry = start + shift
         interval = supported.get(first)
-        phrase_support = {
-            _key(words[index])
-            for index in range(first, first + len(text.split()))
-            if index in supported
-        }
+        size = len(text.split())
+        heard_indices = [i for i in range(first, first + size) if i in supported]
+        phrase_support = {_key(words[i]) for i in heard_indices}
         if interval is not None and len(phrase_support) >= _MINIMUM_BLOCK:
-            if not interval[0] - _MARGIN_SECONDS <= entry <= interval[
-                1
-            ] + _MARGIN_SECONDS and not any(
-                other != line_index and start <= supported[index][0] < end
-                for other, (start, end) in spans.items()
-                for index in range(first, first + len(text.split()))
-                if index in supported
-            ):
-                # The opening alone cannot validate suffix words borrowed from another cue.
+            nearby = interval[0] - _MARGIN_SECONDS <= entry <= interval[1] + _MARGIN_SECONDS
+            if not nearby and not _borrows_occurrence(index, heard_indices, supported, spans):
                 entry = interval[0]
-        elif line_index and previous_entry is not None and not phrase_support:
-            previous_first, _, previous_text = lines[line_index - 1]
+        elif index and previous_entry is not None and not phrase_support:
+            previous_first, _, previous_text = lines[index - 1]
             if _continued_entry(
                 previous_first,
                 first,
-                len(text.split()),
+                size,
                 len(previous_text.split()),
                 previous_entry,
                 entry,
                 whole,
             ):
                 entry = whole[first].start
-        entry = _bounded_entry(lines, line_index, previous_entry, entry, shift, spans)
+        entry = _bounded_entry(lines, index, previous_entry, entry, shift, spans)
         result.append({"start": entry, "text": text})
         previous_entry = entry
     return result
+
+
+def _borrows_occurrence(
+    line: int,
+    indices: Sequence[int],
+    supported: Mapping[int, tuple[float, float]],
+    spans: Mapping[int, tuple[float, float]],
+) -> bool:
+    # An opening cannot validate suffix words borrowed from another cue.
+    return any(
+        other != line and start <= supported[index][0] < end
+        for other, (start, end) in spans.items()
+        for index in indices
+    )
 
 
 def _line_start(hint: float, onsets: np.ndarray) -> tuple[float, bool]:

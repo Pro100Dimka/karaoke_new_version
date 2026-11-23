@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from functools import partial
 import numpy as np
@@ -160,16 +160,30 @@ def _recognized_cores(
             onsets=onsets,
             review=index in reviewed or crossed or conflict,
         )
-        candidates = align(search)
-        if conflict and index and search.start < words[index - 1].end < word.start:
-            # Padded recognition can borrow the previous word instead of repairing the clipped core.
-            candidates += align(replace(search, start=words[index - 1].end))
-        after = words[index + 1] if index + 1 < len(words) else None
-        bounded = _bounded_candidate_window(candidates, after, search)
-        if bounded is not None:
-            candidates += align(bounded)
+        candidates = _candidates_with_neighbor_bounds(
+            align, search, words, index, conflict=conflict
+        )
         result.extend((index, candidate, interval) for candidate in candidates)
     return result
+
+
+def _candidates_with_neighbor_bounds(
+    align: Callable[[ctc.Window], list[ctc.AlignedWord]],
+    window: ctc.Window,
+    words: Sequence[ctc.AlignedWord],
+    index: int,
+    *,
+    conflict: bool,
+) -> list[ctc.AlignedWord]:
+    candidates = align(window)
+    if conflict and index and window.start < words[index - 1].end < words[index].start:
+        # Padded recognition can borrow the previous word instead of repairing the clipped core.
+        candidates += align(replace(window, start=words[index - 1].end))
+    following = words[index + 1] if index + 1 < len(words) else None
+    bounded = _bounded_candidate_window(candidates, following, window)
+    if bounded is not None:
+        candidates += align(bounded)
+    return candidates
 
 
 def _bounded_candidate_window(

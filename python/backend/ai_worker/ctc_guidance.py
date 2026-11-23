@@ -76,17 +76,8 @@ def preserve_following_core(
 ) -> list[list[AlignedWord]]:
     """A weak unheard tail cannot improve by taking the next confirmed whole-song core."""
     anchor = anchors.get(window.last)
-    if anchor is not None and any(
-        candidate[-1].score > 0 and candidate[-1].end <= anchor + _HEARD_DISAGREEMENT_SECONDS
-        for candidate in candidates
-    ):
-        # A matching onset cannot validate a weak suffix in the next recognized phrase.
-        candidates = [
-            candidate
-            for candidate in candidates
-            if candidate[-1].score > _PREFERENCE
-            or candidate[-1].end <= anchor + _HEARD_DISAGREEMENT_SECONDS
-        ]
+    if anchor is not None:
+        candidates = _before_recognized_entry(candidates, anchor + _HEARD_DISAGREEMENT_SECONDS)
     if (
         not any(candidate is reference for candidate in candidates)
         or window.last >= len(whole)
@@ -111,6 +102,15 @@ def preserve_following_core(
         )
         else candidates
     )
+
+
+def _before_recognized_entry(
+    candidates: list[list[AlignedWord]], deadline: float
+) -> list[list[AlignedWord]]:
+    if not any(item[-1].score > 0 and item[-1].end <= deadline for item in candidates):
+        return candidates
+    # A matching onset cannot validate a weak suffix in the next recognized phrase.
+    return [item for item in candidates if item[-1].score > _PREFERENCE or item[-1].end <= deadline]
 
 
 def _covers_supported_prefix(
