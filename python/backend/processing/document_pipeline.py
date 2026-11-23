@@ -61,23 +61,37 @@ def _word_support(word: WordTiming) -> bool:
     )
 
 
-def _repeat_support(lines: list[str], words: tuple[WordTiming, ...]) -> list[float]:
+def _phrase_support(span: tuple[WordTiming, ...], text: str) -> float:
+    if not span or not _word_support(span[0]):
+        return 0.0
+    supported = [word for word in span if _word_support(word)]
+    # A long ASR misspelling must not outweigh several independently heard words.
+    return max(
+        sum(len(_lyrics_key(word.text)) for word in supported) / max(1, len(_lyrics_key(text))),
+        len(supported) / len(span),
+    )
+
+
+def _repeat_support(
+    lines: list[str], words: tuple[WordTiming, ...], baseline: list[str]
+) -> list[float]:
+    joined = {
+        left + right: len(left)
+        for a, b in zip(baseline, baseline[1:])
+        if (left := tuple(map(_lyrics_key, a.split())))
+        and (right := tuple(map(_lyrics_key, b.split())))
+    }
     evidence, first = [], 0
     for line in lines:
-        last = first + len(line.split())
+        tokens = line.split()
+        last = first + len(tokens)
         span = words[first:last]
-        supported = [word for word in span if _word_support(word)]
-        # A long ASR misspelling must not outweigh several independently heard words.
-        # Keep the same majority and the required confirmed phrase entry.
-        evidence.append(
-            max(
-                sum(len(_lyrics_key(word.text)) for word in supported)
-                / max(1, len(_lyrics_key(line))),
-                len(supported) / len(span),
-            )
-            if span and _word_support(span[0])
-            else 0.0
-        )
+        split = joined.get(tuple(map(_lyrics_key, tokens)))
+        support = _phrase_support(span, line)
+        # Matching the first line alone cannot prove an extra occurrence of both lines.
+        if split is not None:
+            support = min(support, _phrase_support(span[split:], " ".join(tokens[split:])))
+        evidence.append(support)
         first = last
     return evidence
 
@@ -85,14 +99,14 @@ def _repeat_support(lines: list[str], words: tuple[WordTiming, ...]) -> list[flo
 def _verified_repeats(
     discovery: LyricsDiscoveryResult, words: tuple[WordTiming, ...]
 ) -> LyricsDiscoveryResult:
-    """Keep the catalogue floor and independently supported surplus occurrences."""
     if not discovery.repeat_baseline or discovery.unverified_repeat_lyrics:
         return discovery
     words = tuple(word for word in words if "RecoveredVocalization" not in word.diagnostics)
     lines = discovery.lyrics.splitlines()
-    baseline = Counter(_lyrics_key(line) for line in discovery.repeat_baseline.splitlines())
+    floor = discovery.repeat_baseline.splitlines()
+    baseline = Counter(map(_lyrics_key, floor))
     keys = [_lyrics_key(line) for line in lines]
-    support = _repeat_support(lines, words)
+    support = _repeat_support(lines, words, floor)
     allowed = baseline | Counter(key for key, value in zip(keys, support) if value >= 0.6)
     surplus = Counter(keys) - allowed
     removed = set()

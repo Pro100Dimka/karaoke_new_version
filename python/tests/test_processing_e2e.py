@@ -91,6 +91,37 @@ def test_recovered_wordless_singing_does_not_discard_confirmed_catalogue_repeats
     assert _verified_repeats(found, words) == found
 
 
+@pytest.mark.parametrize("suffix_confirmed", [False, True])
+@pytest.mark.parametrize("catalogue_has_joined_line_elsewhere", [False, True])
+def test_a_joined_extra_line_requires_evidence_for_its_distinguishing_suffix(
+    suffix_confirmed, catalogue_has_joined_line_elsewhere
+):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    prefix, suffix = "no doubt you are jealous of everything", "breaks the glass"
+    floor = f"{prefix}\n{prefix}\n{suffix}"
+    added = f"{prefix} {suffix}"
+    outro = f"\nriver runs\n{added}" if catalogue_has_joined_line_elsewhere else ""
+    found = LyricsDiscoveryResult(
+        f"{prefix}\n{added}\n{prefix}\n{suffix}{outro}",
+        "catalogue",
+        (),
+        repeat_baseline=floor + outro,
+    )
+    first = len(prefix.split()) * 2
+    last = first + len(suffix.split())
+    words = tuple(
+        WordTiming(text, i, i + 0.5, 0.5 if suffix_confirmed or not first <= i < last else 0.01)
+        for i, text in enumerate(found.lyrics.split())
+    )
+
+    assert _verified_repeats(found, words).lyrics == (
+        found.lyrics if suffix_confirmed else floor + outro
+    )
+
+
 @pytest.mark.parametrize("extra_supported", [False, True])
 def test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quiet_originals(
     extra_supported,
