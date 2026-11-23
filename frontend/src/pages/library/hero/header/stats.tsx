@@ -54,7 +54,7 @@ const LibraryStats = observer(
     }
     return (
       <Grid
-        columns={{ base: 1, sm: 3 }}
+        minChildWidth="9.5rem"
         gap={4}
         style={{ flex: 1, alignSelf: 'start', height: 'stretch' }}
       >
