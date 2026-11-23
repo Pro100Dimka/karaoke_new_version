@@ -41,6 +41,7 @@ interface KaraokeConsoleProps {
   song: SongDto;
   state: KaraokeState;
   session: KaraokeSession;
+  localPlayback?: boolean;
   visible: boolean;
   controlsVisible: boolean;
   onToggle?: () => void;
@@ -58,6 +59,7 @@ export const KaraokeConsole = ({
   song,
   state,
   session,
+  localPlayback,
   visible,
   controlsVisible,
   onToggle,
@@ -209,6 +211,7 @@ export const KaraokeConsole = ({
               {() => (
                 <Transport
                   state={state}
+                  localPlayback={localPlayback}
                   position={session.position}
                   duration={song.durationSeconds}
                   seekLocked={seekLocked}

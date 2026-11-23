@@ -6,6 +6,7 @@ const skipSeconds = 10;
 
 interface TransportProps {
   state: KaraokeState;
+  localPlayback?: boolean;
   position: number;
   duration: number;
   seekLocked: boolean;
@@ -17,6 +18,7 @@ interface TransportProps {
 /** Restart, play/pause, stop and skip-forward buttons of the console's top row. */
 export const Transport = ({
   state,
+  localPlayback,
   position,
   duration,
   seekLocked,
@@ -28,6 +30,8 @@ export const Transport = ({
   const currentPosition = useRef(position);
   currentPosition.current = position;
   const playing = state.kind === 'playing';
+  const resuming = localPlayback && state.kind === 'paused';
+  const playLabel = playing ? 'pause' : resuming ? 'tvPlay' : 'play';
   const usable = ['ready', 'playing', 'paused'].includes(state.kind);
   const disabled = seekLocked || !usable;
   return useMemo(() => {
@@ -41,7 +45,7 @@ export const Transport = ({
       },
       {
         id: 'play',
-        label: playing ? 'pause' : 'play',
+        label: playLabel,
         icon: playing ? 'pause' : 'play',
         primary: true,
         run: onTogglePlay,
@@ -84,5 +88,5 @@ export const Transport = ({
         ))}
       </div>
     );
-  }, [playing, disabled, duration, onSeek, onTogglePlay, onStop, locale]);
+  }, [playing, playLabel, disabled, duration, onSeek, onTogglePlay, onStop, locale]);
 };

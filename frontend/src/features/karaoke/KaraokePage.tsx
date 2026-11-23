@@ -121,6 +121,7 @@ export const KaraokeScreen = observer(
       preferences: { theme },
     } = store;
     const { room } = store.online;
+    const localPlayback = !room && mode !== 'RoomPrepared';
     const roomPlayback = useRoomPlayback();
     const notify = useNotify();
     useLocale();
@@ -180,7 +181,7 @@ export const KaraokeScreen = observer(
       song?.durationSeconds ?? 0,
       () => (onTv && tv ? tv.bringBack() : void backToLibrary()),
       host,
-      !room && mode !== 'RoomPrepared',
+      localPlayback,
     );
     const capabilities = useMemo(
       () => ({
@@ -422,6 +423,7 @@ export const KaraokeScreen = observer(
                   song={song}
                   state={state}
                   session={session}
+                  localPlayback={localPlayback}
                   visible={autoHide.consoleVisible}
                   controlsVisible={autoHide.headerVisible && introFinished}
                   onToggle={
