@@ -28,7 +28,7 @@ export const ukSettings = {
   'errorHandler.unknown': 'Не вдалося виконати дію. Повторіть спробу.',
   'errorBoundary.title': 'Щось пішло не так',
   'errorBoundary.description':
-    'Сталася непередбачена помилка.\nЦя частина застосунку перестала працювати.',
+    'Перезавантажте сторінку. Якщо помилка повториться, скопіюйте звіт.',
   'errorBoundary.retry': 'Перезавантажити',
   'errorBoundary.error': 'Помилка',
   'errorBoundary.copy': 'Копіювати звіт',

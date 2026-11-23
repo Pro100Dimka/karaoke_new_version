@@ -28,7 +28,7 @@ export const ruSettings = {
   'errorHandler.unknown': 'Не удалось выполнить действие. Повторите попытку.',
   'errorBoundary.title': 'Что-то пошло не так',
   'errorBoundary.description':
-    'Произошла непредвиденная ошибка.\nЭта часть приложения перестала работать.',
+    'Перезагрузите страницу. Если ошибка повторится, скопируйте отчёт.',
   'errorBoundary.retry': 'Перезагрузить',
   'errorBoundary.error': 'Ошибка',
   'errorBoundary.copy': 'Скопировать отчёт',

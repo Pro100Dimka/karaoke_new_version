@@ -74,19 +74,21 @@ const ErrorFallback = ({ error }: FallbackProps) => {
               />
             }
           >
-            <Typography
-              as="pre"
-              variant="mono"
-              text={text}
-              style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-            />
+            <CollapsibleSection title={tr('errorBoundary.details')}>
+              <Stack gap={3}>
+                <Typography
+                  as="pre"
+                  variant="mono"
+                  text={text}
+                  style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                />
+                <KeyValueList items={Object.entries(details)} />
+              </Stack>
+            </CollapsibleSection>
             {copyState === 'failed' && (
               <MessageBar tone="error">{tr('actionFailed')}</MessageBar>
             )}
           </Card>
-          <CollapsibleSection title={tr('errorBoundary.details')}>
-            <KeyValueList items={Object.entries(details)} />
-          </CollapsibleSection>
         </Stack>
       </Dialog>
     </>

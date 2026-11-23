@@ -14,6 +14,7 @@ import { NotificationsProvider } from '../providers/notifications';
 import { subscribeServices } from '../providers/services';
 import { SocialConnection } from '../providers/social';
 import ThemeConfig from '../providers/theme';
+import { desktopClient } from '../services/desktopClient';
 import { routePatterns, routes } from '../shared/routes';
 
 const EditorPage = lazy(() => import('./editor'));
@@ -50,7 +51,10 @@ const App = () => {
     <LocalizationProvider>
       <ThemeConfig>
         <NotificationsProvider>
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <ErrorBoundary
+            FallbackComponent={ErrorFallback}
+            onError={() => void desktopClient.appReady()}
+          >
             <DialogView />
             <BootstrapGate>
               <SocialConnection />

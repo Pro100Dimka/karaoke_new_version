@@ -25,7 +25,7 @@ export const enSettings = {
   'errorHandler.unknown': 'Could not complete the action. Try again.',
   'errorBoundary.title': 'Something went wrong',
   'errorBoundary.description':
-    'An unexpected error occurred.\nThis part of the app stopped working.',
+    'Reload the page. If the error happens again, copy the report.',
   'errorBoundary.retry': 'Reload',
   'errorBoundary.error': 'Error',
   'errorBoundary.copy': 'Copy report',
