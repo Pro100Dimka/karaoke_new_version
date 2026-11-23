@@ -3,8 +3,9 @@ from __future__ import annotations
 import math
 import threading
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from difflib import SequenceMatcher
+from functools import cache
 from typing import Sequence
 
 from backend.domain_errors import ConflictError
@@ -81,14 +82,21 @@ def _repeat_entries(
     cancel: threading.Event,
 ) -> tuple[tuple[int, int, int], ...]:
     choices = [*keys, *(key for key in tails if key not in keys)]
-    matches = _performed_lines(choices, heard, following, cancel)
+    if choices == keys:
+        return _performed_lines(keys, heard, following, cancel)
+
+    @cache
+    def compare(key: str, start: int) -> tuple[tuple[int, int], ...]:
+        return tuple(_line_matches(key, heard, start))
+
+    matches = _performed_lines(choices, heard, following, cancel, compare=compare)
     tail_counts = Counter(index for index, _, _ in matches if index >= len(keys))
     # One incomplete ASR line cannot establish a chopped outro. Require the same
     # independently matched tail twice before letting tails displace full phrases.
     return (
         tuple(match for match in matches if match[0] < len(keys))
         if any(count >= 2 for count in tail_counts.values())
-        else _performed_lines(keys, heard, following, cancel)
+        else _performed_lines(keys, heard, following, cancel, compare=compare)
     )
 
 
@@ -180,7 +188,10 @@ def _performed_lines(
     heard: list[str],
     following: set[tuple[int, int]],
     cancel: threading.Event,
+    *,
+    compare: Callable[[str, int], Iterable[tuple[int, int]]] | None = None,
 ) -> tuple[tuple[int, int, int], ...]:
+    match_at = compare or (lambda key, start: _line_matches(key, heard, start))
     following = _variant_transitions(keys, following)
     states: list[dict[int, _LinePath]] = [{} for _ in range(len(heard) + 1)]
     states[0][-1] = (0.0, ())
@@ -207,7 +218,7 @@ def _performed_lines(
                 ((best[0] - choice_cost, best[1]), sequential),
                 key=lambda item: item[0],
             )
-            for end, support in _line_matches(key, heard, start):
+            for end, support in match_at(key, start):
                 candidate = (score + support, (*path, (index, start, end)))
                 if candidate[0] > states[end].get(index, empty)[0]:
                     states[end][index] = candidate

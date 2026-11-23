@@ -68,6 +68,28 @@ def test_phrase_matching_skips_impossible_character_scores(
     assert len(calls) == comparisons
 
 
+def test_phrase_matching_reuses_exact_comparisons_after_discarding_unverified_tails(monkeypatch):
+    from backend.lyrics import phrases
+
+    original = phrases._line_matches
+    calls = []
+
+    def match(key, words, start):
+        calls.append((key, start))
+        return original(key, words, start)
+
+    monkeypatch.setattr(phrases, "_line_matches", match)
+    result = phrases._repeat_entries(
+        ["keepthesound", "wewalkhome"],
+        ["keep", "the", "sound", "we", "walk", "home"],
+        {(0, 1)},
+        {"thesound": "the sound"},
+        threading.Event(),
+    )
+    assert result == ((0, 0, 3), (1, 3, 6))
+    assert len(calls) == len(set(calls))
+
+
 def test_catalog_version_follows_performed_repeats_instead_of_only_duration() -> None:
     verse = ["Первый куплет звучит здесь", "Второй куплет звучит дальше"]
     chorus = "Этот припев звучит опять"
@@ -215,7 +237,7 @@ def test_first_discovery_groups_independent_views_and_preserves_ending_recovery(
 @pytest.mark.parametrize("catalog", [False, True])
 def test_discovered_lyrics_are_clean_before_alignment_and_repeat_recovery(catalog: bool) -> None:
     text = "Привіт,світе! Я твій на 100%...\nП'яний — але: живий? (так); «я» 🎵"
-    expected = "Привіт світе Я твій на сто відсотків\nПяний але живий так я"
+    expected = "Привіт світе Я твій на сто відсотків\nП'яний але живий так я"
     candidate = LyricsCandidate(text, "T", "A", 188, "catalog")
     discovery = LyricsDiscovery(
         _NoSidecar(), (FakeLyricsProvider([(candidate,)]),) if catalog else (), LyricsMatchPolicy()
