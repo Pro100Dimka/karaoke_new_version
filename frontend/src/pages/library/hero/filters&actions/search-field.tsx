@@ -65,6 +65,11 @@ type SearchProps = {
 export default function LibrarySearchField(props: SearchProps) {
   const { query, filters, locked } = props;
   const playlist = props.playlists.find((item) => item.id === filters.playlist);
+  const hasActiveFilters =
+    Boolean(playlist) ||
+    [filters.status, filters.duration, filters.language].some(
+      (value) => value !== 'all',
+    );
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   if (locked && open) setOpen(false);
@@ -105,8 +110,9 @@ export default function LibrarySearchField(props: SearchProps) {
           <IconButton
             ref={anchor}
             icon="sliders"
-            variant={open ? 'primary' : 'ghost'}
+            variant={open || hasActiveFilters ? 'primary' : 'ghost'}
             label={tr('filtersAndSorting')}
+            title={hasActiveFilters ? tr('library.search.active') : undefined}
             aria-haspopup="dialog"
             aria-expanded={open}
             disabled={locked}
