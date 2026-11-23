@@ -23,10 +23,10 @@ const defaultWindowState: WindowState = {
 const windowStatePath = (): string =>
   path.join(app.getPath('userData'), 'window-state.json');
 
-const isVisibleOnSomeDisplay = (x: number, y: number): boolean =>
+const findSavedDisplay = (x: number, y: number) =>
   screen
     .getAllDisplays()
-    .some(
+    .find(
       ({ workArea }) =>
         x >= workArea.x - 40 &&
         y >= workArea.y - 10 &&
@@ -50,14 +50,24 @@ export const loadWindowState = (): WindowState => {
         state[dimension] = value;
     }
     // A saved position on a monitor that no longer exists falls back to the primary display.
-    if (
-      typeof raw.x === 'number' &&
-      typeof raw.y === 'number' &&
-      isVisibleOnSomeDisplay(raw.x, raw.y)
-    ) {
-      return { ...state, x: raw.x, y: raw.y };
-    }
-    return state;
+    const { x, y } = raw;
+    if (typeof x !== 'number' || typeof y !== 'number') return state;
+    const display = findSavedDisplay(x, y);
+    if (!display) return state;
+
+    const { workArea } = display;
+    const width = Math.min(state.width, workArea.width);
+    const height = Math.min(state.height, workArea.height);
+    return {
+      ...state,
+      width,
+      height,
+      x: Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - width)),
+      y: Math.max(
+        workArea.y,
+        Math.min(y, workArea.y + workArea.height - height),
+      ),
+    };
   } catch {
     return defaultWindowState;
   }
