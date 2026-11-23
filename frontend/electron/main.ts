@@ -257,7 +257,10 @@ const openMainWindow = (roomParticipant: string): void => {
   });
   mainWindow = window;
   // Windows takes thumbnail buttons only from a visible window.
-  window.on('show', () => taskbar.refresh());
+  window.on('show', () => {
+    trayRadio.windowShown();
+    taskbar.refresh();
+  });
   window.on('closed', () => {
     mainWindow = null;
   });

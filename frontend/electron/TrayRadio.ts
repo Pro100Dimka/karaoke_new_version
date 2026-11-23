@@ -78,11 +78,9 @@ export const createTrayRadio = ({
   const open = () => {
     const current = window();
     if (!current || current.isDestroyed()) return;
-    hiddenToTray = false;
     if (current.isMinimized()) current.restore();
     current.show();
     current.focus();
-    sync(shell.status());
   };
 
   const sync = (status: ShellStatus) => {
@@ -125,6 +123,11 @@ export const createTrayRadio = ({
   const unsubscribe = shell.onStatus((status) => sync(status));
 
   return {
+    windowShown(): void {
+      if (!hiddenToTray) return;
+      hiddenToTray = false;
+      sync(shell.status());
+    },
     /**
      * Called when the main window is about to close. Returns true when it was hidden to the tray
      * instead: the radio is playing in the Library and the app is not quitting.
