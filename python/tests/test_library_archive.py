@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.infrastructure.recording_archive import RecordingArchive
 from backend.songs.domain import CoverState
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -25,6 +26,21 @@ def transfer(client, action: str, path: Path | None = None):
     job = wait_for_job(client, response.json()["jobId"])
     assert job["state"] == "Succeeded", job
     return job["report"]
+
+
+def test_library_export_ignores_recording_compression_staging(tmp_path, monkeypatch):
+    monkeypatch.setattr(RecordingArchive, "_archive_one", lambda _archive, _marker: None)
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(client, ready_song(client, source))
+        media = Path(recording["filePath"])
+        staging = media.with_suffix(".compressing.flac")
+        staging.write_bytes(b"partial recording compression")
+        with zipfile.ZipFile(transfer(client, "export")["path"]) as archive:
+            names = {Path(name).name for name in archive.namelist()}
+        assert media.name in names
+        assert staging.name not in names
 
 
 def test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing(tmp_path: Path):

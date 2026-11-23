@@ -26,6 +26,11 @@ const api = vi.hoisted(() => ({
   createStudioMaster: vi.fn(),
 }));
 const desktop = vi.hoisted(() => ({ recordingPeaks: vi.fn() }));
+vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
+  Planet: () => null,
+  NeonWaves: () => null,
+}));
 vi.mock('../../../../services/pythonClient', () => ({ pythonClient: api }));
 vi.mock('../../../../services/desktopClient', () => ({
   desktopClient: desktop,

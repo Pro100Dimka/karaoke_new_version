@@ -193,7 +193,7 @@ class SqlLibraryStorage:
             require_recording_file(source, str(recording["recording_id"]))
             self._file(files, source)
             for companion in source.parent.glob(f"{source.stem}*"):
-                if companion.is_file():
+                if not companion.name.endswith(".compressing.flac") and companion.is_file():
                     self._file(files, companion)
         return files
 
