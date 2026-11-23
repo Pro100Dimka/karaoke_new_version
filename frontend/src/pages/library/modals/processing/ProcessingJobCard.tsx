@@ -101,6 +101,7 @@ export const ProcessingJobCard = ({
       label: tr('processingRemove'),
       icon: 'trash',
       danger: true,
+      disabled: job.type === 'SongProcessing' && isInQueue(job),
       onSelect: actions.onRemove,
     },
   ];

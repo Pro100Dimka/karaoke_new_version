@@ -241,10 +241,10 @@ export const ruLibrary = {
   processingClearFailedTitle: 'Очистить задачи с ошибкой?',
   processingClearFailedText:
     'Из списка будут убраны задачи с ошибкой и прерванные задачи ({count}). Песни и файлы сохранятся.',
-  processingClearAll: 'Все',
-  processingClearAllTitle: 'Очистить всю очередь?',
+  processingClearAll: 'Вся история',
+  processingClearAllTitle: 'Очистить историю очереди?',
   processingClearAllText:
-    'Из списка будут убраны все задачи ({count}). Запущенная обработка продолжится. Песни и файлы сохранятся.',
+    'Карточки из истории будут убраны ({count}). Текущие и ожидающие задачи останутся в очереди.',
   processingStopTitle: 'Остановить обработку?',
   processingStopText:
     'Текущая обработка будет остановлена. Уже созданные файлы останутся на компьютере.',

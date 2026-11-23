@@ -33,6 +33,7 @@ import { ProcessingErrorDialog } from './ProcessingError';
 import './processing.css';
 import { ProcessingJobCard } from './ProcessingJobCard';
 import {
+  isInQueue,
   phaseOf,
   phases,
   processingDuration,
@@ -61,7 +62,7 @@ const clearGroups = {
     'Failed',
     (job: ProcessingJobDto) => ['failed', 'interrupted'].includes(job.state),
   ],
-  all: ['All', () => true],
+  all: ['All', (job: ProcessingJobDto) => !isInQueue(job)],
 } as const;
 
 /** Real free space of the data disk, read once when the queue opens. */
@@ -262,6 +263,7 @@ export const ProcessingModal = observer(
       matches,
     ]: (typeof clearGroups)[keyof typeof clearGroups]) => {
       const selected = queue.visible.filter(matches);
+      if (!selected.length) return;
       setNotice({
         title: tr(`processingClear${name}Title`),
         text: tr(`processingClear${name}Text`, { count: selected.length }),
@@ -396,9 +398,7 @@ export const ProcessingModal = observer(
               icon="trash"
               aria-disabled={queue.visible.length === 0}
               label={tr('processingClear')}
-              onClick={() =>
-                queue.visible.length > 0 && clear(clearGroups.completed)
-              }
+              onClick={() => clear(clearGroups.completed)}
               items={Object.entries(clearGroups).map(([id, group]) => ({
                 id,
                 label: tr(`processingClear${group[0]}`),

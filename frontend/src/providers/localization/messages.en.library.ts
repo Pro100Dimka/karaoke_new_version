@@ -239,10 +239,10 @@ export const enLibrary = {
   processingClearFailedTitle: 'Clear failed jobs?',
   processingClearFailedText:
     'Failed and interrupted jobs ({count}) will be removed from the list. Songs and files stay.',
-  processingClearAll: 'All',
-  processingClearAllTitle: 'Clear the entire queue?',
+  processingClearAll: 'All history',
+  processingClearAllTitle: 'Clear queue history?',
   processingClearAllText:
-    'All jobs ({count}) will be removed from the list. Running processing will continue. Songs and files stay.',
+    'History entries ({count}) will be removed. Running and waiting jobs will stay in the queue.',
   processingStopTitle: 'Stop processing?',
   processingStopText:
     'The current processing stops. Files already created stay on the computer.',

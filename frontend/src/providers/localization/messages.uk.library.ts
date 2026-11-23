@@ -241,10 +241,10 @@ export const ukLibrary = {
   processingClearFailedTitle: 'Очистити завдання з помилкою?',
   processingClearFailedText:
     'Зі списку буде прибрано завдання з помилкою та перервані завдання ({count}). Пісні та файли збережуться.',
-  processingClearAll: 'Усі',
-  processingClearAllTitle: 'Очистити всю чергу?',
+  processingClearAll: 'Уся історія',
+  processingClearAllTitle: 'Очистити історію черги?',
   processingClearAllText:
-    'Зі списку буде прибрано всі завдання ({count}). Запущена обробка триватиме. Пісні та файли збережуться.',
+    'Картки з історії буде прибрано ({count}). Поточні завдання й ті, що очікують, залишаться в черзі.',
   processingStopTitle: 'Зупинити обробку?',
   processingStopText:
     "Поточну обробку буде зупинено. Уже створені файли залишаться на комп'ютері.",

@@ -107,8 +107,9 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
       });
     return [...pending, ...actual].filter(
       (job) =>
-        !hidden.has(job.id) &&
-        !hidden.has(pendingByJob.get(job.id)?.id ?? job.id),
+        (job.type === 'SongProcessing' && isInQueue(job)) ||
+        (!hidden.has(job.id) &&
+          !hidden.has(pendingByJob.get(job.id)?.id ?? job.id)),
     );
   }, [jobs, hidden, imports]);
   const ordered = useMemo(
