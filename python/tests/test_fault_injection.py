@@ -103,6 +103,30 @@ def test_failed_atomic_rename_preserves_canonical_file(
     assert not target.with_name(".canonical.json.tmp").exists()
 
 
+def test_processing_retries_project_publication_after_temporary_access_denial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    original_replace = os.replace
+    attempts = 0
+
+    def replace_with_temporary_lock(source, target) -> None:
+        nonlocal attempts
+        if Path(target).name == "2" and Path(target).parent.name == "revisions":
+            attempts += 1
+            if attempts == 1:
+                raise PermissionError(13, "Project files are temporarily open")
+        original_replace(source, target)
+
+    monkeypatch.setattr(os, "replace", replace_with_temporary_lock)
+    root = tmp_path / "runtime"
+    song_id, revision = _ready_song(root, source)
+    assert attempts == 2
+    assert revision == 2
+    assert (root / "songs" / song_id / "revisions" / "2" / "manifest.json").is_file()
+
+
 def test_db_commit_failure_is_recovered_without_losing_old_revision(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

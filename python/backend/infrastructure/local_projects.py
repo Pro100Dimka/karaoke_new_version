@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from backend.domain_errors import ConflictError, DependencyError, NotFoundError
-from backend.infrastructure.atomic_files import atomic_write_text
+from backend.infrastructure.atomic_files import atomic_write_text, replace_with_retry
 from backend.projects.domain import ArtifactCategory, ProjectArtifact, ProjectManifest
 from backend.projects.manifest_codec import decode_manifest, encode_manifest
 from backend.storage.domain import StorageRoots
@@ -134,10 +134,13 @@ class LocalProjectStorage:
             )
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
-            os.replace(working, target)
+            replace_with_retry(working, target)
         except OSError as exc:
             raise DependencyError(
-                "StorageUnavailable", "Project revision publication failed"
+                "StorageUnavailable",
+                "Project revision publication failed",
+                errno=exc.errno,
+                winerror=getattr(exc, "winerror", None),
             ) from exc
 
     def snapshot_revision(
