@@ -216,17 +216,24 @@ def _performed_lines(
 
 def _line_matches(key: str, heard: list[str], start: int) -> Iterator[tuple[int, int]]:
     joined = ""
+    remaining = Counter(key)
+    shared = 0
     for end in range(start, len(heard)):
-        joined += heard[end]
+        word = heard[end]
+        joined += word
         # Beyond twice the phrase length even a complete character match cannot score positively.
         if len(joined) > 2 * len(key):
             break
-        if 2 * len(joined) <= len(key):
+        for char in word:
+            count = remaining.get(char, 0)
+            if count:
+                remaining[char] = count - 1
+                shared += 1
+        # Carry the same multiset upper bound forward as each word extends the window.
+        # Construct the sequence matcher only when a positive score is still possible.
+        if 2 * shared <= max(len(key), len(joined)):
             continue
         matcher = SequenceMatcher(None, key, joined, autojunk=False)
-        # Multiset overlap is an upper bound: prune only scores that cannot become positive.
-        if matcher.quick_ratio() <= max(len(key), len(joined)) / (len(key) + len(joined)):
-            continue
         blocks = [block for block in matcher.get_matching_blocks() if block.size]
         if not blocks or blocks[0].b >= len(heard[start]):
             continue

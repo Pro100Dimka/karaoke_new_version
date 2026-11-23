@@ -39,14 +39,14 @@ def test_phrase_matching_skips_impossible_character_scores(
 ):
     from backend.lyrics import phrases
 
-    original = phrases.SequenceMatcher.get_matching_blocks
+    original = phrases.SequenceMatcher
     calls = []
 
-    def compare(matcher):
-        calls.append((matcher.a, matcher.b))
-        return original(matcher)
+    def compare(is_junk, key, joined, *, autojunk):
+        calls.append((key, joined))
+        return original(is_junk, key, joined, autojunk=autojunk)
 
-    monkeypatch.setattr(phrases.SequenceMatcher, "get_matching_blocks", compare)
+    monkeypatch.setattr(phrases, "SequenceMatcher", compare)
     assert list(phrases._line_matches(key, heard, 0)) == expected
     assert len(calls) == comparisons
 
