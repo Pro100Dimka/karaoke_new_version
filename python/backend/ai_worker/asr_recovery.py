@@ -1,15 +1,25 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from functools import partial
+from itertools import pairwise
 from math import ceil, floor, isfinite
 import re
 
+import numpy as np
 import torch
 
 from backend.ai_worker import ctc
-from backend.ai_worker.asr_candidates import AsrCandidate, _MARGIN, insertion_candidates
-from backend.ai_worker.asr_views import TimedToken, token_key
+from backend.ai_worker.asr_candidates import AsrCandidate, _anchors, _MARGIN, insertion_candidates
+from backend.ai_worker.asr_views import AsrView, TimedToken, read_views, token_key
+from backend.ai_worker.recognition import HeardWord, heard_timings, heard_words
+from backend.ai_worker.speech_observations import RecognitionObservations, recognition_views
+from backend.ai_worker.timing import voiced_frames
+
+
+_RATE = 16_000
+_HOP = 160
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,3 +239,160 @@ def recover_lyrics(
         return lyrics
     accepted = [item for proposal in proposals if (item := _accept(proposal, scores, step))]
     return _apply(lyrics, accepted) if accepted else lyrics
+
+
+def recover_missed_phrases(
+    lyrics: str,
+    primary: Sequence[HeardWord],
+    samples: np.ndarray,
+    scores: torch.Tensor,
+    step: float,
+    recognize: Callable[[float, float], Sequence[Mapping[str, object]]],
+) -> tuple[str, list[HeardWord]]:
+    """Review long internal ASR gaps with sustained vocal activity and two fresh views."""
+    spans = list(re.finditer(r"\S+", lyrics))
+    gaps = _missed_gaps([span[0] for span in spans], primary)
+    if not gaps:
+        return lyrics, []
+
+    activity = voiced_frames(samples, _RATE, _HOP)
+    duration = len(samples) / _RATE
+    inserted: list[HeardWord] = []
+    for right, gap_start, gap_end in reversed(gaps):
+        flags = activity[ceil(gap_start * _RATE / _HOP) : floor(gap_end * _RATE / _HOP)]
+        if not len(flags) or np.mean(flags) < 0.35:
+            continue
+        start = max(0.0, gap_start - 3.0)
+        end = min(duration, gap_end + 3.0, start + 30.0)
+        try:
+            views = read_views(recognize(start, end), duration)
+        except (FileNotFoundError, OSError, RuntimeError, ValueError):
+            continue
+        if len(views) != 2:
+            continue
+        phrases = _gap_phrases(views, gap_start, gap_end, scores, step)
+        if phrases:
+            at = spans[right].start()
+            text = "\n".join(" ".join(word.text for word in phrase) for phrase in phrases)
+            lyrics = lyrics[:at].rstrip() + "\n" + text + "\n" + lyrics[at:]
+            inserted.extend(
+                (token_key(word.text), word.start, word.end)
+                for phrase in phrases
+                for word in phrase
+            )
+    return lyrics, inserted
+
+
+def _missed_gaps(words: list[str], primary: Sequence[HeardWord]) -> list[tuple[int, float, float]]:
+    timings = heard_timings(words, list(primary), minimum_block=3)
+    return [
+        (right, timings[left][1], timings[right][0])
+        for left, right in pairwise(sorted(timings))
+        if right == left + 1 and 8 <= timings[right][0] - timings[left][1] <= 26
+    ]
+
+
+def _gap_phrases(
+    views: Sequence[AsrView],
+    gap_start: float,
+    gap_end: float,
+    scores: torch.Tensor,
+    step: float,
+) -> list[list[ctc.AlignedWord]]:
+    inside = [
+        replace(
+            view,
+            tokens=tuple(
+                word for word in view.tokens if gap_start <= word.start < word.end <= gap_end
+            ),
+        )
+        for view in views
+    ]
+    result: list[list[ctc.AlignedWord]] = []
+    for match in _anchors(inside[0], inside[1]):
+        first = max(ceil(gap_start / step), floor((match.primary[0].start - 0.25) / step))
+        last = min(len(scores), floor(gap_end / step), ceil((match.primary[-1].end + 0.25) / step))
+        words = [word.text for word in match.primary]
+        local = scores[first:last]
+        if not len(local):
+            continue
+        try:
+            aligned = ctc.align_words(local, step, words, first * step, bounded_end=True)
+            gain = _path_score(local, words) - _path_score(local, ())
+        except (ValueError, RuntimeError):
+            continue
+        agrees = all(
+            min(a.start, b.start) - 0.3 <= word.start <= max(a.end, b.end) + 0.3
+            for word, a, b in zip(aligned, match.primary, match.alternative, strict=True)
+        )
+        ordered = not result or result[-1][-1].end <= aligned[0].start
+        if gain > 0 and _run_supported(aligned) and agrees and ordered:
+            result.append(aligned)
+    return result
+
+
+def _gap_recognition(
+    audio: np.ndarray,
+    backing: np.ndarray,
+    decode: Callable[[np.ndarray], Mapping[str, object]],
+    start: float,
+    end: float,
+) -> list[Mapping[str, object]]:
+    first, last = round(start * _RATE), round(end * _RATE)
+    vocal, instrumental = audio[first:last], backing[first:last]
+    mix = vocal + np.pad(instrumental, (0, len(vocal) - len(instrumental)))
+    if np.array_equal(vocal, mix):
+        return []
+    return [
+        dict(decode(samples), sourceId=source, cropStart=first / _RATE, cropEnd=last / _RATE)
+        for source, samples in (("vocal", vocal), ("mix", mix))
+    ]
+
+
+def review_transcript_gaps(
+    lyrics: str,
+    heard: list[HeardWord],
+    observations: RecognitionObservations,
+    backing: np.ndarray | None,
+    scores: torch.Tensor,
+    step: float,
+    decode: Callable[[np.ndarray], Mapping[str, object]],
+) -> tuple[str, list[HeardWord]]:
+    if backing is None or observations.recognition is None:
+        return lyrics, heard
+    audio = observations.samples
+    lyrics, recovered = recover_missed_phrases(
+        lyrics,
+        heard_words(observations.recognition),
+        audio,
+        scores,
+        step,
+        partial(_gap_recognition, audio, backing, decode),
+    )
+    if not recovered:
+        return lyrics, heard
+    reliable = [
+        word
+        for word in heard
+        if all(word[2] <= start or end <= word[1] for _, start, end in recovered)
+    ]
+    return lyrics, sorted([*reliable, *recovered], key=lambda word: (word[1], word[2]))
+
+
+def recover_transcript_lyrics(
+    lyrics: str,
+    observations: RecognitionObservations,
+    scores: torch.Tensor,
+    step: float,
+    baseline_lyrics: str = "",
+) -> tuple[str, bool]:
+    views = [*recognition_views(observations.recognition), *observations.views]
+    duration = len(observations.samples) / _RATE
+    floor = baseline_lyrics or lyrics
+    recovered = recover_lyrics(floor, views, scores, step, duration) if views else floor
+    remaining = iter(map(token_key, recovered.split()))
+    # Keep the existing acoustic review for proposed repeats absent from the recovered text.
+    preserved = all(
+        any(word == expected for word in remaining) for expected in map(token_key, lyrics.split())
+    )
+    return (recovered, True) if preserved else (lyrics, False)

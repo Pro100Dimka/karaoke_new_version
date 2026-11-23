@@ -19,7 +19,7 @@ from backend.ai.catalog import SPEECH_MODEL as SPEECH_MODEL
 import backend.ai_worker.acoustic_retry as acoustic_retry
 import backend.ai_worker.asr_recovery as asr_recovery
 import backend.ai_worker.asr_substitution as asr_substitution
-from backend.ai_worker.asr_views import token_key
+from backend.ai_worker.asr_recovery import recover_transcript_lyrics as _recover_transcript_lyrics
 from backend.ai_worker.guidance_prefix import preserve_prefix
 from backend.ai_worker.speech_alignment import _AlignmentPass as _AlignmentPass
 from backend.ai_worker.speech_observations import RecognitionObservations, recognition_views
@@ -428,25 +428,20 @@ def align(
     audio = read_mono(vocal, _SAMPLE_RATE)
     backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
     observations = RecognitionObservations(audio, language, recognition)
+    views: list[list[HeardWord]] = []
     evidence = partial(
-        _alignment_evidence,
-        vocal,
-        audio,
-        language,
-        lyrics,
-        backing,
-        recognition,
-        views := list[list[HeardWord]](),
+        _alignment_evidence, vocal, audio, language, lyrics, backing, recognition, views
     )
     evidence = partial(evidence, observations=observations) if asr_lyrics else evidence
     scores, step, heard = evidence() if reuse is None else evidence(reuse=reuse)
+    models: list[whisper.Whisper] = []
     if asr_lyrics:
-        prior = lyrics
-        lyrics, verified = _recover_transcript_lyrics(
-            lyrics, observations, scores, step, asr_baseline
+        lyrics, heard, verified = _prepare_transcript(
+            lyrics, asr_baseline, observations, backing, scores, step, heard, views, models, reuse
         )
-        heard = preserve_prefix(prior, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
-    recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
+    recognize = partial(
+        _accelerated_guidance, audio, language, None, model_cache=models, reuse=reuse
+    )
     alignment = _AlignmentPass(audio, backing, scores, step, lyrics.split(), lyrics, heard, views)
     alignment.emit = partial(_alignment_emission, reuse=reuse)
     payload = alignment.run(timing_hints, recognize)
@@ -455,26 +450,31 @@ def align(
     return _asr_payload(lyrics, payload, observations, scores, step, verified)
 
 
-def _recover_transcript_lyrics(
-    lyrics: str,
+def _prepare_transcript(
+    prior: str,
+    baseline: str,
     observations: RecognitionObservations,
+    backing: np.ndarray | None,
     scores: torch.Tensor,
     step: float,
-    baseline_lyrics: str = "",
-) -> tuple[str, bool]:
-    views = [*recognition_views(observations.recognition), *observations.views]
-    duration = len(observations.samples) / _SAMPLE_RATE
-    floor = baseline_lyrics or lyrics
-    recovered = (
-        asr_recovery.recover_lyrics(floor, views, scores, step, duration) if views else floor
+    heard: list[HeardWord],
+    views: Sequence[list[HeardWord]],
+    models: list[whisper.Whisper],
+    reuse: AlignmentReuse | None,
+) -> tuple[str, list[HeardWord], bool]:
+    lyrics, verified = _recover_transcript_lyrics(prior, observations, scores, step, baseline)
+    heard = preserve_prefix(prior, lyrics, heard, _best_alignment_view(lyrics, views) or heard)
+    decode = partial(
+        _accelerated_guidance,
+        language=observations.language,
+        prompt=None,
+        model_cache=models,
+        reuse=reuse,
     )
-    remaining = iter(map(token_key, recovered.split()))
-    # Discovery may already have found repeats. Keep its existing acoustic check
-    # unless recovery also preserves every proposed occurrence in its original order.
-    preserved = all(
-        any(word == expected for word in remaining) for expected in map(token_key, lyrics.split())
+    lyrics, heard = asr_recovery.review_transcript_gaps(
+        lyrics, heard, observations, backing, scores, step, decode
     )
-    return (recovered, True) if preserved else (lyrics, False)
+    return lyrics, heard, verified
 
 
 def _asr_payload(

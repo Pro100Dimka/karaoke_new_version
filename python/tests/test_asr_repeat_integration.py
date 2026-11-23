@@ -97,6 +97,49 @@ def test_native_floor_recovers_both_novel_words_and_repeat_in_one_worker_pass(mo
 
 
 @pytest.mark.parametrize(
+    ("second_view", "has_phonetic_support", "restored"),
+    [
+        ("birds fly softly", True, True),
+        ("stars can shine", True, False),
+        ("birds fly softly", False, False),
+    ],
+)
+def test_native_asr_gap_needs_two_matching_crops_and_phonetic_support(
+    monkeypatch, second_view, has_phonetic_support, restored
+):
+    starts = (1, 2, 3, 14, 15, 16)
+    raw = _raw(BASELINE, [(start, start + 0.4) for start in starts])
+    samples = np.full(18 * 16_000, 0.1, dtype=np.float32)
+    phrase = "birds fly softly"
+    evidence = [(word, start, 0.95) for word, start in zip(phrase.split(), (6, 7, 8))]
+    scores = _scores(evidence if has_phonetic_support else [], duration=18)
+    crops = iter([phrase, second_view])
+
+    def decode(*_args, **_kwargs):
+        return _raw(next(crops), [(start - 0.4, start) for start in (6, 7, 8)])
+
+    def aligned(_audio, _backing, _scores, _step, words, _lyrics, *_other):
+        return SimpleNamespace(run=lambda *_args: {"words": [{"text": word} for word in words]})
+
+    monkeypatch.setattr(speech, "read_mono", lambda *_args: samples)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_a, **_k: (scores, 0.02, []))
+    monkeypatch.setattr(speech, "_accelerated_guidance", decode)
+    monkeypatch.setattr(speech, "_AlignmentPass", aligned)
+
+    result = speech.align(
+        Path("vocal.wav"),
+        BASELINE,
+        "English",
+        instrumental=Path("backing.wav"),
+        recognition=dict(raw, sourceId="vocal"),
+        asr_lyrics=True,
+    )
+    expected = BASELINE.replace("\n", f"\n{phrase}\n") if restored else BASELINE
+    assert result["lyrics"] == expected
+    assert [word["text"] for word in result["words"]] == expected.split()
+
+
+@pytest.mark.parametrize(
     "recovered",
     [
         BASELINE,
