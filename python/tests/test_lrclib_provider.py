@@ -90,6 +90,23 @@ def test_phrase_matching_reuses_exact_comparisons_after_discarding_unverified_ta
     assert len(calls) == len(set(calls))
 
 
+@pytest.mark.parametrize(
+    ("written", "heard"),
+    [
+        ("a" * 53 + "b" * 51, "b" * 51 + "a" * 53),
+        ("а" * 56 + "б" * 56, "б" * 56 + "а" * 56),
+        ("thisisrepeated" * 11, "nthisisrepeated" * 8),
+        ("тихасонячнаніч" * 6, "цянічнескінченна" * 7),
+    ],
+)
+def test_long_phrase_matching_keeps_difflib_boundaries_and_ties(written, heard):
+    from difflib import SequenceMatcher
+    from backend.lyrics.phrases import _LongPhraseMatcher
+
+    expected = SequenceMatcher(None, written, heard, autojunk=False).get_matching_blocks()
+    assert _LongPhraseMatcher(written, heard).get_matching_blocks() == expected
+
+
 def test_catalog_version_follows_performed_repeats_instead_of_only_duration() -> None:
     verse = ["Первый куплет звучит здесь", "Второй куплет звучит дальше"]
     chorus = "Этот припев звучит опять"

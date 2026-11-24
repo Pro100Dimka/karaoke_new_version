@@ -4,7 +4,7 @@ import math
 import threading
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
-from difflib import SequenceMatcher
+from difflib import Match, SequenceMatcher
 from functools import cache
 from typing import Sequence
 
@@ -12,6 +12,9 @@ from backend.domain_errors import ConflictError
 from backend.lyrics.catalogue_versions import corroborated_versions
 from backend.lyrics.ports import LyricsCandidate
 from backend.text_normalization import clean_lyrics
+
+
+_LONG_PHRASE_LENGTH = 48
 
 
 def _lyrics_key(text: str) -> str:
@@ -225,6 +228,41 @@ def _performed_lines(
     return max(states[-1].values(), key=lambda item: item[0])[1]
 
 
+class _LongPhraseMatcher(SequenceMatcher[str]):
+    """Find exact matching blocks without the Python character-pair loop on long phrases."""
+
+    a: str
+    b: str
+
+    def __init__(self, written: str, heard: str) -> None:
+        super().__init__(None, written, heard, autojunk=False)
+
+    def find_longest_match(
+        self, alo: int = 0, ahi: int | None = None, blo: int = 0, bhi: int | None = None
+    ) -> Match:
+        a, b = self.a, self.b
+        ahi = len(a) if ahi is None else ahi
+        bhi = len(b) if bhi is None else bhi
+        limit = min(ahi - alo, bhi - blo)
+        if limit < _LONG_PHRASE_LENGTH:
+            return super().find_longest_match(alo, ahi, blo, bhi)
+        best = Match(alo, blo, 0)
+        low, high = 1, limit
+        # A shared substring of length n guarantees that each shorter length is
+        # possible. Scanning starts in order retains difflib's tie breaking.
+        while low <= high:
+            size = (low + high) // 2
+            for first in range(alo, ahi - size + 1):
+                second = b.find(a[first : first + size], blo, bhi)
+                if second >= 0:
+                    best = Match(first, second, size)
+                    low = size + 1
+                    break
+            else:
+                high = size - 1
+        return best
+
+
 def _line_matches(key: str, heard: list[str], start: int) -> Iterator[tuple[int, int]]:
     joined = ""
     remaining = Counter(key)
@@ -244,7 +282,11 @@ def _line_matches(key: str, heard: list[str], start: int) -> Iterator[tuple[int,
         # Construct the sequence matcher only when a positive score is still possible.
         if 2 * shared <= max(len(key), len(joined)):
             continue
-        matcher = SequenceMatcher(None, key, joined, autojunk=False)
+        matcher = (
+            _LongPhraseMatcher(key, joined)
+            if min(len(key), len(joined)) >= _LONG_PHRASE_LENGTH
+            else SequenceMatcher(None, key, joined, autojunk=False)
+        )
         blocks = [block for block in matcher.get_matching_blocks() if block.size]
         if not blocks or blocks[0].b >= len(heard[start]):
             continue
