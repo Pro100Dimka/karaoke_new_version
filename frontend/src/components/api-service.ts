@@ -4,6 +4,7 @@ import {
   infiniteQueryOptions,
   queryOptions,
   type QueryClient,
+  type Query,
   type InfiniteData,
 } from '@tanstack/react-query';
 import { array, parse } from 'valibot';
@@ -23,12 +24,49 @@ import {
 import { readJobSnapshot } from '../services/jobSnapshot';
 import { mapJob } from '../services/pythonMappers';
 
-export const refreshSongs = async (client: QueryClient) => {
-  await client.cancelQueries({ queryKey: ['songs'] });
-  await Promise.all([
-    client.invalidateQueries({ queryKey: ['songs'] }),
-    client.invalidateQueries({ queryKey: ['song-summary'] }),
-  ]);
+const pendingSongRefreshes = new WeakMap<
+  QueryClient,
+  { queries: Set<Query>; result: Promise<void> }
+>();
+
+/** Keep one read in flight; changes during it require one trailing read, not cancellation. */
+export const refreshSongs = (client: QueryClient): Promise<void> => {
+  const pending = pendingSongRefreshes.get(client) ?? {
+    queries: new Set<Query>(),
+    result: Promise.resolve(),
+  };
+  for (const queryKey of [['songs'], ['song-summary']]) {
+    void client.invalidateQueries({ queryKey, refetchType: 'none' });
+    for (const query of client
+      .getQueryCache()
+      .findAll({ queryKey, type: 'active' }))
+      pending.queries.add(query);
+  }
+  if (pendingSongRefreshes.has(client)) return pending.result;
+  pending.result = Promise.resolve().then(async () => {
+    try {
+      while (pending.queries.size) {
+        const batch = new Set(pending.queries);
+        pending.queries.clear();
+        // A read started before this change may still return the previous revision.
+        for (const query of batch)
+          if (
+            query.isActive() &&
+            client.getQueryCache().get(query.queryHash) === query &&
+            query.state.fetchStatus === 'fetching'
+          )
+            pending.queries.add(query);
+        await client.refetchQueries(
+          { type: 'active', predicate: (query) => batch.has(query) },
+          { cancelRefetch: false },
+        );
+      }
+    } finally {
+      pendingSongRefreshes.delete(client);
+    }
+  });
+  pendingSongRefreshes.set(client, pending);
+  return pending.result;
 };
 
 export type SongPage = Awaited<ReturnType<typeof pythonClient.searchSongs>>;
@@ -123,7 +161,17 @@ export const importSong = async (
         );
       },
     });
-    await client.cancelQueries({ queryKey: ['songs'] });
+    // Let pre-import reads finish before inserting into their complete catalog.
+    // Cancelling the query would abandon HTTP work; the pending card stays visible.
+    await Promise.all(
+      client
+        .getQueryCache()
+        .findAll({
+          queryKey: ['songs'],
+          predicate: ({ queryKey }) => queryKey[2] === null,
+        })
+        .map((query) => query.promise?.catch(() => undefined)),
+    );
     client.setQueriesData<InfiniteData<SongPage>>(
       {
         queryKey: ['songs'],

@@ -374,14 +374,14 @@ it('reuses recent searches, invalidates changes and expires unused results', asy
   await act(() => vi.advanceTimersByTimeAsync(1));
   for (const query of ['Adele', '', 'Adele', '']) {
     rerender({ query });
-    await act(() => vi.advanceTimersByTimeAsync(1));
+    await act(() => vi.advanceTimersByTimeAsync(201));
   }
   expect(pythonClient.searchSongs).toHaveBeenCalledTimes(2);
   act(() => libraryChanged());
   await act(() => vi.advanceTimersByTimeAsync(1));
   expect(pythonClient.searchSongs).toHaveBeenCalledTimes(3);
   rerender({ query: 'Adele' });
-  await act(() => vi.advanceTimersByTimeAsync(1));
+  await act(() => vi.advanceTimersByTimeAsync(201));
   expect(pythonClient.searchSongs).toHaveBeenCalledTimes(4);
   await act(() => vi.advanceTimersByTimeAsync(30_001));
   expect(
