@@ -49,8 +49,8 @@ def test_package_export_cancellation_respects_archive_publication(
         elif cancel_at in {"validation", "replace-existing"}:
             validate = zip_archive._validate_built_archive
 
-            def blocked_validation(path):
-                validate(path)
+            def blocked_validation(path, progress=None):
+                validate(path, progress)
                 pause()
 
             monkeypatch.setattr(zip_archive, "_validate_built_archive", blocked_validation)

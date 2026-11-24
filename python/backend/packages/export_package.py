@@ -6,7 +6,7 @@ from typing import Callable
 from backend.history.domain import HistoryEvent
 from backend.packages.codec import encode_manifest
 from backend.packages.domain import PackageArtifact, PackageManifest, PackageSongIdentity
-from backend.packages.ports import PackageArchive, PackageOutputStorage
+from backend.packages.ports import PackageArchive, PackageFileHasher, PackageOutputStorage
 from backend.packages.snapshot_package import SnapshotPackage, custom_cover_path
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.domain import ArtifactCategory, ProjectManifest, ProjectRevision
@@ -14,7 +14,6 @@ from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.runtime import Clock, IdGenerator
 from backend.songs.domain import Song
 from backend.songs.prepare_clip import LOCAL_CLIP
-from backend.songs.ports import FileHasher
 from backend.storage.ports import WorkStorage
 from backend.version import PACKAGE_FORMAT_VERSION
 
@@ -28,7 +27,7 @@ class ExportPackage:
         outputs: PackageOutputStorage,
         workspaces: WorkStorage,
         operations: SongOperationRegistry,
-        hasher: FileHasher,
+        hasher: PackageFileHasher,
         clock: Clock,
         ids: IdGenerator,
     ) -> None:
@@ -54,10 +53,12 @@ class ExportPackage:
             workspace = self._workspaces.allocate(f"export-{song_id}")
             try:
                 song, revision_meta, project, snapshot = self._snapshot.execute(
-                    song_id, revision, workspace
+                    song_id, revision, workspace, ensure_not_cancelled=ensure_not_cancelled
                 )
                 ensure_not_cancelled()
-                package, files = self._package(song, revision_meta, project, snapshot)
+                package, files = self._package(
+                    song, revision_meta, project, snapshot, ensure_not_cancelled
+                )
                 ensure_not_cancelled()
                 output = self._outputs.path_for_export(song_id, revision_meta.revision)
                 self._archive.build(
@@ -77,17 +78,22 @@ class ExportPackage:
         revision: ProjectRevision,
         project: ProjectManifest,
         snapshot: Path,
+        ensure_not_cancelled: Callable[[], None],
     ) -> tuple[PackageManifest, dict[PurePosixPath, Path]]:
-        files, artifacts = self._project_files(project, snapshot)
+        files, artifacts = self._project_files(project, snapshot, ensure_not_cancelled)
         local_clip = snapshot / "media/clip.mp4"
         if song.video_url == LOCAL_CLIP and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip
-            artifacts.append(PackageArtifact(relative, self._hasher(local_clip)))
+            artifacts.append(
+                PackageArtifact(relative, self._hasher(local_clip, ensure_not_cancelled))
+            )
         cover = custom_cover_path(song)
         if cover is not None:
             files[cover] = snapshot.joinpath(*cover.parts)
-            artifacts.append(PackageArtifact(cover, self._hasher(files[cover])))
+            artifacts.append(
+                PackageArtifact(cover, self._hasher(files[cover], ensure_not_cancelled))
+            )
         identity = _song_identity(song)
         return (
             PackageManifest(
@@ -103,18 +109,23 @@ class ExportPackage:
         )
 
     def _project_files(
-        self, project: ProjectManifest, snapshot: Path
+        self,
+        project: ProjectManifest,
+        snapshot: Path,
+        ensure_not_cancelled: Callable[[], None],
     ) -> tuple[dict[PurePosixPath, Path], list[PackageArtifact]]:
         manifest_path = PurePosixPath("manifest.json")
         files = {manifest_path: snapshot / "manifest.json"}
-        artifacts = [PackageArtifact(manifest_path, self._hasher(files[manifest_path]))]
+        artifacts = [
+            PackageArtifact(manifest_path, self._hasher(files[manifest_path], ensure_not_cancelled))
+        ]
         for artifact in project.artifacts:
             if artifact.category is not ArtifactCategory.PORTABLE:
                 continue
             relative = PurePosixPath(artifact.relative_path.as_posix())
             source = snapshot / artifact.relative_path
             files[relative] = source
-            artifacts.append(PackageArtifact(relative, self._hasher(source)))
+            artifacts.append(PackageArtifact(relative, self._hasher(source, ensure_not_cancelled)))
         return files, artifacts
 
     def _record(self, song_id: str) -> None:

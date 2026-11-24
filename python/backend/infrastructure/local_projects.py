@@ -3,7 +3,8 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from functools import partial
 from pathlib import Path
 
 from backend.domain_errors import ConflictError, DependencyError, NotFoundError
@@ -148,7 +149,10 @@ class LocalProjectStorage:
         *,
         supplemental_files: Mapping[Path, Path] | None = None,
         portable_only: bool = False,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> Path:
+        if ensure_not_cancelled:
+            ensure_not_cancelled()
         source = self._revision_root(song_id, revision)
         if not source.is_dir():
             raise NotFoundError("ProjectInvalid", "Project revision does not exist")
@@ -164,12 +168,12 @@ class LocalProjectStorage:
             )
             target.mkdir(parents=True)
         else:
-            shutil.copytree(source, target)
+            _copy_snapshot_tree(source, target, ensure_not_cancelled)
         files.update(supplemental_files or {})
         for relative, source_file in files.items():
             snapshot_file = target / relative
             snapshot_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source_file, snapshot_file)
+            _copy_snapshot_file(source_file, snapshot_file, ensure_not_cancelled)
         return target
 
     def revision_exists(self, song_id: str, revision: int) -> bool:
@@ -229,3 +233,41 @@ def _link_or_copy(source: str, target: str) -> None:
     except OSError:
         # A file system without hard links (FAT/exFAT) still gets a full copy.
         shutil.copy2(source, target)
+
+
+def _copy_snapshot_file(
+    source: Path, target: Path, ensure_not_cancelled: Callable[[], None] | None
+) -> None:
+    if ensure_not_cancelled is None:
+        shutil.copyfile(source, target)
+        return
+    ensure_not_cancelled()
+    with source.open("rb") as original, target.open("wb") as snapshot:
+        buffer = bytearray(1024 * 1024)
+        view = memoryview(buffer)
+        while True:
+            ensure_not_cancelled()
+            count = original.readinto(buffer)
+            if not count:
+                break
+            snapshot.write(view[:count])
+    ensure_not_cancelled()
+
+
+def _copy_snapshot_tree(
+    source: Path, target: Path, ensure_not_cancelled: Callable[[], None] | None
+) -> None:
+    copy = (
+        shutil.copy2
+        if ensure_not_cancelled is None
+        else partial(_copy_snapshot_metadata, ensure_not_cancelled=ensure_not_cancelled)
+    )
+    shutil.copytree(source, target, copy_function=copy)
+
+
+def _copy_snapshot_metadata(
+    source: str, target: str, *, ensure_not_cancelled: Callable[[], None]
+) -> str:
+    _copy_snapshot_file(Path(source), Path(target), ensure_not_cancelled)
+    shutil.copystat(source, target)
+    return target
