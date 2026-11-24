@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     ) => void
   >(),
   stopService: vi.fn(),
+  flushWindowState: vi.fn(async () => undefined),
   quit: vi.fn(),
   relaunch: vi.fn(),
   gpuSwitch: vi.fn(),
@@ -217,6 +218,7 @@ vi.mock('../electron/SceneProtocol', () => ({
 vi.mock('../electron/WindowState', () => ({
   loadWindowState: () => ({ width: 1280, height: 720 }),
   saveWindowState: vi.fn(),
+  flushWindowState: mocks.flushWindowState,
 }));
 vi.mock('../electron/AudioServiceTransport', () => ({
   sendAudioRequest: mocks.sendAudioRequest,

@@ -189,7 +189,11 @@ class LocalProjectStorage:
         shutil.rmtree(self._revision_root(song_id, revision), ignore_errors=True)
 
     def install_revision_artifact(
-        self, song_id: str, revision: int, relative_path: Path, source: Path,
+        self,
+        song_id: str,
+        revision: int,
+        relative_path: Path,
+        source: Path,
         *,
         publish: Callable[[Path, Path], None] | None = None,
         ensure_not_cancelled: Callable[[], None] | None = None,

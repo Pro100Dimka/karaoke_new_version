@@ -99,6 +99,7 @@ it.each([
     window.removeAllListeners();
     contents.removeAllListeners();
     mocks.stopService.mockReset();
+    mocks.flushWindowState.mockClear();
     mocks.quit.mockClear();
     mocks.relaunch.mockClear();
     await import('./main');
@@ -139,6 +140,7 @@ it.each([
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(typeof mocks.stopService.mock.calls[0]?.[0]).toBe('function');
     expect(mocks.quit).not.toHaveBeenCalled();
+    expect(mocks.flushWindowState).not.toHaveBeenCalled();
     // No AudioService executable was launched by this instance in this fixture.
     expect(mocks.sendAudioRequest).not.toHaveBeenCalledWith(
       expect.objectContaining({ command: 'ShutdownService' }),
@@ -170,5 +172,9 @@ it.each([
     } else expect(mocks.relaunch).not.toHaveBeenCalled();
     finish();
     await vi.waitFor(() => expect(mocks.quit).toHaveBeenCalledOnce());
+    expect(mocks.flushWindowState).toHaveBeenCalledOnce();
+    expect(mocks.flushWindowState.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.quit.mock.invocationCallOrder[0]!,
+    );
   },
 );

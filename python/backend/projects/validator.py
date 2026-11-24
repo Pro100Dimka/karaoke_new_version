@@ -93,7 +93,11 @@ class ProjectValidator:
             _validate_relative_path(artifact)
 
     def _validate_file(
-        self, path: Path, artifact: ProjectArtifact, *, reuse_audio: bool = False,
+        self,
+        path: Path,
+        artifact: ProjectArtifact,
+        *,
+        reuse_audio: bool = False,
         hasher: FileHasher | None = None,
     ) -> None:
         if not path.is_file():

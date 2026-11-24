@@ -61,7 +61,7 @@ class PackageProjectPublication:
         published = False
         try:
             project = self._prepare_project(
-                archive_path, inspection, song_id, workspace, ensure_not_cancelled,
+                archive_path, inspection, song_id, workspace, ensure_not_cancelled
             )
             cover = self._install_cover(inspection, workspace, install_cover)
             if ensure_not_cancelled:
@@ -71,11 +71,7 @@ class PackageProjectPublication:
                 RecoveryOperation.PACKAGE_IMPORT,
                 {"songId": song_id, "revision": project.revision},
             )
-            self._projects.publish_revision(
-                song_id,
-                project.revision,
-                workspace,
-            )
+            self._projects.publish_revision(song_id, project.revision, workspace)
             published = True
             return PublishedPackageProject(
                 entry,
@@ -105,7 +101,9 @@ class PackageProjectPublication:
         project = self._local_project(project, inspection, song_id, workspace)
         project = self._upgrade_if_supported(inspection, project, workspace)
         self._validator.validate_working(
-            project, workspace, require_ready=True,
+            project,
+            workspace,
+            require_ready=True,
             hasher=lambda path: self._hasher(path, ensure_not_cancelled),
             ensure_not_cancelled=ensure_not_cancelled,
         )
@@ -119,7 +117,8 @@ class PackageProjectPublication:
         ensure_not_cancelled: Callable[[], None] | None,
     ) -> None:
         self._archive.extract(
-            archive_path, workspace,
+            archive_path,
+            workspace,
             progress=(lambda _: ensure_not_cancelled()) if ensure_not_cancelled else None,
         )
         self._verify_artifacts(inspection, workspace, ensure_not_cancelled)

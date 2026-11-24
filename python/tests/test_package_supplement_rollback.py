@@ -16,7 +16,14 @@ import backend.infrastructure.song_media_updates as media_storage
 from backend.domain_errors import ConflictError, DomainError
 from backend.infrastructure.sql_songs import SqlSongRepository
 from tests.test_package_covers import (
-    INCOMING_COVER, LOCAL_COVER, SONG_ID, _files, _import, _package, _song, _write_zip,
+    INCOMING_COVER,
+    LOCAL_COVER,
+    SONG_ID,
+    _files,
+    _import,
+    _package,
+    _song,
+    _write_zip,
 )
 
 pytestmark = pytest.mark.integration
@@ -57,7 +64,9 @@ def _assert_clean(client, target):
     assert not list(roots.temp.glob(f"supplement-{SONG_ID}-*"))
     assert not list(target.parent.glob("*.backup"))
     assert not target.with_name(".clip.mp4.importing").exists()
-    assert not client.app.state.container.packages.start_import._import._publication._journal.entries()
+    assert (
+        not client.app.state.container.packages.start_import._import._publication._journal.entries()
+    )
 
 
 def _assert_retained(client, target, before, old):
@@ -77,9 +86,7 @@ def _cancelled():
 
 @pytest.mark.parametrize("old", [None, _OLD], ids=["missing-clip", "existing-clip"])
 @pytest.mark.parametrize("failure", ["cancellation", "database"])
-def test_supplement_rolls_back_clip_after_publication(
-    client, tmp_path, monkeypatch, old, failure
-):
+def test_supplement_rolls_back_clip_after_publication(client, tmp_path, monkeypatch, old, failure):
     importer, package, target, before = _prepare(client, tmp_path, old)
     storage = importer._publication._projects
     install = storage.install_revision_artifact
@@ -97,6 +104,7 @@ def test_supplement_rolls_back_clip_after_publication(
 
     monkeypatch.setattr(storage, "install_revision_artifact", observe_install)
     if failure == "database":
+
         def reject_update(*_args):
             raise SQLAlchemyError("Simulated supplement catalog failure")
 
@@ -104,7 +112,9 @@ def test_supplement_rolls_back_clip_after_publication(
     with pytest.raises(DomainError) as error:
         importer.execute(package, ensure_not_cancelled=checkpoint)
     assert installed
-    assert error.value.code == ("JobCancelled" if failure == "cancellation" else "DatabaseReadFailed")
+    assert error.value.code == (
+        "JobCancelled" if failure == "cancellation" else "DatabaseReadFailed"
+    )
     _assert_retained(client, target, before, old)
 
 
@@ -206,9 +216,7 @@ def test_successful_supplement_links_old_clip_and_reuses_one_incoming_buffer(
 
 
 @pytest.mark.parametrize("stage", ["incoming-copy", "backup-copy"])
-def test_supplement_copy_cancellation_stops_before_next_chunk(
-    client, tmp_path, monkeypatch, stage
-):
+def test_supplement_copy_cancellation_stops_before_next_chunk(client, tmp_path, monkeypatch, stage):
     old = _LARGE if stage == "backup-copy" else _OLD
     incoming = _LARGE if stage == "incoming-copy" else _NEW
     importer, package, target, before = _prepare(client, tmp_path, old, incoming)

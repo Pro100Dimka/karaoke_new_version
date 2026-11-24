@@ -29,7 +29,9 @@ def _large_package(root: Path, *, cover: bytes | None = None) -> Path:
         project,
         artifacts=(
             ProjectArtifact(
-                "large", Path(_LARGE_PATH), ArtifactCategory.PORTABLE,
+                "large",
+                Path(_LARGE_PATH),
+                ArtifactCategory.PORTABLE,
                 hashlib.sha256(_CONTENTS).hexdigest(),
             ),
             *project.artifacts,
@@ -145,11 +147,17 @@ def test_import_cancels_within_a_large_artifact_before_publication(
         working.mkdir()
         (working / "unchanged.bin").write_bytes(b"independent")
         manifest = ProjectManifest(
-            PROJECT_FORMAT_VERSION, "independent", 1,
-            (ProjectArtifact(
-                "unchanged", Path("unchanged.bin"), ArtifactCategory.PORTABLE,
-                hashlib.sha256(b"independent").hexdigest(),
-            ),),
+            PROJECT_FORMAT_VERSION,
+            "independent",
+            1,
+            (
+                ProjectArtifact(
+                    "unchanged",
+                    Path("unchanged.bin"),
+                    ArtifactCategory.PORTABLE,
+                    hashlib.sha256(b"independent").hexdigest(),
+                ),
+            ),
             {},
         )
         publication._validator.validate_working(manifest, working, require_ready=False)
