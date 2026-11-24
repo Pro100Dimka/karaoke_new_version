@@ -7,7 +7,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from backend.ai.catalog import ALIGNMENT_MODEL, CATALOG, SPEECH_MODEL
+from backend.ai.catalog import ALIGNMENT_MODEL, CATALOG, NOTE_MODEL, SPEECH_MODEL
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.ai.ports import AiProvider
 from backend.bootstrap.config import BackendConfig
@@ -60,6 +60,8 @@ def _worker_libraries_installed() -> bool:
             "whisper",
             "faster_whisper",
             "torchcrepe",
+            "nnAudio",
+            "wquantiles",
             "uroman",
         )
     )
@@ -82,10 +84,11 @@ def _command_provider(
         weights = (
             Path(crepe.origin).parent / "assets" / "full.pth" if crepe and crepe.origin else None
         )
-        pitch_bytes = weights.stat().st_size if weights and weights.is_file() else 0
-        # Admission floors, not peak predictions: Whisper loads fp16 weights alongside its fp32
-        # model; MMS loads an fp32 state dict alongside its model. Pitch can overlap alignment.
-        # Activations, decoded audio and CUDA workspaces still depend on the input/runtime.
+        pitch_bytes = (
+            weights.stat().st_size if weights and weights.is_file() else 0
+        ) + NOTE_MODEL.size
+        # Admission floors include concurrent speech/alignment weights and both pitch models.
+        # Activations, decoded audio and CUDA workspaces depend on the input/runtime.
         resources.update(
             ramBytes=max(3 * SPEECH_MODEL.size, 2 * ALIGNMENT_MODEL.size) + 2 * pitch_bytes,
             vramBytes=max(SPEECH_MODEL.size, ALIGNMENT_MODEL.size) + pitch_bytes,

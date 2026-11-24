@@ -56,6 +56,8 @@ class PitchPoint:
     # Independent vocal-track loudness evidence; None for providers without an audio envelope.
     # Audible backing bleed/reverb can also be active, so this does not certify sung voice.
     audio_active: bool | None = None
+    # Musical note measured independently of the frame's instantaneous vocal pitch; 0 is a rest.
+    melody_note: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

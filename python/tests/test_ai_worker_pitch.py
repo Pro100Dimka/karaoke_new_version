@@ -37,6 +37,7 @@ def test_short_pitch_bursts_need_acoustic_periodicity(monkeypatch, kind, duratio
         ),
     )
 
+    monkeypatch.setattr(worker, "melody_labels", lambda *_: None)
     points = worker.pitch(Path("release.wav"))["points"]
     active = [point for point in points if point["audioActive"]]
     assert active
@@ -146,6 +147,7 @@ def test_pitch_uses_the_supported_octave_with_a_missing_fundamental(
         ),
     )
 
+    monkeypatch.setattr(worker, "melody_labels", lambda *_: None)
     points = worker.pitch(Path("vocal.wav"))["points"]
 
     assert all(point["frequency"] == expected for point in points[25:75])
@@ -202,6 +204,7 @@ def test_skipping_silent_pitch_batches_keeps_quiet_entries_and_decoder_context(m
         worker.torchcrepe.preprocess(torch.from_numpy(samples)[None], 16000, 160, batch)
     )
 
+    monkeypatch.setattr(worker, "melody_labels", lambda *_: None)
     points = worker.pitch(Path("quiet-entry.wav"))["points"]
 
     assert len(inferred) == 2, "only the two batches around this quiet entry need inference"

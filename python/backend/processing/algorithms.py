@@ -163,6 +163,24 @@ def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -
     if not points:
         return ()
     step = _pitch_step(points)
+    if any(point.melody_note is not None for point in points):
+        return tuple(
+            _merged_repeats(
+                [
+                    Note(
+                        point.melody_note,
+                        max(start, point.time),
+                        min(
+                            end,
+                            point.time + step,
+                            points[index + 1].time if index + 1 < len(points) else end,
+                        ),
+                    )
+                    for index, point in enumerate(points)
+                    if point.melody_note and point.time < end and point.time + step > start
+                ]
+            )
+        )
     return tuple(
         note
         for run in _pitch_runs(points, step)

@@ -15,6 +15,7 @@ import torchcrepe
 
 from backend.ai_worker.audio_io import read_mono
 from backend.ai_worker.runtime import device
+from backend.ai_worker.phoneme_notes import melody_labels
 from backend.ai_worker.timing import _BRIDGED_GAP_SECONDS, _runs, audible_frames
 
 _SAMPLE_RATE = 16_000
@@ -110,6 +111,7 @@ def _pitch_points(
     periodicity: torch.Tensor,
     step: float,
     active: np.ndarray | None = None,
+    melody: np.ndarray | None = None,
 ) -> list[dict[str, float | bool]]:
     # A scalar read from a CUDA tensor synchronizes the device. Transfer each
     # result once so long songs do not perform tens of thousands of GPU syncs.
@@ -121,6 +123,7 @@ def _pitch_points(
             "frequency": round(float(value), 2),
             "confidence": round(float(confidences[index]), 3),
             **({"audioActive": bool(active[index])} if active is not None else {}),
+            **({"melodyNote": int(melody[index])} if melody is not None else {}),
         }
         for index, value in enumerate(frequencies)
     ]
@@ -284,4 +287,5 @@ def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
     frequency = _correct_octave(samples, frequency, periodicity, active)
     periodicity = _acoustic_pitch_support(samples, frequency, periodicity, active)
     step = _HOP_SAMPLES / _SAMPLE_RATE
-    return {"points": _pitch_points(frequency, periodicity, step, active)}
+    melody = melody_labels(samples, frequency, periodicity, active, target)
+    return {"points": _pitch_points(frequency, periodicity, step, active, melody)}

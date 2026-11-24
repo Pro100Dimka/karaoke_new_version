@@ -44,6 +44,7 @@ def test_full_pitch_model_keeps_sung_notes_with_less_than_half_the_cuda_working_
     torch.cuda.reset_peak_memory_stats()
     monkeypatch.setattr(pitch_worker, "read_mono", lambda *_: samples)
     monkeypatch.setattr(pitch_worker, "device", lambda: "cuda")
+    monkeypatch.setattr(pitch_worker, "melody_labels", lambda *_: None)
     result = pitch_worker.pitch(None)["points"]
     assert torch.cuda.max_memory_allocated() < baseline_peak * 0.5
     frequencies = np.array([point["frequency"] for point in result])
@@ -550,6 +551,39 @@ def test_a_point_on_the_last_instant_of_a_word_never_yields_an_empty_note(end) -
     assert all(note.end - note.start > 1e-8 for note in document.words[0].notes)
 
 
+def test_measured_note_events_preserve_the_vocal_contour_without_requantizing_it():
+    points = tuple(
+        decode_pitch(
+            {
+                "time": i / 100,
+                "frequency": 440 * 2 ** (2 * math.sin(i / 4) / 12),
+                "confidence": 0.9,
+                "audioActive": True,
+                "melodyNote": 69 if i < 40 else 72 if i < 80 else 0,
+            }
+        )
+        for i in range(100)
+    )
+    document = construct_document(
+        "t", "a", 1, "la", [WordTiming("la", 0, 1, 1)], stabilize_pitch(points), _music()
+    )
+    assert [(n.note, n.start, n.end) for n in document.words[0].notes] == [
+        (69, 0, pytest.approx(0.4)),
+        (72, 0.4, pytest.approx(0.8)),
+    ]
+    assert document.words[0].notes[0].pitch_at(0.1) == pytest.approx(69 + 2 * math.sin(10 / 4))
+
+
+def test_adjacent_measured_events_share_one_exact_time_boundary():
+    points = [PitchPoint(t, 440, 0.9, True, 0) for t in (0, 0.01, 0.02)]
+    points += [PitchPoint(102.29, 440, 0.9, True, 69), PitchPoint(102.3, 523.25, 0.9, True, 72)]
+    document = construct_document(
+        "t", "a", 103, "la", [WordTiming("la", 102, 103, 1)], points, _music()
+    )
+    left, right = document.words[0].notes
+    assert left.end == right.start == 102.3
+
+
 def test_unobserved_pitch_gap_and_word_tail_do_not_become_a_required_held_note() -> None:
     points = _pitch([i / 100 for i in range(20)], _A4) + _pitch(
         [i / 100 for i in range(80, 100)], _A4
@@ -582,6 +616,7 @@ def _audio_evidenced_points(monkeypatch, *, silent: bool) -> tuple[PitchPoint, .
         pitch_worker, "_predict_active", lambda *_args, **_kwargs: (frequency, confidence)
     )
     monkeypatch.setattr(pitch_worker.torchcrepe.filter, "median", lambda value, _: value)
+    monkeypatch.setattr(pitch_worker, "melody_labels", lambda *_: None)
     return tuple(decode_pitch(point) for point in pitch_worker.pitch(None)["points"])
 
 

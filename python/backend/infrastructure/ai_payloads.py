@@ -105,11 +105,17 @@ def _pitch(value: JsonValue) -> PitchPoint:
     if not isinstance(value, dict):
         raise DependencyError("AiProviderInvalidOutput", "Pitch item is malformed")
     active = value.get("audioActive")
+    melody = value.get("melodyNote")
+    if melody is not None and (
+        isinstance(melody, bool) or not isinstance(melody, int) or not 0 <= melody <= 127
+    ):
+        raise DependencyError("AiProviderInvalidOutput", "Musical note is malformed")
     return PitchPoint(
         _number(value, "time"),
         _number(value, "frequency"),
         _number(value, "confidence"),
         active if isinstance(active, bool) else None,
+        melody,
     )
 
 

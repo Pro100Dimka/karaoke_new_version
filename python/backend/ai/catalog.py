@@ -54,4 +54,18 @@ ALIGNMENT_MODEL = ModelSpec(
     download_url="https://dl.fbaipublicfiles.com/mms/torchaudio/ctc_alignment_mling_uroman/model.pt",
 )
 
-CATALOG: tuple[ModelSpec, ...] = (SEPARATION_MODEL, SPEECH_MODEL, ALIGNMENT_MODEL)
+# Phoneme-informed note onsets, offsets and sung activity (MIT-licensed checkpoint).
+NOTE_MODEL = ModelSpec(
+    model_id="phoneme-note-boundaries",
+    purpose=AiCapability.PITCH,
+    version="b2fcd9ea",
+    size=106_129_108,
+    checksum="e56d1c7438f10afb61bbfe54a856a0355d4556fca6038dc67567fe68930ade17",
+    download_url=(
+        "https://media.githubusercontent.com/media/seyong92/"
+        "phoneme-informed-note-level-singing-transcription/"
+        "b2fcd9ea0f7898a8989c7e65781052d1ffc81094/checkpoints/model.pt"
+    ),
+)
+
+CATALOG: tuple[ModelSpec, ...] = (SEPARATION_MODEL, SPEECH_MODEL, ALIGNMENT_MODEL, NOTE_MODEL)
