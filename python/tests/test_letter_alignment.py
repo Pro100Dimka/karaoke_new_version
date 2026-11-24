@@ -2507,6 +2507,18 @@ def test_ukrainian_held_y_vowel_has_phonetic_support(context, sound, review):
     assert (result[1].start, result[1].end) == (1, 2.2)
 
 
+@pytest.mark.parametrize(("ending", "review"), [("ь", False), ("!", False), ("с", True)])
+def test_clipping_a_silent_ending_keeps_measured_sound_anchors(ending, review):
+    original = AlignedWord("тут" + ending, 1, 2, (1, 1.1, 1.6, 2), 0.8)
+    following = AlignedWord("ми", 1.9, 2.5, (1.9, 2), 0.8)
+
+    result = ordered([original, following])[0]
+
+    assert result.letters[:3] == original.letters[:3]
+    assert result.end == 1.9
+    assert ("ApproximateLetterTiming" in result.diagnostics) is review
+
+
 def test_ordered_still_trusts_a_plausible_short_hold() -> None:
     # A genuine held note well under the per-character ceiling is left as the model actually heard it.
     words = [AlignedWord("тюрьма", 12.35, 13.37, (12.35, 12.374, 12.454, 12.534, 12.585, 12.635))]

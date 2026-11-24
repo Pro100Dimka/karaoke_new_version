@@ -107,6 +107,16 @@ def _clips_letter_anchor(word: AlignedWord, end: float) -> bool:
     )
 
 
+def _sounding_letters_changed(word: AlignedWord, letters: Sequence[float]) -> bool:
+    if len(word.letters) != len(word.text) or len(letters) != len(word.text):
+        return tuple(letters) != tuple(word.letters)
+    return any(
+        round(before, 3) != round(after, 3)
+        for char, before, after in zip(word.text, word.letters, letters, strict=True)
+        if char.isalnum() and char.casefold() not in "ьъ"
+    )
+
+
 def _ordering_diagnostics(
     word: AlignedWord, start: float, end: float, letters: tuple[float, ...]
 ) -> tuple[str, ...]:
@@ -127,7 +137,7 @@ def _ordering_diagnostics(
                 *(("BoundaryConflict",) if conflict else ()),
                 *(
                     ("ApproximateLetterTiming", "LetterTimingReviewRequired")
-                    if letters != tuple(round(moment, 3) for moment in word.letters)
+                    if _sounding_letters_changed(word, letters)
                     or _tied_sounding_letters(word.text, letters)
                     else ()
                 ),

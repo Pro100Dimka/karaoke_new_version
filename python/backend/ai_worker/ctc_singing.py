@@ -32,6 +32,7 @@ from backend.ai_worker.ctc_domain import (
 )
 from backend.ai_worker.ctc_bounds import (
     _clamped_letters as _clamped_letters,
+    _sounding_letters_changed,
 )
 
 
@@ -69,7 +70,7 @@ def with_sung_ends(
         if end < word.end:
             letters = _clamped_letters(word.letters, 0.0, word.start, end, text=word.text)
         flags = dict.fromkeys(word.diagnostics)
-        if letters != word.letters:
+        if _sounding_letters_changed(word, letters):
             flags.update(ApproximateLetterTiming=None, LetterTimingReviewRequired=None)
         end = round(max(end, word.start + 0.001), 3)
         result.append(replace(word, end=end, letters=letters, diagnostics=tuple(flags)))
