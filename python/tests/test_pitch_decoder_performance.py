@@ -9,10 +9,21 @@ import torchcrepe
 pitch = importlib.import_module("backend.ai_worker.pitch")
 
 
+def test_identical_pitch_evidence_produces_identical_frequencies():
+    logits = torch.zeros((1, 360, 64))
+    logits[:, 200] = 1
+
+    first = pitch._viterbi_decoder(logits)
+    repeated = pitch._viterbi_decoder(logits)
+
+    assert torch.equal(first[0], repeated[0])
+    assert torch.equal(first[1], repeated[1])
+
+
 @pytest.mark.parametrize("frames", [1, 128, 512])
 @pytest.mark.parametrize("mode", ["uniform", "random", "distant", "edge"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_banded_decoder_preserves_dense_paths_and_frequency(frames, mode, dtype):
+def test_banded_decoder_preserves_dense_paths_and_stable_bin_frequencies(frames, mode, dtype):
     rng = np.random.default_rng(851)
     values = rng.random((1, 360, frames)).astype(dtype)
     if mode == "uniform":
@@ -31,7 +42,10 @@ def test_banded_decoder_preserves_dense_paths_and_frequency(frames, mode, dtype)
     np.random.seed(275)
     actual = decoder(logits)
     assert torch.equal(actual[0], expected[0])
-    assert torch.equal(actual[1], expected[1])
+    assert torch.equal(
+        torchcrepe.convert.frequency_to_bins(actual[1], quantize_fn=torch.round), actual[0].int()
+    )
+    assert torch.equal(decoder(logits)[1], actual[1])
 
 
 @pytest.mark.parametrize("frames", [1, 128, 512])

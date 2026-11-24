@@ -97,7 +97,9 @@ def _viterbi_decoder(
         dtype=np.int64,
     )
     indices = torch.tensor(bins, device=probs.device)
-    return indices, torchcrepe.convert.bins_to_frequency(indices)
+    # The native bin conversion adds random dither; retain the measured bin centres.
+    cents = torchcrepe.CENTS_PER_BIN * indices + 1997.3794084376191
+    return indices, torchcrepe.convert.cents_to_frequency(cents)
 
 
 def _pitch_points(
