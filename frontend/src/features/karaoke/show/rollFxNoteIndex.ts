@@ -40,6 +40,16 @@ export class RollFxNoteIndex {
     return selected;
   }
 
+  /** Inclusive time bounds; return the first source note without allocating a result list. */
+  firstOverlapping(start: number, end: number): ShowNote | undefined {
+    for (const block of this.blocks) {
+      if (block.start > end || block.end < start) continue;
+      for (const note of block.notes)
+        if (note.end >= start && note.start <= end) return note;
+    }
+    return undefined;
+  }
+
   starting(start: number, end: number): readonly ShowNote[] {
     const selected: ShowNote[] = [];
     for (const block of this.blocks) {
