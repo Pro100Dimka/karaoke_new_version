@@ -30,7 +30,9 @@ describe('recordingCoordinator', () => {
           status: 0,
           text:
             request.command === 'GetRecordingState'
-              ? nativeResult(3)
+              ? request.args?.details
+                ? nativeResult(3)
+                : '5'
               : 'D:/elapsed.wav',
         })),
         inspectWave: vi.fn(async () => ({
@@ -68,7 +70,12 @@ describe('recordingCoordinator', () => {
   it('records the audible master mix so playback contains the song and the configured voice', async () => {
     const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
       status: 0,
-      text: request.command === 'GetRecordingState' ? nativeResult(1) : 'Ok',
+      text:
+        request.command === 'GetRecordingState'
+          ? request.args?.details
+            ? nativeResult(1)
+            : '5'
+          : 'Ok',
     }));
     Object.assign(window, {
       desktop: {
@@ -118,7 +125,9 @@ describe('recordingCoordinator', () => {
           status: 0,
           text:
             request.command === 'GetRecordingState'
-              ? nativeResult(3)
+              ? request.args?.details
+                ? nativeResult(3)
+                : '5'
               : request.command === 'StopRecording'
                 ? 'D:/take-transform.wav'
                 : 'Ok',
@@ -176,7 +185,9 @@ describe('recordingCoordinator', () => {
           status: 0,
           text:
             request.command === 'GetRecordingState'
-              ? nativeResult(1)
+              ? request.args?.details
+                ? nativeResult(1)
+                : '5'
               : request.command === 'StopRecording'
                 ? 'D:/take-notes.wav'
                 : 'Ok',
@@ -230,7 +241,9 @@ describe('recordingCoordinator', () => {
       status: 0,
       text:
         request.command === 'GetRecordingState'
-          ? nativeResult(6)
+          ? request.args?.details
+            ? nativeResult(6)
+            : '5'
           : request.command === 'StopRecording'
             ? 'D:/take-pause.wav'
             : 'Ok',

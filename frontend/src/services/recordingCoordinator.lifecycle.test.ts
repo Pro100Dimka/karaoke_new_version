@@ -39,7 +39,7 @@ describe('recording lifecycle', () => {
           expectedPitchSeconds: 0,
           assessedPitchSeconds: 0,
         });
-      return { status: 0, text: responseText(request.command) };
+      return { status: 0, text: responseText(request.command, request.args) };
     });
     let resolve!: (value: {
       roomId: string;
@@ -146,7 +146,10 @@ describe('recording lifecycle', () => {
             rejected = true;
             return { status: 1, text: 'Recording format unavailable' };
           }
-          return { status: 0, text: responseText(request.command) };
+          return {
+            status: 0,
+            text: responseText(request.command, request.args),
+          };
         });
       }
       await expect(
@@ -197,7 +200,7 @@ describe('recording lifecycle', () => {
     const starting = deferred();
     audioRequest.mockImplementation(async (request) => {
       if (request.command === 'StartRecording') await starting.promise;
-      return { status: 0, text: responseText(request.command) };
+      return { status: 0, text: responseText(request.command, request.args) };
     });
     const started = coordinator.start(song);
     await vi.waitFor(() =>
@@ -263,7 +266,7 @@ describe('recording lifecycle', () => {
       text:
         request.command === 'StartRecording'
           ? 'start failed'
-          : responseText(request.command),
+          : responseText(request.command, request.args),
     }));
     await expect(coordinator.start(song)).rejects.toThrow('start failed');
     expect(coordinator.hasPendingTake()).toBe(true);
@@ -283,7 +286,7 @@ describe('recording lifecycle', () => {
     } = await setup();
     audioRequest.mockImplementation(async (request) => ({
       status: request.command === 'PrepareRecording' ? 1 : 0,
-      text: responseText(request.command),
+      text: responseText(request.command, request.args),
     }));
     await expect(coordinator.start(song)).rejects.toThrow();
     expect(coordinator.hasPendingTake()).toBe(true);
@@ -302,7 +305,7 @@ describe('recording lifecycle', () => {
       text:
         request.command === 'StartRecording'
           ? 'start failed'
-          : responseText(request.command),
+          : responseText(request.command, request.args),
     }));
     await expect(coordinator.start(song)).rejects.toThrow('start failed');
     await expect(coordinator.start(song)).resolves.toMatchObject({
@@ -336,7 +339,7 @@ describe('recording lifecycle', () => {
     audioRequest.mockImplementation(async (request) => {
       if (['GetDiagnostics', 'GetPlaybackSnapshot'].includes(request.command))
         throw new Error('diagnostics unavailable');
-      return { status: 0, text: responseText(request.command) };
+      return { status: 0, text: responseText(request.command, request.args) };
     });
     await expect(coordinator.start(song)).resolves.toMatchObject({
       recording: true,
@@ -396,7 +399,7 @@ describe('recording lifecycle', () => {
       audioRequest.mockImplementation(async (request) => ({
         status: 0,
         text:
-          request.command === 'GetRecordingState'
+          request.command === 'GetRecordingState' && request.args?.details
             ? JSON.stringify({
                 ...native,
                 durationFrames,
@@ -404,7 +407,7 @@ describe('recording lifecycle', () => {
                 gapMetadataDropped: 0,
                 gaps: [],
               })
-            : responseText(request.command),
+            : responseText(request.command, request.args),
       }));
       await coordinator.start(song);
       coordinator.observeMicrophoneActivity([
@@ -465,9 +468,9 @@ describe('recording lifecycle', () => {
       audioRequest.mockImplementation(async (request) => ({
         status: 0,
         text:
-          request.command === 'GetRecordingState'
+          request.command === 'GetRecordingState' && request.args?.details
             ? invalid
-            : responseText(request.command),
+            : responseText(request.command, request.args),
       }));
       await expect(coordinator.stop()).rejects.toThrow();
       expect(
@@ -477,7 +480,7 @@ describe('recording lifecycle', () => {
       ).toHaveLength(0);
       audioRequest.mockImplementation(async (request) => ({
         status: 0,
-        text: responseText(request.command),
+        text: responseText(request.command, request.args),
       }));
       await expect(coordinator.stop()).resolves.toMatchObject({
         recordingId: 'take',

@@ -77,6 +77,8 @@ let active: {
   playbackAdjustments: TimedPlaybackAdjustment[];
   karaokeNoteScore: KaraokeNoteScore;
   microphoneActive: boolean | null;
+  stopping: boolean;
+  stopRequestedPath?: string;
   finalizedPath?: string;
   nativeResult?: NativeRecordingResult;
 } | null = null;
@@ -91,8 +93,36 @@ const audio: typeof command = async (...args) => {
 };
 
 let flight: { key: string; promise: Promise<RecordingStatus> } | null = null;
+const maximumPendingTransitions = 32;
 let pendingTransitions = 0;
 let reconfigurationId = 0;
+
+interface CaptureBoundary {
+  accepted: Promise<void>;
+  resolve(): void;
+  reject(error: unknown): void;
+  reconfigured: Promise<void>;
+}
+// Registered when Stop is queued, including a Stop waiting for target allocation/Start.
+const pendingStops = new Set<CaptureBoundary>();
+const captureBoundary = (): CaptureBoundary => {
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const accepted = new Promise<void>((done, failed) => {
+    resolve = done;
+    reject = failed;
+  });
+  void accepted.catch(() => undefined);
+  const boundary = {
+    accepted,
+    resolve,
+    reject,
+    reconfigured: Promise.resolve(),
+  };
+  pendingStops.add(boundary);
+  return boundary;
+};
+
 const transition = (
   key: string,
   work: () => Promise<RecordingStatus>,
@@ -101,7 +131,7 @@ const transition = (
   const isStop = key === 'stop';
   key = `${current}:${key}`;
   if (flight?.key === key) return flight.promise;
-  if (pendingTransitions >= 32)
+  if (pendingTransitions >= maximumPendingTransitions)
     return Promise.reject(new Error('Recording command queue is full'));
   pendingTransitions++;
   const promise = (flight?.promise ?? Promise.resolve())
@@ -158,9 +188,57 @@ const expectedSourceSeconds = (take: NonNullable<typeof active>): number => {
 /** A jump bigger than this (a seek, a room correction, a recovery) starts a new timeline entry. */
 const repositionToleranceSeconds = 0.25;
 
-const stop = async (
+const finalizationPollMilliseconds = 100;
+// Bound a stalled writer while allowing a slow full-file conversion. Expiry keeps the take
+// and its accepted native path, so retry can resume waiting without publishing a partial file.
+const finalizationTimeoutMilliseconds = 120_000;
+
+const finalizeRecording = async (
+  take: NonNullable<typeof active>,
+  acceptCapture: () => void,
+): Promise<string> => {
+  const requestedGeneration = generation;
+  const assertCurrent = () => {
+    if (
+      active !== take ||
+      take.interrupted ||
+      requestedGeneration !== generation
+    )
+      throw new Error('Recording audio session was interrupted');
+  };
+  assertCurrent();
+  // The capture boundary is drained before this reply; only disk finalization remains.
+  take.stopRequestedPath ??=
+    (await audio('StopRecording', { async: true })) || take.target.filePath;
+  acceptCapture();
+  take.pausedAt ??= performance.now();
+  const deadline = performance.now() + finalizationTimeoutMilliseconds;
+  for (;;) {
+    assertCurrent();
+    const state = await audio('GetRecordingState');
+    assertCurrent();
+    if (state === '5') return take.stopRequestedPath;
+    if (state === '6') {
+      // A failed writer has already stopped: retain its existing, specific diagnostic.
+      await audio('StopRecording');
+      throw new Error('Recording finalization failed');
+    }
+    if (state !== '4') throw new Error(`Unexpected recording state: ${state}`);
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw new Error('Recording finalization timed out');
+    await new Promise((resolve) =>
+      window.setTimeout(
+        resolve,
+        Math.min(finalizationPollMilliseconds, remaining),
+      ),
+    );
+  }
+};
+
+const saveTake = async (
   roomResult?: RoomPerformanceCompletion,
   onCaptured?: () => Promise<void>,
+  acceptCapture: () => void = () => undefined,
 ): Promise<RecordingStatus> => {
   if (!active) return { recording: false };
   const current = active;
@@ -182,8 +260,10 @@ const stop = async (
     active = null;
     return { recording: false };
   }
-  current.finalizedPath ??=
-    (await audio('StopRecording')) || current.target.filePath;
+  // Even a lost stop reply must not let a retry resume a writer that may be finalizing.
+  current.stopping = true;
+  current.finalizedPath ??= await finalizeRecording(current, acceptCapture);
+  acceptCapture();
   current.nativeResult ??= nativeRecordingResult(
     await audio('GetRecordingState', { details: true }),
   );
@@ -253,6 +333,25 @@ const stop = async (
   return { recording: false, recordingId };
 };
 
+const stop = async (
+  roomResult?: RoomPerformanceCompletion,
+  onCaptured?: () => Promise<void>,
+  boundary = captureBoundary(),
+): Promise<RecordingStatus> => {
+  try {
+    const result = await saveTake(roomResult, onCaptured, boundary.resolve);
+    boundary.resolve();
+    return result;
+  } catch (error) {
+    boundary.reject(error);
+    throw error;
+  } finally {
+    pendingStops.delete(boundary);
+    // A later Start must not race a device change released at this capture boundary.
+    await boundary.reconfigured;
+  }
+};
+
 export const recordingCoordinator = {
   async reconfigure(
     work: (
@@ -260,12 +359,33 @@ export const recordingCoordinator = {
     ) => Promise<void>,
     resumedPosition: () => Promise<number>,
   ): Promise<void> {
+    const stopping = pendingStops.values().next().value;
+    if (stopping) {
+      if (pendingTransitions >= maximumPendingTransitions)
+        throw new Error('Recording command queue is full');
+      pendingTransitions++;
+      const requestedGeneration = generation;
+      const result = stopping.reconfigured.then(async () => {
+        await stopping.accepted;
+        if (requestedGeneration !== generation)
+          throw new Error('Recording audio session was interrupted');
+        // Capture is drained; the disk worker owns its fixed format independently.
+        // Waiting for the whole Stop here would deadlock its queued onCaptured audio work.
+        await work();
+      });
+      stopping.reconfigured = result.catch(() => undefined);
+      try {
+        await result;
+      } finally {
+        pendingTransitions--;
+      }
+      return;
+    }
     let executed = false;
     await transition(`reconfigure:${++reconfigurationId}`, async () => {
       executed = true;
       const take = active;
-      const preserve =
-        take?.prepared && !take.interrupted && !take.finalizedPath;
+      const preserve = take?.prepared && !take.interrupted && !take.stopping;
       const resume =
         preserve && take.startedAt !== null && take.pausedAt === null;
       if (resume) {
@@ -321,7 +441,7 @@ export const recordingCoordinator = {
       const requestedGeneration = generation;
       if (
         active?.interrupted ||
-        active?.finalizedPath ||
+        active?.stopping ||
         (active &&
           (active.song.id !== song.id ||
             active.song.activeRevision !== song.activeRevision))
@@ -340,6 +460,7 @@ export const recordingCoordinator = {
           target,
           song,
           prepared: false,
+          stopping: false,
           startedAt: null,
           pausedAt: null,
           pausedMilliseconds: 0,
@@ -376,7 +497,7 @@ export const recordingCoordinator = {
       !active ||
       active.interrupted ||
       active.startedAt === null ||
-      active.finalizedPath
+      active.stopping
     )
       return;
     active.playbackAdjustments.push({
@@ -395,7 +516,7 @@ export const recordingCoordinator = {
         !active ||
         active.interrupted ||
         active.startedAt === null ||
-        active.finalizedPath ||
+        active.stopping ||
         active.pausedAt !== null
       ) {
         return { recording: active !== null };
@@ -413,7 +534,7 @@ export const recordingCoordinator = {
         !active ||
         active.interrupted ||
         active.pausedAt === null ||
-        active.finalizedPath
+        active.stopping
       )
         return { recording: active !== null };
       await audio('ResumeRecording');
@@ -437,7 +558,7 @@ export const recordingCoordinator = {
       !active ||
       active.interrupted ||
       active.startedAt === null ||
-      active.finalizedPath ||
+      active.stopping ||
       active.pausedAt !== null
     )
       return;
@@ -459,7 +580,7 @@ export const recordingCoordinator = {
     if (
       !active ||
       active.interrupted ||
-      active.finalizedPath ||
+      active.stopping ||
       active.startedAt === null ||
       active.pausedAt !== null ||
       !frames?.length ||
@@ -480,7 +601,7 @@ export const recordingCoordinator = {
     if (
       !active ||
       active.interrupted ||
-      active.finalizedPath ||
+      active.stopping ||
       // A view reset at room stop must not erase this take's accumulated measurements.
       (score.expectedPitchSeconds ?? 0) <
         (active.karaokeNoteScore.expectedPitchSeconds ?? 0) ||
@@ -500,6 +621,17 @@ export const recordingCoordinator = {
     roomPerformance?: RoomPerformanceCompletion,
     onCaptured?: () => Promise<void>,
   ) {
-    return transition('stop', () => stop(roomPerformance, onCaptured));
+    if (flight?.key === `${generation}:stop`) return flight.promise;
+    if (pendingTransitions >= maximumPendingTransitions)
+      return Promise.reject(new Error('Recording command queue is full'));
+    const boundary = captureBoundary();
+    const result = transition('stop', () =>
+      stop(roomPerformance, onCaptured, boundary),
+    );
+    void result.catch((error: unknown) => {
+      boundary.reject(error);
+      pendingStops.delete(boundary);
+    });
+    return result;
   },
 };
