@@ -22,7 +22,8 @@ class OpusVoiceEncoder {
     // frames is samples-per-channel and must be a valid Opus frame duration for sampleRateHz
     // (2.5/5/10/20/40/60 ms). Returns an empty vector if libopus rejects the input.
     [[nodiscard]] std::vector<std::byte> encode(std::span<const float> samples,
-                                                std::uint32_t frames) noexcept;
+                                                std::uint32_t frames,
+                                                std::vector<std::byte> bytes = {}) noexcept;
     /** Codec delay: decoded audio trails the encoded input by this many frames. */
     [[nodiscard]] std::uint32_t lookaheadFrames() const noexcept {
         return lookaheadFrames_;
@@ -49,10 +50,12 @@ class OpusVoiceDecoder {
 
     // Decodes a received packet. Returns an empty vector if libopus rejects the payload.
     [[nodiscard]] std::vector<float> decode(std::span<const std::byte> payload,
-                                            std::uint32_t frames) noexcept;
+                                            std::uint32_t frames,
+                                            std::vector<float> samples = {}) noexcept;
     // Asks the decoder to synthesize a plausible continuation for a frame that was never received,
     // using Opus's built-in packet-loss concealment instead of silence.
-    [[nodiscard]] std::vector<float> conceal(std::uint32_t frames) noexcept;
+    [[nodiscard]] std::vector<float> conceal(std::uint32_t frames,
+                                             std::vector<float> samples = {}) noexcept;
 
   private:
     struct Deleter {

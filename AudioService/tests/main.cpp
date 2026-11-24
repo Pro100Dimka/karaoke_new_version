@@ -669,6 +669,7 @@ constexpr std::array tests{
     Test{"roomLateCutDiagnosticsSeparateVoiceFromEmptyMix",
          Tests::roomLateCutDiagnosticsSeparateVoiceFromEmptyMix},
     Test{"pcmVoiceRoundTripsWithoutCodecDelay", Tests::pcmVoiceRoundTripsWithoutCodecDelay},
+    Test{"networkReceiveReusesPcmWorkBuffers", Tests::networkReceiveReusesPcmWorkBuffers},
     Test{"roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate",
          Tests::roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate},
     Test{"changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition",

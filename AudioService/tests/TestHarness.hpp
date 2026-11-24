@@ -477,6 +477,7 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency();
 void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor();
 void roomLateCutDiagnosticsSeparateVoiceFromEmptyMix();
 void pcmVoiceRoundTripsWithoutCodecDelay();
+void networkReceiveReusesPcmWorkBuffers();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
 void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();
 void roomDeadlineRequestedDuringSongAppliesAfterStop();

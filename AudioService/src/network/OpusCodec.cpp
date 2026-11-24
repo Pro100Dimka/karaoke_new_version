@@ -7,7 +7,7 @@
 
 namespace {
 // The largest a single Opus frame can ever encode to, per the library's own documentation --
-// used to size the one-shot scratch buffer for encode().
+// used to size the reusable scratch buffer for encode().
 constexpr int MaxEncodedFrameBytes = 1276;
 // Constant bitrate keeps packet sizes predictable for the fixed-size real-time UDP path. Short
 // 2.5 ms frames code less efficiently, so a singing voice gets more than plain speech would.
@@ -48,15 +48,20 @@ OpusVoiceEncoder::OpusVoiceEncoder(std::uint32_t sampleRateHz, std::uint32_t cha
 OpusVoiceEncoder::~OpusVoiceEncoder() = default;
 
 std::vector<std::byte> OpusVoiceEncoder::encode(std::span<const float> samples,
-                                                std::uint32_t frames) noexcept {
-    if (samples.size() != static_cast<std::size_t>(frames) * channels_)
-        return {};
-    std::vector<std::byte> bytes(static_cast<std::size_t>(MaxEncodedFrameBytes));
+                                                std::uint32_t frames,
+                                                std::vector<std::byte> bytes) noexcept {
+    if (samples.size() != static_cast<std::size_t>(frames) * channels_) {
+        bytes.clear();
+        return bytes;
+    }
+    bytes.resize(static_cast<std::size_t>(MaxEncodedFrameBytes));
     const auto written =
         opus_encode_float(encoder_.get(), samples.data(), static_cast<int>(frames),
                           reinterpret_cast<unsigned char*>(bytes.data()), MaxEncodedFrameBytes);
-    if (written <= 0)
-        return {};
+    if (written <= 0) {
+        bytes.clear();
+        return bytes;
+    }
     bytes.resize(static_cast<std::size_t>(written));
     return bytes;
 }
@@ -77,25 +82,33 @@ OpusVoiceDecoder::OpusVoiceDecoder(std::uint32_t sampleRateHz, std::uint32_t cha
 OpusVoiceDecoder::~OpusVoiceDecoder() = default;
 
 std::vector<float> OpusVoiceDecoder::decode(std::span<const std::byte> payload,
-                                            std::uint32_t frames) noexcept {
-    if (payload.empty())
-        return {};
-    std::vector<float> samples(static_cast<std::size_t>(frames) * channels_);
+                                            std::uint32_t frames,
+                                            std::vector<float> samples) noexcept {
+    if (payload.empty()) {
+        samples.clear();
+        return samples;
+    }
+    samples.resize(static_cast<std::size_t>(frames) * channels_);
     const auto decoded = opus_decode_float(
         decoder_.get(), reinterpret_cast<const unsigned char*>(payload.data()),
         static_cast<opus_int32>(payload.size()), samples.data(), static_cast<int>(frames), 0);
-    if (decoded <= 0)
-        return {};
+    if (decoded <= 0) {
+        samples.clear();
+        return samples;
+    }
     samples.resize(static_cast<std::size_t>(decoded) * channels_);
     return samples;
 }
 
-std::vector<float> OpusVoiceDecoder::conceal(std::uint32_t frames) noexcept {
-    std::vector<float> samples(static_cast<std::size_t>(frames) * channels_);
+std::vector<float> OpusVoiceDecoder::conceal(std::uint32_t frames,
+                                            std::vector<float> samples) noexcept {
+    samples.resize(static_cast<std::size_t>(frames) * channels_);
     const auto decoded =
         opus_decode_float(decoder_.get(), nullptr, 0, samples.data(), static_cast<int>(frames), 0);
-    if (decoded <= 0)
-        return {};
+    if (decoded <= 0) {
+        samples.clear();
+        return samples;
+    }
     samples.resize(static_cast<std::size_t>(decoded) * channels_);
     return samples;
 }

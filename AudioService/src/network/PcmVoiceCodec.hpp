@@ -32,10 +32,13 @@ constexpr float FullScale = 32767.0F;
 
 /** Decodes `samples` values; an empty result when the payload does not hold exactly that many. */
 [[nodiscard]] inline std::vector<float> decode(std::span<const std::byte> payload,
-                                               std::size_t samples) {
-    if (payload.size() != samples * BytesPerSample)
-        return {};
-    std::vector<float> out(samples);
+                                               std::size_t samples,
+                                               std::vector<float> out = {}) {
+    if (payload.size() != samples * BytesPerSample) {
+        out.clear();
+        return out;
+    }
+    out.resize(samples);
     for (std::size_t index = 0; index < samples; ++index) {
         const auto bits = static_cast<std::uint16_t>(
             std::to_integer<unsigned>(payload[index * BytesPerSample]) |
@@ -173,8 +176,8 @@ class PcmPlayoutConcealer {
     float lastOutput_{0.0F}, recoveryFrom_{0.0F};
 };
 
-// Receive-worker state. Returned PCM keeps the existing allocating API; the continuity history
-// below is separate from the render owner's state and is never reseeded with synthesized loss.
+// Receive-worker state. Output storage can be reused independently of the continuity history,
+// which belongs to this participant and is never reseeded with synthesized loss.
 class PcmLossConcealer {
   public:
     void reset() noexcept {
@@ -199,8 +202,9 @@ class PcmLossConcealer {
         recovering_ = false;
     }
 
-    [[nodiscard]] std::vector<float> conceal(std::uint32_t frames, std::uint32_t channels) {
-        std::vector<float> output(static_cast<std::size_t>(frames) * channels, 0.0F);
+    [[nodiscard]] std::vector<float> conceal(std::uint32_t frames, std::uint32_t channels,
+                                            std::vector<float> output = {}) {
+        output.assign(static_cast<std::size_t>(frames) * channels, 0.0F);
         if (channels == 0 || frames == 0 || previous_.size() < channels ||
             continuations_.size() != channels)
             return output;

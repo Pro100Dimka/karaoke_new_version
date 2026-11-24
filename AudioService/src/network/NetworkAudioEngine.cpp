@@ -1249,7 +1249,8 @@ void NetworkAudioEngine::sendMain() noexcept {
             senderEvent.encodeStartMicros = steadyMicros();
         }
         payload = codec == VoiceCodec::Opus
-                                 ? encoder_->encode(transportSamples, VoiceTransportPacketFrames)
+                                 ? encoder_->encode(transportSamples, VoiceTransportPacketFrames,
+                                                    std::move(payload))
                                  : PcmVoiceCodec::encode(transportSamples, std::move(payload));
         if (fullTrace) {
             senderEvent.encodeEndMicros = steadyMicros();
@@ -1672,14 +1673,16 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                     ? VoicePacketTrace::DecodedKind::PcmLoss : VoicePacketTrace::DecodedKind::OpusPlc;
             }
             // Sequence loss uses the codec's concealment; render starvation is covered separately.
-            auto decoded =
+            auto& decoded = receiveDecoded_;
+            decoded =
                 outcome == JitterPopOutcome::Delivered
                     ? (pcm ? PcmVoiceCodec::decode(packet.payload,
                                                    static_cast<std::size_t>(packet.frames) *
-                                                       channels_)
-                           : slot->decoder->decode(packet.payload, packet.frames))
-                    : (pcm ? slot->pcmLossConcealer.conceal(VoiceTransportPacketFrames, channels_)
-                           : slot->decoder->conceal(VoiceTransportPacketFrames));
+                                                       channels_, std::move(decoded))
+                           : slot->decoder->decode(packet.payload, packet.frames, std::move(decoded)))
+                    : (pcm ? slot->pcmLossConcealer.conceal(VoiceTransportPacketFrames, channels_,
+                                                          std::move(decoded))
+                           : slot->decoder->conceal(VoiceTransportPacketFrames, std::move(decoded)));
             if (decoded.empty()) {
                 if (fullTrace) {
                     admission.reason = VoicePacketTrace::ReceiveReason::DecodeEmpty;
@@ -1787,7 +1790,8 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                     slot->pcmLossConcealer.smoothRecovery(decoded, channels_);
             }
             auto frames = deviceFramesForVoicePacket(slot->playoutPacketIndex++, sampleRateHz_);
-            auto samples = retimeInterleavedLinear(decoded, channels_, frames);
+            auto& samples = receiveResampled_;
+            samples = retimeInterleavedLinear(decoded, channels_, frames, std::move(samples));
             std::size_t sampleOffset = 0;
             std::uint64_t queuePresentationFrame = 0;
             const auto pushTraced = [&](std::span<const float> pcmSamples, std::uint32_t count,
@@ -2013,10 +2017,9 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                 if (deviceAlignment.silenceFrames != 0) {
                     const auto silenceFrames =
                         std::min(deviceAlignment.silenceFrames, queueFrames_ / 2U);
-                    std::vector<float> silence(static_cast<std::size_t>(silenceFrames) * channels_,
-                                               0.0F);
+                    receiveRetimed_.assign(static_cast<std::size_t>(silenceFrames) * channels_, 0.0F);
                     queuePresentationFrame -= sharedPacket ? silenceFrames : 0U;
-                    (void)pushTraced(silence, silenceFrames, 0);
+                    (void)pushTraced(receiveRetimed_, silenceFrames, 0);
                     queuePresentationFrame += sharedPacket ? silenceFrames : 0U;
                     if (fullTrace) {
                         auto padding = admission;
@@ -2087,9 +2090,10 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                                                      ? expandedFrames - correction.skipFrames
                                                      : 1U;
                     if (correctedFrames != frames) {
-                        const auto retimed = retimeInterleavedLinear(
+                        auto& retimed = receiveRetimed_;
+                        retimed = retimeInterleavedLinear(
                             std::span<const float>{samples.data(), samples.size()}, channels_,
-                            correctedFrames);
+                            correctedFrames, std::move(retimed));
                         const auto queued = pushTraced(retimed, correctedFrames, usableDecoded);
                         if (!queued)
                             slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
