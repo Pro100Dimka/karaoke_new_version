@@ -214,3 +214,34 @@ def test_a_compressed_repeated_cue_refits_the_phrase_inside_its_neighbours(recov
     result = recover_compressed_cues(words, [(1, 2, text)], fit)
     assert result[0] == previous and result[-1] == following
     assert result[1:-1] == (candidate if recovered else words[1:-1])
+
+
+@pytest.mark.parametrize(
+    "anchor_shift,following_score,accepted", [(0, 0.5, True), (0.2, 0.5, False), (0, 0.09, False)]
+)
+def test_initial_weak_phrase_can_recover_its_prefix_while_preserving_the_right_anchor(
+    anchor_shift, following_score, accepted
+):
+    from backend.ai_worker.acoustic_retry import recover_weak_cue_entries
+
+    words = [
+        ctc.AlignedWord("we", 1.35, 1.5, (1.35, 1.45), 0.01),
+        ctc.AlignedWord("sing", 1.6, 2.1, (), 0.08),
+        ctc.AlignedWord("together", 2.3, 2.9, (), 0.8),
+    ]
+    candidate = [
+        ctc.AlignedWord("we", 0.9, 1.2, (0.9, 1.1), 0.5),
+        ctc.AlignedWord("sing", 1.3, 2.1, (), following_score),
+        ctc.AlignedWord("together", 2.3 + anchor_shift, 2.8 + anchor_shift, (), 0.8),
+    ]
+
+    result = recover_weak_cue_entries(
+        words, [(0, 0.8, "we sing together")], [0.9], lambda *_: candidate
+    )
+
+    assert result[-1] == words[-1]
+    if accepted:
+        assert [word.start for word in result[:2]] == [0.9, 1.3]
+        assert all("OnsetRecovered" in word.diagnostics for word in result[:2])
+    else:
+        assert result == words

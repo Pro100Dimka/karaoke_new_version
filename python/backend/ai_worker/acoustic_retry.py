@@ -27,12 +27,12 @@ def recover_weak_cue_entries(
     result = list(words)
     for first, cue, written in cues:
         stop = first + _MINIMUM_BLOCK
-        if not 0 < first or stop > len(words) or len(written.split()) < _MINIMUM_BLOCK:
+        if first < 0 or stop > len(words) or len(written.split()) < _MINIMUM_BLOCK:
             continue
         head, *following = words[first:stop]
         if head.score > ctc._PREFERENCE or any(w.score <= ctc._PREFERENCE for w in following):
             continue
-        before = result[first - 1].end
+        before = result[first - 1].end if first else 0.0
         floor = max(before, cue - _MARGIN_SECONDS, head.start - _MARGIN_SECONDS)
         ceiling = min(cue + _MARGIN_SECONDS, head.start - ctc._ONSET_SEARCH_BEFORE_SECONDS)
         # A weaker onset in the separated stem may fall below the detector.
@@ -48,10 +48,11 @@ def recover_weak_cue_entries(
             max(before, onset - _MARGIN_SECONDS),
             following[-1].end + _MARGIN_SECONDS,
         )
-        if _supported_cue_entry(proposed, head, following, onset, before):
-            result[first] = replace(
-                proposed[0], diagnostics=(*proposed[0].diagnostics, "OnsetRecovered")
-            )
+        if _supported_cue_entry(proposed, head, following, onset, before, opening=first == 0):
+            prefix = proposed[:-1] if first == 0 else proposed[:1]
+            result[first : first + len(prefix)] = [
+                replace(word, diagnostics=(*word.diagnostics, "OnsetRecovered")) for word in prefix
+            ]
     return result
 
 
@@ -118,10 +119,16 @@ def _supported_cue_entry(
     following: Sequence[ctc.AlignedWord],
     onset: float,
     before: float,
+    *,
+    opening: bool = False,
 ) -> bool:
+    if len(candidate) != 1 + len(following):
+        return False
+    neighbours = list(zip(candidate[1:], following, strict=True))
+    stable = neighbours[-1:] if opening else neighbours
+    moving = neighbours[:-1] if opening else []
     return (
-        len(candidate) == 1 + len(following)
-        and candidate[0].score >= 0.1
+        candidate[0].score >= 0.1
         and candidate[0].text == head.text
         and max(before, onset - ctc._ONSET_SEARCH_BEFORE_SECONDS)
         <= candidate[0].start
@@ -129,11 +136,15 @@ def _supported_cue_entry(
             onset + ctc._ONSET_SEARCH_AFTER_SECONDS, head.start - ctc._ONSET_SEARCH_AFTER_SECONDS
         )
         and candidate[0].end <= following[0].start
+        and all(new.text == old.text and new.score > ctc._PREFERENCE for new, old in neighbours)
         and all(
-            new.text == old.text
-            and new.score > ctc._PREFERENCE
-            and abs(new.start - old.start) <= ctc._ONSET_SEARCH_AFTER_SECONDS
-            for new, old in zip(candidate[1:], following, strict=True)
+            abs(new.start - old.start) <= ctc._ONSET_SEARCH_AFTER_SECONDS for new, old in stable
+        )
+        and all(
+            new.score > old.score + ctc._PREFERENCE
+            and abs(new.start - old.start) <= _MARGIN_SECONDS
+            and new.end <= following[-1].start
+            for new, old in moving
         )
     )
 
