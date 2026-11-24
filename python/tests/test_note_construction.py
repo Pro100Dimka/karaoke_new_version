@@ -449,6 +449,24 @@ def test_actual_silence_and_pitch_dropout_with_continuing_audio_are_distinct(
         assert notes[0].end == 1.0
 
 
+@pytest.mark.parametrize("silent", [True, False])
+def test_short_word_inside_a_bridged_pitch_dropout_keeps_the_performed_note(
+    monkeypatch, silent: bool
+) -> None:
+    points = stabilize_pitch(_audio_evidenced_points(monkeypatch, silent=silent))
+    words = [
+        WordTiming(text, start, end, 0.9)
+        for text, start, end in [("stay", 0.0, 0.4), ("with", 0.4, 0.48), ("me", 0.48, 1.0)]
+    ]
+    document = construct_document("t", "a", 1.0, "stay with me", words, points, _music())
+    notes = document.words[1].notes
+    if silent:
+        assert notes == ()
+    else:
+        assert [(note.note, note.start, note.end) for note in notes] == [(69, 0.4, 0.48)]
+        assert notes[0].pitch_at(0.44) is None
+
+
 def test_note_smoothing_cannot_absorb_a_brief_note_across_an_unobserved_gap() -> None:
     points = _pitch([i / 100 for i in range(30)], _A4) + _pitch(
         [i / 100 for i in range(80, 85)], _C5
