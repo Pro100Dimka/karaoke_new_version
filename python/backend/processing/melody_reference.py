@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from backend.lyrics.domain import LyricsDocument
+from backend.processing.algorithms import _merged_repeats
 
 _SAMPLE_RATE_HZ = 44100
 _CHANNELS = 2
@@ -22,9 +23,11 @@ class RenderMelodyReference:
     def run(self, document: LyricsDocument, workspace: Path) -> Path:
         total_frames = max(1, round(document.duration * _SAMPLE_RATE_HZ))
         mix = np.zeros(total_frames, dtype=np.float32)
-        for word in document.words:
-            for note in word.notes:
-                _add_note(mix, note.note, note.start, note.end)
+        notes = sorted(
+            (note for word in document.words for note in word.notes), key=lambda n: n.start
+        )
+        for note in _merged_repeats(notes):
+            _add_note(mix, note.note, note.start, note.end)
         target = workspace / "melody.wav"
         _write_wave(target, mix)
         return target

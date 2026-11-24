@@ -3,6 +3,7 @@ from __future__ import annotations
 import wave
 from pathlib import Path
 import numpy as np
+import pytest
 
 from backend.lyrics.domain import LyricsDocument, Note, Word
 from backend.processing.melody_reference import RenderMelodyReference
@@ -52,6 +53,46 @@ def test_an_instrumental_document_with_no_notes_renders_pure_silence(tmp_path: P
     with wave.open(str(target), "rb") as audio:
         samples = audio.readframes(audio.getnframes())
     assert max(samples) == 0
+
+
+def test_word_boundaries_do_not_restart_a_continuous_melody(tmp_path: Path) -> None:
+    whole = _document([Word("la", 0.0, 1.0, [Note(69, 0.1, 0.9)])], 1.0)
+    split = _document(
+        [
+            Word("la", 0.0, 0.4, [Note(69, 0.1, 0.4)]),
+            Word("la", 0.4, 0.48, [Note(69, 0.4, 0.48)]),
+            Word("la", 0.48, 1.0, [Note(69, 0.48, 0.9)]),
+        ],
+        1.0,
+    )
+    renderer = RenderMelodyReference()
+    expected = renderer.run(whole, tmp_path).read_bytes()
+    actual = renderer.run(split, tmp_path).read_bytes()
+
+    assert actual == expected
+
+
+@pytest.mark.parametrize(("second_note", "second_start"), [(69, 0.48), (72, 0.4)])
+def test_melody_preserves_rests_and_changes_of_pitch(
+    tmp_path: Path, second_note: int, second_start: float
+) -> None:
+    document = _document(
+        [
+            Word("la", 0.0, 0.4, [Note(69, 0.1, 0.4)]),
+            Word("la", second_start, 1.0, [Note(second_note, second_start, 0.9)]),
+        ],
+        1.0,
+    )
+    target = RenderMelodyReference().run(document, tmp_path)
+    with wave.open(str(target), "rb") as audio:
+        rate = audio.getframerate()
+        samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype=np.int16)[::2]
+    for start, midi in [(0.2, 69), (0.65, second_note)]:
+        section = samples[round(start * rate) : round((start + 0.1) * rate)]
+        spectrum = np.abs(np.fft.rfft(section * np.hanning(len(section))))
+        frequency = np.fft.rfftfreq(len(section), 1 / rate)[spectrum.argmax()]
+        assert frequency == pytest.approx(440 * 2 ** ((midi - 69) / 12), abs=6)
+    assert not samples[round(0.4 * rate) : round(second_start * rate)].any()
 
 
 def test_note_crossing_time_zero_is_clipped_to_the_audio_start(tmp_path: Path) -> None:
