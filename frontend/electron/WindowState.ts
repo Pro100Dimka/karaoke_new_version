@@ -37,8 +37,11 @@ const findSavedDisplay = (x: number, y: number) =>
 
 export const loadWindowState = (): WindowState => {
   try {
+    const file = windowStatePath();
     const raw = JSON.parse(
-      fs.readFileSync(windowStatePath(), 'utf8'),
+      saving && acceptedSave?.file === file
+        ? acceptedSave.text
+        : fs.readFileSync(file, 'utf8'),
     ) as Partial<WindowState>;
     const state: WindowState = {
       ...defaultWindowState,
@@ -76,6 +79,7 @@ export const loadWindowState = (): WindowState => {
 
 let saving: Promise<void> | undefined;
 let nextSave: { file: string; text: string } | undefined;
+let acceptedSave: typeof nextSave;
 
 /** The quit path awaits accepted placement writes after the window has closed. */
 export const flushWindowState = (): Promise<void> =>
@@ -96,7 +100,10 @@ export const saveWindowState = (window: BrowserWindow): Promise<void> => {
   };
   // Capture native bounds before the window disappears. An in-flight write is
   // followed only by the newest accepted placement, never an unbounded queue.
-  nextSave = { file: windowStatePath(), text: JSON.stringify(state) };
+  nextSave = acceptedSave = {
+    file: windowStatePath(),
+    text: JSON.stringify(state),
+  };
   saving ??= Promise.resolve().then(async () => {
     try {
       while (nextSave) {
@@ -110,6 +117,7 @@ export const saveWindowState = (window: BrowserWindow): Promise<void> => {
       }
     } finally {
       saving = undefined;
+      acceptedSave = undefined;
     }
   });
   return saving;

@@ -97,6 +97,40 @@ it('allows a later save after a failed disk write without rejecting close', asyn
   expect(JSON.parse(saved.written).x).toBe(20);
 });
 
+it.each(['previous', 'truncated'])(
+  'reopens with the accepted placement while the disk contains %s data',
+  async (fileState) => {
+    let finish!: () => void;
+    disk.write.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const first = saveWindowState(placed(10));
+    await Promise.resolve();
+    const last = saveWindowState(placed(20));
+    saved.text =
+      fileState === 'previous'
+        ? JSON.stringify({ width: 500, height: 300, x: 300, y: 10 })
+        : '{"width":';
+    try {
+      expect(loadWindowState()).toMatchObject({
+        width: 1280,
+        height: 720,
+        x: 20,
+        y: 80,
+      });
+    } finally {
+      disk.write.mockResolvedValue(undefined);
+      finish();
+      await Promise.all([first, last]);
+    }
+    saved.text = JSON.stringify({ width: 500, height: 300, x: 300, y: 10 });
+    expect(loadWindowState()).toMatchObject({ width: 500, x: 300 });
+  },
+);
+
 it.each(['width', 'height'] as const)(
   'repairs invalid saved %s without discarding valid placement',
   (dimension) => {
