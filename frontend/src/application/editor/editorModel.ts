@@ -46,11 +46,50 @@ export const snapTime = (seconds: number, enabled: boolean): number =>
     ? round(Math.round(seconds / snapGridSeconds) * snapGridSeconds)
     : round(seconds);
 
+// Edits replace note arrays and note shells; words are shared until a new
+// document is loaded. A drag repeatedly previews the same immutable origin.
+// Retain first-match individual lookup and the existing last-match batch path.
+const wordIndexes = new WeakMap<
+  readonly EditorWord[],
+  { first: Map<string, EditorWord>; last: Map<string, EditorWord> }
+>();
+const wordsOf = (words: readonly EditorWord[]) => {
+  let index = wordIndexes.get(words);
+  if (!index) {
+    const first = new Map<string, EditorWord>();
+    const last = new Map<string, EditorWord>();
+    for (const word of words) {
+      if (!first.has(word.id)) first.set(word.id, word);
+      last.set(word.id, word);
+    }
+    index = { first, last };
+    wordIndexes.set(words, index);
+  }
+  return index;
+};
+const noteGroups = new WeakMap<
+  readonly EditorNote[],
+  ReadonlyMap<string, readonly EditorNote[]>
+>();
+const siblingsOf = (notes: readonly EditorNote[]) => {
+  let groups = noteGroups.get(notes);
+  if (!groups) {
+    const built = new Map<string, EditorNote[]>();
+    for (const note of notes) {
+      const siblings = built.get(note.wordId);
+      if (siblings) siblings.push(note);
+      else built.set(note.wordId, [note]);
+    }
+    groups = built;
+    noteGroups.set(notes, groups);
+  }
+  return groups;
+};
+
 const wordOf = (
   document: EditorDocument,
   note: EditorNote,
-): EditorWord | undefined =>
-  document.words.find((word) => word.id === note.wordId);
+): EditorWord | undefined => wordsOf(document.words).first.get(note.wordId);
 
 const withNotes = (
   document: EditorDocument,
@@ -69,20 +108,19 @@ export const moveNotes = (
 ): EditorDocument => {
   const selected = document.notes.filter((note) => ids.has(note.id));
   if (selected.length === 0) return document;
-  const words =
-    selected.length > 8
-      ? new Map(document.words.map((word) => [word.id, word]))
-      : undefined;
+  const words = selected.length > 8 ? wordsOf(document.words).last : undefined;
   let low = -Infinity;
   let high = Infinity;
   let pitchLow = -Infinity;
   let pitchHigh = Infinity;
+  const groups = siblingsOf(document.notes);
   const unselected = new Map<string, EditorNote[]>();
-  for (const note of document.notes) {
-    if (ids.has(note.id)) continue;
-    const siblings = unselected.get(note.wordId) ?? [];
-    siblings.push(note);
-    unselected.set(note.wordId, siblings);
+  for (const note of selected) {
+    if (unselected.has(note.wordId)) continue;
+    unselected.set(
+      note.wordId,
+      (groups.get(note.wordId) ?? []).filter((sibling) => !ids.has(sibling.id)),
+    );
   }
   for (const note of selected) {
     pitchLow = Math.max(pitchLow, minPitch - note.pitch);
@@ -132,8 +170,8 @@ export const resizeNote = (
   const note = document.notes.find((item) => item.id === noteId);
   const word = note ? wordOf(document, note) : undefined;
   if (!note || !word) return document;
-  const siblings = document.notes.filter(
-    (item) => item.wordId === note.wordId && item.id !== note.id,
+  const siblings = (siblingsOf(document.notes).get(note.wordId) ?? []).filter(
+    (item) => item.id !== note.id,
   );
   let next = note;
   if (edge === 'start') {
