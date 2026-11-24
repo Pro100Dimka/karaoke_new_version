@@ -83,7 +83,7 @@ def _migration_3_to_4(connection: Connection) -> None:
 
 def _ensure_query_indexes(connection: Connection) -> None:
     """Optional non-unique access paths preserve the schema-4 data contract for older builds."""
-    tables = set(
+    tables: set[str] = set(
         connection.execute(text("SELECT name FROM sqlite_master WHERE type = 'table'")).scalars()
     )
     for model in (JobRow, RecordingRow, HistoryRow):
@@ -141,5 +141,5 @@ class DatabaseMigrator:
 
     @staticmethod
     def _version(connection: Connection) -> int:
-        value = connection.execute(text("PRAGMA user_version")).scalar_one()
+        value: int = connection.execute(text("PRAGMA user_version")).scalar_one()
         return int(value)

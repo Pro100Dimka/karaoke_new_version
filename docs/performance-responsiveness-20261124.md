@@ -14,8 +14,9 @@
 возможных задержек во всём приложении.
 
 Локальная среда — Linux, Node 24.22.3, Python 3.12.14 и GCC 14.
-Реальные Windows/Electron, WASAPI/ASIO, микрофоны и два живых участника комнаты
-в этой среде недоступны. **Работа в части обязательной живой проверки комнат,
+Интерактивные Windows/Electron, WASAPI/ASIO, микрофоны и два живых участника комнаты
+в этой среде недоступны; сборку Windows и автоматические тесты дополнительно
+проверил GitHub Actions. **Работа в части обязательной живой проверки комнат,
 передачи проектов и аудиоустройств не завершена.** Требуемый `AGENTS.md`
 прогон через `start-multy.bat` с обеими реальными UI-инстанциями не выполнен.
 Автоматические тесты ниже этот gate не заменяют.
@@ -240,8 +241,9 @@ Reconfigure. Три сценария с настоящим `audioClient.applyCon
 ## Проверки и воспроизведение
 
 До исправлений новые регрессионные проверки воспроизводили соответствующие
-проблемы. После изменения запускались затронутые тесты и потребители;
-полные frontend/backend/native suites автоматически не запускались.
+проблемы. Локально после изменения запускались затронутые тесты и потребители;
+полные frontend/backend/native suites локально не запускались. После публикации
+ветки репозиторий автоматически запустил штатный CI, результаты приведены ниже.
 
 | Область | Результат локальной проверки |
 | --- | --- |
@@ -254,7 +256,7 @@ Reconfigure. Три сценария с настоящим `audioClient.applyCon
 | Native: запись и её потребители | 19 функций PASS |
 | TypeScript renderer + Electron | PASS на конечном production-коде |
 | Frontend architecture | PASS на конечном production-коде |
-| Python Ruff и адресная architecture-проверка | PASS |
+| Python Ruff lint/format, адресная architecture-проверка и mypy Win32 | PASS |
 
 Полный native test target собран, но тестовый executable запускался только с
 конкретными именами проверок. Это не полный native suite и не живой room E2E.
@@ -264,12 +266,18 @@ Python, из `python`:
 ```bash
 python -m pytest tests/test_library_page_query_cost.py tests/test_history_responsiveness.py tests/test_recording_list_responsiveness.py tests/test_migrations_lifecycle.py tests/test_history_settings.py -q
 python -m pytest tests/test_radio_responsiveness.py tests/test_youtube_radio.py -q
+python -m ruff format --check backend/infrastructure/orm.py backend/infrastructure/migrations.py backend/infrastructure/sql_history.py backend/infrastructure/youtube_radio.py backend/api/radio_routes.py tests/test_library_page_query_cost.py tests/test_radio_responsiveness.py tests/test_youtube_radio.py
 python -m ruff check backend/infrastructure/orm.py backend/infrastructure/migrations.py backend/infrastructure/sql_history.py backend/infrastructure/youtube_radio.py backend/api/radio_routes.py tests/test_library_page_query_cost.py tests/test_radio_responsiveness.py tests/test_youtube_radio.py
+python -m mypy --platform win32 backend/infrastructure/orm.py backend/infrastructure/migrations.py backend/infrastructure/sql_history.py backend/infrastructure/youtube_radio.py backend/api/radio_routes.py
 ```
 
 Ruff прошёл для всех восьми изменённых Python-файлов. Внутренние text/AST
 architecture-проверки также прошли для пяти изменённых production-модулей;
 это адресная проверка, а не полный project-wide backend gate.
+Финальные Ruff lint/format, mypy и повторные 44 SQL-теста прошли с версиями
+из CI: Ruff 0.16.8, mypy 1.20.2 и SQLAlchemy 2.0.54. Две явные локальные
+аннотации в миграциях устраняют неоднозначный вывод generic scalar-типа;
+поведение запросов и данных не меняется.
 
 Renderer/Electron, из `frontend`:
 
@@ -380,6 +388,24 @@ transportChangesDuringFailedLoudnessScanStillSeekTheSource
 из корня репозитория. Для комнат и передачи проекта дополнительно обязателен
 живой сценарий через `start-multy.bat`; результаты этого сценария в данном
 отчёте отсутствуют.
+
+## GitHub Actions после публикации
+
+В [run 45457068099](https://github.com/Pro100Dimka/karaoke_new_version/actions/runs/45457068099)
+для опубликованного `c4992aca4b802840beaaa9bfad7bd9293d5ce6fa`:
+
+| Проверка | Наблюдаемый результат |
+| --- | --- |
+| Native Linux/GCC 14: configure, build, полный CTest | Success |
+| Native Windows/MSVC: configure, build, полный CTest | Success |
+| Frontend Windows: install, typecheck, полный npm test, build | Success |
+| Python fast/release | Остановились на форматировании двух новых тестовых файлов |
+
+Замечание форматирования исправлено следующей правкой, перепроверено с Ruff из
+CI вместе с lint, mypy и SQL-тестами. Эта правка меняет только оформление тестов,
+аннотации типов и данный отчёт; проверенный C++/frontend-код сохраняется.
+Первоначальный CI не объявляется полностью зелёным, а его автоматические Windows
+тесты не заменяют обязательный живой room/audio сценарий.
 
 ## Оставшиеся ограничения
 

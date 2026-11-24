@@ -135,7 +135,7 @@ async def test_disconnected_youtube_requests_release_the_latest_track(
         assert await anyio.to_thread.run_sync(entered.wait, 2)
         latest = _request(app, 3)
         requests.append(latest)
-        for _task, incoming, _messages in (requests[-1:] if disconnect_queued else requests[:2]):
+        for _task, incoming, _messages in requests[-1:] if disconnect_queued else requests[:2]:
             incoming.put_nowait({"type": "http.disconnect"})
         await asyncio.wait_for(asyncio.shield(latest[0]), 1)
         start = next(message for message in latest[2] if message["type"] == "http.response.start")
@@ -144,7 +144,9 @@ async def test_disconnected_youtube_requests_release_the_latest_track(
             assert invoked == [1, 2]
         else:
             assert start["status"] == 200
-            body = next(message["body"] for message in latest[2] if message["type"] == "http.response.body")
+            body = next(
+                message["body"] for message in latest[2] if message["type"] == "http.response.body"
+            )
             assert loads_object(body.decode())["index"] == 3
             await asyncio.gather(*(item[0] for item in requests[:2]))
             assert sorted(cancelled) == [1, 2]

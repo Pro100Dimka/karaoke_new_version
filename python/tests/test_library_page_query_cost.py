@@ -80,7 +80,8 @@ def test_history_first_page_does_not_sort_the_entire_history(library, kinds):
     expected = [
         f"event-{index:05}"
         for index in range(6000)
-        if kinds is None or ("RecordingRegistered", "AnalysisCompleted", "Other")[index % 3] in kinds
+        if kinds is None
+        or ("RecordingRegistered", "AnalysisCompleted", "Other")[index % 3] in kinds
     ]
     with query_work(library) as steps, library.create() as transaction:
         page = transaction.history.list(limit=20, offset=7, event_types=kinds, snapshot=6000)
@@ -123,7 +124,9 @@ def test_query_indexes_are_installed_on_an_existing_schema_four_library(library)
         ):
             connection.execute(text(f"DROP INDEX IF EXISTS {name}"))
         connection.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_history_events_event_type ON history_events(event_type)")
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_history_events_event_type ON history_events(event_type)"
+            )
         )
     DatabaseMigrator().migrate(library.engine)
     DatabaseMigrator().migrate(library.engine)
