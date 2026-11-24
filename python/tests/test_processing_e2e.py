@@ -340,7 +340,13 @@ def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
             clip_stopped.set()
             return False
 
-        finish = start._finish
+        release_resources = start._finish
+        finish = container.system.jobs._finish
+        stopped_before_release = []
+
+        def release_job(*args):
+            stopped_before_release.append(clip_stopped.is_set())
+            release_resources(*args)
 
         def finish_job(*args):
             try:
@@ -350,7 +356,8 @@ def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
 
         monkeypatch.setattr(start._pipeline, "run", process)
         monkeypatch.setattr(start._preparation._clip._downloader, "download", download)
-        monkeypatch.setattr(start, "_finish", finish_job)
+        monkeypatch.setattr(start, "_finish", release_job)
+        monkeypatch.setattr(container.system.jobs, "_finish", finish_job)
         started = client.post(
             f"/songs/{song.song_id}/processing", json={"mode": "Fast", "onlineLyrics": False}
         )
@@ -363,6 +370,7 @@ def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
             assert client.post(f"/songs/processing/{job_id}/cancel").status_code == 200
             assert finished.wait(2), "Cancellation still waits for the unrelated clip download"
             assert clip_stopped.is_set(), "Job released its resources before the clip stopped"
+            assert stopped_before_release == [True]
             assert client.get(f"/jobs/{job_id}").json()["state"] == job_state
             saved = client.get(f"/songs/{song.song_id}").json()
             assert saved["status"] == song_status
