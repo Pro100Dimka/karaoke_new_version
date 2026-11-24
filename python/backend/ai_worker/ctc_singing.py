@@ -344,7 +344,11 @@ def _calibrated_onsets(
         start = max(min(start, word.end - 0.001), floor)
         shift = start - word.start
         end = max(word.end, start + 0.001)
-        letters = _clamped_letters(word.letters, shift, start, end, text=word.text)
+        letters = word.letters
+        if index in found and word.score > _PREFERENCE and letters:
+            letters = tuple(start if moment == letters[0] else moment for moment in letters)
+            shift = 0.0
+        letters = _clamped_letters(letters, shift, start, end, text=word.text)
         diagnostics = word.diagnostics
         if not found and "OnsetRecovered" not in diagnostics:
             diagnostics = tuple(dict.fromkeys((*diagnostics, "OnsetReviewRequired")))

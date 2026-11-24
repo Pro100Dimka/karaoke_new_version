@@ -22,6 +22,7 @@ def test_a_measured_level_rise_calibrates_when_activity_has_no_pause() -> None:
     result = with_voice_onsets([word], samples, np.ones(301, dtype=bool))
     assert result[0].start == pytest.approx(1.0, abs=0.02)
     assert result[0].end == word.end
+    assert result[0].letters == (result[0].start, *word.letters[1:])
 
 
 def _activity(*intervals: tuple[float, float]) -> np.ndarray:
@@ -29,6 +30,16 @@ def _activity(*intervals: tuple[float, float]) -> np.ndarray:
     for start, end in intervals:
         frames[round(start * 100) : round(end * 100)] = True
     return frames
+
+
+def test_local_onset_preserves_silent_prefix_ties_and_later_letter_anchors() -> None:
+    word = AlignedWord("«так»", 1.2, 1.8, (1.2, 1.2, 1.4, 1.6, 1.8), 0.9)
+
+    result = with_voice_onsets([word], np.empty(0), _activity((1.0, 2.0)))
+
+    assert result[0].start == 1.0
+    assert result[0].letters == (1.0, 1.0, 1.4, 1.6, 1.8)
+    assert result[0].end == word.end
 
 
 def test_a_local_voice_entry_survives_a_shorter_ctc_pause() -> None:
