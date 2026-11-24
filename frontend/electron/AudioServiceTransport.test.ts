@@ -8,6 +8,12 @@ const sockets: Array<ReturnType<typeof socket>> = [];
 const socket = () =>
   Object.assign(new EventEmitter(), { write: vi.fn(), destroy: vi.fn() });
 let reply: (connection: ReturnType<typeof socket>, request: string) => void;
+const notificationFrame = (text: string) => {
+  const payload = Buffer.from(`1000000|0|${text}\n`);
+  const header = Buffer.alloc(4);
+  header.writeUInt32LE(payload.length);
+  return Buffer.concat([header, payload]);
+};
 
 beforeEach(() => {
   vi.resetModules();
@@ -62,6 +68,94 @@ it('streams fragmented notifications over one connection and reconnects after a 
   await vi.advanceTimersByTimeAsync(5000);
   expect(createConnection).toHaveBeenCalledTimes(2);
   expect(sockets[1]?.destroy).toHaveBeenCalled();
+});
+
+it('applies the notification size limit per frame when valid frames arrive together', async () => {
+  reply = () => {};
+  const { subscribeAudioNotifications } =
+    await import('./AudioServiceTransport');
+  const received = vi.fn();
+  const stop = subscribeAudioNotifications('GetPlaybackSnapshot', 16, received);
+  await vi.advanceTimersByTimeAsync(0);
+  const text = 'x'.repeat((1 << 20) - Buffer.byteLength('1000000|0|\n'));
+  const frame = notificationFrame(text);
+  try {
+    sockets[0]?.emit('data', Buffer.concat([frame, frame]));
+    expect(received).toHaveBeenCalledTimes(2);
+    expect(received).toHaveBeenLastCalledWith({
+      status: 0,
+      text,
+      observedAt: 1000000,
+    });
+    expect(sockets[0]?.destroy).not.toHaveBeenCalled();
+  } finally {
+    stop();
+  }
+});
+
+it('copies fragmented notification bytes within a linear budget', async () => {
+  reply = () => {};
+  const { subscribeAudioNotifications } =
+    await import('./AudioServiceTransport');
+  const received = vi.fn();
+  const stop = subscribeAudioNotifications('GetPlaybackSnapshot', 16, received);
+  await vi.advanceTimersByTimeAsync(0);
+  const frame = notificationFrame('x'.repeat(32 * 1024));
+  const concatenate = Buffer.concat;
+  const copy = Buffer.prototype.copy;
+  let copiedBytes = 0;
+  const concatSpy = vi
+    .spyOn(Buffer, 'concat')
+    .mockImplementation((buffers, length) => {
+      const result = concatenate(buffers, length);
+      copiedBytes += result.length;
+      return result;
+    });
+  const copySpy = vi
+    .spyOn(Buffer.prototype, 'copy')
+    .mockImplementation(function (
+      this: Buffer,
+      target,
+      targetStart,
+      sourceStart,
+      sourceEnd,
+    ) {
+      const copied = copy.call(
+        this,
+        target,
+        targetStart,
+        sourceStart,
+        sourceEnd,
+      );
+      copiedBytes += copied;
+      return copied;
+    });
+  try {
+    for (let offset = 0; offset < frame.length; offset += 32)
+      sockets[0]?.emit('data', frame.subarray(offset, offset + 32));
+  } finally {
+    concatSpy.mockRestore();
+    copySpy.mockRestore();
+    stop();
+  }
+  expect(received).toHaveBeenCalledOnce();
+  expect(copiedBytes).toBeLessThanOrEqual(frame.length * 3);
+});
+
+it('stops delivering coalesced notifications immediately after unsubscribe', async () => {
+  reply = () => {};
+  const { subscribeAudioNotifications } =
+    await import('./AudioServiceTransport');
+  let stop = () => {};
+  const received = vi.fn(() => stop());
+  stop = subscribeAudioNotifications('GetPlaybackSnapshot', 16, received);
+  await vi.advanceTimersByTimeAsync(0);
+  const frame = notificationFrame('PlaybackState: 3');
+  sockets[0]?.emit('data', Buffer.concat([frame, frame]));
+  expect(received).toHaveBeenCalledOnce();
+  expect(sockets[0]?.destroy).toHaveBeenCalledOnce();
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(createConnection).toHaveBeenCalledOnce();
 });
 
 it.each(['oversized', 'malformed', 'stalled'])(

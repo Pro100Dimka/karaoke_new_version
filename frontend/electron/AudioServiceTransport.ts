@@ -42,7 +42,10 @@ export const subscribeAudioNotifications = (
     if (stopped) return;
     const socket = net.createConnection(pipeEndpoint() + '.events');
     connection = socket;
-    let buffer = Buffer.alloc(0);
+    const header = Buffer.allocUnsafe(4);
+    let headerBytes = 0;
+    let payload: Buffer | undefined;
+    let payloadBytes = 0;
     let closed = false;
     let watchdog: ReturnType<typeof setTimeout>;
     const disconnect = () => {
@@ -65,16 +68,31 @@ export const subscribeAudioNotifications = (
       socket.write(encode({ command, args: { intervalMs } })),
     );
     socket.on('data', (chunk: Buffer) => {
-      if (closed || stopped) return;
-      if (buffer.length + chunk.length > maxResponseBytes + 4)
-        return disconnect();
-      buffer = Buffer.concat([buffer, chunk]);
-      while (buffer.length >= 4) {
-        const length = buffer.readUInt32LE(0);
-        if (length === 0 || length > maxResponseBytes) return disconnect();
-        if (buffer.length < length + 4) break;
-        const frame = buffer.subarray(4, length + 4).toString('utf8');
-        buffer = buffer.subarray(length + 4);
+      let offset = 0;
+      while (offset < chunk.length && !closed && !stopped) {
+        if (!payload) {
+          const count = Math.min(4 - headerBytes, chunk.length - offset);
+          chunk.copy(header, headerBytes, offset, offset + count);
+          headerBytes += count;
+          offset += count;
+          if (headerBytes < 4) break;
+          const length = header.readUInt32LE(0);
+          if (length === 0 || length > maxResponseBytes) return disconnect();
+          headerBytes = 0;
+          // Retain one bounded frame and copy each fragment once, even across tiny pipe reads.
+          payload = Buffer.allocUnsafe(length);
+          payloadBytes = 0;
+        }
+        const count = Math.min(
+          payload.length - payloadBytes,
+          chunk.length - offset,
+        );
+        chunk.copy(payload, payloadBytes, offset, offset + count);
+        payloadBytes += count;
+        offset += count;
+        if (payloadBytes < payload.length) break;
+        const frame = payload.toString('utf8');
+        payload = undefined;
         const separator = frame.indexOf('|');
         const observedAt = Number(frame.slice(0, separator));
         try {
