@@ -84,26 +84,27 @@ def test_pitch_points_transfer_each_result_to_cpu_only_once() -> None:
 
 
 @pytest.mark.parametrize(
-    ("odd_harmonic", "middle", "expected"),
-    [(0.0, 0.0, 200.0), (0.35, 0.35, 100.0), (0.35, 0.13, 100.0)],
+    ("frequency", "odd_harmonic", "middle", "expected"),
+    [(200, 0.0, 0.0, 200), (200, 0.35, 0.35, 100), (200, 0.35, 0.13, 100), (800, 0.35, 0.35, 200)],
 )
 def test_pitch_uses_the_supported_octave_with_a_missing_fundamental(
-    monkeypatch, odd_harmonic, middle, expected
+    monkeypatch, frequency, odd_harmonic, middle, expected
 ):
     from backend.ai_worker import pitch as worker
 
     time = np.arange(16_000, dtype=np.float32) / 16_000
     odd = np.where((time >= 0.35) & (time < 0.65), middle, odd_harmonic)
-    samples = (np.sin(time * 2 * np.pi * 200) + odd * np.sin(time * 2 * np.pi * 300)).astype(
-        np.float32
-    )
+    samples = (
+        np.sin(time * 2 * np.pi * frequency)
+        + odd * np.sin(time * 2 * np.pi * (frequency + expected))
+    ).astype(np.float32)
     monkeypatch.setattr(worker, "device", lambda: "cpu")
     monkeypatch.setattr(worker, "read_mono", lambda *_: samples)
     monkeypatch.setattr(
         worker,
         "_predict_active",
         lambda _samples, active, _target: (
-            torch.full((1, len(active)), 200.0),
+            torch.full((1, len(active)), float(frequency)),
             torch.full((1, len(active)), 0.9),
         ),
     )

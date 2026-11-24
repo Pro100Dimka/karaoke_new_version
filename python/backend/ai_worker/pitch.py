@@ -167,16 +167,31 @@ def _period_correlation(samples: np.ndarray, center: int, lag: int) -> float:
 @njit(cache=True)
 def _octave_evidence(
     samples: np.ndarray, frequencies: np.ndarray, voiced: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    lower = np.zeros(len(frequencies), dtype=np.float32)
-    gain = np.zeros_like(lower)
+) -> np.ndarray:
+    correlations = np.zeros((3, len(frequencies)), dtype=np.float32)
     for index, frequency in enumerate(frequencies):
         if voiced[index] and frequency >= 2 * _FMIN:
             center = index * _HOP_SAMPLES
             lag = _SAMPLE_RATE / frequency
-            lower[index] = _period_correlation(samples, center, round(2 * lag))
-            gain[index] = lower[index] - _period_correlation(samples, center, round(lag))
-    return lower, gain
+            correlations[0, index] = _period_correlation(samples, center, round(lag))
+            correlations[1, index] = _period_correlation(samples, center, round(2 * lag))
+            if frequency >= 4 * _FMIN:
+                correlations[2, index] = _period_correlation(samples, center, round(4 * lag))
+    return correlations
+
+
+def _held_octave(lower: np.ndarray, gain: np.ndarray) -> np.ndarray:
+    # Require sustained evidence so a transient or vibrato cannot shift the octave.
+    supported = (lower >= 0.85) & (gain >= 0.065)
+    sustained = uniform_filter1d(supported.astype(np.float32), 11) >= 0.5
+    eligible = (lower >= 0.8) & (gain >= 0.015)
+    corrected = np.asarray(sustained & eligible, dtype=bool)
+    for start, end in _runs(eligible, True):
+        evidence = np.flatnonzero(corrected[start:end])
+        if evidence.size:
+            # Keep a held octave through quieter harmonics only between confirmed frames.
+            corrected[start + evidence[0] : start + evidence[-1] + 1] = True
+    return corrected
 
 
 def _correct_octave(
@@ -186,19 +201,12 @@ def _correct_octave(
     voiced = active & (periodicity[0].numpy() >= 0.5)
     if not voiced.any():
         return frequency
-    lower, gain = _octave_evidence(samples, values, voiced)
-    # Strong odd harmonics can make two cycles match much better than one.
-    # Require sustained evidence so a transient or vibrato cannot shift the octave.
-    supported = (lower >= 0.85) & (gain >= 0.065)
-    sustained = uniform_filter1d(supported.astype(np.float32), 11) >= 0.5
-    eligible = (lower >= 0.8) & (gain >= 0.015)
-    corrected = sustained & eligible
-    for start, end in _runs(eligible, True):
-        evidence = np.flatnonzero(corrected[start:end])
-        if evidence.size:
-            # Keep a held octave through quieter harmonics only between confirmed frames.
-            corrected[start + evidence[0] : start + evidence[-1] + 1] = True
-    return torch.from_numpy(np.where(corrected, values / 2, values))[None]
+    base, lower, lowest = _octave_evidence(samples, values, voiced)
+    # A fourth harmonic can hide the fundamental across both shorter periods.
+    two_octaves = _held_octave(lowest, lowest - np.maximum(base, lower))
+    one_octave = _held_octave(lower, lower - base)
+    corrected = np.where(two_octaves, values / 4, np.where(one_octave, values / 2, values))
+    return torch.from_numpy(corrected)[None]
 
 
 def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
