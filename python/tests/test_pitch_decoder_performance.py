@@ -20,16 +20,20 @@ def test_identical_pitch_evidence_produces_identical_frequencies():
     assert torch.equal(first[1], repeated[1])
 
 
-@pytest.mark.parametrize("octave_leap", [False, True])
-def test_inference_batch_boundaries_do_not_change_the_performed_pitch(monkeypatch, octave_leap):
-    evidence = torch.zeros((12, 360))
+@pytest.mark.parametrize(
+    "case", ["ambiguous_harmonic", "octave_leap", "short_step", "isolated_harmonic"]
+)
+def test_inference_batch_boundaries_do_not_change_the_performed_pitch(monkeypatch, case):
+    first, last, base, alternative, confidence = {
+        "ambiguous_harmonic": (30, 50, 0.8, 160, 0.9),
+        "octave_leap": (40, 80, 0.0, 160, 1.0),
+        "short_step": (35, 40, 0.1, 105, 1.0),
+        "isolated_harmonic": (35, 40, 0.1, 195, 0.7),
+    }[case]
+    evidence = torch.zeros((80, 360))
     evidence[:, 100] = 1
-    if octave_leap:
-        evidence[6:, 100] = 0
-        evidence[6:, 160] = 1
-    else:
-        evidence[4:8, 100] = 0.8
-        evidence[4:8, 160] = 0.9
+    evidence[first:last, 100] = base
+    evidence[first:last, alternative] = confidence
 
     def inference(_target):
         offset = 0
@@ -43,17 +47,21 @@ def test_inference_batch_boundaries_do_not_change_the_performed_pitch(monkeypatc
         return predict
 
     monkeypatch.setattr(pitch, "_pitch_inference", inference)
-    times = np.arange(11 * 160) / 16_000
+    times = np.arange(79 * 160) / 16_000
     samples = np.sin(2 * np.pi * 220 * times).astype(np.float32)
-    active = np.ones(12, dtype=bool)
+    active = np.ones(80, dtype=bool)
     results = []
-    for batch in (4, 12):
+    for batch in (4, 80):
         monkeypatch.setattr(pitch, "_BATCH", {"cpu": batch})
         results.append(pitch._predict_active(samples, active, "cpu"))
 
     assert torch.equal(results[0][0], results[1][0])
     assert torch.equal(results[0][1], results[1][1])
-    assert torch.all(results[0][1] >= 0.8)
+    trusted = np.ones(80, dtype=bool)
+    if case == "isolated_harmonic":
+        trusted[first:last] = False
+    assert torch.all(results[0][1][0, trusted] >= 0.8)
+    assert torch.all(results[0][1][0, ~trusted] < 0.5)
 
 
 def test_weak_alternative_pitch_does_not_replace_an_uncertain_decoded_frame(monkeypatch):

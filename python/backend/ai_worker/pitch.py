@@ -15,13 +15,14 @@ import torchcrepe
 
 from backend.ai_worker.audio_io import read_mono
 from backend.ai_worker.runtime import device
-from backend.ai_worker.timing import _runs, audible_frames
+from backend.ai_worker.timing import _BRIDGED_GAP_SECONDS, _runs, audible_frames
 
 _SAMPLE_RATE = 16_000
 _HOP_SAMPLES = 160  # 10 ms
 _FMIN, _FMAX = 65.0, 1100.0
 _BATCH = MappingProxyType({"cpu": 512, "cuda": 128})
 _SMOOTHING = 3
+_BAND_BINS = 11
 
 
 def _pitch_inference(target: str) -> Callable[[torch.Tensor], torch.Tensor]:
@@ -49,7 +50,7 @@ def _band_viterbi(
         floors = value + floor
         global_best = int(np.argmax(floors))
         for j in range(states):
-            low, high = max(0, j - 11), min(states, j + 12)
+            low, high = max(0, j - _BAND_BINS), min(states, j + _BAND_BINS + 1)
             best, chosen = -np.inf, 0
             for k in range(low, high):
                 cost = value[k] + log_transition[k, j]
@@ -69,7 +70,7 @@ def _band_viterbi(
 @lru_cache(maxsize=3)
 def _decoder_parameters(epsilon: float) -> tuple[np.ndarray, np.ndarray, float]:
     xx, yy = np.meshgrid(range(360), range(360))
-    transition = np.maximum(12 - abs(xx - yy), 0)
+    transition = np.maximum(_BAND_BINS + 1 - abs(xx - yy), 0)
     transition = transition / transition.sum(axis=1, keepdims=True)
     return (
         np.log(transition + epsilon),
@@ -158,8 +159,26 @@ def _predict_active(
     centres = torchcrepe.convert.cents_to_frequency(
         torchcrepe.CENTS_PER_BIN * bins + 1997.3794084376191
     )
+    supported &= _entry_support(frequency, periodicity, centres, active)
     return torch.where(supported, centres, frequency), torch.where(
         supported, peak_confidence, periodicity
+    )
+
+
+def _entry_support(
+    frequency: torch.Tensor, confidence: torch.Tensor, centres: torch.Tensor, active: np.ndarray
+) -> torch.Tensor:
+    """Recover entries adjoining a confirmed pitch, without promoting isolated harmonics."""
+    margin = round(_BRIDGED_GAP_SECONDS * _SAMPLE_RATE / _HOP_SAMPLES)
+    nearby: torch.Tensor = torch.nn.functional.pad(frequency, (margin, margin)).unfold(
+        -1, 2 * margin + 1, 1
+    )
+    trusted: torch.Tensor = torch.nn.functional.pad(
+        confidence * torch.from_numpy(active)[None], (margin, margin)
+    ).unfold(-1, 2 * margin + 1, 1)
+    distance = torch.abs(torch.log2(nearby.clamp_min(1) / centres[..., None]))
+    return torch.any(
+        (trusted >= 0.5) & (distance <= _BAND_BINS * torchcrepe.CENTS_PER_BIN / 1200), dim=-1
     )
 
 
