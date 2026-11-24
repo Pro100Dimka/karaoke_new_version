@@ -269,8 +269,8 @@ def test_cancelled_model_download_does_not_fail_or_publish_uncommitted_weights(
 
     original_hash = sha256_file
 
-    def hash_file(path):
-        result = original_hash(path)
+    def hash_file(path, ensure_not_cancelled):
+        result = original_hash(path, ensure_not_cancelled)
         if phase == "verification":
             entered.set()
             assert release.wait(5)
