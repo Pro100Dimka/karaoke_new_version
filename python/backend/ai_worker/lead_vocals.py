@@ -174,32 +174,32 @@ def with_lead_vocals(
     *,
     recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]]
     | None = None,
+    refine: Callable[[list[AlignedWord]], list[AlignedWord]] | None = None,
 ) -> list[AlignedWord]:
     entries: dict[int, float] = {}
     backing = backing_overlap_indices(
         words, views, activity, periodicity, recognize=recognize, lead_entries=entries
     )
     if not backing:
-        return words
+        return refine(words) if refine is not None else words
     entries = {
         index: max(entry, _preceding_core_end(words, index, backing))
         for index, entry in entries.items()
     }
-    lead = ordered(
-        [
-            replace(
-                word,
-                start=entries[index],
-                letters=_evenly([word.text], entries[index], word.end)[0].letters,
-                diagnostics=(*word.diagnostics, "IndependentLeadEntry", "ApproximateLetterTiming"),
-            )
-            if index in entries
-            else word
-            for index, word in enumerate(words)
-            if index not in backing
-        ]
-    )
-    remaining = iter(lead)
+    lead = [
+        replace(
+            word,
+            start=entries[index],
+            letters=_evenly([word.text], entries[index], word.end)[0].letters,
+            diagnostics=(*word.diagnostics, "IndependentLeadEntry", "ApproximateLetterTiming"),
+        )
+        if index in entries
+        else word
+        for index, word in enumerate(words)
+        if index not in backing
+    ]
+    # Refine the lead entry before it can clip the preceding sung ending.
+    remaining = iter(ordered(refine(lead) if refine is not None else lead))
     return [
         replace(word, diagnostics=(*word.diagnostics, "BackingVocalOverlap"))
         if index in backing

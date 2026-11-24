@@ -10,6 +10,54 @@ from backend.ai_worker.speech_alignment import _AlignmentPass
 from tests.test_asr_recovery import _scores
 
 
+@pytest.mark.parametrize("stable_context", [False, True])
+def test_preceding_word_is_clipped_only_after_the_recovered_entry_is_refined(stable_context):
+    words = [
+        AlignedWord("hold", 2, 4, (2, 2.4, 2.8, 3.2), 0.8),
+        AlignedWord("please", 4, 4.2, (), 0.055),
+        AlignedWord("let", 4.2, 4.6, (4.2, 4.3, 4.4), 0.8),
+        AlignedWord("me", 4.6, 5, (4.6, 4.8), 0.8),
+        AlignedWord("go", 5, 5.3, (5, 5.2), 0.8),
+        AlignedWord("forever", 5.3, 6.8, (), 0.8),
+    ]
+    view = [("hold", 2, 2.6), ("let", 3.4, 4.6), ("me", 4.6, 5), ("go", 5, 5.3)]
+    view.append(("forever", 5.3, 6.8))
+    shift = 0 if stable_context else 0.6
+    scores = _scores(
+        [("let", 3.8, 0.95), ("me", 4.6 + shift, 0.95), ("go", 5 + shift, 0.95)],
+        duration=7,
+    )
+    audio = np.arange(7 * 16_000, dtype=np.float32)
+    pass_ = _AlignmentPass(
+        audio,
+        None,
+        scores,
+        0.02,
+        [w.text for w in words],
+        " ".join(w.text for w in words),
+        view,
+        [view, list(view)],
+    )
+    pass_.emit = lambda samples: (
+        scores[round(float(samples[0]) / 320) : round((float(samples[0]) + len(samples)) / 320)],
+        0.02,
+    )
+
+    payload = pass_._finish_alignment(
+        words,
+        np.ones(701, bool),
+        (np.ones((701, 16)), np.ones(701)),
+        lambda _contexts: {},
+        frozenset(),
+        {},
+    )
+
+    expected = 3.8 if stable_context else 3.4
+    assert payload["words"][0]["end"] == pytest.approx(expected)
+    assert payload["words"][2]["start"] == pytest.approx(expected)
+    assert payload["words"][0]["letters"] == list(words[0].letters)
+
+
 @pytest.mark.parametrize("text", ["оно", "сама", "alone"])
 @pytest.mark.parametrize("stable_context", [False, True])
 def test_recovered_entry_uses_phonemes_when_its_following_context_stays_in_place(

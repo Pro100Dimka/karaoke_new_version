@@ -200,8 +200,14 @@ class _AlignmentPass:
             _levels(self.audio, _HOP)[0],
             independent_timings(self.words, [self.heard, *self.views], timed),
         )
-        timed = with_lead_vocals(timed, self.views, activity, acoustic[1], recognize=recognize)
-        timed = self._refine_recovered_entries(timed, activity)
+        timed = with_lead_vocals(
+            timed,
+            self.views,
+            activity,
+            acoustic[1],
+            recognize=recognize,
+            refine=partial(self._refine_recovered_entries, activity=activity),
+        )
         timed, intervals, recovered = self._retime_outro(timed, activity, intervals, recovered)
         return self._vocalization_payload(
             timed, activity, acoustic[1], recognize, recovered, intervals
