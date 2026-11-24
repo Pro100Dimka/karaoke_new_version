@@ -240,7 +240,7 @@ void RealtimeEngine::addStoppedRecordingVoice(std::span<const float> bridge,
     }
 }
 
-RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
+RecordingResult RealtimeEngine::finishRecording(RecordingState nextState, bool waitForFinalization) {
     if (nextState != RecordingState::Paused && nextState != RecordingState::Finished)
         throw std::invalid_argument("recording segment must pause or finish");
     auto cutoff = sessionFrame();
@@ -320,6 +320,10 @@ RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
     }
     if (nextState == RecordingState::Paused) {
         recording_.pause(cutoff);
+        return recording_.result();
+    }
+    if (!waitForFinalization) {
+        recording_.beginStop(cutoff);
         return recording_.result();
     }
     return recording_.stop(cutoff);
@@ -1268,7 +1272,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                            sessionFrame().value()));
     const auto remotePeak = pcmPeak(remote);
     if (remotePeak > 0.0F) {
-        if (performanceActive && pairedPerformance && gains.remote != 0.0F)
+        if (performanceActive && pairedPerformance && gains.remote != 0.0F &&
+            recording_.state() == RecordingState::Recording)
             recording_.markDryIncomplete();
         remoteMixNonzeroBlocks_.fetch_add(1, std::memory_order_relaxed);
         retainPeak(remoteMixPeak_, remotePeak);

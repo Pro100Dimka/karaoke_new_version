@@ -74,7 +74,7 @@ beforeEach(() => {
   vi.mocked(pythonClient.getSong).mockResolvedValue(song);
   vi.mocked(pythonClient.projectCompatibility).mockResolvedValue('Current');
   vi.mocked(editorApi.load).mockResolvedValue(saved);
-  vi.mocked(editorApi.save).mockResolvedValue(2);
+  vi.mocked(editorApi.save).mockResolvedValue({ revision: 2 });
   vi.mocked(audioClient.prepareSong).mockResolvedValue(ready);
   vi.mocked(audioClient.stop).mockResolvedValue(ready);
 });

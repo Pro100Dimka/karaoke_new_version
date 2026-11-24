@@ -89,3 +89,56 @@ it('allows Kaggle deployment to wait for the notebook to finish starting', async
 
   expect(spy).toHaveBeenCalledWith(16 * 60_000);
 });
+
+it('propagates caller cancellation through the response body without stopping the backend', async () => {
+  const endpoint = new BackendEndpoint();
+  endpoint.stdout(Buffer.from('AD_VOICE_BACKEND_READY:52123\n'));
+  const caller = new AbortController();
+  let received: AbortSignal | undefined;
+  let finish!: (text: string) => void;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (_url, options: RequestInit) => {
+      received = options.signal!;
+      return {
+        status: 200,
+        ok: true,
+        text: () =>
+          new Promise<string>((resolve, reject) => {
+            finish = resolve;
+            received!.addEventListener(
+              'abort',
+              () => reject(received!.reason),
+              { once: true },
+            );
+          }),
+      };
+    }),
+  );
+  const result = endpoint
+    .request('/radio/youtube', { signal: caller.signal })
+    .catch((error: unknown) => error);
+  await Promise.resolve();
+  try {
+    caller.abort(new Error('superseded'));
+    expect(received?.aborted).toBe(true);
+    expect(await result).toMatchObject({ message: 'superseded' });
+    expect(endpoint.current()?.lifetime.aborted).toBe(false);
+  } finally {
+    finish('{}');
+    await result;
+  }
+});
+
+it('does not send a request already cancelled by its caller', async () => {
+  const endpoint = new BackendEndpoint();
+  endpoint.stdout(Buffer.from('AD_VOICE_BACKEND_READY:52123\n'));
+  const caller = new AbortController();
+  caller.abort(new Error('obsolete'));
+  const fetch = vi.fn().mockResolvedValue(new Response('{}'));
+  vi.stubGlobal('fetch', fetch);
+  await expect(
+    endpoint.request('/radio/youtube', { signal: caller.signal }),
+  ).rejects.toThrow('obsolete');
+  expect(fetch).not.toHaveBeenCalled();
+});

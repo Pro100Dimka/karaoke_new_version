@@ -20,7 +20,7 @@ class ReconcileRecordings:
 
     def execute(self, recording_id: str | None = None) -> tuple[str, ...]:
         recovered: list[str] = []
-        for descriptor in self._storage.recovery_descriptors():
+        for descriptor in self._storage.recovery_descriptors(recording_id):
             if recording_id is not None and descriptor.parent.name != recording_id:
                 continue
             try:

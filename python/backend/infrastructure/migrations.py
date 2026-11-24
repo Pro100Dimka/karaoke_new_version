@@ -10,7 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.domain_errors import DependencyError
-from backend.infrastructure.orm import Base, JobRow
+from backend.infrastructure.orm import AnalysisRow, Base, HistoryRow, JobRow, RecordingRow, SongRow
 from backend.version import DB_SCHEMA_VERSION
 
 Migration = Callable[[Connection], None]
@@ -83,18 +83,28 @@ def _migration_3_to_4(connection: Connection) -> None:
 
 def _ensure_query_indexes(connection: Connection) -> None:
     """Optional non-unique access paths preserve the schema-4 data contract for older builds."""
-    if (
-        connection.execute(
-            text("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jobs'")
-        ).scalar_one_or_none()
-        is None
-    ):
-        return
-    names = {"ix_jobs_recent", "ix_jobs_type_recent", "ix_jobs_entity_recent"}
-    table = cast(Table, JobRow.__table__)
-    for index in sorted(table.indexes, key=lambda item: item.name or ""):
-        if index.name in names and not index.unique:
-            index.create(connection, checkfirst=True)
+    tables: set[str] = set(
+        connection.execute(text("SELECT name FROM sqlite_master WHERE type = 'table'")).scalars()
+    )
+    for model in (JobRow, RecordingRow, HistoryRow, SongRow, AnalysisRow):
+        table = cast(Table, model.__table__)
+        if table.name not in tables:
+            continue
+        columns = {
+            str(row[1]) for row in connection.execute(text(f"PRAGMA table_info({table.name})"))
+        }
+        for index in sorted(table.indexes, key=lambda item: item.name or ""):
+            if (
+                index.name
+                and (index.name.endswith("_recent") or index.name.startswith("ix_songs_catalog_"))
+                and not index.unique
+                and set(index.columns.keys()) <= columns
+            ):
+                index.create(connection, checkfirst=True)
+    if "history_events" in tables:
+        # The composite has the same event_type prefix. Keeping the old index makes
+        # SQLite favor a rowid/snapshot range and sort the entire matching history.
+        connection.execute(text("DROP INDEX IF EXISTS ix_history_events_event_type"))
 
 
 _MIGRATIONS: Mapping[int, Migration] = MappingProxyType(
@@ -139,5 +149,5 @@ class DatabaseMigrator:
 
     @staticmethod
     def _version(connection: Connection) -> int:
-        value = connection.execute(text("PRAGMA user_version")).scalar_one()
+        value: int = connection.execute(text("PRAGMA user_version")).scalar_one()
         return int(value)

@@ -89,7 +89,7 @@ class ZipPackageArchive:
                 # Repetitive audio (including silence) must remain importable without
                 # weakening the archive-bomb limit or buffering whole media files.
                 _write_archive(temporary, files, texts, stored, progress)
-            _validate_built_archive(temporary)
+            _validate_built_archive(temporary, progress)
             if progress is not None:
                 progress(1.0)
             os.replace(temporary, destination)
@@ -193,7 +193,15 @@ def _write_archive(
         os.fsync(stream.fileno())
 
 
-def _validate_built_archive(path: Path) -> None:
+def _validate_built_archive(path: Path, progress: Callable[[float], None] | None = None) -> None:
     with zipfile.ZipFile(path, "r") as bundle:
-        if bundle.testzip() is not None:
-            raise zipfile.BadZipFile("archive checksum validation failed")
+        # Reading every entry through EOF retains ZipExtFile's CRC checks, including empty files.
+        for info in bundle.infolist():
+            if progress is not None:
+                progress(1.0)
+            with bundle.open(info, "r") as stream:
+                while True:
+                    if progress is not None:
+                        progress(1.0)
+                    if not stream.read(1024 * 1024):
+                        break

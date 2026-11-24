@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
+from threading import Event
 
 from backend.domain_errors import DomainError
 from backend.infrastructure.process_runner import ProcessRunner
@@ -14,16 +15,19 @@ class YoutubeRadio:
     def __init__(self, processes: ProcessRunner | None = None) -> None:
         self._processes = processes or ProcessRunner()
 
-    def resolve(self, playlist_id: str, index: int) -> dict[str, str | int]:
+    def resolve(
+        self, playlist_id: str, index: int, *, cancel: Event | None = None
+    ) -> dict[str, str | int]:
         if not re.fullmatch(r"[A-Za-z0-9_-]{10,100}", playlist_id) or not 1 <= index <= 100_000:
             raise DomainError("YoutubePlaylistInvalid", "Invalid YouTube playlist", 400)
-        playlist, entry, index = self._playlist_item(playlist_id, index)
+        playlist, entry, index = self._playlist_item(playlist_id, index, cancel)
         video_id = str(entry.get("id", ""))
         if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
             raise DomainError("YoutubePlaylistUnavailable", "Playlist track is unavailable", 422)
         video = self._extract(
             f"https://www.youtube.com/watch?v={video_id}",
             ["--no-playlist", "-f", "bestaudio[ext=m4a]/bestaudio"],
+            cancel,
         )
         url = str(video.get("url") or "")
         if not url.startswith(("https://", "http://")):
@@ -41,7 +45,7 @@ class YoutubeRadio:
         }
 
     def _playlist_item(
-        self, playlist_id: str, index: int
+        self, playlist_id: str, index: int, cancel: Event | None = None
     ) -> tuple[dict[str, JsonValue], dict[str, JsonValue], int]:
         url = f"https://www.youtube.com/playlist?list={playlist_id}"
         if re.fullmatch(r"RD[A-Za-z0-9_-]{11}", playlist_id):
@@ -53,13 +57,16 @@ class YoutubeRadio:
             playlist = self._extract(
                 url,
                 ["--flat-playlist", "--playlist-items", str(position)],
+                cancel,
             )
             entries = playlist.get("entries")
             if isinstance(entries, list) and entries and isinstance(entries[0], dict):
                 return playlist, entries[0], position
         raise DomainError("YoutubePlaylistUnavailable", "Playlist has no available tracks", 422)
 
-    def _extract(self, url: str, options: list[str]) -> dict[str, JsonValue]:
+    def _extract(
+        self, url: str, options: list[str], cancel: Event | None = None
+    ) -> dict[str, JsonValue]:
         result = self._processes.run(
             [
                 sys.executable,
@@ -80,6 +87,7 @@ class YoutubeRadio:
                 url,
             ],
             timeout_seconds=12,
+            cancel=cancel,
         )
         if result.exit_code != 0:
             raise DomainError(

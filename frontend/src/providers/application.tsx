@@ -26,7 +26,7 @@ import {
 } from '../services/backendEvents';
 import { desktopClient } from '../services/desktopClient';
 import { pythonClient } from '../services/pythonClient';
-import { readJobSnapshot } from '../services/jobSnapshot';
+import { createJobSnapshotReader } from '../services/jobSnapshot';
 import { recordingCoordinator } from '../services/recordingCoordinator';
 import { roomClient } from '../services/roomClient';
 import { participantId } from '../services/roomMappers';
@@ -95,7 +95,29 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
   const cache = client.getQueryCache();
   const pendingRefreshes = new Set<Query>();
   const refreshTimers = new Map<Query, number>();
+  const jobSnapshots = createJobSnapshotReader(
+    (ids, signal) => {
+      const query = cache.find({ queryKey: ['jobs'], exact: true });
+      if (query) pendingRefreshes.delete(query);
+      return pythonClient.listJobs(ids, signal);
+    },
+    () => client.getQueryData<readonly ProcessingJobDto[]>(['jobs']),
+  );
+  let eventRefresh = false;
   let active = true;
+  const invalidateFromEvent = (queryKey: QueryKey, exact = false) => {
+    // Capture this when the query starts. Manual, resumed and periodic reads
+    // retain their full-snapshot semantics.
+    eventRefresh = true;
+    try {
+      void client.invalidateQueries(
+        { queryKey, exact },
+        { cancelRefetch: false },
+      );
+    } finally {
+      eventRefresh = false;
+    }
+  };
   const clearRefresh = (query: Query) => {
     window.clearTimeout(refreshTimers.get(query));
     refreshTimers.delete(query);
@@ -105,7 +127,7 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
       clearRefresh(query);
       if (query.state.fetchStatus === 'fetching') pendingRefreshes.add(query);
     }
-    void client.invalidateQueries({ queryKey }, { cancelRefetch: false });
+    invalidateFromEvent(queryKey);
   };
   // Events during a read need one trailing refresh. Cancelling every read can
   // starve publication and leaves the uncancellable desktop HTTP work running.
@@ -127,25 +149,13 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
       window.setTimeout(() => {
         refreshTimers.delete(query);
         if (active && query.isActive())
-          void client.invalidateQueries(
-            { queryKey: query.queryKey, exact: true },
-            { cancelRefetch: false },
-          );
+          invalidateFromEvent(query.queryKey, true);
       }, 0),
     );
   });
   const jobs = new QueryObserver(client, {
     queryKey: ['jobs'],
-    queryFn: ({ signal }) =>
-      readJobSnapshot(
-        () => {
-          const query = cache.find({ queryKey: ['jobs'], exact: true });
-          if (query) pendingRefreshes.delete(query);
-          return pythonClient.listJobs();
-        },
-        (result) => new Map(result.map((job) => [job.id, job.state])),
-        signal,
-      ),
+    queryFn: ({ signal }) => jobSnapshots.read(signal, eventRefresh),
     refetchInterval: backendPollInterval(1000),
     refetchIntervalInBackground: true,
   });
@@ -193,7 +203,8 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
   );
   const stopVisibility = subscribeAppVisibility(updateVisibility);
   const stopEvents = refreshOnJobChanges(() => refreshJobs(['jobs']), 250);
-  const stopJobQueries = onJobChange((_jobId, job) => {
+  const stopJobQueries = onJobChange((jobId, job) => {
+    jobSnapshots.changed(jobId);
     const queryKey =
       typeof job?.type === 'string' && typeof job.entityId === 'string'
         ? ['job', job.type, job.entityId]

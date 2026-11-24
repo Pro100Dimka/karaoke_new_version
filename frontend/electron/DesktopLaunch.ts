@@ -1,4 +1,5 @@
 import { app, globalShortcut, powerMonitor, screen } from 'electron';
+import { stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import {
   commandsFromArguments,
@@ -27,6 +28,29 @@ const relaunchArguments = (
     : { program: process.execPath, args: [...extra] };
 
 const quote = (value: string) => (/\s/.test(value) ? `"${value}"` : value);
+
+const readLaunchCommands = async (
+  argv: readonly string[],
+  signal: AbortSignal,
+) => {
+  const candidates = new Set<string>();
+  commandsFromArguments(argv, (file) => {
+    candidates.add(path.resolve(file));
+    return false;
+  });
+  const available = new Set<string>();
+  for (const file of candidates) {
+    signal.throwIfAborted();
+    const info = await stat(file).catch(() => undefined);
+    signal.throwIfAborted();
+    if (info?.isFile()) available.add(file);
+    if (available.size === 50) break;
+  }
+  signal.throwIfAborted();
+  return commandsFromArguments(argv, (file) =>
+    available.has(path.resolve(file)),
+  );
+};
 
 /** The jump list (right click on the taskbar icon) in the app's language. */
 export const jumpListTasks = (language: ShellStatus['language']) =>
@@ -60,8 +84,26 @@ export const startDesktopLaunch = (
   // registry alone so it never takes links away from the installed one.
   if (app.isPackaged && !app.isDefaultProtocolClient(linkScheme))
     app.setAsDefaultProtocolClient(linkScheme);
-  for (const command of commandsFromArguments(process.argv.slice(1)))
-    shell.send(command);
+  const lifetime = new AbortController();
+  let pending = Promise.resolve();
+  const launch = (argv: readonly string[]) => {
+    // Keep launches ordered while slow disks leave window input and IPC available.
+    const argumentsCopy = argv.slice(1);
+    pending = pending
+      .then(async () => {
+        const commands = await readLaunchCommands(
+          argumentsCopy,
+          lifetime.signal,
+        );
+        lifetime.signal.throwIfAborted();
+        for (const command of commands) shell.send(command);
+      })
+      .catch((error: unknown) => {
+        if (!lifetime.signal.aborted)
+          console.error('Cannot open launch arguments', error);
+      });
+  };
+  launch(process.argv);
 
   let language: ShellStatus['language'] | null = null;
   let muteRegistered = false;
@@ -109,10 +151,10 @@ export const startDesktopLaunch = (
   return {
     /** A second launch handed its arguments over: carry them out here. */
     secondLaunch(argv: readonly string[]): void {
-      for (const command of commandsFromArguments(argv.slice(1)))
-        shell.send(command);
+      launch(argv);
     },
     stop(): void {
+      lifetime.abort();
       if (muteRegistered) globalShortcut.unregister(muteShortcut);
       muteRegistered = false;
     },

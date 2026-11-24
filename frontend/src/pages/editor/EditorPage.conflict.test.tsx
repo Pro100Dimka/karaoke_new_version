@@ -92,7 +92,7 @@ beforeEach(() => {
       code: 'RevisionConflict',
       message: 'Changed externally',
     })
-    .mockResolvedValue(3);
+    .mockResolvedValue({ revision: 3 });
   vi.mocked(audioClient.prepareSong).mockResolvedValue(ready);
   vi.mocked(audioClient.stop).mockResolvedValue(ready);
 });

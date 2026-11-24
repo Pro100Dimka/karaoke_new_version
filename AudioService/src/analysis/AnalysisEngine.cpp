@@ -28,7 +28,7 @@ void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
     queue_.reset(SourceGenerationId{generation.value()});
     {
         std::lock_guard lock(pitchMutex_);
-        pitchHistory_.clear();
+        pitchHistorySize_ = pitchHistoryWrite_ = 0;
     }
     channels_.store(channels, std::memory_order_release);
     sampleRateHz_.store(sampleRateHz, std::memory_order_release);
@@ -47,7 +47,7 @@ void AnalysisEngine::setGeneration(GenerationId generation) noexcept {
     std::lock_guard lock(pitchMutex_);
     queue_.reset(SourceGenerationId{generation.value()});
     generation_.store(generation, std::memory_order_release);
-    pitchHistory_.clear();
+    pitchHistorySize_ = pitchHistoryWrite_ = 0;
     pitchHz_.store(0.0F, std::memory_order_relaxed);
 }
 
@@ -75,7 +75,17 @@ void AnalysisEngine::push(GenerationId generation, std::span<const float> sample
 
 std::vector<PitchObservation> AnalysisEngine::pitchHistory() const {
     std::lock_guard lock(pitchMutex_);
-    return {pitchHistory_.begin(), pitchHistory_.end()};
+    std::vector<PitchObservation> result;
+    result.reserve(pitchHistorySize_);
+    const auto first =
+        (pitchHistoryWrite_ + pitchHistory_.size() - pitchHistorySize_) % pitchHistory_.size();
+    const auto firstCount = std::min(pitchHistorySize_, pitchHistory_.size() - first);
+    const auto history = std::span<const PitchObservation>{pitchHistory_};
+    const std::array parts{history.subspan(first, firstCount),
+                           history.first(pitchHistorySize_ - firstCount)};
+    for (const auto part : parts)
+        result.insert(result.end(), part.begin(), part.end());
+    return result;
 }
 
 AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
@@ -90,7 +100,6 @@ AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
 namespace {
 constexpr std::uint32_t AnalysisWindowFrames = 2048;
 constexpr std::uint32_t AnalysisOverlap = 4;
-constexpr std::size_t PitchHistoryWindows = 64 * AnalysisOverlap;
 
 } // namespace
 
@@ -168,9 +177,11 @@ void AnalysisEngine::workerMain() noexcept {
             pitchHz_.store(pitch, std::memory_order_relaxed);
             if (captureTimes[windowFrames / 2] > 0) {
                 // Overlap improves refresh rate; each observation scores only one new hop.
-                pitchHistory_.push_back({++pitchSequence_, captureTimes[windowFrames / 2], hopFrames, pitch, audioActive, confidence, windowFrames,
-                                         captureTimes.back() + 1'000'000'000 / rate});
-                while (pitchHistory_.size() > PitchHistoryWindows) pitchHistory_.pop_front();
+                pitchHistory_[pitchHistoryWrite_] = {
+                    ++pitchSequence_, captureTimes[windowFrames / 2], hopFrames, pitch, audioActive,
+                    confidence, windowFrames, captureTimes.back() + 1'000'000'000 / rate};
+                pitchHistoryWrite_ = (pitchHistoryWrite_ + 1U) % pitchHistory_.size();
+                pitchHistorySize_ = std::min(pitchHistorySize_ + 1U, pitchHistory_.size());
             }
         }
         std::move(scratch.begin() + static_cast<std::size_t>(hopFrames) * channels, scratch.end(), scratch.begin());

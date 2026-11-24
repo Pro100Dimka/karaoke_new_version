@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
+from backend.editor.domain import EditorSaveResult
 from backend.editor.melody_audio import UpdateEditorMelody
 from backend.history.domain import HistoryEvent
 from backend.runtime import Clock, IdGenerator
@@ -47,6 +48,11 @@ class SaveEditorDocument:
         self._melody = melody
 
     def execute(self, song_id: str, expected_revision: int, document: LyricsDocument) -> int:
+        return self.execute_with_fingerprint(song_id, expected_revision, document).revision
+
+    def execute_with_fingerprint(
+        self, song_id: str, expected_revision: int, document: LyricsDocument
+    ) -> EditorSaveResult:
         try:
             document.validate()
         except ValueError as exc:
@@ -54,14 +60,17 @@ class SaveEditorDocument:
         with self._operations.acquire(song_id, SongOperation.EDITOR_SAVE):
             return self._save(song_id, expected_revision, document)
 
-    def _save(self, song_id: str, expected_revision: int, document: LyricsDocument) -> int:
+    def _save(
+        self, song_id: str, expected_revision: int, document: LyricsDocument
+    ) -> EditorSaveResult:
         manifest, lineage_id = self._load_base(song_id, expected_revision, document.duration)
         new_revision = max((expected_revision, *self._projects.revisions(song_id))) + 1
-        updated_manifest = _updated_manifest(manifest, new_revision, document)
+        lyrics_text = encode_document(document)
+        fingerprint = hashlib.sha256(lyrics_text.encode("utf-8")).hexdigest()
+        updated_manifest = _updated_manifest(manifest, new_revision, fingerprint)
         working = self._projects.clone_revision(song_id, expected_revision, new_revision)
         try:
             updated_manifest = self._melody.update(updated_manifest, working, document)
-            lyrics_text = encode_document(document)
             lyrics_path = _lyrics_path(updated_manifest)
             self._projects.write_working_text(working, lyrics_path, lyrics_text)
             self._projects.write_working_text(
@@ -76,7 +85,7 @@ class SaveEditorDocument:
             )
             self._commit(song_id, expected_revision, updated_manifest, lineage_id, working)
             self._journal.complete(entry.transaction_id)
-            return new_revision
+            return EditorSaveResult(new_revision, fingerprint)
         finally:
             # Publication moves this directory; failures must not strand its cloned assets.
             shutil.rmtree(working, ignore_errors=True)
@@ -141,10 +150,8 @@ class SaveEditorDocument:
 def _updated_manifest(
     manifest: ProjectManifest,
     revision: int,
-    document: LyricsDocument,
+    checksum: str,
 ) -> ProjectManifest:
-    lyrics_text = encode_document(document)
-    checksum = hashlib.sha256(lyrics_text.encode("utf-8")).hexdigest()
     artifacts = tuple(
         replace(artifact, checksum=checksum) if artifact.logical_name == "lyricsSync" else artifact
         for artifact in manifest.artifacts

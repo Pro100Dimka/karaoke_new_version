@@ -10,7 +10,7 @@ import {
   storageKey,
   writeText,
 } from '../../shared/storage/localStore';
-import { editorApi } from './editorApi';
+import { editorApi, type EditorSaveResult } from './editorApi';
 import { loadDraft, saveDraft } from './editorDraft';
 import { useEditorSession } from './useEditorSession';
 
@@ -31,6 +31,7 @@ vi.mock('../../shared/errors', async (original) => ({
 
 const saved: EditorDocument = {
   revision: 1,
+  documentFingerprint: 'a'.repeat(64),
   words: [{ id: 'word', text: 'Voice', start: 0, end: 5 }],
   notes: [
     {
@@ -85,27 +86,116 @@ const previewAndAutosave = async (editor: Awaited<ReturnType<typeof open>>) => {
   await act(() => vi.advanceTimersByTimeAsync(600));
 };
 
-it('backs up and restores a previously validated draft without another full parse or serialization', async () => {
-  saveDraft('song', previous);
+it('autosaves a note edit without rewriting its unchanged pitch analysis', async () => {
+  const editor = await open();
+  const full = JSON.stringify({
+    baseRevision: saved.revision,
+    document: changed,
+  });
+
+  await previewAndAutosave(editor);
+
+  expect(readText(draftKey)!.length).toBeLessThan(full.length / 10);
+  expect(loadDraft('song', saved)).toEqual({
+    baseRevision: saved.revision,
+    document: changed,
+  });
+});
+
+it.each(['legacy', 'compact'] as const)(
+  'backs up and restores a validated %s draft without another full parse or serialization',
+  async (format) => {
+    saveDraft('song', previous, format === 'compact' ? saved : undefined);
+    const raw = readText(draftKey);
+    const editor = await open();
+    const parse = vi.spyOn(JSON, 'parse');
+    const stringify = vi.spyOn(JSON, 'stringify');
+    await previewAndAutosave(editor);
+    act(() => editor.result.current.replacePresent(saved));
+    expect
+      .soft(parse.mock.calls.filter(([value]) => value === raw))
+      .toHaveLength(0);
+    expect
+      .soft(
+        stringify.mock.calls.filter(
+          ([value]) =>
+            value && typeof value === 'object' && 'baseRevision' in value,
+        ),
+      )
+      .toHaveLength(1);
+    expect(readText(draftKey)).toBe(raw);
+    expect(editor.result.current.dirty).toBe(false);
+  },
+);
+
+it.each([
+  { label: 'the new fingerprint', documentFingerprint: 'b'.repeat(64) },
+  {
+    label: 'an older backend without a fingerprint',
+    documentFingerprint: undefined,
+  },
+])(
+  'checkpoints edits made during Save with $label',
+  async ({ documentFingerprint }) => {
+    let finishSave!: (result: EditorSaveResult) => void;
+    vi.mocked(editorApi.save).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    const editor = await open();
+    act(() => editor.result.current.replacePresent(changed));
+    let saving!: Promise<boolean>;
+    act(() => {
+      saving = editor.result.current.save();
+    });
+    const later = { ...changed, notes: [{ ...changed.notes[0]!, pitch: 62 }] };
+    act(() => editor.result.current.replacePresent(later));
+
+    await act(async () => {
+      finishSave({ revision: 2, documentFingerprint });
+      expect(await saving).toBe(false);
+    });
+
+    const updatedBase = { ...changed, revision: 2, documentFingerprint };
+    const stored = JSON.parse(readText(draftKey)!);
+    if (documentFingerprint) {
+      expect(stored).toMatchObject({
+        format: 2,
+        baseRevision: 2,
+        baseDocumentFingerprint: documentFingerprint,
+      });
+      expect(loadDraft('song', saved)).toBeNull();
+    } else {
+      expect(stored).not.toHaveProperty('format');
+      expect(stored.document).not.toHaveProperty('documentFingerprint');
+    }
+    expect(loadDraft('song', updatedBase)).toEqual({
+      baseRevision: 2,
+      document: { ...later, revision: 2, documentFingerprint },
+    });
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    expect(loadDraft('song', updatedBase)?.document.notes[0]?.pitch).toBe(62);
+  },
+);
+
+it('preserves an ignored compact draft from another revision after preview cancellation', async () => {
+  const otherBase = { ...saved, revision: 2 };
+  const draft = {
+    baseRevision: 2,
+    document: { ...previous.document, revision: 2 },
+  };
+  saveDraft('song', draft, otherBase);
   const raw = readText(draftKey);
   const editor = await open();
-  const parse = vi.spyOn(JSON, 'parse');
-  const stringify = vi.spyOn(JSON, 'stringify');
+
   await previewAndAutosave(editor);
   act(() => editor.result.current.replacePresent(saved));
-  expect
-    .soft(parse.mock.calls.filter(([value]) => value === raw))
-    .toHaveLength(0);
-  expect
-    .soft(
-      stringify.mock.calls.filter(
-        ([value]) =>
-          value && typeof value === 'object' && 'baseRevision' in value,
-      ),
-    )
-    .toHaveLength(1);
+
   expect(readText(draftKey)).toBe(raw);
-  expect(editor.result.current.dirty).toBe(false);
+  expect(loadDraft('song', saved)).toBeNull();
+  expect(loadDraft('song', otherBase)).toEqual(draft);
 });
 
 it('validates a changed external draft before capturing it and restores that newer draft', async () => {
@@ -174,7 +264,7 @@ it('reports a failed checkpoint restore without throwing away the still-stored n
     'errors.storageWrite',
     failure,
   );
-  expect(loadDraft('song')?.document.notes[0]?.pitch).toBe(61);
+  expect(loadDraft('song', saved)?.document.notes[0]?.pitch).toBe(61);
 });
 
 it('still returns independently parsed document objects when a caller loads a draft twice', () => {

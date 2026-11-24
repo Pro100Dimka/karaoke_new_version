@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass, replace
 
@@ -17,7 +18,7 @@ from backend.processing.domain import (
 )
 from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ExecutionContext
-from backend.processing.job_manager import JobContext, ProcessingJobManager
+from backend.processing.job_manager import JobContext, JobWork, ProcessingJobManager
 from backend.processing.orchestrator import PipelineOrchestrator
 from backend.processing.persistence import ProcessingPersistence
 from backend.processing.preflight import ProcessingPreflight, ProcessingProviders
@@ -153,6 +154,7 @@ class StartProcessing:
             ready_revision=song.active_revision if song.status is SongStatus.READY else None
         )
         self._persistence.set_status(song.song_id, SongStatus.QUEUED)
+        work, finalize = self._processing_work(song, mode, online_lyrics, providers, admission)
 
         # Register the turn in the same order in which workers receive their jobs.
         with self._admission_changed, ExitStack() as pending:
@@ -160,9 +162,7 @@ class StartProcessing:
             pending.callback(self._leave_queue, admission)
             job = self._jobs.start(
                 JobType.SONG_PROCESSING,
-                lambda context: self._run(
-                    song.song_id, mode, online_lyrics, providers, context, admission.execution()
-                ),
+                work,
                 entity_id=song.song_id,
                 mode=mode,
                 correlation_id=correlation_id,
@@ -171,13 +171,34 @@ class StartProcessing:
                     "songTitle": song.title,
                     "songArtist": song.artist,
                 },
-                on_finally=lambda: self._finish(song.song_id, admission),
+                on_finally=finalize,
                 admit=lambda cancel: self._admit(
                     admission, providers, source_bytes, compute_mode, cancel
                 ),
             )
             pending.pop_all()
             return job
+
+    def _processing_work(
+        self,
+        song: Song,
+        mode: ProcessingMode,
+        online_lyrics: bool,
+        providers: ProcessingProviders,
+        admission: _Admission,
+    ) -> tuple[JobWork, Callable[[], None]]:
+        cleanup = ExitStack()
+        cleanup.callback(self._finish, song.song_id, admission)
+
+        def process(context: JobContext) -> dict[str, object]:
+            # Completion must not invite a retry while this job still owns its budget.
+            # close() remains a one-shot fallback for jobs cancelled before work begins.
+            with cleanup:
+                return self._run(
+                    song.song_id, mode, online_lyrics, providers, context, admission.execution()
+                )
+
+        return process, cleanup.close
 
     def _leave_queue(self, admission: _Admission) -> None:
         with self._admission_changed:

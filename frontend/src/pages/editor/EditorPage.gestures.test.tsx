@@ -234,6 +234,65 @@ it.each(['move', 'resize'] as const)(
   },
 );
 
+it('does not reread distant word ends to recalculate duration during note-only drag previews', async () => {
+  const source: EditorDocument = {
+    ...document,
+    words: [
+      ...document.words,
+      ...Array.from({ length: 500 }, (_, index) => ({
+        id: `far-${index}`,
+        text: `Word ${index}`,
+        start: 10 + index * 2,
+        end: 11 + index * 2,
+      })),
+    ],
+  };
+  vi.mocked(editorApi.load).mockResolvedValue(source);
+  const frames = new Map<number, FrameRequestCallback>();
+  let frameId = 0;
+  const request = vi
+    .spyOn(window, 'requestAnimationFrame')
+    .mockImplementation((callback) => {
+      frames.set(++frameId, callback);
+      return frameId;
+    });
+  const cancel = vi
+    .spyOn(window, 'cancelAnimationFrame')
+    .mockImplementation((id) => {
+      frames.delete(id);
+    });
+  try {
+    const { world, note } = await beginDrag('move', 1009 * 100);
+    const before = note.getAttribute('style');
+    const renders = probe.rollRenders;
+    let reads = 0;
+    for (const word of source.words.slice(100)) {
+      const end = word.end;
+      Object.defineProperty(word, 'end', {
+        get: () => {
+          reads++;
+          return end;
+        },
+      });
+    }
+    for (let step = 1; step <= 20; step++) {
+      pointer(world, 'pointermove', 130 + step * 10, 80);
+      act(() => {
+        const pending = [...frames.values()];
+        frames.clear();
+        for (const callback of pending) callback(performance.now());
+      });
+    }
+    expect(probe.rollRenders - renders).toBeGreaterThanOrEqual(20);
+    expect(note.getAttribute('style')).not.toBe(before);
+    expect(reads).toBe(0);
+    pointer(world, 'pointercancel', 330, 80);
+  } finally {
+    request.mockRestore();
+    cancel.mockRestore();
+  }
+});
+
 it.each(['move', 'resize'] as const)(
   'keeps %s responsive to fine movement when snapping is disabled',
   async (kind) => {
@@ -242,7 +301,8 @@ it.each(['move', 'resize'] as const)(
     pointer(world, 'pointermove', 130, kind === 'move' ? 80 : 100);
     const first = note.getAttribute('style');
     pointer(world, 'pointermove', 130.2, kind === 'move' ? 80 : 100);
-    expect(note.getAttribute('style')).not.toBe(first);
+    // Fine movement is visible on the next paint, even within the old snap cell.
+    await waitFor(() => expect(note.getAttribute('style')).not.toBe(first));
     pointer(world, 'pointercancel', 130.2, 80);
     expect(note.getAttribute('style')).toBe(geometry);
     expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();

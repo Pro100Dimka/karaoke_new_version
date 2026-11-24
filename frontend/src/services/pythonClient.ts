@@ -18,6 +18,7 @@ import {
 } from './backendEvents';
 import { mapLibraryImportResult } from './libraryImportResult';
 import { bridgedHttp } from './desktopBridge';
+import { isRecord } from '../shared/storage/localStore';
 import {
   jobProgress,
   mapDiagnostics,
@@ -55,13 +56,18 @@ const request = async <T>(
   return result;
 };
 
-const readPages = async <T>(path: string): Promise<T[]> => {
+const readPages = async <T>(
+  path: string,
+  signal?: AbortSignal,
+): Promise<T[]> => {
   const items: T[] = [];
   for (;;) {
+    signal?.throwIfAborted();
     const page = await request<BackendPage<T>>(
       'GET',
       `${path}${items.length ? `&offset=${items.length}` : ''}`,
     );
+    signal?.throwIfAborted();
     items.push(...page.items);
     if (
       page.items.length < (page.limit ?? 200) ||
@@ -279,12 +285,10 @@ export const pythonClient: PythonClient = {
   },
 
   async importProject(path, decision = 'SafeOnly') {
-    const job = await request<BackendJobRef>(
-      'POST',
-      '/packages/import',
-      { path, decision },
-      { 'Idempotency-Key': crypto.randomUUID() },
-    );
+    const job = await request<BackendJobRef>('POST', '/packages/import', {
+      path,
+      decision,
+    });
     const report = await waitForPackageReport(job.jobId);
     if (typeof report.songId !== 'string' || !report.songId)
       throw new Error('Package import completed without a song id');
@@ -502,8 +506,63 @@ export const pythonClient: PythonClient = {
     await request('POST', `/jobs/${encodeURIComponent(jobId)}/cancel`);
   },
 
-  async listJobs() {
-    const jobs = await readPages<BackendJob>('/jobs?limit=200');
+  async listJobs(jobIds, signal) {
+    const jobs: BackendJob[] = jobIds
+      ? []
+      : await readPages<BackendJob>('/jobs?limit=200', signal);
+    if (jobIds) {
+      // Wait for the whole bounded batch before retrying or falling back: desktop
+      // HTTP requests already sent cannot be withdrawn by cancelling a query.
+      for (let offset = 0; offset < jobIds.length; offset += 8) {
+        signal?.throwIfAborted();
+        const batch = jobIds.slice(offset, offset + 8);
+        const settled = await Promise.allSettled(
+          batch.map(async (id) => {
+            const job = await request<BackendJob>(
+              'GET',
+              `/jobs/${encodeURIComponent(id)}`,
+            );
+            const nullableObject = (value: unknown) =>
+              value === null || isRecord(value);
+            if (
+              !job ||
+              job.jobId !== id ||
+              typeof job.type !== 'string' ||
+              ![
+                'Queued',
+                'Running',
+                'Cancelling',
+                'Succeeded',
+                'Failed',
+                'Cancelled',
+                'Interrupted',
+              ].includes(job.state) ||
+              !(job.entityId === null || typeof job.entityId === 'string') ||
+              !(job.stage === null || typeof job.stage === 'string') ||
+              !Number.isFinite(job.stageProgress) ||
+              !Number.isFinite(job.overallProgress) ||
+              (job.createdAt !== undefined &&
+                typeof job.createdAt !== 'string') ||
+              !(job.startedAt === null || typeof job.startedAt === 'string') ||
+              !(
+                job.finishedAt === null || typeof job.finishedAt === 'string'
+              ) ||
+              !nullableObject(job.report) ||
+              !nullableObject(job.error)
+            )
+              throw Object.assign(new Error('Incomplete job snapshot'), {
+                code: 'InvalidJobSnapshot',
+              });
+            return job;
+          }),
+        );
+        signal?.throwIfAborted();
+        for (const result of settled) {
+          if (result.status === 'rejected') throw result.reason;
+          jobs.push(result.value);
+        }
+      }
+    }
     return jobs.map((job) => mapJob(job));
   },
 

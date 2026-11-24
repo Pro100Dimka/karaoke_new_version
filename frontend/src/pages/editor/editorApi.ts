@@ -20,9 +20,13 @@ interface BackendWord {
   letters?: number[];
   lettersApproximate?: boolean;
 }
-interface BackendEditor {
-  songId: string;
+export interface EditorSaveResult {
   revision: number;
+  documentFingerprint?: string;
+}
+
+interface BackendEditor extends EditorSaveResult {
+  songId: string;
   document: {
     title: string;
     artist: string;
@@ -68,6 +72,7 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
   );
   return {
     revision: value.revision,
+    documentFingerprint: value.documentFingerprint,
     bpm: value.document.bpm ?? undefined,
     key: value.document.key ?? undefined,
     words,
@@ -150,13 +155,13 @@ export const createEditorApi = (
     song: SongDto,
     document: EditorDocument,
     expectedRevision: number,
-  ): Promise<number> {
+  ): Promise<EditorSaveResult> {
     const result = await request({
       method: 'PUT',
       path: `/songs/${encodeURIComponent(song.id)}/editor`,
       body: { expectedRevision, document: backendDocument(song, document) },
     });
-    return (result as { revision: number }).revision;
+    return result as EditorSaveResult;
   },
 });
 

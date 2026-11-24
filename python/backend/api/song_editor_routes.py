@@ -28,8 +28,10 @@ def get_editor(song_id: str, app: ContainerDep) -> EditorDto:
 @router.put("/{song_id}/editor", response_model=RevisionDto)
 def save_editor(song_id: str, body: SaveEditorDto, app: ContainerDep) -> RevisionDto:
     document = lyrics_document(body.document)
-    revision = app.songs.save_editor.execute(song_id, body.expected_revision, document)
-    return RevisionDto(revision=revision)
+    result = app.songs.save_editor.execute_with_fingerprint(
+        song_id, body.expected_revision, document
+    )
+    return RevisionDto(revision=result.revision, document_fingerprint=result.document_fingerprint)
 
 
 @router.post("/{song_id}/editor/reset", response_model=RevisionDto)

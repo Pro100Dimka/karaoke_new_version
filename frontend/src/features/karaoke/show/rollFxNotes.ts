@@ -1,6 +1,7 @@
 import { easeOutCubic, rgba } from './fxPalette';
 import type { ShowNote } from './performanceScoring';
 import type { FxCommand } from './visualDirector';
+import { RollFxNoteIndex } from './rollFxNoteIndex';
 import {
   RollVoicePainter,
   paintCanvas,
@@ -46,6 +47,7 @@ export class RollNotePainter {
   private contourTextures = new Map<ShowNote, Map<number, ContourTexture>>();
   private contourView: RollView | undefined;
   private contourSize = '';
+  private noteIndex: RollFxNoteIndex | undefined;
   onCommand(command: FxCommand): void {
     const moment = {
       start: performance.now(),
@@ -79,6 +81,8 @@ export class RollNotePainter {
     geometry: Geometry,
     now: number,
   ): void {
+    if (this.noteIndex?.source !== view.notes)
+      this.noteIndex = new RollFxNoteIndex(view.notes);
     this.drawHalo(context, view);
     this.drawUpcoming(context, view, geometry);
     this.drawTarget(context, view, geometry);
@@ -101,7 +105,23 @@ export class RollNotePainter {
     const scale = context.getTransform().a;
     context.strokeStyle = rgba('white', 0.75);
     context.lineWidth = 1.5;
-    for (const note of view.notes) {
+    // The index skips distant blocks, so evict their cached pixels explicitly.
+    // Keep the same exact edge test used below to paint a contour.
+    for (const note of this.contourTextures.keys()) {
+      const left = geometry.x(note.start) - 2;
+      const width =
+        ((note.end - note.start) * this.layout.lane.width) / view.span + 4;
+      if (left > this.layout.lane.width + margin || left + width < margin)
+        this.releaseContourTexture(note);
+    }
+    const from = view.position - view.span * view.lead;
+    // Select a conservative canvas margin; the existing pixel test below
+    // retains the precise stroke edge, including notes just outside the lane.
+    const padding = (margin * view.span) / Math.max(1, this.layout.lane.width);
+    for (const note of this.noteIndex!.overlapping(
+      from - padding,
+      from + view.span + padding,
+    )) {
       if (!note.contour?.length) continue;
       const left = geometry.x(note.start) - 2;
       const width =
@@ -230,7 +250,10 @@ export class RollNotePainter {
     geometry: Geometry,
   ): void {
     context.lineWidth = 1.2;
-    for (const note of view.notes) {
+    for (const note of this.noteIndex!.starting(
+      view.position,
+      view.position + 0.6,
+    )) {
       const ahead = note.start - view.position;
       if (ahead <= 0 || ahead > 0.6) continue;
       const box = geometry.box(note);
@@ -252,7 +275,7 @@ export class RollNotePainter {
     geometry: Geometry,
   ): void {
     context.lineCap = 'round';
-    for (const note of view.notes) {
+    for (const note of this.noteIndex!.matchingIds(this.traces.keys())) {
       const trace = this.traces.get(note.id);
       if (!trace || trace.length < 2) continue;
       const y = geometry.y(note.pitch);
@@ -288,7 +311,7 @@ export class RollNotePainter {
     now: number,
   ): void {
     const note = (id: string | undefined) =>
-      id ? view.notes.find((candidate) => candidate.id === id) : undefined;
+      id ? this.noteIndex!.first(id) : undefined;
     // Perfect: a glint runs along the note, ending in a small star.
     for (const glint of this.glints) {
       const target = note(glint.noteId);
@@ -382,5 +405,7 @@ export class RollNotePainter {
   }
   dispose(): void {
     this.clearContourTextures();
+    this.noteIndex = undefined;
+    this.contourView = undefined;
   }
 }

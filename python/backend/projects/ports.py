@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Callable, Mapping, Protocol
 
 from backend.projects.domain import ProjectManifest, ProjectRevision
 
@@ -47,6 +47,7 @@ class ProjectStorage(Protocol):
         *,
         supplemental_files: Mapping[Path, Path] | None = None,
         portable_only: bool = False,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> Path: ...
 
     def revision_exists(self, song_id: str, revision: int) -> bool: ...
@@ -56,7 +57,10 @@ class ProjectStorage(Protocol):
     def remove_revision(self, song_id: str, revision: int) -> None: ...
 
     def install_revision_artifact(
-        self, song_id: str, revision: int, relative_path: Path, source: Path
+        self, song_id: str, revision: int, relative_path: Path, source: Path,
+        *,
+        publish: Callable[[Path, Path], None] | None = None,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> None: ...
 
     def portable_revision_size(self, song_id: str, revision: int) -> int: ...

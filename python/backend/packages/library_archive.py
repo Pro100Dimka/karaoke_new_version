@@ -5,13 +5,12 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Literal
 
 from backend.domain_errors import DomainError
-from backend.packages.ports import LibraryStorage, PackageArchive
+from backend.packages.ports import LibraryStorage, PackageArchive, PackageFileHasher
 from backend.packages.security import PackageSecurityValidator
 from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.serialization import dumps, loads_object
-from backend.songs.ports import FileHasher
 from backend.storage.ports import WorkStorage
 from backend.version import DB_SCHEMA_VERSION
 
@@ -25,7 +24,7 @@ class LibraryArchive:
         security: PackageSecurityValidator,
         workspaces: WorkStorage,
         operations: SongOperationRegistry,
-        hasher: FileHasher,
+        hasher: PackageFileHasher,
     ) -> None:
         self._jobs, self._library, self._archive = jobs, library, archive
         self._security, self._workspaces = security, workspaces
@@ -59,7 +58,7 @@ class LibraryArchive:
             )
             checksums = {}
             for index, (name, source) in enumerate(files.items()):
-                checksums[name.as_posix()] = self._hasher(source)
+                checksums[name.as_posix()] = self._hasher(source, context.ensure_not_cancelled)
                 progress((2 + (index + 1) / len(files)) / 3)
             progress(1.0)
             manifest = {
@@ -98,7 +97,7 @@ class LibraryArchive:
             self._archive.extract(path, workspace, _progress(context, "Extract", 0, 0.8))
             progress = _progress(context, "Verify", 0.8, 0.15)
             for index, (name, checksum) in enumerate(files.items()):
-                if self._hasher(workspace / name) != checksum:
+                if self._hasher(workspace / name, context.ensure_not_cancelled) != checksum:
                     raise ValueError("Library file checksum failed")
                 progress((index + 1) / max(1, len(files)))
             context.ensure_not_cancelled()

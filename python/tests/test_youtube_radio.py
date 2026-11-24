@@ -86,7 +86,8 @@ def test_radio_http_response_preserves_track_strings_and_numeric_position(monkey
             "/radio/youtube?playlist_id=PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y&index=7"
         )
         assert response.status_code == 200 and response.json() == payload
-        resolve.assert_called_once_with("PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y", 7)
+        resolve.assert_called_once()
+        assert resolve.call_args.args == ("PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y", 7)
         resolve.reset_mock()
         assert client.get("/radio/youtube?playlist_id=https://localhost").status_code == 422
         resolve.assert_not_called()

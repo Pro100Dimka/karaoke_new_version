@@ -131,7 +131,7 @@ export const useEditorSession = (songId: string) => {
         setSelection(new Set());
         setLoad({ kind: 'ready', song: loaded });
 
-        const draft = loadDraft(loaded.id);
+        const draft = loadDraft(loaded.id, document);
         if (draft && draft.baseRevision === document.revision) {
           const choice = await ask({
             title: tr('draftFoundTitle'),
@@ -191,11 +191,12 @@ export const useEditorSession = (songId: string) => {
     }
     const timer = window.setTimeout(() => {
       if (draftBeforeWrite.current === undefined)
-        draftBeforeWrite.current = captureDraft(songId);
-      saveDraft(songId, {
-        baseRevision: saved.revision,
-        document: history.present,
-      });
+        draftBeforeWrite.current = captureDraft(songId, saved);
+      saveDraft(
+        songId,
+        { baseRevision: saved.revision, document: history.present },
+        saved,
+      );
     }, draftDelayMilliseconds);
     return () => window.clearTimeout(timer);
   }, [history, saved, dirty, songId]);
@@ -270,12 +271,19 @@ export const useEditorSession = (songId: string) => {
       let expected = base.revision;
       for (;;) {
         try {
-          const revision = await editorApi.save(target, current, expected);
+          const { revision, documentFingerprint } = await editorApi.save(
+            target,
+            current,
+            expected,
+          );
           if (requestGeneration !== generation.current) return false;
-          const next = { ...current, revision };
+          // An older backend may omit the token; explicitly clear the previous
+          // base's identity rather than attributing it to newly saved content.
+          const metadata = { revision, documentFingerprint };
+          const next = { ...current, ...metadata };
           const present = {
             ...(latest.current.history?.present ?? current),
-            revision,
+            ...metadata,
           };
           const pendingEdits = isEditorDirty(next, present);
           latest.current.saved = next;
@@ -283,11 +291,15 @@ export const useEditorSession = (songId: string) => {
           setSaved(next);
           setHistory((existing) =>
             existing
-              ? { ...existing, present: { ...existing.present, revision } }
+              ? { ...existing, present: { ...existing.present, ...metadata } }
               : existing,
           );
           if (pendingEdits)
-            saveDraft(target.id, { baseRevision: revision, document: present });
+            saveDraft(
+              target.id,
+              { baseRevision: revision, document: present },
+              next,
+            );
           else {
             draftBeforeWrite.current = undefined;
             clearDraft(target.id);

@@ -241,14 +241,15 @@ RuntimeConfiguration SessionManager::reconfigure(RequestedConfiguration requeste
 }
 
 RecordingResult SessionManager::finishRecording(RecordingState nextState,
-                                                 const std::function<void()>& captureBackendFailure) {
+                                                 const std::function<void()>& captureBackendFailure,
+                                                 bool waitForFinalization) {
     if (state_ != SessionState::Running || engine_.requestRecordingFinish())
-        return engine_.finishRecording(nextState);
+        return engine_.finishRecording(nextState, waitForFinalization);
     // A missing callback deadline, not an audio delay. Ready/fatal events wake immediately;
     // expiry requires stopped-callback ownership before any control-side bridge read.
     constexpr auto CallbackDeadline = std::chrono::seconds(2);
     if (engine_.waitForRecordingFinish(std::chrono::steady_clock::now() + CallbackDeadline))
-        return engine_.finishRecording(nextState);
+        return engine_.finishRecording(nextState, waitForFinalization);
     if (captureBackendFailure) captureBackendFailure();
     const auto request = requested_;
     try {

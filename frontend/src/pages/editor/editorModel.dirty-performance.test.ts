@@ -48,6 +48,44 @@ it('does not traverse an unchanged contour to detect pitch or boundary edits', (
   expect(reads).toBe(0);
 });
 
+it.each([
+  { label: 'unchanged content', lastPitch: 60, dirty: false },
+  { label: 'an edit to the last note', lastPitch: 61, dirty: true },
+])(
+  'does not serialize shared contours of recovered note objects for $label',
+  ({ lastPitch, dirty }) => {
+    let reads = 0;
+    const notes = Array.from({ length: 64 }, (_, index) => ({
+      ...note,
+      id: `note-${index}`,
+      contour: new Proxy(
+        Array.from(
+          { length: 512 },
+          (_, point) => [point / 511, Math.sin(point + index), 1] as const,
+        ),
+        {
+          get(target, key, receiver) {
+            if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
+            return Reflect.get(target, key, receiver);
+          },
+        },
+      ),
+    }));
+    const saved = { ...document(note), notes };
+    const recovered = {
+      ...saved,
+      notes: notes.map((item, index) => ({
+        ...item,
+        id: `restored-${index}`,
+        pitch: index === notes.length - 1 ? lastPitch : item.pitch,
+      })),
+    };
+
+    expect(isEditorDirty(saved, recovered)).toBe(dirty);
+    expect(reads).toBe(0);
+  },
+);
+
 it('preserves content comparison for IDs, contours, words, unknown fields and non-finite numbers', () => {
   const original = {
     ...note,

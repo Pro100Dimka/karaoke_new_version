@@ -71,9 +71,12 @@ class ImportPackage:
             committed = False
             try:
                 install_cover = self._cover_installer(song_id, media)
-                published = self._publish_missing(archive_path, inspection, song_id, install_cover)
+                published = self._publish_missing(
+                    archive_path, inspection, song_id, install_cover, ensure_not_cancelled
+                )
                 cover = self._prepare_cover(
-                    archive_path, inspection, song_id, published, install_cover
+                    archive_path, inspection, song_id, published, install_cover,
+                    ensure_not_cancelled, media,
                 )
                 if ensure_not_cancelled:
                     ensure_not_cancelled()
@@ -92,13 +95,15 @@ class ImportPackage:
         inspection: PackageInspection,
         song_id: str,
         install_cover: Callable[[Path], Path] | None,
+        ensure_not_cancelled: Callable[[], None] | None,
     ) -> PublishedPackageProject | None:
         if self._is_same_revision(inspection) and self._publication.revision_exists(
             song_id, inspection.local_revision or inspection.manifest.revision
         ):
             return None
         return self._publication.execute(
-            archive_path, inspection, song_id, install_cover=install_cover
+            archive_path, inspection, song_id, install_cover=install_cover,
+            ensure_not_cancelled=ensure_not_cancelled,
         )
 
     def _prepare_cover(
@@ -108,11 +113,17 @@ class ImportPackage:
         song_id: str,
         published: PublishedPackageProject | None,
         install_cover: Callable[[Path], Path] | None,
+        ensure_not_cancelled: Callable[[], None] | None,
+        media: SongMediaUpdate,
     ) -> Path | None:
         if published is not None:
             return published.custom_cover
         return self._publication.supplement_same_revision(
-            archive_path, inspection, song_id, install_cover=install_cover
+            archive_path, inspection, song_id, install_cover=install_cover,
+            publish_artifact=lambda staged, target: media.publish_revision_artifact(
+                staged, target, ensure_not_cancelled=ensure_not_cancelled
+            ),
+            ensure_not_cancelled=ensure_not_cancelled,
         )
 
     def _commit_import(

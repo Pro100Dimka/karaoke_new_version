@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from backend.domain_errors import ConflictError, DependencyError, DomainError, N
 from backend.runtime import Clock
 from backend.models.domain import AiModel, ModelState
 from backend.models.policy import ModelDownloadPolicy
-from backend.models.ports import Downloader
+from backend.models.ports import Downloader, ModelFileHasher
 from backend.persistence import UnitOfWorkFactory
 from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
@@ -160,7 +161,7 @@ class DownloadModel:
         disks: StorageSystem,
         policy: ModelDownloadPolicy,
         clock: Clock,
-        hasher: FileHasher,
+        hasher: ModelFileHasher,
     ) -> None:
         self._uow = uow
         self._jobs = jobs
@@ -205,7 +206,7 @@ class DownloadModel:
             context.ensure_not_cancelled()
             self._set_state(model, ModelState.VERIFYING)
             context.progress("Verify", 0.0, 0.95)
-            self._verify(model, temporary, size)
+            self._verify(model, temporary, size, context.ensure_not_cancelled)
             context.ensure_not_cancelled()
             self._storage.publish(temporary, final)
             ready = replace(
@@ -238,12 +239,14 @@ class DownloadModel:
             raise NotFoundError("ModelMissing", "AI model was not found")
         return model
 
-    def _verify(self, model: AiModel, path: Path, size: int) -> None:
+    def _verify(
+        self, model: AiModel, path: Path, size: int, ensure_not_cancelled: Callable[[], None]
+    ) -> None:
         if size != model.size:
             raise DependencyError(
                 "ModelDownloadFailed", "Downloaded model size does not match manifest"
             )
-        if self._hasher(path) != model.checksum:
+        if self._hasher(path, ensure_not_cancelled) != model.checksum:
             raise DependencyError("ModelDownloadFailed", "Downloaded model checksum is invalid")
 
     def _set_state(self, model: AiModel, state: ModelState) -> None:

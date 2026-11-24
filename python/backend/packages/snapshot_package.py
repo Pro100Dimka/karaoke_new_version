@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from collections.abc import Callable
 
 from backend.domain_errors import NotFoundError
 from backend.persistence import UnitOfWorkFactory
@@ -22,12 +23,19 @@ class SnapshotPackage:
         self._songs = songs
 
     def execute(
-        self, song_id: str, revision: int | None, workspace: Path
+        self,
+        song_id: str,
+        revision: int | None,
+        workspace: Path,
+        *,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> tuple[Song, ProjectRevision, ProjectManifest, Path]:
         with self._songs.media_update(song_id):
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
             song, metadata = self._load(song_id, revision)
             project = self._projects.load_manifest(song_id, metadata.revision)
-            snapshot = self._snapshot(song, metadata.revision, workspace)
+            snapshot = self._snapshot(song, metadata.revision, workspace, ensure_not_cancelled)
         return song, metadata, project, snapshot
 
     def _load(self, song_id: str, revision: int | None) -> tuple[Song, ProjectRevision]:
@@ -43,7 +51,13 @@ class SnapshotPackage:
             )
         return song, metadata
 
-    def _snapshot(self, song: Song, revision: int, workspace: Path) -> Path:
+    def _snapshot(
+        self,
+        song: Song,
+        revision: int,
+        workspace: Path,
+        ensure_not_cancelled: Callable[[], None] | None,
+    ) -> Path:
         supplemental: dict[Path, Path] = {}
         clip = self._projects.video_path(
             song.song_id, revision, prefer_local="video" in song.user_overrides
@@ -61,6 +75,7 @@ class SnapshotPackage:
             workspace,
             supplemental_files=supplemental,
             portable_only=True,
+            ensure_not_cancelled=ensure_not_cancelled,
         )
 
 

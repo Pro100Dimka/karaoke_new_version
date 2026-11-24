@@ -516,10 +516,15 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
         recording_.resume(realtime_.sessionFrame());
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::StopRecording: {
-        const auto result = session_.finishRecording(RecordingState::Finished,
-            [this] { (void)capturePendingBackendFailure(); });
+        const auto asynchronous = boolValue(request.value("async"), false);
+        auto result = session_.finishRecording(RecordingState::Finished,
+            [this] { (void)capturePendingBackendFailure(); }, !asynchronous);
         syncDeviceGeneration();
-        if (!result.finalized)
+        const auto finalizing = asynchronous && recording_.state() == RecordingState::Finalizing;
+        // The worker may reach Finished/Failed after finishRecording copied its pending result.
+        if (asynchronous && !finalizing && !result.finalized)
+            result = recording_.result();
+        if (!result.finalized && !finalizing)
             return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
                                                               ? "Recording finalization failed"
                                                               : result.errorMessage};

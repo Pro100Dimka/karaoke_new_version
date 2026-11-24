@@ -89,7 +89,7 @@ void MediaController::play(MediaContext context, MonotonicTicks startAtTicks) {
     constexpr std::array playableStates{PlaybackState::Ready, PlaybackState::Paused,
                                         PlaybackState::Finished};
     for (const auto slot : karaokeCompanionSlots) {
-        if (std::ranges::find(playableStates, source(slot).snapshot().state) !=
+        if (std::ranges::find(playableStates, snapshot(slot).state) !=
             playableStates.end())
             source(slot).play(startAtTicks);
     }
@@ -100,7 +100,7 @@ void MediaController::pause(MediaContext context) {
     if (context != MediaContext::Karaoke)
         return;
     for (const auto slot : karaokeCompanionSlots) {
-        if (source(slot).snapshot().state == PlaybackState::Playing)
+        if (snapshot(slot).state == PlaybackState::Playing)
             source(slot).pause();
     }
 }
@@ -123,7 +123,7 @@ void MediaController::seek(MediaContext context, std::uint64_t frame, MonotonicT
     if (context != MediaContext::Karaoke)
         return;
     for (const auto slot : karaokeCompanionSlots) {
-        if (source(slot).snapshot().state != PlaybackState::Empty)
+        if (snapshot(slot).state != PlaybackState::Empty)
             source(slot).seekTimelineFrame(frame, startAtTicks);
     }
 }

@@ -1,5 +1,6 @@
 import { app, screen, type BrowserWindow } from 'electron';
 import * as fs from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { ipcChannels } from './ipcChannels';
 
@@ -36,8 +37,11 @@ const findSavedDisplay = (x: number, y: number) =>
 
 export const loadWindowState = (): WindowState => {
   try {
+    const file = windowStatePath();
     const raw = JSON.parse(
-      fs.readFileSync(windowStatePath(), 'utf8'),
+      saving && acceptedSave?.file === file
+        ? acceptedSave.text
+        : fs.readFileSync(file, 'utf8'),
     ) as Partial<WindowState>;
     const state: WindowState = {
       ...defaultWindowState,
@@ -73,7 +77,15 @@ export const loadWindowState = (): WindowState => {
   }
 };
 
-export const saveWindowState = (window: BrowserWindow): void => {
+let saving: Promise<void> | undefined;
+let nextSave: { file: string; text: string } | undefined;
+let acceptedSave: typeof nextSave;
+
+/** The quit path awaits accepted placement writes after the window has closed. */
+export const flushWindowState = (): Promise<void> =>
+  saving ?? Promise.resolve();
+
+export const saveWindowState = (window: BrowserWindow): Promise<void> => {
   const bounds =
     window.isMaximized() || window.isFullScreen()
       ? window.getNormalBounds()
@@ -86,11 +98,29 @@ export const saveWindowState = (window: BrowserWindow): void => {
     maximized: window.isMaximized(),
     fullscreen: window.isFullScreen(),
   };
-  try {
-    fs.writeFileSync(windowStatePath(), JSON.stringify(state));
-  } catch {
-    // Window placement is a convenience; failing to persist it must not block closing.
-  }
+  // Capture native bounds before the window disappears. An in-flight write is
+  // followed only by the newest accepted placement, never an unbounded queue.
+  nextSave = acceptedSave = {
+    file: windowStatePath(),
+    text: JSON.stringify(state),
+  };
+  saving ??= Promise.resolve().then(async () => {
+    try {
+      while (nextSave) {
+        const next = nextSave;
+        nextSave = undefined;
+        try {
+          await writeFile(next.file, next.text);
+        } catch {
+          // Placement is a convenience; a failed save must not reject closing.
+        }
+      }
+    } finally {
+      saving = undefined;
+      acceptedSave = undefined;
+    }
+  });
+  return saving;
 };
 
 export const publishWindowState = (

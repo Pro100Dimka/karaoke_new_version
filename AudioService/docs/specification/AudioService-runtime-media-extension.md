@@ -438,6 +438,14 @@ recordingStopSessionFrame
 \`\`\`
 фиксируется немедленно.
 Realtime больше не отправляет новые blocks этой recording session.
+
+По умолчанию StopRecording отвечает только после завершения writer. Необязательный параметр
+`async=true` сохраняет ту же границу capture и запись принятого хвоста, но возвращает путь файла,
+когда writer перешёл в Finalizing. Этот ответ подтверждает принятие остановки; файл ещё нельзя
+читать или публиковать. Клиент опрашивает GetRecordingState без details: 4 — Finalizing,
+5 — Finished, 6 — Failed. После Finished доступны итоговые details и файл. При Failed повторный
+StopRecording возвращает сохранённую ошибку writer. Повторная асинхронная остановка идемпотентна;
+PrepareRecording не заменяет файл, пока writer находится в Finalizing.
 **---**
 **# 30. Recording Finalization**
 Writer:

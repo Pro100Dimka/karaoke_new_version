@@ -5,6 +5,9 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Mapping, Protocol, Sequence
 
 
+PackageFileHasher = Callable[[Path, Callable[[], None] | None], str]
+
+
 @dataclass(frozen=True, slots=True)
 class ArchiveEntry:
     path: PurePosixPath

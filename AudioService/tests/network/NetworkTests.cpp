@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -284,6 +285,41 @@ struct NetworkTestAccess {
 };
 
 namespace Tests {
+void pausedPerformanceKeepsItsDryStemWhenRemoteVoiceArrives() {
+    constexpr std::uint32_t Frames = 480, Blocks = 32;
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    (void)service.session().prepare({});
+    service.session().start();
+    service.realtime().setMicrophoneEnabled(false);
+    service.realtime().setSystemGain(1.0F);
+    require(service.network().addRemoteParticipant("late-remote"), "the later singer has a render queue");
+    const auto path = tempRoot / "paused-solo-dry.wav";
+    require(service.handleLine("1|PrepareRecording|id=solo|tap=performance|backing=true|path=" +
+                                path.string()).status == ControlStatus::Ok &&
+                service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+            "the solo take starts before another singer arrives");
+    const std::vector<float> input(Frames), remote(Frames, 0.1F);
+    std::vector<float> output(Frames * 2U);
+    for (std::uint32_t block = 0; block < Blocks; ++block)
+        fake->pump(input, 1, output, 2, block * Frames, block * Frames);
+    require(service.handleLine("1|PauseRecording").status == ControlStatus::Ok,
+            "the recording boundary is frozen before the remote voice");
+    require(NetworkTestAccess::queueVoice(service.network(), "late-remote", remote),
+            "the remote voice arrives after the recorded interval");
+    fake->pump(input, 1, output, 2, Blocks * Frames, Blocks * Frames);
+    expect(service.realtime().snapshot().remoteMixNonzeroBlocks > 0 &&
+               std::ranges::any_of(output, [](float value) { return value != 0.0F; }),
+           "the later voice remains audible while the take is inactive");
+    require(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+            "the paused solo take finalizes normally");
+    expect(std::filesystem::exists(path.string() + ".dry.wav") &&
+               !std::filesystem::exists(path.string() + ".dry-incomplete.wav"),
+           "a voice outside the recording interval cannot invalidate the saved solo dry stem");
+}
+
 void masterCompanionRecordsTheExactRenderedBacking() {
     constexpr std::uint32_t frames = 480, blocks = 32;
     const auto musicPath = tempRoot / "companion-source-44100.wav";
@@ -1159,18 +1195,58 @@ std::vector<std::byte> onePayloadByte() {
 
 void opusCodecRoundTripsSpeechLikeSignal() {
     constexpr std::uint32_t sampleRateHz = 48000;
-    constexpr std::uint32_t channels = 1;
-    constexpr std::uint32_t frames = 240; // 5 ms, the project's packetization interval
-    OpusVoiceEncoder encoder(sampleRateHz, channels);
-    OpusVoiceDecoder decoder(sampleRateHz, channels);
-    std::vector<float> input(frames);
-    for (std::uint32_t index = 0; index < frames; ++index)
-        input[index] =
-            static_cast<float>(0.4 * std::sin(2.0 * 3.14159265 * 220.0 * index / sampleRateHz));
-    const auto encoded = encoder.encode(input, frames);
-    const auto decoded = decoder.decode(encoded, frames);
-    expect(!encoded.empty(), "Opus encoder produces a non-empty packet");
-    expect(decoded.size() == input.size(), "Opus decoder reproduces the frame's sample count");
+    for (const auto channels : {1U, 2U}) {
+        OpusVoiceEncoder encoder(sampleRateHz, channels), referenceEncoder(sampleRateHz, channels);
+        OpusVoiceDecoder decoder(sampleRateHz, channels), referenceDecoder(sampleRateHz, channels);
+        std::vector<float> input, decoded;
+        std::vector<std::byte> encoded;
+        bool exact = true, rejected = false;
+        for (std::uint32_t packet = 0; packet < 32; ++packet) {
+            if (packet == 8)
+                RealtimeInstrumentation::reset();
+            const auto frames = packet % 2U == 0 ? 240U : 120U;
+            input.resize(frames * channels);
+            for (std::uint32_t frame = 0; frame < frames; ++frame)
+                for (std::uint32_t channel = 0; channel < channels; ++channel)
+                    input[frame * channels + channel] = static_cast<float>(
+                        0.4 * std::sin(2.0 * 3.14159265 * (220.0 + channel * 110.0) *
+                                       (packet * 240U + frame) / sampleRateHz));
+            if (packet == 12) {
+                const auto shortInput = std::span<const float>{input}.subspan(1);
+                const std::array malformed{std::byte{0xFF}};
+                require(referenceEncoder.encode(shortInput, frames).empty() &&
+                            referenceDecoder.decode({}, frames).empty() &&
+                            referenceDecoder.decode(malformed, frames).empty(),
+                        "the reference rejects invalid input without returning stale PCM");
+                {
+                    RealtimeScope allocationCheck;
+                    encoded = encoder.encode(shortInput, frames, std::move(encoded));
+                    decoded = decoder.decode({}, frames, std::move(decoded));
+                    rejected = encoded.empty() && decoded.empty();
+                    decoded = decoder.decode(malformed, frames, std::move(decoded));
+                    rejected = rejected && decoded.empty();
+                }
+            }
+            const auto referenceBytes = referenceEncoder.encode(input, frames);
+            const auto lost = packet % 9U == 3U || packet % 9U == 4U;
+            const auto referencePcm = lost ? referenceDecoder.conceal(frames)
+                                           : referenceDecoder.decode(referenceBytes, frames);
+            {
+                RealtimeScope allocationCheck;
+                encoded = encoder.encode(input, frames, std::move(encoded));
+                decoded = lost ? decoder.conceal(frames, std::move(decoded))
+                               : decoder.decode(encoded, frames, std::move(decoded));
+            }
+            exact = exact && !encoded.empty() && encoded == referenceBytes &&
+                    decoded.size() == input.size() && referencePcm.size() == decoded.size() &&
+                    std::memcmp(decoded.data(), referencePcm.data(), decoded.size() * sizeof(float)) == 0;
+        }
+        const auto activity = RealtimeInstrumentation::snapshot();
+        expect(exact && rejected,
+               "reused mono/stereo Opus buffers preserve exact packets and decoded/loss/recovery PCM across frame sizes and errors");
+        expect(activity.allocations == 0 && activity.deallocations == 0,
+               "warmed Opus encode/decode/conceal output storage survives errors without heap churn");
+    }
 }
 
 void opusCodecDelayIsTheReportedLookahead() {
@@ -2442,7 +2518,7 @@ void pcmLossConcealmentAvoidsAZeroFilledClick() {
 void pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel() {
     constexpr std::uint32_t Packet = 120;
     for (const auto channels : {1U, 2U, 6U}) {
-        PcmLossConcealer concealment;
+        PcmLossConcealer concealment, reusedConcealment;
         std::vector<float> voice(960U * channels);
         for (std::uint32_t frame = 0; frame < 960; ++frame)
             for (std::uint32_t channel = 0; channel < channels; ++channel)
@@ -2450,9 +2526,20 @@ void pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel() {
                     (channel % 2U == 0 ? 0.25F : -0.1F) *
                     static_cast<float>(std::sin(static_cast<double>(frame) * 2.0 * 3.14159265358979 / Packet));
         concealment.remember(voice, channels);
+        reusedConcealment.remember(voice, channels);
+        std::vector<float> reused;
+        bool exact = true;
         float earlyPower = 0.0F, latePower = 0.0F;
         for (std::uint32_t packet = 0; packet < 64; ++packet) {
+            if (packet == 1)
+                RealtimeInstrumentation::reset();
             const auto missing = concealment.conceal(Packet, channels);
+            {
+                RealtimeScope allocationCheck;
+                reused = reusedConcealment.conceal(Packet, channels, std::move(reused));
+            }
+            exact = exact && reused.size() == missing.size() &&
+                    std::memcmp(reused.data(), missing.data(), missing.size() * sizeof(float)) == 0;
             expect(missing.size() == Packet * channels, "every concealed packet retains its channel layout");
             for (const auto sample : missing) {
                 if (packet < 8)
@@ -2463,6 +2550,14 @@ void pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel() {
         }
         expect(earlyPower > 0.1F && latePower == 0.0F,
                "consecutive loss continues briefly, attenuates, and is exactly silent after 100 ms on all channels");
+        const auto activity = RealtimeInstrumentation::snapshot();
+        expect(exact && activity.allocations == 0 && activity.deallocations == 0,
+               "reused PCM concealment storage preserves every channel's exact finite continuation without heap churn");
+        reusedConcealment.reset();
+        std::ranges::fill(reused, 0.5F);
+        reused = reusedConcealment.conceal(Packet, channels, std::move(reused));
+        expect(std::ranges::all_of(reused, [](float sample) { return sample == 0.0F; }),
+               "reused output is cleared when reset concealment has no history");
     }
 }
 
@@ -3199,6 +3294,110 @@ void pcmVoiceRoundTripsWithoutCodecDelay() {
     expect(close, "PCM voice keeps every sample in place, clipped to full scale");
     expect(PcmVoiceCodec::decode(bytes, voice.size() + 1U).empty(),
            "a PCM payload of the wrong length is rejected");
+    std::vector<float> reused(voice.size() + 3U, 99.0F);
+    auto reusedBytes = bytes;
+    bool exact = false;
+    RealtimeInstrumentation::reset();
+    {
+        RealtimeScope allocationCheck;
+        reused = PcmVoiceCodec::decode(bytes, voice.size(), std::move(reused));
+        exact = reused == decoded;
+        reused = PcmVoiceCodec::decode(bytes, voice.size() + 1U, std::move(reused));
+        exact = exact && reused.empty();
+        reused = PcmVoiceCodec::decode(bytes, voice.size(), std::move(reused));
+        reusedBytes = PcmVoiceCodec::encode(voice, std::move(reusedBytes));
+    }
+    const auto activity = RealtimeInstrumentation::snapshot();
+    expect(exact && reused == decoded && reusedBytes == bytes && activity.allocations == 0 &&
+               activity.deallocations == 0,
+           "reused PCM codec buffers retain exact samples and capacity through a rejected packet");
+}
+
+void networkReceiveReusesPcmWorkBuffers() {
+    constexpr std::uint32_t TransportRate = 48'000, Packet = 120, Warmup = 8, Packets = 108;
+    constexpr std::array participants{"first-buffer-singer", "second-buffer-singer"};
+    for (const auto rate : {48'000U, 44'100U, 96'000U}) {
+        for (const auto codec : {VoiceCodec::Pcm16, VoiceCodec::Opus}) {
+            NetworkAudioEngine network;
+            for (const auto generation : {1U, 2U}) {
+                network.prepare(rate, 2, rate / 2U, rate / VoicePacketsPerSecond,
+                                GenerationId{generation});
+                network.setSharedTimeline(true);
+                network.setRoomPlayoutDelay(50.0F);
+                for (const auto participant : participants) {
+                    if (generation == 1U)
+                        require(network.addRemoteParticipant(participant), "receive-buffer singer joins");
+                    NetworkTestAccess::bypassRemoteEffects(network, participant);
+                    NetworkTestAccess::useSinglePacketReorder(network, participant);
+                }
+                std::array encoders{OpusVoiceEncoder{TransportRate, 1},
+                                    OpusVoiceEncoder{TransportRate, 1}};
+                std::array decoders{OpusVoiceDecoder{TransportRate, 1},
+                                    OpusVoiceDecoder{TransportRate, 1}};
+                const auto maximumFrames = (rate + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond;
+                const auto target = network.roomPlayoutDelayFrames();
+                auto cursor = static_cast<std::uint64_t>(rate) * 10U + target;
+                std::vector<float> output(maximumFrames * 2U), expected;
+                std::array<float, Packet> voice{};
+                (void)network.renderRemote(GenerationId{generation}, output, maximumFrames,
+                                           cursor - maximumFrames);
+                bool exactPcm = true;
+                for (std::uint32_t sequence = 0; sequence < Packets; ++sequence) {
+                    if (sequence == Warmup)
+                        RealtimeInstrumentation::reset();
+                    const auto frames = deviceFramesForVoicePacket(sequence, rate);
+                    expected.assign(frames * 2U, 0.0F);
+                    for (std::size_t singer = 0; singer < participants.size(); ++singer) {
+                        for (std::uint32_t frame = 0; frame < Packet; ++frame)
+                            voice[frame] = static_cast<float>(
+                                static_cast<int>((frame + sequence * 7U + singer * 13U) % 97U) - 48) /
+                                (singer == 0U ? 256.0F : 512.0F);
+                        const auto payload = codec == VoiceCodec::Pcm16
+                                                 ? PcmVoiceCodec::encode(voice)
+                                                 : encoders[singer].encode(voice, Packet);
+                        const auto decoded = codec == VoiceCodec::Pcm16
+                                                 ? PcmVoiceCodec::decode(payload, Packet)
+                                                 : decoders[singer].decode(payload, Packet);
+                        const auto resampled = retimeInterleavedLinear(decoded, 1, frames);
+                        require(resampled.size() == frames, "the independent reference decodes a full packet");
+                        for (std::uint32_t frame = 0; frame < frames; ++frame)
+                            for (std::uint32_t channel = 0; channel < 2U; ++channel)
+                                expected[frame * 2U + channel] += resampled[frame];
+                        NetworkAudioPacket packet{
+                            sequence, (TransportRate * 10ULL + sequence * Packet) | SharedAudioTimelineFlag,
+                            1, Packet, payload, codec};
+                        {
+                            // Count only actual receive work: payload ownership and reference
+                            // decoding above are outside this scope, as is render below.
+                            RealtimeScope allocationCheck;
+                            NetworkTestAccess::pumpRemotePackets(network, participants[singer],
+                                                                 std::move(packet));
+                        }
+                    }
+                    (void)network.renderRemote(GenerationId{generation}, output, frames, cursor);
+                    cursor += frames;
+                    if (sequence >= Warmup)
+                        exactPcm = exactPcm &&
+                            std::memcmp(expected.data(), output.data(), expected.size() * sizeof(float)) == 0;
+                }
+                const auto activity = RealtimeInstrumentation::snapshot();
+                const auto diagnostics = network.diagnostics();
+                std::printf("RECEIVE_WORK_BUFFERS rate=%u codec=%u generation=%u packets=%zu allocations=%llu deallocations=%llu\n",
+                            rate, static_cast<unsigned>(codec), generation,
+                            (Packets - Warmup) * participants.size(),
+                            static_cast<unsigned long long>(activity.allocations),
+                            static_cast<unsigned long long>(activity.deallocations));
+                expect(exactPcm, "interleaved singers retain bit-identical decoded/resampled PCM on both output channels");
+                expect(activity.allocations == 0,
+                       "warmed receive work reuses its PCM buffers without per-packet allocation");
+                expect(network.roomPlayoutDelayFrames() == target &&
+                           std::ranges::all_of(diagnostics.participants, [](const auto& participant) {
+                               return participant.queueFillFrames == 0 && participant.lateAudioCuts == 0;
+                           }),
+                       "buffer reuse preserves the fixed deadline and drains only current packets");
+            }
+        }
+    }
 }
 
 void voiceCodecUsesPcmOnlyOnACleanConnection() {
@@ -3391,6 +3590,21 @@ void networkRetimeCorrectionPreservesContinuousVoice() {
     expect(contracted.size() == 3 && contracted.front() == ramp.front() &&
                contracted.back() == ramp.back(),
            "latency correction compresses voice continuously without dropping a hard slice");
+    std::vector<float> reused(5, 99.0F);
+    bool exact = true;
+    RealtimeInstrumentation::reset();
+    {
+        RealtimeScope allocationCheck;
+        for (const auto* reference : {&expanded, &contracted, &expanded}) {
+            reused = retimeInterleavedLinear(ramp, 1, static_cast<std::uint32_t>(reference->size()),
+                                             std::move(reused));
+            exact = exact && reused.size() == reference->size() &&
+                    std::memcmp(reused.data(), reference->data(), reused.size() * sizeof(float)) == 0;
+        }
+    }
+    const auto activity = RealtimeInstrumentation::snapshot();
+    expect(exact && activity.allocations == 0 && activity.deallocations == 0,
+           "reused retiming storage keeps bit-identical expanded and contracted PCM without heap churn");
 }
 
 void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {

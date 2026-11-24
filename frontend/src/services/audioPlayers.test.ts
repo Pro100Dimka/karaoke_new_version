@@ -50,6 +50,57 @@ const setup = () => {
   return { players, command, pythonRequest, diagnostics };
 };
 
+it.each(['playRecording', 'playSongPreview'] as const)(
+  'uses compact snapshots while %s is loading and keeps the initial service identity check',
+  async (play) => {
+    vi.useFakeTimers();
+    try {
+      const { players, diagnostics, pythonRequest, command } = setup();
+      pythonRequest.mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: { filePath: 'take.wav', sourcePath: 'song.wav' },
+      });
+      diagnostics
+        .mockResolvedValueOnce({
+          PreviewState: '0',
+          ServiceInstanceId: 'first',
+        })
+        .mockResolvedValueOnce({ PreviewState: '1' })
+        .mockResolvedValueOnce({ PreviewState: '1' })
+        .mockResolvedValueOnce({ PreviewState: '2' });
+      const loading = players[play]('take', Symbol('preview'));
+      await vi.runAllTimersAsync();
+      await expect(loading).resolves.toMatchObject({ state: 'playing' });
+      expect(
+        diagnostics.mock.calls.map(([playbackOnly]) => playbackOnly),
+      ).toEqual([undefined, true, true, true]);
+      expect(command).toHaveBeenLastCalledWith('PlayRecordingPreview');
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);
+
+it('keeps radio loading on full diagnostics containing RadioState', async () => {
+  vi.useFakeTimers();
+  try {
+    const { players, diagnostics } = setup();
+    diagnostics
+      .mockResolvedValueOnce({ RadioState: '1' })
+      .mockResolvedValueOnce({ RadioState: '2' });
+    const loading = players.loadRadio('https://radio.example.test/live');
+    await vi.runAllTimersAsync();
+    await loading;
+    expect(diagnostics).toHaveBeenCalledTimes(2);
+    expect(
+      diagnostics.mock.calls.every(([playbackOnly]) => !playbackOnly),
+    ).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 describe('radio transport intents', () => {
   it.each(['pauseRadio', 'stopRadio'] as const)(
     'does not start radio after a later %s while preview shutdown is pending',

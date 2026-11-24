@@ -91,7 +91,10 @@ export const createAudioPlayers = (
   ) => {
     for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
       assertCurrent?.();
-      const state = Number((await ops.diagnostics())[field] ?? 0);
+      // Preview state is in the compact snapshot; radio state needs full diagnostics.
+      const state = Number(
+        (await ops.diagnostics(field === 'PreviewState'))[field] ?? 0,
+      );
       assertCurrent?.();
       if (state === failedState)
         throw new Error(`AudioService could not open the ${what}`);

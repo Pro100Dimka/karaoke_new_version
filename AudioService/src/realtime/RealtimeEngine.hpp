@@ -222,7 +222,7 @@ class RealtimeEngine final : public IAudioCallback {
     void rejectCallbacks(GenerationId generation) noexcept;
     [[nodiscard]] RecordingResult recordingResult() const { return recording_.result(); }
     // Control: callbacks must be stopped, or the requested render boundary acknowledged.
-    RecordingResult finishRecording(RecordingState nextState);
+    RecordingResult finishRecording(RecordingState nextState, bool waitForFinalization = true);
     [[nodiscard]] RecordingState recordingState() const noexcept { return recording_.state(); }
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
     void playReferenceTone(float frequencyHz, std::uint32_t durationFrames, float gain) noexcept;

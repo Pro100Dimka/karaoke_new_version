@@ -46,6 +46,7 @@ class MediaSource {
 
     void prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t outputChannels,
                        std::uint32_t bufferFrames);
+    /** Accepts the latest path without waiting for old decoder I/O; Ready is published by the worker. */
     void load(std::string path);
     void unload() noexcept;
     void play(MonotonicTicks startAtTicks = 0);

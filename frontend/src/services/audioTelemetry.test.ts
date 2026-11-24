@@ -109,6 +109,170 @@ it('reports an asynchronous snapshot consumer failure through the subscription',
   stop();
 });
 
+it.each(['resolves', 'rejects'] as const)(
+  'delivers the final snapshot behind queued controls when a slow consumer %s',
+  async (completion) => {
+    const context = await setup();
+    let release!: () => void;
+    const failure = new Error('Monitoring reconciliation failed');
+    const failed = vi.fn();
+    const held = new Promise<void>((resolve, reject) => {
+      release = completion === 'resolves' ? resolve : () => reject(failure);
+    });
+    const order: (number | string)[] = [];
+    const stop = context.session.observeSnapshots(async (value) => {
+      order.push(value.positionSeconds);
+      if (value.positionSeconds === 1) await held;
+    }, failed);
+    context.emit(48000);
+    await Promise.resolve();
+    expect(order).toEqual([1]);
+    for (let position = 2; position <= 1000; position++) {
+      context.advance();
+      context.emit(position * 48000);
+    }
+    const control = context.session.enqueueAudioOperation(async () => {
+      order.push('control');
+    });
+    release();
+    await control;
+    await context.flush();
+    await context.flush();
+
+    expect(order).toEqual([1, 'control', 1000]);
+    if (completion === 'rejects')
+      expect(failed).toHaveBeenCalledExactlyOnceWith(failure);
+    else expect(failed).not.toHaveBeenCalled();
+    stop();
+  },
+);
+
+it('discards a trailing pre-seek snapshot without relabeling it with the new command revision', async () => {
+  const context = await setup();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const received = vi.fn(async (value: { positionSeconds: number }) => {
+    if (value.positionSeconds === 1) await held;
+  });
+  const stop = context.session.observeSnapshots(received, vi.fn());
+  context.emit(48000);
+  await Promise.resolve();
+  context.advance();
+  context.emit(96000);
+  const seek = context.session.enqueueAudioOperation(() =>
+    context.session.command('Seek', { frame: 480000 }),
+  );
+  release();
+  await seek;
+  await context.flush();
+  await context.flush();
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ positionSeconds: 1 }),
+  );
+  context.advance();
+  context.emit(480000);
+  await context.flush();
+  expect(received).toHaveBeenCalledTimes(2);
+  expect(received).toHaveBeenLastCalledWith(
+    expect.objectContaining({ positionSeconds: 10 }),
+  );
+  stop();
+});
+
+it('discards trailing snapshots and errors when unsubscribed during a slow consumer', async () => {
+  const context = await setup();
+  let reject!: (error: Error) => void;
+  const held = new Promise<void>((_resolve, fail) => {
+    reject = fail;
+  });
+  const received = vi.fn(async () => held);
+  const failed = vi.fn();
+  const stop = context.session.observeSnapshots(received, failed);
+  context.emit(48000);
+  await Promise.resolve();
+  context.advance();
+  context.emit(96000);
+  stop();
+  reject(new Error('Consumer closed'));
+  await context.flush();
+  await context.flush();
+  expect(received).toHaveBeenCalledOnce();
+  expect(failed).not.toHaveBeenCalled();
+  expect(context.unsubscribe).toHaveBeenCalledOnce();
+});
+
+it('keeps a newer pending stream frame when an older recovery snapshot arrives later', async () => {
+  const context = await setup();
+  const received = vi.fn();
+  const stop = context.session.observeSnapshots(received, vi.fn());
+  let release!: () => void;
+  const held = context.session.enqueueAudioOperation(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  await Promise.resolve();
+  const older = context.ticks();
+  let finishRecovery!: (response: AudioBridgeResponse) => void;
+  context.audioRequest.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRecovery = resolve;
+      }),
+  );
+  context.disconnect();
+  context.advance();
+  context.emit(96000);
+  context.emit(0, Number.NaN);
+  finishRecovery({
+    status: 0,
+    text: `MonotonicTicks: ${older}\nRuntimeOutputSampleRate: 48000\nPlaybackState: 3\nPlaybackPresentationPositionFrames: 48000`,
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  release();
+  await held;
+  await context.flush();
+
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ positionSeconds: 2 }),
+  );
+  stop();
+});
+
+it('discards a recovery started before Seek even before the native clock is calibrated', async () => {
+  const context = await setup();
+  const received = vi.fn();
+  const stop = context.session.observeSnapshots(received, vi.fn());
+  let finishRecovery!: (response: AudioBridgeResponse) => void;
+  const recovery = new Promise<AudioBridgeResponse>((resolve) => {
+    finishRecovery = resolve;
+  });
+  context.audioRequest.mockReturnValueOnce(recovery);
+  const beforeSeek = context.ticks();
+  context.disconnect();
+  await context.session.command('Seek', { frame: 480000 });
+  finishRecovery({
+    status: 0,
+    text: `MonotonicTicks: ${beforeSeek}\nRuntimeOutputSampleRate: 48000\nPlaybackState: 3\nPlaybackPresentationPositionFrames: 48000`,
+  });
+  await recovery;
+  await context.flush();
+  await context.flush();
+  expect(received).not.toHaveBeenCalled();
+  context.advance();
+  context.emit(480000);
+  await context.flush();
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ positionSeconds: 10 }),
+  );
+  stop();
+});
+
 it('rejects pre-seek frames delivered after the reply while mixer changes retain live updates', async () => {
   const context = await setup();
   await context.session.diagnostics(true);

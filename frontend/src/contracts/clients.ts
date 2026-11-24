@@ -219,7 +219,10 @@ export interface PythonClient {
   verifyEnvironmentSetting(key: string): Promise<EnvironmentSettingDto>;
 
   cancelJob(jobId: string): Promise<void>;
-  listJobs(): Promise<readonly ProcessingJobDto[]>;
+  listJobs(
+    jobIds?: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;
   freeStorageBytes(area?: 'data' | 'models'): Promise<number>;
   /** Newest first; `types` limits the page (and its total) to those event kinds. */

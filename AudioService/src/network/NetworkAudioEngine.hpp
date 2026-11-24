@@ -418,6 +418,9 @@ class NetworkAudioEngine {
     std::vector<float> remoteScratch_;
     std::array<std::uint8_t, MaxBlockFrames> remoteFrameTags_{};
     std::vector<MonotonicTicks> queueFrameTimes_; // receive-owned, prepared for the largest push
+    // Receive worker only, under remoteMutex_. Queue pushes copy PCM before these are reused
+    // for the next participant; decoder/concealment history stays in each RemoteSlot.
+    std::vector<float> receiveDecoded_, receiveResampled_, receiveRetimed_;
     // Device/render layouts may expose up to eight channels, while a room participant is one
     // centred voice. These preallocated samples fold the device layout to mono without allocating
     // in the realtime capture callback.

@@ -96,7 +96,8 @@ export const EditorPage = () => {
               : 0,
           )
         : 0,
-    [document, session.load],
+    // Note previews retain the words; only their bounds and the song set length.
+    [document?.words, session.load],
   );
   // A drag shows live previews; the document it started from makes the whole drag one undo step.
   const dragStart = useRef<EditorDocument | null>(null);

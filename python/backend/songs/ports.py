@@ -102,6 +102,14 @@ class SongMediaUpdate(Protocol):
 
     def copy_clip(self, source: Path) -> Path: ...
 
+    def publish_revision_artifact(
+        self,
+        staged: Path,
+        target: Path,
+        *,
+        ensure_not_cancelled: Callable[[], None] | None = None,
+    ) -> None: ...
+
     def commit(self) -> None: ...
 
 

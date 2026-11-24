@@ -80,6 +80,43 @@ class _MediaUpdate:
     def copy_clip(self, source: Path) -> Path:
         return self._copy(source, self._root / "media" / "clip.mp4", self._copy_clip)
 
+    def publish_revision_artifact(
+        self,
+        staged: Path,
+        target: Path,
+        *,
+        ensure_not_cancelled: Callable[[], None] | None = None,
+    ) -> None:
+        identity = _identity(staged)
+        if identity is None:
+            raise DependencyError("StorageUnavailable", "Staged project artifact is missing")
+        self._backup_revision_artifact(target, ensure_not_cancelled)
+        if ensure_not_cancelled:
+            ensure_not_cancelled()
+        os.replace(staged, target)
+        # No fallible work or checkpoint may separate publication from rollback ownership.
+        self._published[target] = identity
+
+    def _backup_revision_artifact(
+        self, target: Path, ensure_not_cancelled: Callable[[], None] | None
+    ) -> None:
+        if target in self._backups:
+            return
+        self._backups[target] = None
+        if not target.exists():
+            return
+        with NamedTemporaryFile(
+            dir=target.parent, prefix=f".{target.name}.", suffix=".backup", delete=False
+        ) as output:
+            backup = Path(output.name)
+            self._backups[target] = backup
+        backup.unlink()
+        try:
+            # Immutable revision files can be preserved without reading their contents.
+            os.link(target, backup)
+        except OSError:
+            _copy_artifact_backup(target, backup, ensure_not_cancelled)
+
     def commit(self) -> None:
         self._committed = True
 
@@ -143,3 +180,22 @@ class _MediaUpdate:
             logger.error(
                 "Could not restore song media from %s to %s", backup, target, exc_info=True
             )
+
+
+def _copy_artifact_backup(
+    source: Path, target: Path, ensure_not_cancelled: Callable[[], None] | None
+) -> None:
+    if ensure_not_cancelled:
+        ensure_not_cancelled()
+    with source.open("rb") as original, target.open("xb") as backup:
+        buffer = bytearray(1024 * 1024)
+        view = memoryview(buffer)
+        while True:
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
+            count = original.readinto(buffer)
+            if not count:
+                break
+            backup.write(view[:count])
+        backup.flush()
+        os.fsync(backup.fileno())

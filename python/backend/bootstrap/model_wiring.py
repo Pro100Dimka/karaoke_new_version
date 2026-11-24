@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from backend.bootstrap.container import ModelCases
 from backend.bootstrap.wiring import ProcessingWiring, RuntimeWiring
+from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.http_downloader import HttpDownloader
 from backend.infrastructure.local_storage import LocalModelStorage
 from backend.models.commands import DeclareModel, DeleteModel, DownloadModel, SelectModel
@@ -21,7 +22,7 @@ def build_model_cases(
         processing.storage,
         ModelDownloadPolicy(),
         runtime.clock,
-        runtime.hasher,
+        sha256_file,
     )
     return ModelCases(
         DeclareModel(runtime.database, runtime.clock, storage, runtime.hasher),

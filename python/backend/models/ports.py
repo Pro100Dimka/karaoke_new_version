@@ -9,6 +9,9 @@ from backend.ai.domain import AiCapability, RequiredModel
 from backend.models.domain import AiModel
 
 
+ModelFileHasher = Callable[[Path, Callable[[], None]], str]
+
+
 class ModelRepository(Protocol):
     def get(self, model_id: str, version: str) -> AiModel | None: ...
 

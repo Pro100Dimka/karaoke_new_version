@@ -76,7 +76,9 @@ export class BackendEndpoint implements ServiceObserver {
     const signal = AbortSignal.any([
       this.lifetime.signal,
       AbortSignal.timeout(timeout),
+      ...(init.signal ? [init.signal] : []),
     ]);
+    signal.throwIfAborted();
     if (
       this.port === null &&
       !this.announced &&

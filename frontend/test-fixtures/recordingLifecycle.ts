@@ -14,7 +14,11 @@ export const native = {
   staleBlocks: 2,
   gaps: [{ startFrame: 90000, frameCount: 128 }],
 };
-export const responseText = (command: string): string => {
+export const responseText = (
+  command: string,
+  args?: AudioBridgeRequest['args'],
+): string => {
+  if (command === 'GetRecordingState' && !args?.details) return '5';
   const responses: Record<string, string> = {
     StopRecording: 'D:/take.wav',
     GetRecordingState: JSON.stringify(native),
@@ -36,7 +40,7 @@ export const setup = async () => {
   }));
   const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
     status: 0,
-    text: responseText(request.command),
+    text: responseText(request.command, request.args),
   }));
   const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
     ok: true,

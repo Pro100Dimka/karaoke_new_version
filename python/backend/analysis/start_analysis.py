@@ -7,7 +7,7 @@ import threading
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
 from backend.analysis.job_results import settled_analysis
-from backend.analysis.ports import RecordingPitchExtractor
+from backend.analysis.ports import RecordingFileHasher, RecordingPitchExtractor
 from backend.analysis.scoring import ScoreSummary, reference_audio_start, score_pitch
 from backend.analysis.queries import live_result
 from backend.recordings.domain import Recording
@@ -19,7 +19,6 @@ from backend.processing.domain import Job, JobState, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.projects.ports import ProjectStorage
 from backend.runtime import Clock, IdGenerator
-from backend.songs.ports import FileHasher
 from backend.version import ANALYSIS_ALGORITHM_VERSION
 
 
@@ -45,7 +44,7 @@ class StartRecordingAnalysis:
         jobs: ProcessingJobManager,
         projects: ProjectStorage,
         pitch: RecordingPitchExtractor,
-        hasher: FileHasher,
+        hasher: RecordingFileHasher,
         clock: Clock,
         ids: IdGenerator,
         on_completed: Callable[[str], None] | None = None,
@@ -80,9 +79,8 @@ class StartRecordingAnalysis:
         if not recording.file_path.is_file():
             raise NotFoundError("RecordingFileMissing", "Recording audio file is unavailable")
         live = live_result(recording)
-        result = self._create_result(
-            recording_id, song_id, revision, self._hasher(recording.file_path)
-        )
+        # Only a worker reads the full recording; admission immediately exposes a cancellable job.
+        result = self._create_result(recording_id, song_id, revision, "")
         admission = ExitStack()
         try:
             return self._jobs.start(
@@ -117,6 +115,7 @@ class StartRecordingAnalysis:
         settled = False
         try:
             context.ensure_not_cancelled()
+            running = self._identify(running, context)
             score = self._score(running, context)
             context.ensure_not_cancelled()
             done = self._succeeded(running, score)
@@ -135,6 +134,16 @@ class StartRecordingAnalysis:
             # leaving it "running" for ever; the job manager logs and reports the error itself.
             if not settled:
                 self._fail(running, "AnalysisFailed", "Recording analysis failed")
+
+    def _identify(self, result: AnalysisResult, context: JobContext) -> AnalysisResult:
+        # Hold the input reservation, not a submission/control lock, while SHA reads audio.
+        with self._jobs.prepare_submission():
+            recording = self._recording(result.recording_id)
+            identity = self._hasher(recording.file_path, context.ensure_not_cancelled)
+            context.ensure_not_cancelled()
+            verified = replace(result, recording_identity=identity, updated_at=self._clock.now())
+            self._save(verified)
+        return verified
 
     def _settle_queued(self, analysis_id: str) -> None:
         result = self._get(analysis_id)

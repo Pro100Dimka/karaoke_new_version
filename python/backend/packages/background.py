@@ -70,7 +70,8 @@ class StartPackageImport:
         decision: PackageImportDecision,
         idempotency_key: str | None,
     ) -> Job:
-        request_hash = _request_hash(self._hasher(path), decision)
+        # Only a caller-supplied key needs to be bound to the archive's exact bytes.
+        request_hash = _request_hash(self._hasher(path), decision) if idempotency_key else ""
         with self._idempotency_locks.acquire(idempotency_key) if idempotency_key else nullcontext():
             repeated = self._repeat(idempotency_key, request_hash)
             if repeated:

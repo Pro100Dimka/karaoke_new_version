@@ -238,31 +238,33 @@ class SqlSongRepository:
         revision = self._revision(query.sort == "played")
         signature = _search_signature(query)
         statement, column = _search_order(query)
-        statement = statement.where(*_search_filters(query))
+        statement = statement.where(*_search_filters(query)).order_by(
+            desc(column) if query.descending else asc(column), asc(SongRow.song_id)
+        )
+        following_dates = None
         if query.cursor:
             value, song_id = _cursor_values(query, query.cursor, signature, revision)
             after = column < value if query.descending else column > value
-            statement = statement.where(
-                or_(after, and_(column == value, SongRow.song_id > song_id))
+            if query.sort == "createdAt":
+                # Separate index ranges skip earlier IDs at the cursor's date instead
+                # of rescanning that whole tie group for each subsequent page.
+                following_dates = statement.where(after)
+                statement = statement.where(column == value, SongRow.song_id > song_id)
+            else:
+                statement = statement.where(
+                    or_(after, and_(column == value, SongRow.song_id > song_id))
+                )
+        rows = list(self._session.execute(statement.limit(query.limit + 1)).all())
+        if following_dates is not None and len(rows) <= query.limit:
+            rows.extend(
+                self._session.execute(following_dates.limit(query.limit + 1 - len(rows))).all()
             )
-        rows = self._session.execute(
-            statement.order_by(
-                desc(column) if query.descending else asc(column), asc(SongRow.song_id)
-            ).limit(query.limit + 1)
-        ).all()
         page = rows[: query.limit]
         cursor = None
         if len(rows) > query.limit:
             song, value = page[-1]
             cursor = base64.urlsafe_b64encode(
-                dumps(
-                    [
-                        revision,
-                        signature,
-                        value,
-                        song.song_id,
-                    ]
-                ).encode("utf8")
+                dumps([revision, signature, value, song.song_id]).encode("utf8")
             ).decode("ascii")
         return SongPage([_to_domain(row) for row, _ in page], cursor)
 

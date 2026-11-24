@@ -14,6 +14,7 @@
 #include <chrono>
 #include <exception>
 #include <filesystem>
+#include <future>
 #include <limits>
 #include <ranges>
 #include <semaphore>
@@ -22,6 +23,12 @@
 
 // Fault injection exercises disk/RIFF failures without filling the machine's disk.
 struct RecordingTestAccess {
+    static void holdProducer(RecordingEngine& recording) {
+        recording.producers_.fetch_add(1);
+    }
+    static void releaseProducer(RecordingEngine& recording) {
+        recording.releaseProducer();
+    }
     static std::span<const float> diagnosticCapture(const RealtimeEngine& engine) {
         return engine.diagnosticCaptureInput_;
     }
@@ -55,7 +62,152 @@ struct RecordingTestAccess {
     }
 };
 
+namespace {
+constexpr auto RecordingCompletionTimeout = std::chrono::seconds(2);
+constexpr auto RecordingCommandTimeout = std::chrono::milliseconds(500);
+
+struct HeldRecordingProducer {
+    RecordingEngine& recording;
+    bool active{true};
+    explicit HeldRecordingProducer(RecordingEngine& engine) : recording(engine) {
+        RecordingTestAccess::holdProducer(recording);
+    }
+    void release() {
+        if (active) {
+            active = false;
+            RecordingTestAccess::releaseProducer(recording);
+        }
+    }
+    ~HeldRecordingProducer() { release(); }
+};
+
+RecordingResult completedRecording(RecordingEngine& recording) {
+    const auto deadline = std::chrono::steady_clock::now() + RecordingCompletionTimeout;
+    while (recording.state() == RecordingState::Finalizing &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::yield();
+    Tests::require(recording.state() != RecordingState::Finalizing,
+                   "the released writer completes within the test deadline");
+    return recording.result();
+}
+} // namespace
+
 namespace Tests {
+void asynchronousRecordingStopLeavesControlResponsive() {
+    constexpr std::array states{RecordingState::Prepared, RecordingState::Recording,
+                               RecordingState::Paused};
+    for (const auto state : states) {
+        AudioService service{std::make_unique<FakeAudioBackend>()};
+        service.start();
+        auto& recording = service.recording();
+        const auto path = tempRoot / ("async-stop-" + std::to_string(static_cast<int>(state)) + ".wav");
+        recording.prepare("async", path.string(), 48'000, 1, RecordingTap::RawInput, 4096);
+        const auto frames = state == RecordingState::Prepared ? 0U : 128U;
+        if (frames != 0) {
+            recording.start(SessionFrame{0}, 0);
+            recording.push(GenerationId{0}, RecordingTap::RawInput, SessionFrame{0},
+                           std::vector<float>(frames, 0.25F), frames);
+            if (state == RecordingState::Paused)
+                recording.pause(SessionFrame{frames});
+        }
+        // Declare futures first so unwinding releases the lease before their joining destructors.
+        std::future<ControlResponse> asynchronous, repeated, synchronous;
+        HeldRecordingProducer held{recording};
+        asynchronous = std::async(std::launch::async, [&] {
+            return service.handleLine("1|StopRecording|async=true");
+        });
+        const auto accepted = asynchronous.wait_for(RecordingCommandTimeout) == std::future_status::ready;
+        expect(accepted, "async stop accepts the cutoff without waiting for finalization");
+        if (accepted) {
+            const auto response = asynchronous.get();
+            expect(response.status == ControlStatus::Ok && response.text == path.string() &&
+                       recording.state() == RecordingState::Finalizing && !recording.result().finalized,
+                   "the pending stop returns its stable path without claiming a finalized file");
+            expect(service.handleLine("1|GetRecordingState").text == "4" &&
+                       service.handleLine("1|GetClock").status == ControlStatus::Ok &&
+                       service.handleLine("1|GetRecordingState|details=true").status == ControlStatus::InvalidState,
+                   "state and unrelated control requests stay available while finalization is pending");
+            bool rejected = false;
+            try {
+                recording.prepare("replacement", (tempRoot / "replacement.wav").string(),
+                                  44'100, 2, RecordingTap::RawInput, 4096);
+            } catch (const std::logic_error&) {
+                rejected = true;
+            }
+            expect(rejected, "prepare cannot replace storage owned by a finalizing writer");
+            recording.push(GenerationId{0}, RecordingTap::RawInput, SessionFrame{frames},
+                           std::array<float, 1>{0.75F}, 1);
+            repeated = std::async(std::launch::async, [&] {
+                return service.handleLine("1|StopRecording|async=true");
+            });
+            const auto repeatAccepted = repeated.wait_for(RecordingCommandTimeout) == std::future_status::ready;
+            expect(repeatAccepted, "a repeated async stop cannot wait for the same writer");
+            if (!repeatAccepted)
+                held.release();
+            expect(repeated.get().status == ControlStatus::Ok, "repeated async stop stays idempotent");
+            if (held.active) {
+                synchronous = std::async(std::launch::async, [&] {
+                    return service.handleLine("1|StopRecording");
+                });
+                expect(synchronous.wait_for(std::chrono::milliseconds(100)) == std::future_status::timeout,
+                       "the legacy synchronous stop still waits for the accepted producer");
+            }
+        }
+        held.release();
+        if (asynchronous.valid())
+            (void)asynchronous.get();
+        if (synchronous.valid()) {
+            require(synchronous.wait_for(RecordingCompletionTimeout) == std::future_status::ready,
+                    "the synchronous stop completes after the writer is released");
+            expect(synchronous.get().status == ControlStatus::Ok, "the synchronous stop returns final success");
+        }
+        const auto result = completedRecording(recording);
+        expect(result.finalized && result.durationFrames == frames &&
+                   result.stopSessionFrame == SessionFrame{frames} && result.overrunCount == 0,
+               "both stop phases retain the exact accepted duration and cutoff");
+        const auto finished = service.handleLine("1|StopRecording|async=true");
+        expect(finished.status == ControlStatus::Ok && finished.text == path.string(),
+               "an already completed async stop returns the same successful path");
+        WavDecoder decoder;
+        const auto format = decoder.open(path.string());
+        std::array<float, 128> pcm{};
+        expect(format.totalFrames == frames && decoder.read(pcm, 128) == frames &&
+                   std::all_of(pcm.begin(), pcm.begin() + frames,
+                               [](float value) { return value == 0.25F; }),
+               "finalization writes only accepted PCM and excludes post-stop samples");
+    }
+}
+
+void asynchronousRecordingStopReportsWriterFailure() {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    auto& recording = service.recording();
+    recording.prepare("async-failure", (tempRoot / "async-failure.wav").string(),
+                      48'000, 1, RecordingTap::RawInput, 4096);
+    RecordingTestAccess::failOutput(recording);
+    std::future<ControlResponse> stopping;
+    HeldRecordingProducer held{recording};
+    stopping = std::async(std::launch::async, [&] {
+        return service.handleLine("1|StopRecording|async=true");
+    });
+    const auto accepted = stopping.wait_for(RecordingCommandTimeout) == std::future_status::ready;
+    expect(accepted, "an async stop returns before the worker reports a later disk failure");
+    if (accepted)
+        expect(stopping.get().status == ControlStatus::Ok, "a pending writer reports accepted finalization");
+    held.release();
+    if (stopping.valid())
+        (void)stopping.get();
+    const auto result = completedRecording(recording);
+    expect(service.handleLine("1|GetRecordingState").text == "6" && !result.finalized &&
+               !result.errorMessage.empty(),
+           "state polling distinguishes a failed writer from a finalized file");
+    for (const auto command : {"1|StopRecording", "1|StopRecording|async=true"}) {
+        const auto response = service.handleLine(command);
+        expect(response.status == ControlStatus::Failed && response.text == result.errorMessage,
+               "both stop forms retain the exact asynchronous writer error");
+    }
+}
+
 void controlledReconfigurePreservesOnePerformanceFile() {
     auto backend = std::make_unique<FakeAudioBackend>();
     auto* fake = backend.get();
@@ -1210,7 +1362,7 @@ void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
         const auto total = cutoff + (DuringFinish + AfterFinish) * block;
         const auto source = tempRoot / ("live-finish-source-" + std::to_string(block) + ".wav");
         makeTestWav(source, total + block, Rate);
-        const auto run = [&](bool pause, bool reference) {
+        const auto run = [&](bool pause, bool reference, bool asynchronous = false) {
             FakeBackendSettings settings;
             settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = block;
             settings.runtime.inputEndpointBufferFrames = settings.runtime.outputEndpointBufferFrames =
@@ -1229,7 +1381,8 @@ void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
             require(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
                     "the live-finish fixture needs decoded accompaniment");
             const auto path = tempRoot / ("live-finish-" + std::to_string(block) + "-" +
-                                         std::to_string(pause) + "-" + std::to_string(reference) + ".wav");
+                                         std::to_string(pause) + "-" + std::to_string(reference) + "-" +
+                                         std::to_string(asynchronous) + ".wav");
             require(service.handleLine("1|PrepareRecording|id=live-finish|tap=performance|backing=true|path=" +
                                         path.string()).status == ControlStatus::Ok &&
                         service.handleLine("1|StartRecording").status == ControlStatus::Ok,
@@ -1289,7 +1442,8 @@ void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
                 std::atomic<bool> completed{false};
                 ControlResponse response;
                 std::thread control([&] {
-                    response = service.handleLine(pause ? "1|PauseRecording" : "1|StopRecording");
+                    response = service.handleLine(pause ? "1|PauseRecording" :
+                        asynchronous ? "1|StopRecording|async=true" : "1|StopRecording");
                     completed.store(true, std::memory_order_release);
                 });
                 struct JoinControl {
@@ -1328,7 +1482,8 @@ void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
                             service.session().state() == SessionState::Running &&
                             service.session().generationId() == generation,
                         "normal recording finish keeps the original audio session running");
-                const auto result = service.recording().result();
+                const auto result = !pause && asynchronous ? completedRecording(service.recording())
+                                                           : service.recording().result();
                 if (pause) {
                     expect(service.recording().state() == RecordingState::Paused && !result.finalized,
                            "pausing preserves the open take while playback has already advanced");
@@ -1377,24 +1532,28 @@ void performanceFinishKeepsLiveAudioAndFrozenCutoff() {
         };
         for (const auto pause : {false, true}) {
             const auto reference = run(pause, true);
-            const auto finished = run(pause, false);
-            expect(finished.audible == reference.audible,
-                   "Stop/Pause and its file drain preserve every audible sample at 128 and 480 frames");
-            const auto retained = [&](const std::vector<float>& pcm) {
-                std::vector<float> selected(pcm.begin(), pcm.begin() + cutoff * 2);
-                if (pause)
-                    selected.insert(selected.end(), pcm.begin() + (cutoff + DuringFinish * block) * 2,
-                                    pcm.end());
-                return selected;
-            };
-            const auto dry = retained(reference.dry);
-            require(std::ranges::any_of(dry, [](float value) { return std::abs(value) > 0.01F; }),
-                    "the ordinary-callback reference contains the pending marker before cutoff");
-            const auto same = [](float a, float b) { return std::abs(a - b) < 0.000001F; };
-            expect(std::ranges::equal(finished.dry, dry, same) &&
-                       std::ranges::equal(finished.performance, retained(reference.performance), same) &&
-                       finished.backing == retained(reference.backing),
-                   "live Stop/Pause retains pending voice, excludes the pause, and resumes on the exact song PCM");
+            for (const auto asynchronous : {false, true}) {
+                if (pause && asynchronous)
+                    continue;
+                const auto finished = run(pause, false, asynchronous);
+                expect(finished.audible == reference.audible,
+                       "Stop/Pause and its file drain preserve every audible sample at 128 and 480 frames");
+                const auto retained = [&](const std::vector<float>& pcm) {
+                    std::vector<float> selected(pcm.begin(), pcm.begin() + cutoff * 2);
+                    if (pause)
+                        selected.insert(selected.end(), pcm.begin() + (cutoff + DuringFinish * block) * 2,
+                                        pcm.end());
+                    return selected;
+                };
+                const auto dry = retained(reference.dry);
+                require(std::ranges::any_of(dry, [](float value) { return std::abs(value) > 0.01F; }),
+                        "the ordinary-callback reference contains the pending marker before cutoff");
+                const auto same = [](float a, float b) { return std::abs(a - b) < 0.000001F; };
+                expect(std::ranges::equal(finished.dry, dry, same) &&
+                           std::ranges::equal(finished.performance, retained(reference.performance), same) &&
+                           finished.backing == retained(reference.backing),
+                       "live Stop/Pause retains pending voice, excludes the pause, and resumes on the exact song PCM");
+            }
         }
     }
 }

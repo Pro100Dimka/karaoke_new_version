@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import shutil
 import zipfile
 from dataclasses import replace
 from pathlib import Path
@@ -9,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from backend.processing.domain import JobType
+from backend.infrastructure import local_projects
 from backend.infrastructure.local_projects import LocalProjectStorage
 from backend.projects.domain import ArtifactCategory, ProjectArtifact, ProjectManifest
 from backend.projects.manifest_codec import encode_manifest
@@ -118,14 +118,14 @@ def test_reexport_after_a_smaller_manual_clip_does_not_copy_the_archived_clip(
             runtime / "songs" / song["songId"] / "revisions" / str(revision) / "media/clip.mp4"
         )
         assert archived_clip.stat().st_size > 100 * replacement.stat().st_size
-        copy = shutil.copyfile
+        copy = local_projects._copy_snapshot_file
 
-        def copy_selected(source, destination, *, follow_symlinks=True):
+        def copy_selected(source, destination, ensure_not_cancelled):
             assert Path(source) != archived_clip, "Export copied the obsolete archived clip"
-            return copy(source, destination, follow_symlinks=follow_symlinks)
+            return copy(source, destination, ensure_not_cancelled)
 
         with monkeypatch.context() as patch:
-            patch.setattr(shutil, "copyfile", copy_selected)
+            patch.setattr(local_projects, "_copy_snapshot_file", copy_selected)
             preflight = client.app.state.container.packages.start_export._preflight
             selected_bytes = preflight.execute(song["songId"], revision)
             patch.setattr(

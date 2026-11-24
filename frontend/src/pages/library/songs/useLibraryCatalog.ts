@@ -36,6 +36,17 @@ export const useLibraryCatalog = (
   const { room } = store.online;
   const { preferences } = store;
   const deferredQuery = useDeferredValue(query);
+  const [remoteQuery, setRemoteQuery] = useState(query);
+  useEffect(() => {
+    if (query === remoteQuery) return;
+    if (!query) {
+      setRemoteQuery('');
+      return;
+    }
+    // Deferring local filtering does not limit IPC requests while the user types.
+    const timer = window.setTimeout(() => setRemoteQuery(query), 200);
+    return () => window.clearTimeout(timer);
+  }, [query, remoteQuery]);
   const filters: LibraryFilters = useMemo(
     () => ({
       ...viewFilters,
@@ -57,9 +68,14 @@ export const useLibraryCatalog = (
   const client = useQueryClient();
   const { pythonEpoch } = store.application.services;
   const { jobs } = useJobs();
+  const remoteSearch = query ? remoteQuery : '';
+  const remoteFilter = useMemo(
+    () => ({ ...serverFilter, query: remoteSearch }),
+    [serverFilter, remoteSearch],
+  );
   const queryOptions = songsQuery(
     pythonEpoch,
-    completeCatalog ? undefined : serverFilter,
+    completeCatalog ? undefined : remoteFilter,
   );
   const catalog = useInfiniteQuery({
     ...queryOptions,

@@ -427,6 +427,10 @@ describe('pythonClient contract', () => {
       'GET /jobs/job-import',
       'GET /songs/song-2',
     ]);
+    expect(calls[0]).toMatchObject({
+      body: { path: 'D:/downloads/song-2.zip', decision: 'SafeOnly' },
+    });
+    expect(calls[0]?.headers).toBeUndefined();
   });
 
   it('can accept an older exact room revision when local history is newer', async () => {
@@ -457,7 +461,36 @@ describe('pythonClient contract', () => {
     expect(calls[0]).toMatchObject({
       body: { path: 'D:/downloads/song-2.zip', decision: 'AcceptOlder' },
     });
+    expect(calls[0]?.headers).toBeUndefined();
   });
+
+  it.each(['admission', 'job-status'])(
+    'does not replay a package import POST when %s fails',
+    async (failure) => {
+      const calls = installBridge((call) =>
+        failure === 'admission' || call.path === '/jobs/job-import'
+          ? {
+              status: 503,
+              ok: false,
+              body: { code: 'BackendUnavailable', message: 'Connection lost' },
+            }
+          : {
+              status: 202,
+              ok: true,
+              body: { jobId: 'job-import', state: 'Queued' },
+            },
+      );
+
+      await expect(
+        pythonClient.importProject('D:/downloads/song-2.zip'),
+      ).rejects.toMatchObject({ code: 'BackendUnavailable' });
+      expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+        'POST /packages/import',
+        ...(failure === 'job-status' ? ['GET /jobs/job-import'] : []),
+      ]);
+      expect(calls[0]?.headers).toBeUndefined();
+    },
+  );
 
   it("reports why a package import failed, with the backend's own code", async () => {
     installBridge((call) => ({

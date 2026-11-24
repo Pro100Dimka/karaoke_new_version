@@ -12,6 +12,7 @@ import { clearStorage } from '../../shared/storage/localStore';
 import { useEditorSession } from './useEditorSession';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import { loadDraft } from './editorDraft';
+import type { EditorSaveResult } from './editorApi';
 import { EditorPage } from './index';
 
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
@@ -93,7 +94,7 @@ describe('editor session', () => {
   it.each(['paused', 'playing'] as const)(
     'reloads the saved guide and preserves a %s preview at the current position',
     async (state) => {
-      editorApi.save.mockResolvedValue(2);
+      editorApi.save.mockResolvedValue({ revision: 2 });
       const { result } = renderHook(() => useEditorSession('song'));
       await waitFor(() => expect(result.current.audioReady).toBe(true));
       vi.mocked(audioClient.prepareSong).mockResolvedValue({
@@ -119,7 +120,7 @@ describe('editor session', () => {
   );
 
   it('keeps the prepared guide for word-only saves', async () => {
-    editorApi.save.mockResolvedValue(2);
+    editorApi.save.mockResolvedValue({ revision: 2 });
     const { result } = renderHook(() => useEditorSession('song'));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() =>
@@ -133,8 +134,43 @@ describe('editor session', () => {
     expect(result.current.load).toMatchObject({ song: { activeRevision: 2 } });
   });
 
+  it.each([
+    { label: 'replaces', fingerprint: 'b'.repeat(64) },
+    { label: 'clears missing', fingerprint: undefined },
+  ])(
+    '$label authoritative fingerprint metadata on a new saved base',
+    async ({ fingerprint }) => {
+      const previous = { ...document, documentFingerprint: 'a'.repeat(64) };
+      editorApi.load.mockResolvedValue(previous);
+      editorApi.save.mockResolvedValue({
+        revision: 2,
+        documentFingerprint: fingerprint,
+      });
+      const { result } = renderHook(() => useEditorSession('song'));
+      await waitFor(() => expect(result.current.audioReady).toBe(true));
+      act(() => result.current.move(new Set(['note']), 1, 0));
+
+      await act(async () => expect(await result.current.save()).toBe(true));
+
+      expect(result.current.document).toMatchObject({
+        revision: 2,
+        documentFingerprint: fingerprint,
+      });
+      act(() => result.current.move(new Set(['note']), 1, 0));
+      dialogs.ask.mockResolvedValueOnce('discard');
+      await act(async () =>
+        expect(await result.current.resolveUnsaved()).toBe(true),
+      );
+      expect(result.current.document).toMatchObject({
+        revision: 2,
+        documentFingerprint: fingerprint,
+        notes: [{ pitch: 61 }],
+      });
+    },
+  );
+
   it('keeps a successful save when refreshing its audio fails', async () => {
-    editorApi.save.mockResolvedValue(2);
+    editorApi.save.mockResolvedValue({ revision: 2 });
     const { result } = renderHook(() => useEditorSession('song'));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     vi.mocked(audioClient.prepareSong).mockRejectedValue(
@@ -152,7 +188,9 @@ describe('editor session', () => {
   });
 
   it('recovers a failed preview refresh on the next save without losing its restored position', async () => {
-    editorApi.save.mockResolvedValueOnce(2).mockResolvedValueOnce(3);
+    editorApi.save
+      .mockResolvedValueOnce({ revision: 2 })
+      .mockResolvedValueOnce({ revision: 3 });
     const { result } = renderHook(() => useEditorSession('song'));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     vi.mocked(audioClient.prepareSong).mockRejectedValueOnce(
@@ -205,15 +243,15 @@ describe('editor session', () => {
   });
 
   it('preserves edits made while saving and saves them against the returned revision', async () => {
-    let finishSave!: (revision: number) => void;
+    let finishSave!: (result: EditorSaveResult) => void;
     editorApi.save
       .mockImplementationOnce(
         () =>
-          new Promise<number>((resolve) => {
+          new Promise<EditorSaveResult>((resolve) => {
             finishSave = resolve;
           }),
       )
-      .mockResolvedValueOnce(3);
+      .mockResolvedValueOnce({ revision: 3 });
     const { result } = renderHook(() => useEditorSession('song'));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(['note']), 1, 0));
@@ -223,7 +261,7 @@ describe('editor session', () => {
     });
     act(() => result.current.move(new Set(['note']), 1, 0));
     await act(async () => {
-      finishSave(2);
+      finishSave({ revision: 2 });
       await saving;
     });
 
@@ -250,10 +288,10 @@ describe('editor session', () => {
   });
 
   it('does not submit a second save while the first save is pending', async () => {
-    let finishSave!: (revision: number) => void;
+    let finishSave!: (result: EditorSaveResult) => void;
     editorApi.save.mockImplementation(
       () =>
-        new Promise<number>((resolve) => {
+        new Promise<EditorSaveResult>((resolve) => {
           finishSave = resolve;
         }),
     );
@@ -268,7 +306,7 @@ describe('editor session', () => {
     });
     expect(editorApi.save).toHaveBeenCalledTimes(1);
     await act(async () => {
-      finishSave(2);
+      finishSave({ revision: 2 });
       await saving;
     });
     expect(await duplicate).toBe(true);
@@ -276,10 +314,10 @@ describe('editor session', () => {
   });
 
   it('finishes Save and leave when the already running save succeeds', async () => {
-    let finishSave!: (revision: number) => void;
+    let finishSave!: (result: EditorSaveResult) => void;
     editorApi.save.mockImplementation(
       () =>
-        new Promise<number>((resolve) => {
+        new Promise<EditorSaveResult>((resolve) => {
           finishSave = resolve;
         }),
     );
@@ -296,7 +334,7 @@ describe('editor session', () => {
       leaving = result.current.resolveUnsaved();
     });
     await act(async () => {
-      finishSave(2);
+      finishSave({ revision: 2 });
       await saving;
     });
 
@@ -324,10 +362,10 @@ describe('editor session', () => {
   });
 
   it('discards only later edits after an already submitted save finishes', async () => {
-    let finishSave!: (revision: number) => void;
+    let finishSave!: (result: EditorSaveResult) => void;
     editorApi.save.mockImplementation(
       () =>
-        new Promise<number>((resolve) => {
+        new Promise<EditorSaveResult>((resolve) => {
           finishSave = resolve;
         }),
     );
@@ -345,7 +383,7 @@ describe('editor session', () => {
       leaving = result.current.resolveUnsaved();
     });
     await act(async () => {
-      finishSave(2);
+      finishSave({ revision: 2 });
       await saving;
       await leaving;
     });
@@ -361,10 +399,10 @@ describe('editor session', () => {
   });
 
   it('does not replace the next song with a late save response', async () => {
-    let finishSave!: (revision: number) => void;
+    let finishSave!: (result: EditorSaveResult) => void;
     editorApi.save.mockImplementation(
       () =>
-        new Promise<number>((resolve) => {
+        new Promise<EditorSaveResult>((resolve) => {
           finishSave = resolve;
         }),
     );
@@ -383,7 +421,7 @@ describe('editor session', () => {
     rerender({ songId: 'second' });
     await waitFor(() => expect(result.current.document).toEqual(second));
     await act(async () => {
-      finishSave(2);
+      finishSave({ revision: 2 });
       await saving;
     });
 
@@ -414,7 +452,7 @@ describe('editor session', () => {
           code: 'RevisionConflict',
           message: 'Changed externally',
         })
-        .mockResolvedValueOnce(11);
+        .mockResolvedValueOnce({ revision: 11 });
       dialogs.ask.mockResolvedValueOnce(choice);
       const { result } = renderHook(() => useEditorSession('song'));
       await waitFor(() => expect(result.current.audioReady).toBe(true));
@@ -441,7 +479,7 @@ describe('editor session', () => {
   it('keeps edits after a failed save and allows retry', async () => {
     editorApi.save
       .mockRejectedValueOnce(new Error('Disk full'))
-      .mockResolvedValueOnce(2);
+      .mockResolvedValueOnce({ revision: 2 });
     const { result } = renderHook(() => useEditorSession('song'));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(['note']), 1, 0));

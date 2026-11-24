@@ -12,6 +12,7 @@ import { registerDesktopIpc } from './DesktopIpc';
 import { ipcChannels } from './ipcChannels';
 import { createKeyboardLightingProvider } from './KeyboardLighting';
 import { createMainWindow } from './MainWindow';
+import { flushWindowState } from './WindowState';
 import { ManagedServices } from './ManagedServices';
 import { registerProjectFileHandlers } from './ProjectFiles';
 import { roomParticipantId } from './RoomIdentity';
@@ -210,7 +211,7 @@ shell.onStatus((next) => {
 });
 const pendingLaunches: (readonly string[])[] = [];
 const hasLaunchIntent = (argv: readonly string[]): boolean =>
-  commandsFromArguments(argv.slice(1)).length > 0;
+  commandsFromArguments(argv.slice(1), () => true).length > 0;
 const updater = startAutoUpdate({
   ready: (version) => shell.send({ type: 'updateReady', version }),
   automatic: readAutoUpdate,
@@ -446,6 +447,7 @@ app.on('before-quit', (event) => {
       appLogs.stop(),
       new Promise<void>((resolve) => setTimeout(resolve, 1_500)),
     ]);
+    await flushWindowState();
     servicesStopped = true;
     app.quit();
   });

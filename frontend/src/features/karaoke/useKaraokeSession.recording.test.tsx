@@ -85,24 +85,28 @@ describe('karaoke recording ownership', () => {
         body: { recordingId: 'take', filePath: 'D:/take.wav' },
       };
     });
-    const audioRequest = vi.fn(async ({ command }: AudioBridgeRequest) => ({
-      status: 0,
-      text:
-        command === 'GetRecordingState'
-          ? JSON.stringify({
-              sampleRate: 48000,
-              channels: 2,
-              durationFrames: 0,
-              startSessionFrame: 0,
-              stopSessionFrame: 0,
-              startPlaybackPosition: 0,
-              overrunCount: 0,
-              gapMetadataDropped: 0,
-              staleBlocks: 0,
-              gaps: [],
-            })
-          : 'Ok',
-    }));
+    const audioRequest = vi.fn(
+      async ({ command, args }: AudioBridgeRequest) => ({
+        status: 0,
+        text:
+          command === 'GetRecordingState'
+            ? args?.details
+              ? JSON.stringify({
+                  sampleRate: 48000,
+                  channels: 2,
+                  durationFrames: 0,
+                  startSessionFrame: 0,
+                  stopSessionFrame: 0,
+                  startPlaybackPosition: 0,
+                  overrunCount: 0,
+                  gapMetadataDropped: 0,
+                  staleBlocks: 0,
+                  gaps: [],
+                })
+              : '5'
+            : 'Ok',
+      }),
+    );
     Object.assign(window, { desktop: { pythonRequest, audioRequest } });
     vi.mocked(recordingCoordinator.start).mockImplementationOnce(
       actual.recordingCoordinator.start,

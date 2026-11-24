@@ -7,10 +7,17 @@ import { KaraokeStage } from './KaraokeStage';
 import { SceneBackdrop } from './SceneBackdrop';
 import { desktopClient } from '../../services/desktopClient';
 import { store } from '../../providers/store';
+import { targetPitchAt, type LyricLine } from './karaokeLyrics';
 
 const probe = vi.hoisted(() => {
   const props: MelodyRollProps[] = [];
-  return { props, mounts: 0, playing: false, hitNoteIds: new Set<string>() };
+  return {
+    props,
+    mounts: 0,
+    playing: false,
+    hitNoteIds: new Set<string>(),
+    lines: [] as readonly LyricLine[],
+  };
 });
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
@@ -54,7 +61,10 @@ vi.mock('./show/ShowLayers', () => {
     noteScore: undefined,
   };
   return {
-    useShowEngine: () => engine,
+    useShowEngine: ({ lines }: { lines: readonly LyricLine[] }) => {
+      probe.lines = lines;
+      return engine;
+    },
     StageFx: () => null,
     RollFx: ({ playing }: { playing: boolean }) => {
       probe.playing = playing;
@@ -112,6 +122,267 @@ it('does not recheck every earlier hit on each unchanged animation frame', () =>
   probe.hitNoteIds = new Set([...probe.hitNoteIds, 'new-hit']);
   rerender(view(21.2));
   expect(probe.props.at(-1)?.hitIds?.has('new-hit')).toBe(true);
+});
+
+it('does not rescan passed song notes for roll visibility and target pitch on every playback frame', () => {
+  const source: EditorDocument = {
+    revision: 1,
+    words: Array.from({ length: 1000 }, (_, index) => ({
+      id: `word-${index}`,
+      text: 'Voice',
+      start: index * 2,
+      end: index * 2 + 1.95,
+    })),
+    notes: Array.from({ length: 10000 }, (_, index) => ({
+      id: `note-${index}`,
+      wordId: `word-${Math.floor(index / 10)}`,
+      start: index * 0.2,
+      end: index * 0.2 + 0.15,
+      pitch: 60,
+    })),
+  };
+  const { rerender } = render(view(1800.01, source));
+  const rendered = probe.props.at(-1)?.notes;
+  expect(rendered).toHaveLength(source.notes.length);
+  const reads = { start: 0, end: 0 };
+  // Instrument the actual immutable note shells used by PianoRoll, after the
+  // initial mapping and index work; the clock must not revisit the whole song.
+  for (const note of rendered ?? []) {
+    const { start, end } = note;
+    Object.defineProperties(note, {
+      start: {
+        get: () => {
+          reads.start++;
+          return start;
+        },
+      },
+      end: {
+        get: () => {
+          reads.end++;
+          return end;
+        },
+      },
+    });
+  }
+  for (let frame = 1; frame <= 60; frame++)
+    rerender(view(1800.01 + frame / 60, source));
+  expect.soft(reads.start).toBeLessThan(10_000);
+  expect.soft(reads.end).toBeLessThan(10_000);
+});
+
+it.each(['classic', 'alternating', 'credits'] as const)(
+  'does not revisit every earlier lyric line on each %s playback frame',
+  (layout) => {
+    Object.assign(store.preferences, { karaokeLyricsLayout: layout });
+    const source: EditorDocument = {
+      revision: 1,
+      lyrics: Array.from({ length: 1000 }, (_, index) => `line${index}`).join(
+        '\n',
+      ),
+      words: Array.from({ length: 1000 }, (_, index) => ({
+        id: `word-${index}`,
+        text: `line${index}`,
+        start: index * 2,
+        end: index * 2 + 1.95,
+      })),
+      notes: [],
+    };
+    const { rerender } = render(view(1800.1, source));
+    expect(probe.lines).toHaveLength(1000);
+    const reads = { start: 0, end: 0 };
+    // Measure the real lines built by the stage after one-time document work.
+    for (const line of probe.lines) {
+      const { start, end } = line;
+      Object.defineProperties(line, {
+        start: {
+          get: () => {
+            reads.start++;
+            return start;
+          },
+        },
+        end: {
+          get: () => {
+            reads.end++;
+            return end;
+          },
+        },
+      });
+    }
+    for (let frame = 1; frame <= 60; frame++)
+      rerender(view(1800.1 + frame / 60, source));
+    console.info(
+      JSON.stringify({ scenario: '1000-lyric-lines-60-frames', layout, reads }),
+    );
+    expect(
+      screen.getByText('line900').closest('.ad-lyrics-current'),
+    ).toBeInTheDocument();
+    expect.soft(reads.start).toBeLessThan(10_000);
+    expect.soft(reads.end).toBeLessThan(10_000);
+  },
+);
+
+it('retains inclusive roll window edges while zooming and seeking backwards', () => {
+  const source = {
+    ...document,
+    words: [document.words[0]!],
+    notes: [document.notes[0]!],
+  };
+  const frame = (position: number) => (
+    <KaraokeStage
+      songTitle="Song"
+      document={source}
+      position={position}
+      playing
+      rate={1}
+      layers={{ showNotes: true, showLyrics: false }}
+      vocalRange="auto"
+    />
+  );
+  const { rerender } = render(frame(14));
+  const panel = screen.getByTestId('roll').closest('.pianoRoll');
+  expect(panel).not.toHaveAttribute('hidden');
+  rerender(frame(14 - 1e-7));
+  expect(panel).toHaveAttribute('hidden');
+  rerender(frame(22.5));
+  expect(panel).not.toHaveAttribute('hidden');
+  rerender(frame(22.5 + 1e-7));
+  expect(panel).toHaveAttribute('hidden');
+  act(() => probe.props.at(-1)?.onWindowChange?.(2));
+  rerender(frame(18.5));
+  expect(panel).not.toHaveAttribute('hidden');
+  rerender(frame(18.5 - 1e-7));
+  expect(panel).toHaveAttribute('hidden');
+  rerender(frame(21));
+  expect(panel).not.toHaveAttribute('hidden');
+  rerender(frame(21 + 1e-7));
+  expect(panel).toHaveAttribute('hidden');
+});
+
+it('uses the captured timestamp and first source-order overlap for live target pitch', () => {
+  const source: EditorDocument = {
+    revision: 1,
+    words: [{ id: 'word', text: 'Voice', start: 0, end: 90 }],
+    notes: Array.from({ length: 260 }, (_, index) => ({
+      id: `filler-${index}`,
+      wordId: 'word',
+      start: 80 + index / 100,
+      end: 80.005 + index / 100,
+      pitch: 40,
+    })),
+  };
+  const notes = [...source.notes];
+  notes[0] = { id: 'later', wordId: 'word', start: 20, end: 22, pitch: 67 };
+  notes[127] = {
+    id: 'held',
+    wordId: 'word',
+    start: 5,
+    end: 15,
+    pitch: 60,
+    contour: [
+      [0, 0, 1],
+      [1, 4, 1],
+    ],
+  };
+  notes[128] = { id: 'overlap', wordId: 'word', start: 10, end: 11, pitch: 82 };
+  notes[259] = {
+    id: 'boundary',
+    wordId: 'word',
+    start: 15,
+    end: 16,
+    pitch: 76,
+  };
+  source.notes = notes;
+  const frame = (captured: number, pitch: number) => (
+    <KaraokeStage
+      songTitle="Song"
+      document={source}
+      position={20.2}
+      playing
+      rate={1}
+      layers={{ showNotes: true, showLyrics: false }}
+      vocalRange="auto"
+      pitchFrames={[
+        {
+          epoch: 1,
+          sequence: 1,
+          positionSeconds: captured,
+          durationSeconds: 0.02,
+          pitchHz: 440 * 2 ** ((pitch - 69) / 12),
+          confidence: 1,
+          audioActive: true,
+        },
+      ]}
+    />
+  );
+  const { rerender } = render(frame(20, 67));
+  for (const position of [5, 10, 15, 15.0001, 22, 4.9999, 22.0001, 10]) {
+    const expected = notes.find(
+      (note) => position >= note.start && position <= note.end,
+    );
+    const target = expected && targetPitchAt(expected, position);
+    rerender(frame(position, target ?? 69));
+    expect(probe.props.at(-1)?.hit).toBe(target !== undefined);
+    expect(probe.props.at(-1)?.accuracy).toBeCloseTo(
+      target === undefined ? 0 : 1,
+    );
+    expect(probe.props.at(-1)?.position).toBe(20.2);
+  }
+});
+
+it('uses replacement note timing, pitch and key shift without retaining the previous target', () => {
+  const source: EditorDocument = {
+    revision: 1,
+    words: [{ id: 'word', text: 'Voice', start: 0, end: 40 }],
+    notes: [{ id: 'note', wordId: 'word', start: 10, end: 12, pitch: 60 }],
+  };
+  const frame = (document: EditorDocument, pitch: number, keyShift = 0) => (
+    <KaraokeStage
+      songTitle="Song"
+      document={document}
+      position={11}
+      playing
+      rate={1}
+      keyShift={keyShift}
+      layers={{ showNotes: true, showLyrics: false }}
+      vocalRange="auto"
+      pitchFrames={[
+        {
+          epoch: 1,
+          sequence: 1,
+          positionSeconds: 11,
+          durationSeconds: 0.02,
+          pitchHz: 440 * 2 ** ((pitch - 69) / 12),
+          confidence: 1,
+          audioActive: true,
+        },
+      ]}
+    />
+  );
+  const { rerender } = render(frame(source, 60));
+  expect(probe.props.at(-1)?.hit).toBe(true);
+  const changed = { ...source, notes: [{ ...source.notes[0]!, pitch: 72 }] };
+  rerender(frame(changed, 60));
+  expect(probe.props.at(-1)?.hit).toBe(false);
+  rerender(frame(changed, 72));
+  expect(probe.props.at(-1)?.hit).toBe(true);
+  rerender(frame(changed, 72, 2));
+  expect(probe.props.at(-1)?.hit).toBe(false);
+  rerender(frame(changed, 74, 2));
+  expect(probe.props.at(-1)?.hit).toBe(true);
+  rerender(
+    frame(
+      { ...changed, notes: [{ ...changed.notes[0]!, start: 20, end: 22 }] },
+      74,
+      2,
+    ),
+  );
+  expect(probe.props.at(-1)?.hit).toBe(false);
+  expect(screen.getByTestId('roll').closest('.pianoRoll')).toHaveAttribute(
+    'hidden',
+  );
+  rerender(frame({ ...changed, notes: [] }, 74, 2));
+  expect(probe.props.at(-1)?.hit).toBe(false);
+  expect(probe.props.at(-1)?.notes).toEqual([]);
 });
 
 it('stops retrying failed song and fallback videos while allowing a new source', async () => {

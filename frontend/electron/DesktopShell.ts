@@ -1,4 +1,3 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /**
@@ -189,17 +188,11 @@ export const resolveLaunchArguments = (
 /**
  * What a launch (or a second launch handed over to the running app) asks for: an invitation link,
  * a jump-list task or audio files opened with the app. Electron's own switches and the app path
- * are ignored; files must exist and be audio.
+ * are ignored; the caller supplies file availability without doing disk I/O in this parser.
  */
 export const commandsFromArguments = (
   argv: readonly string[],
-  exists: (file: string) => boolean = (file) => {
-    try {
-      return fs.statSync(file).isFile();
-    } catch {
-      return false;
-    }
-  },
+  exists: (file: string) => boolean,
 ): ShellCommand[] => {
   const commands: ShellCommand[] = [];
   const files = new Set<string>();

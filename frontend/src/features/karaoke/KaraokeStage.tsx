@@ -21,6 +21,7 @@ import {
   buildLines,
   syllableProgress,
   currentLineIndex,
+  nextLineIndex,
   lyricSilenceSeconds,
   pitchAccuracy,
   pitchMatchesTarget,
@@ -36,6 +37,7 @@ import type { KaraokeNoteScore, PitchFrame } from '../../contracts/models';
 import type { Preferences } from '../../shared/preferences/preferences';
 import { RollFx, StageFx, useShowEngine } from './show/ShowLayers';
 import type { ShowEngine } from './show/showEngine';
+import { RollFxNoteIndex } from './show/rollFxNoteIndex';
 
 interface KaraokeStageProps {
   songTitle: string;
@@ -89,12 +91,12 @@ const PianoRoll = observer(
       () => pitchRange(notes, vocalRange),
       [notes, vocalRange],
     );
+    const noteIndex = useMemo(() => new RollFxNoteIndex(notes), [notes]);
     const hidden =
       !previewReady ||
-      !notes.some(
-        (note) =>
-          note.end >= position - span * rollLead &&
-          note.start <= position + span * (1 - rollLead),
+      !noteIndex.firstOverlapping(
+        position - span * rollLead,
+        position + span * (1 - rollLead),
       );
     const frameRef = useRef<HTMLDivElement>(null);
     const panel = useDetachedPanel(
@@ -112,9 +114,7 @@ const PianoRoll = observer(
       observedPitch,
       pitchFrame?.confidence,
     );
-    const activeNote = notes.find(
-      (note) => voicePosition >= note.start && voicePosition <= note.end,
-    );
+    const activeNote = noteIndex.firstOverlapping(voicePosition, voicePosition);
     const targetPitch = activeNote
       ? targetPitchAt(activeNote, voicePosition)
       : undefined;
@@ -241,7 +241,7 @@ const Lyrics = ({
   const current = lines[lineIndex];
   const count = layout === 'alternating' ? 2 : lineCount;
   // The credits camera follows musical time, independently of the highlighted row.
-  const nextScroll = lines.findIndex((line) => line.start > position);
+  const nextScroll = nextLineIndex(lines, position);
   const scrollIndex = Math.max(
     0,
     (nextScroll < 0 ? lines.length : nextScroll) - 1,

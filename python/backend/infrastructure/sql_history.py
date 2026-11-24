@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Collection, Sequence
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select, union_all
+from sqlalchemy.orm import Session, aliased
 
 from backend.history.domain import HistoryEvent
 from backend.infrastructure.sql_time import as_utc
@@ -53,11 +53,29 @@ class SqlHistoryRepository:
         event_types: Collection[str] | None = None,
         snapshot: int | None = None,
     ) -> Sequence[HistoryEvent]:
-        query = select(HistoryRow).order_by(HistoryRow.created_at.desc(), HistoryRow.event_id)
-        if event_types is not None:
-            query = query.where(HistoryRow.event_type.in_(tuple(event_types)))
+        query = select(HistoryRow)
         if snapshot is not None:
             query = query.where(HistoryRow.id <= snapshot)
+        kinds = tuple(dict.fromkeys(event_types)) if event_types is not None else None
+        if kinds is not None and len(kinds) > 1:
+            # Each type can contribute at most this many rows to the requested page.
+            # Bound each ordered index scan before merging; IN (...) would sort every match.
+            candidates = min(limit + offset, 2**63 - 1)
+            parts = [
+                select(
+                    query.where(HistoryRow.event_type == kind)
+                    .order_by(HistoryRow.created_at.desc(), HistoryRow.event_id)
+                    .limit(candidates)
+                    .subquery()
+                )
+                for kind in kinds
+            ]
+            recent = aliased(HistoryRow, union_all(*parts).subquery())
+            query = select(recent).order_by(recent.created_at.desc(), recent.event_id)
+        else:
+            if kinds is not None:
+                query = query.where(HistoryRow.event_type.in_(kinds))
+            query = query.order_by(HistoryRow.created_at.desc(), HistoryRow.event_id)
         query = query.limit(limit).offset(offset)
         return [_to_domain(row) for row in self._session.scalars(query).all()]
 
