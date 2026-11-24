@@ -163,6 +163,36 @@ def test_repeat_verification_preserves_the_reconciled_catalogue_floor(surplus_su
 
 
 @pytest.mark.parametrize(
+    "diagnostic", ["BoundaryClipped", "BoundaryConflict", "ApproximateAlignment"]
+)
+@pytest.mark.parametrize("recognized", [False, True])
+def test_clipped_repeat_entry_needs_independent_recognition(diagnostic, recognized):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    phrase = "Hold me close until dawn"
+    expanded = f"{phrase}\n{phrase}"
+    discovery = LyricsDiscoveryResult(expanded, "catalogue", (), repeat_baseline=phrase)
+    words = tuple(
+        WordTiming(
+            text,
+            index,
+            index + 0.5,
+            0.8,
+            diagnostics=(diagnostic, *(["RecognizedWord"] if recognized else []))
+            if index == len(phrase.split())
+            else (),
+        )
+        for index, text in enumerate(expanded.split())
+    )
+
+    result = _verified_repeats(discovery, words)
+
+    assert result.lyrics == (expanded if recognized else phrase)
+
+
+@pytest.mark.parametrize(
     "catalogue,performed,expected",
     [
         ([0, 0, 0, 1, 2], [0, 1, 0, 1, 2], [0, 0, 0, 1, 2]),

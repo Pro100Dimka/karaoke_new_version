@@ -57,7 +57,10 @@ def _await_vocal(
 
 def _word_support(word: WordTiming) -> bool:
     return "RecognizedWord" in word.diagnostics or (
-        word.confidence >= 0.1 and "ApproximateAlignment" not in word.diagnostics
+        word.confidence >= 0.1
+        and not {"ApproximateAlignment", "BoundaryClipped", "BoundaryConflict"}.intersection(
+            word.diagnostics
+        )
     )
 
 
