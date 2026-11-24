@@ -2484,6 +2484,29 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
     assert word["end"] > 11.0, "diagnostic evidence must not silently cap the word at ASR's end"
 
 
+@pytest.mark.parametrize(
+    ("context", "sound", "review"),
+    [("і", "y", False), ("и", "y", True), ("і", "a", True), ("і", "i", False)],
+)
+def test_ukrainian_held_y_vowel_has_phonetic_support(context, sound, review):
+    import torch
+    from backend.ai_worker.ctc_letters import with_sung_letters
+    from torchaudio.pipelines import MMS_FA
+
+    words = [
+        AlignedWord(context, 0, 0.1, (0,), 0.9),
+        AlignedWord("струни", 1, 2.2, (1, 1.1, 1.2, 1.3, 1.7, 1.8), 0.8),
+    ]
+    scores = torch.full((150, len(MMS_FA.get_dict())), -12.0)
+    scores[65, MMS_FA.get_dict()["u"]] = np.log(0.9)
+    scores[90, MMS_FA.get_dict()[sound]] = np.log(0.9)
+    result = with_sung_letters(words, scores, 0.02, np.ones(300, dtype=bool), {})
+
+    assert ("LetterTimingReviewRequired" in result[1].diagnostics) is review
+    assert result[1].letters == words[1].letters
+    assert (result[1].start, result[1].end) == (1, 2.2)
+
+
 def test_ordered_still_trusts_a_plausible_short_hold() -> None:
     # A genuine held note well under the per-character ceiling is left as the model actually heard it.
     words = [AlignedWord("тюрьма", 12.35, 13.37, (12.35, 12.374, 12.454, 12.534, 12.585, 12.635))]

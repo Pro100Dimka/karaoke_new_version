@@ -63,11 +63,22 @@ def with_sung_letters(
         elif _sung_letters_disagree(word, original, candidate, frame_seconds):
             flags = (*word.diagnostics, "LetterTimingReviewRequired", "ApproximateLetterTiming")
             result[index] = replace(word, diagnostics=tuple(dict.fromkeys(flags)))
-    return [_with_letter_confidence(word, scores, frame_seconds, activity) for word in result]
+    return _checked_letter_confidence(result, scores, frame_seconds, activity)
+
+
+def _checked_letter_confidence(
+    words: list[AlignedWord], scores: torch.Tensor, step: float, activity: np.ndarray
+) -> list[AlignedWord]:
+    ukrainian = any(char in "іїєґІЇЄҐ" for word in words for char in word.text)
+    return [_with_letter_confidence(word, scores, step, activity, ukrainian) for word in words]
 
 
 def _with_letter_confidence(
-    word: AlignedWord, scores: torch.Tensor, step: float, activity: np.ndarray
+    word: AlignedWord,
+    scores: torch.Tensor,
+    step: float,
+    activity: np.ndarray,
+    ukrainian: bool = False,
 ) -> AlignedWord:
     """Check held letters individually, preserving their measured times and real fast sounds."""
     if len(word.letters) != len(word.text):
@@ -86,7 +97,11 @@ def _with_letter_confidence(
         # Permit the existing onset calibration before rejecting a token's support.
         first = max(0, round((start - _LARGEST_LAG_SECONDS) / step))
         stop = min(len(scores), round((start + _LARGEST_LAG_SECONDS) / step) + 1)
-        if first < stop and float(scores[first:stop, tokens[index][0]].exp().max()) >= _PREFERENCE:
+        candidates = tokens[index]
+        # Ukrainian и can be emitted as y even though Uroman spells it i.
+        if ukrainian and word.text[index].casefold() == "и":
+            candidates = [*candidates, *_character_tokens("y")[0]]
+        if first < stop and float(scores[first:stop, candidates].exp().max()) >= _PREFERENCE:
             continue
         flags = (*word.diagnostics, "LetterTimingReviewRequired", "ApproximateLetterTiming")
         return replace(word, diagnostics=tuple(dict.fromkeys(flags)))
