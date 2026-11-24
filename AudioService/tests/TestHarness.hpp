@@ -574,6 +574,7 @@ void mediaReconfigurationStillWaitsForDecoderQuiescence();
 void unloadingMediaStillDrainsTheDecoder();
 void transportChangesDuringMediaOpenStillPrepareTheDecoder();
 void transportChangesDuringFailedMediaOpenRetainTheFailure();
+void transportChangesDuringFailedLoudnessScanStillSeekTheSource();
 void queuedMediaLoadKeepsTransportChanges();
 void dspParametersAreValidated();
 void activePitchReportsLatency();

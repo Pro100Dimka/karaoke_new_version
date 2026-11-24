@@ -836,6 +836,8 @@ constexpr std::array tests{
          Tests::transportChangesDuringMediaOpenStillPrepareTheDecoder},
     Test{"transportChangesDuringFailedMediaOpenRetainTheFailure",
          Tests::transportChangesDuringFailedMediaOpenRetainTheFailure},
+    Test{"transportChangesDuringFailedLoudnessScanStillSeekTheSource",
+         Tests::transportChangesDuringFailedLoudnessScanStillSeekTheSource},
     Test{"queuedMediaLoadKeepsTransportChanges", Tests::queuedMediaLoadKeepsTransportChanges},
     Test{"dspParametersAreValidated", Tests::dspParametersAreValidated},
     Test{"activePitchReportsLatency", Tests::activePitchReportsLatency},

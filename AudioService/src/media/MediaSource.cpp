@@ -643,8 +643,6 @@ void MediaSource::applyLoad(const std::string& loadPath) {
         totalSourceFrames_.store(format_.totalFrames, std::memory_order_release);
         sourceSampleRateHz_.store(format_.sampleRateHz, std::memory_order_release);
     }
-    if (measureLoudness_ && format_.totalFrames != 0)
-        measureLoudness();
 }
 
 // One pass over a finite source before playback: the mean power of its sounding chunks. It reads
@@ -830,6 +828,10 @@ void MediaSource::workerMain() noexcept {
             if (doLoad)
                 applyLoad(loadPath);
             loading = false;
+            if (decodeGeneration_ != generation_.load(std::memory_order_acquire))
+                continue;
+            if (doLoad && measureLoudness_ && format_.totalFrames != 0)
+                measureLoudness();
             if (decodeGeneration_ != generation_.load(std::memory_order_acquire))
                 continue;
             if (doSeek)

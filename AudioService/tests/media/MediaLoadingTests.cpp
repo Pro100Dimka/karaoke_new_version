@@ -132,6 +132,26 @@ void transportChangesDuringFailedMediaOpenRetainTheFailure() {
     }
 }
 
+void transportChangesDuringFailedLoudnessScanStillSeekTheSource() {
+    for (const auto& change : TransportChanges) {
+        DelayedDecode operation{.open = false, .fail = true};
+        MediaSource source{std::make_unique<DelayedDecoder>(operation), true};
+        source.prepareOutput(Rate, 1, 4096);
+        source.load("old");
+        require(operation.entered.try_acquire_for(CompletionTimeout), change.name);
+        change.apply(source);
+        operation.proceed.release();
+        const auto ready = awaitReady(source);
+        expect(ready, std::string(change.name) + ": a retired scan error cannot cancel the pending seek");
+        if (!ready)
+            continue;
+        const auto loaded = source.snapshot();
+        expect(loaded.failureCode == MediaFailureCode::None && loaded.bufferFillFrames > 0 &&
+                   loaded.sourcePositionFrames == change.position,
+               "transport replaces the retired scan while retaining the prepared decoder and format");
+    }
+}
+
 void queuedMediaLoadKeepsTransportChanges() {
     DelayedDecode operation;
     MediaSource source{std::make_unique<DelayedDecoder>(operation)};
