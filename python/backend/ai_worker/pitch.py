@@ -23,6 +23,7 @@ _FMIN, _FMAX = 65.0, 1100.0
 _BATCH = MappingProxyType({"cpu": 512, "cuda": 128})
 _SMOOTHING = 3
 _BAND_BINS = 11
+_PERIOD_SAMPLES = 640  # 40 ms
 
 
 def _pitch_inference(target: str) -> Callable[[torch.Tensor], torch.Tensor]:
@@ -185,8 +186,8 @@ def _entry_support(
 @njit(cache=True)
 def _period_correlation(samples: np.ndarray, center: int, lag: int) -> float:
     # Compare 40 ms of the vowel on both sides of the same frame center.
-    first = center - 320 - lag // 2
-    last = first + 640
+    first = center - _PERIOD_SAMPLES // 2 - lag // 2
+    last = first + _PERIOD_SAMPLES
     if first < 0 or last + lag > len(samples):
         return 0.0
     best = 0.0
@@ -201,6 +202,27 @@ def _period_correlation(samples: np.ndarray, center: int, lag: int) -> float:
             right_energy += right * right
         best = max(best, product / (np.sqrt(left_energy * right_energy) + 1e-12))
     return best
+
+
+def _acoustic_pitch_support(
+    samples: np.ndarray, frequency: torch.Tensor, confidence: torch.Tensor, active: np.ndarray
+) -> torch.Tensor:
+    values = frequency[0].numpy()
+    supported = confidence[0].numpy().copy()
+    maximum = round(_BRIDGED_GAP_SECONDS * _SAMPLE_RATE / _HOP_SAMPLES)
+    margin = _PERIOD_SAMPLES // 2 + round(_SAMPLE_RATE / _FMIN) + 2
+    for first, last in _runs(active & (supported >= 0.5), True):
+        if last - first > maximum:
+            continue
+        correlations = [
+            _period_correlation(samples, index * _HOP_SAMPLES, round(_SAMPLE_RATE / values[index]))
+            for index in range(first, last)
+            if values[index] >= _FMIN and margin <= index * _HOP_SAMPLES < len(samples) - margin
+        ]
+        # Without a complete analysis window, retain the existing uncertainty at file edges.
+        if correlations and float(np.median(correlations)) < 0.5:
+            supported[first:last] = 0
+    return torch.from_numpy(supported)[None]
 
 
 @njit(cache=True)
@@ -260,5 +282,6 @@ def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
     if periodicity.shape[-1] > _SMOOTHING // 2:
         periodicity = torchcrepe.filter.median(periodicity, _SMOOTHING)
     frequency = _correct_octave(samples, frequency, periodicity, active)
+    periodicity = _acoustic_pitch_support(samples, frequency, periodicity, active)
     step = _HOP_SAMPLES / _SAMPLE_RATE
     return {"points": _pitch_points(frequency, periodicity, step, active)}

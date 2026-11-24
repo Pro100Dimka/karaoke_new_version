@@ -9,6 +9,43 @@ import torch
 from backend.ai_worker.pitch import _pitch_points
 
 
+@pytest.mark.parametrize("kind", ["tone", "quiet", "breathy", "noise"])
+@pytest.mark.parametrize("duration", [0.03, 0.07, 0.11])
+def test_short_pitch_bursts_need_acoustic_periodicity(monkeypatch, kind, duration):
+    from backend.ai_worker import pitch as worker
+
+    rate = 16000
+    samples = np.zeros(rate, dtype=np.float32)
+    axis = np.arange(round(duration * rate)) / rate
+    noise = np.random.default_rng(42).normal(size=len(axis))
+    tone = np.sin(2 * np.pi * 220 * axis)
+    burst = {
+        "tone": 0.3 * tone,
+        "quiet": 0.002 * tone,
+        "breathy": 0.3 * tone + 0.1 * noise,
+        "noise": 0.3 * noise,
+    }[kind]
+    samples[6400 : 6400 + len(burst)] = burst
+    monkeypatch.setattr(worker, "device", lambda: "cpu")
+    monkeypatch.setattr(worker, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(
+        worker,
+        "_predict_active",
+        lambda _s, active, _d: (
+            torch.full((1, len(active)), 220.0),
+            torch.from_numpy(active.astype(np.float32))[None] * 0.9,
+        ),
+    )
+
+    points = worker.pitch(Path("release.wav"))["points"]
+    active = [point for point in points if point["audioActive"]]
+    assert active
+    if kind == "noise":
+        assert all(point["confidence"] < 0.5 for point in active)
+    else:
+        assert all(point["confidence"] == 0.9 for point in active)
+
+
 def test_pitch_accelerator_is_opt_in_and_cuda_only(monkeypatch):
     from backend.ai_worker import pitch as worker
 
