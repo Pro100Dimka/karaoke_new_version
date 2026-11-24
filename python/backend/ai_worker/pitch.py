@@ -77,8 +77,15 @@ def _decoder_parameters(epsilon: float) -> tuple[np.ndarray, np.ndarray, float]:
     )
 
 
-def _viterbi_decoder(logits: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+def _viterbi_decoder(
+    logits: torch.Tensor, *, active: np.ndarray | None = None
+) -> tuple[torch.Tensor, torch.Tensor]:
     with torch.no_grad():
+        if active is not None:
+            # Silence must not pull the next entry off pitch. Retain the original
+            # probabilities in postprocess for quiet-frame confidence and smoothing.
+            quiet = ~torch.as_tensor(active, device=logits.device)[None, None]
+            logits = logits.masked_fill(quiet & torch.isfinite(logits), 0)
         probs = torch.nn.functional.softmax(logits, dim=1)
     sequences = probs.cpu().numpy()
     transition, initial, floor = _decoder_parameters(float(tiny(sequences)))
@@ -136,7 +143,11 @@ def _predict_active(
         # Retain the full model: tiny can mistake harmonics for notes an octave or two higher.
         probabilities = infer(frames)
         predicted, confidence = torchcrepe.postprocess(
-            probabilities.T[None], _FMIN, _FMAX, decoder=_viterbi_decoder, return_periodicity=True
+            probabilities.T[None],
+            _FMIN,
+            _FMAX,
+            decoder=partial(_viterbi_decoder, active=active[first:last]),
+            return_periodicity=True,
         )
         frequency[:, first:last] = predicted.cpu()
         periodicity[:, first:last] = confidence.cpu()

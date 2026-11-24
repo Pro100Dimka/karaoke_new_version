@@ -174,3 +174,42 @@ def test_skipping_silent_pitch_batches_keeps_quiet_entries_and_decoder_context(m
     assert active
     assert all(point["frequency"] == 220.0 and point["confidence"] == 0.9 for point in active)
     assert len(points) == 1 + len(samples) // 160
+
+
+@pytest.mark.parametrize("batch", [128, 512])
+def test_silent_predictions_cannot_erase_a_confident_sung_entry(monkeypatch, batch):
+    from backend.ai_worker import pitch as worker
+
+    first = batch - 28
+    active = np.arange(batch) >= first
+    probabilities = torch.zeros((batch, 360))
+    probabilities[:first, 170] = 0.9
+    bins = 110 + 2 * torch.arange(28)
+    probabilities[torch.arange(first, batch), bins] = 0.8
+    monkeypatch.setattr(worker.torchcrepe.convert, "dither", lambda cents: cents)
+    monkeypatch.setattr(
+        worker.torchcrepe, "preprocess", lambda *_: iter([torch.zeros(batch, 1024)])
+    )
+    monkeypatch.setattr(worker, "_pitch_inference", lambda _: lambda _: probabilities.clone())
+
+    frequency, confidence = worker._predict_active(np.zeros(batch * 160, np.float32), active, "cpu")
+
+    expected = worker.torchcrepe.convert.bins_to_frequency(bins)
+    error = abs(1200 * torch.log2(frequency[0, first:] / expected))
+    assert torch.all(confidence[0, first:] >= 0.75), "silence must not suppress a confident entry"
+    assert torch.max(error) < 25
+
+
+def test_quiet_pitch_evidence_is_preserved_for_confidence_smoothing(monkeypatch):
+    from backend.ai_worker import pitch as worker
+
+    probabilities = torch.zeros((128, 360))
+    probabilities[:, 140] = 0.8
+    active = np.ones(128, dtype=bool)
+    active[64] = False
+    monkeypatch.setattr(worker.torchcrepe, "preprocess", lambda *_: iter([torch.zeros(128, 1024)]))
+    monkeypatch.setattr(worker, "_pitch_inference", lambda _: lambda _: probabilities.clone())
+
+    _, confidence = worker._predict_active(np.zeros(128 * 160, np.float32), active, "cpu")
+
+    assert torch.all(confidence >= 0.75), "quiet evidence must not be zeroed before smoothing"

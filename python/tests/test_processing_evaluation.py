@@ -1,4 +1,7 @@
 from dataclasses import replace
+import json
+from pathlib import Path
+import sys
 
 import pytest
 
@@ -6,7 +9,8 @@ pytest.importorskip("jiwer", reason="Requires the optional evaluation dependenci
 pytest.importorskip("mir_eval", reason="Requires the optional evaluation dependencies")
 
 from backend.lyrics.domain import LyricsDocument, Note, Word
-from scripts.evaluate_processing import evaluate
+from backend.lyrics.codec import encode_document
+from scripts.evaluate_processing import evaluate, main
 
 
 def document(words: tuple[Word, ...]) -> LyricsDocument:
@@ -95,3 +99,39 @@ def test_window_metrics_do_not_add_an_unobserved_frame_at_zero() -> None:
     estimated = document((Word("one", 0.5, 1.5, (Note(60, 0.5, 1.5),)),))
     result = evaluate(reference, estimated, start=0.5, end=1.5)
     assert result["pitch"]["Overall Accuracy"] == 0.5
+
+
+def test_cli_labels_baseline_and_preserves_inputs_and_existing_reports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reference = tmp_path / "reference.json"
+    estimated = tmp_path / "estimated.json"
+    output = tmp_path / "comparison.json"
+    content = encode_document(document((Word("one", 0, 1, (Note(60, 0, 1),)),)))
+    for path in (reference, estimated):
+        path.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate_processing",
+            str(reference),
+            str(estimated),
+            "--reference-kind",
+            "baseline",
+            "--output",
+            str(output),
+        ],
+    )
+    main()
+    report = output.read_bytes()
+    result = json.loads(report)
+    assert result["referenceKind"] == "baseline"
+    assert "does not establish" in result["interpretation"]
+    assert result["globalTimeShiftSeconds"] == 0
+    assert result["evaluationSeconds"] >= 0
+    with pytest.raises(FileExistsError):
+        main()
+    assert output.read_bytes() == report
+    assert reference.read_text(encoding="utf-8") == content
+    assert estimated.read_text(encoding="utf-8") == content
