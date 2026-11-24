@@ -1,7 +1,7 @@
-import { createReadStream, createWriteStream, realpathSync } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, realpath, rm, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -194,9 +194,16 @@ const requireProject = (raw: unknown) => {
   };
 };
 
-const requireBackendPath = (root: string, value: unknown): string => {
-  const resolved = realpathSync(requireString(value, 'path'));
-  const relative = path.relative(realpathSync(root), resolved);
+const requireBackendPath = async (
+  root: string,
+  value: unknown,
+): Promise<string> => {
+  const file = requireString(value, 'path');
+  const [resolved, canonicalRoot] = await Promise.all([
+    realpath(file),
+    realpath(root),
+  ]);
+  const relative = path.relative(canonicalRoot, resolved);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new TypeError('Path is outside the backend data directory');
   }
@@ -300,13 +307,15 @@ export const registerRoomProjectTransferHandlers = (
     const project = requireProject(raw);
     const controller = begin(project.transferId, event.sender);
     try {
+      const file = await requireBackendPath(dataRoot(), project.path);
+      controller.signal.throwIfAborted();
       await uploadRoomProject(
         base,
         project.roomId,
         project.participantId,
         project.songId,
         project.revision,
-        requireBackendPath(dataRoot(), project.path),
+        file,
         project.transferId,
         controller.signal,
         (progress) => {
