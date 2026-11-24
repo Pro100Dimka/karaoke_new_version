@@ -9,6 +9,9 @@ from backend.ai.domain import PitchPoint
 from backend.analysis.domain import AnalysisResult, AnalysisSummary
 
 
+RecordingFileHasher = Callable[[Path, Callable[[], None]], str]
+
+
 class AnalysisRepository(Protocol):
     def get(self, analysis_id: str) -> AnalysisResult | None: ...
 

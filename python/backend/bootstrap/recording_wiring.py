@@ -10,6 +10,7 @@ from backend.analysis.start_analysis import StartRecordingAnalysis
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.bootstrap.container import RecordingCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
+from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.recording_files import LocalRecordingStorage
 from backend.infrastructure.recording_archive import RecordingArchive
 from backend.infrastructure.wave_recording import WaveRecordingInspector
@@ -81,7 +82,7 @@ def _analysis_and_mastering(
         VocalPitchExtractor(
             ProcessingPreflight(resolver), settings, resources, processing.workspaces
         ),
-        runtime.hasher,
+        sha256_file,
         runtime.clock,
         runtime.ids,
         archive.request,
