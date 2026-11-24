@@ -6,6 +6,7 @@
 - Run checks from the repository root with `check.bat`. It preserves the existing test commands and returns a nonzero exit code on failure. Checks do not run npm/pip installation; use the existing installer if required tools are missing.
 - For focused backend checks of independent tests, default to `check.bat backend --workers=4 <affected test paths>`. Keep tests that measure timing or use shared hardware, GPU, or other shared resources sequential with `--workers=1`.
 - User verification preference: run only checks related to the current change and its concrete regression risks. Focused checks can be completion evidence. Do not automatically run full backend, frontend, native or CI suites just because a file in that area changed. Expand scope only to resolve a specific remaining risk or when the user requests it. This preference also applies to broader suite instructions in nested guides.
+- For song-processing checks in karaoke, enable both the reference vocal and melody tracks to compare the audible notes with the vocal and highlighting. Verify the first processed revision before using refinement.
 
 | Area | Focused verification | Broader verification when justified |
 | --- | --- | --- |
