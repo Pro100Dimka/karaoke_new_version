@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from math import isfinite
-import unicodedata
+
+from backend.text_normalization import clean_lyric_punctuation
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +42,7 @@ def token_key(text: str) -> str:
 
 def display_tokens(text: str) -> tuple[str, ...]:
     # Match lyric punctuation handling without changing spelling or inventing subword times.
-    value = "".join(
-        "" if char in "'’ʼ`" else " " if unicodedata.category(char)[0] in "PS" else char
-        for char in text
-    )
+    value = clean_lyric_punctuation(text).replace("'", "")
     return tuple(word for word in value.split() if token_key(word))
 
 

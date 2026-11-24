@@ -125,20 +125,28 @@ def clean_lyrics(text: str, language: str) -> str:
     text = parenthetical.sub(
         lambda match: " " if normalize_search(match[1]) in backing else match[0], text
     )
+    return "\n".join(
+        " ".join(line.split())
+        for line in clean_lyric_punctuation(text).splitlines()
+        if line.strip()
+    )
+
+
+def clean_lyric_punctuation(text: str) -> str:
+    """Keep written word joiners consistent between lyrics and timed recognition."""
+    joiners = dict.fromkeys("'‘’ʼ`", "'") | dict.fromkeys("-‐‑", "-")
     cleaned = []
     for index, char in enumerate(text):
-        if char in "'‘’ʼ`":
+        if char in joiners:
             if (
                 0 < index < len(text) - 1
                 and text[index - 1].isalpha()
                 and text[index + 1].isalpha()
             ):
-                cleaned.append("'")
+                cleaned.append(joiners[char])
         else:
             cleaned.append(" " if unicodedata.category(char)[0] in "PS" else char)
-    return "\n".join(
-        " ".join(line.split()) for line in "".join(cleaned).splitlines() if line.strip()
-    )
+    return "".join(cleaned)
 
 
 def _without_chord_rows(text: str) -> str:

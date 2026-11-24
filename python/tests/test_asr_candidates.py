@@ -156,6 +156,20 @@ def test_one_native_observation_cannot_become_several_anchor_words(native):
     assert insertion_candidates("We sail home", [primary, original], 30) == ()
 
 
+@pytest.mark.parametrize(
+    "written,expected", [("кто-то", "кто-то"), ("one‐way", "one-way"), ("don't", "dont")]
+)
+def test_compound_native_word_keeps_its_single_timed_observation(written, expected):
+    from backend.ai_worker.asr_views import read_views
+
+    parsed = read_views([view("vocal", [(written, 1.0, 1.4)])], 3.0)
+
+    assert len(parsed) == 1
+    assert [(word.text, word.start, word.end) for word in parsed[0].tokens] == [
+        (expected, 1.0, 1.4)
+    ]
+
+
 def test_numeric_decoder_annotation_cannot_become_a_lyric_insertion():
     primary = view("vocal", phrase("We sail home", 5))
     original = view("original", [*phrase("We sail home", 5), ("123", 10, 10.4)])

@@ -43,6 +43,24 @@ def test_lyric_cleanup_preserves_apostrophes_inside_written_words(source, langua
 
 
 @pytest.mark.parametrize(
+    "source,language,expected",
+    [
+        ("рок-н-ролл, кто-то и всё-таки", "Russian", "рок-н-ролл кто-то и всё-таки"),
+        ("будь-який - хтось-таки", "Ukrainian", "будь-який хтось-таки"),
+        ("one‐way non‑stop, twenty-one - hey", "English", "one-way non-stop twenty-one hey"),
+        ("USB-кабелем", "Russian", "USB-кабелем"),
+        ("не - верь - мне", "Russian", "не верь мне"),
+    ],
+)
+def test_lyric_cleanup_preserves_word_hyphens_and_discards_phrase_dashes(
+    source, language, expected
+):
+    from backend.text_normalization import clean_lyrics
+
+    assert clean_lyrics(source, language) == expected
+
+
+@pytest.mark.parametrize(
     "key, heard, expected, comparisons",
     [
         ("aaaa", ["a", "b", "c", "d"], [], 0),
