@@ -280,7 +280,7 @@ void MediaSource::setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t 
     loopEndFrame_.store(endFrame, std::memory_order_relaxed);
     loopEnabled_.store(enabled, std::memory_order_release);
     if (state_.load(std::memory_order_acquire) != PlaybackState::Empty) {
-        const auto position = snapshot().sourcePositionFrames;
+        const auto position = snapshot(false).sourcePositionFrames;
         requestSeekLocked(static_cast<double>(
             enabled && (position < startFrame || position >= endFrame) ? startFrame : position));
     }

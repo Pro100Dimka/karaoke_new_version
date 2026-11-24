@@ -18,6 +18,7 @@ void captureTimingRecoveryPreservesRealDiscontinuities();
 void networkDiagnosticsRetainSignedPeerAlignment();
 void loadingProgressReportsRealScannedFramesWithoutMovingPlayback();
 void transportSnapshotDoesNotWaitForDiagnosticText();
+void controllerSnapshotDoesNotWaitForDiagnosticText();
 void networkProcessClientUsesProtocolCadence();
 void networkAlignmentMeasuresBeyondItsSuccessThreshold();
 void backgroundSuspendKeepsUnfinishedRecordingsOpen();

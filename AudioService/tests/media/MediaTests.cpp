@@ -18,17 +18,25 @@ struct MediaSourceTestAccess {
         source.setFailure(MediaFailureCode::DecoderError, "decoder failure");
         return source.failureLock_;
     }
+
+    static std::atomic_flag& failureMessageLock(MediaController& controller, MediaSlot slot) {
+        return failureMessageLock(controller.source(slot));
+    }
 };
+
+namespace {
+struct MessageWriterRelease {
+    std::atomic_flag& flag;
+    ~MessageWriterRelease() { flag.clear(std::memory_order_release); }
+};
+} // namespace
 
 namespace Tests {
 void transportSnapshotDoesNotWaitForDiagnosticText() {
     MediaSource source(std::make_unique<WavDecoder>());
     auto& flag = MediaSourceTestAccess::failureMessageLock(source);
     flag.test_and_set(std::memory_order_acquire);
-    struct Release {
-        std::atomic_flag& flag;
-        ~Release() { flag.clear(std::memory_order_release); }
-    } release{flag};
+    MessageWriterRelease release{flag};
     auto reading = std::async(std::launch::async, [&] { return source.snapshot(false); });
     const auto completed = reading.wait_for(std::chrono::milliseconds(500));
     flag.clear(std::memory_order_release);
@@ -41,6 +49,102 @@ void transportSnapshotDoesNotWaitForDiagnosticText() {
     const auto diagnostic = source.snapshot();
     expect(std::string_view(diagnostic.failureMessage.data()) == "decoder failure",
            "control diagnostics retain the complete decoder error");
+
+    const auto path = tempRoot / "loop-command-snapshot.wav";
+    makeTestWav(path, 10000);
+    source.prepareOutput(48000, 2, 4096);
+    source.load(path.string());
+    require(source.waitUntilReady() == PlaybackState::Ready,
+            "loop command source is prepared before changing transport");
+    source.seek(3000);
+    source.play();
+    struct LoopCase {
+        bool enabled;
+        std::uint64_t start;
+        std::uint64_t end;
+        std::uint64_t position{1000};
+    };
+    constexpr std::array loops{
+        LoopCase{true, 1000, 2000},
+        LoopCase{true, 500, 2500},
+        LoopCase{false, 0, 0},
+    };
+    for (const auto& loop : loops) {
+        flag.test_and_set(std::memory_order_acquire);
+        MessageWriterRelease loopRelease{flag};
+        auto changing = std::async(std::launch::async, [&] {
+            source.setLoop(loop.enabled, loop.start, loop.end);
+        });
+        const auto loopCompleted = changing.wait_for(std::chrono::milliseconds(500));
+        flag.clear(std::memory_order_release);
+        changing.get();
+        expect(loopCompleted == std::future_status::ready,
+               "loop commands do not suspend rendering while waiting for diagnostic text");
+        const auto loopSnapshot = source.snapshot(false);
+        expect(loopSnapshot.state == PlaybackState::Playing &&
+                   loopSnapshot.sourcePositionFrames == loop.position,
+               "loop commands retain playback state and apply only their intended cursor change");
+    }
+}
+
+void controllerSnapshotDoesNotWaitForDiagnosticText() {
+    MediaController media;
+    media.prepare(48000, 2, 4096);
+    media.load(MediaSlot::Music, (tempRoot / "missing-controller-snapshot.mp3").string());
+    require(media.waitUntilReady(MediaSlot::Music) == PlaybackState::Failed,
+            "missing controller media reaches the failed state");
+    auto& flag = MediaSourceTestAccess::failureMessageLock(media, MediaSlot::Music);
+    flag.test_and_set(std::memory_order_acquire);
+    MessageWriterRelease release{flag};
+    auto reading = std::async(std::launch::async, [&] { return media.snapshot(MediaSlot::Music); });
+    const auto completed = reading.wait_for(std::chrono::milliseconds(500));
+    flag.clear(std::memory_order_release);
+    const auto transport = reading.get();
+    expect(completed == std::future_status::ready,
+           "default controller snapshots never wait for the diagnostic message writer");
+    expect(transport.state == PlaybackState::Failed &&
+               transport.failureCode == MediaFailureCode::DecoderError,
+           "controller snapshots preserve the failed state and failure code");
+    expect(transport.failureMessage[0] == '\0',
+           "default controller snapshots do not copy diagnostic text");
+    const auto diagnostic = media.snapshot(MediaSlot::Music, true);
+    expect(diagnostic.state == transport.state && diagnostic.failureCode == transport.failureCode &&
+               std::string_view(diagnostic.failureMessage.data()) == "decoder failure",
+           "explicit controller diagnostics retain the failed state and complete error");
+
+    const auto path = tempRoot / "controller-command-snapshot.wav";
+    makeTestWav(path, 10000);
+    media.load(MediaSlot::Music, path.string());
+    require(media.waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+            "foreground music is ready for controller transport commands");
+    struct CommandCase {
+        void (*run)(MediaController&);
+        PlaybackState state;
+    };
+    constexpr std::array commands{
+        CommandCase{[](MediaController& target) { target.play(MediaContext::Karaoke); },
+                    PlaybackState::Playing},
+        CommandCase{[](MediaController& target) { target.pause(MediaContext::Karaoke); },
+                    PlaybackState::Paused},
+        CommandCase{[](MediaController& target) { target.seek(MediaContext::Karaoke, 1200); },
+                    PlaybackState::Paused},
+    };
+    auto& companionFlag = MediaSourceTestAccess::failureMessageLock(media, MediaSlot::ReferenceVocal);
+    for (const auto& command : commands) {
+        companionFlag.test_and_set(std::memory_order_acquire);
+        MessageWriterRelease companionRelease{companionFlag};
+        auto executing = std::async(std::launch::async, [&] { command.run(media); });
+        const auto commandCompleted = executing.wait_for(std::chrono::milliseconds(500));
+        companionFlag.clear(std::memory_order_release);
+        executing.get();
+        expect(commandCompleted == std::future_status::ready,
+               "controller transport commands do not wait for companion diagnostic text");
+        expect(media.snapshot(MediaSlot::Music).state == command.state,
+               "controller transport commands preserve their foreground state transitions");
+    }
+    expect(media.timelineFrame(MediaSlot::Music) == 1200 &&
+               media.snapshot(MediaSlot::ReferenceVocal).state == PlaybackState::Empty,
+           "seeking moves the foreground cursor and preserves an empty companion");
 }
 
 void loadingProgressReportsRealScannedFramesWithoutMovingPlayback() {

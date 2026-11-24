@@ -29,8 +29,9 @@ class MediaController {
     [[nodiscard]] std::uint32_t render(MediaSlot slot, std::span<float> output,
                                        std::uint32_t frames,
                                        MonotonicTicks presentationTicks = 0) noexcept;
+    // Transport readers need only scalar state; diagnostic text waits for the decoder's writer.
     [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot,
-                                                bool includeFailureMessage = true) const noexcept;
+                                                bool includeFailureMessage = false) const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint64_t presentationFrame(MediaSlot slot, MonotonicTicks at,
                                                  bool captureHistory = false) const noexcept;
@@ -43,6 +44,7 @@ class MediaController {
     }
 
   private:
+    friend struct MediaSourceTestAccess;
     MediaSource& source(MediaSlot slot);
     const MediaSource& source(MediaSlot slot) const;
     MediaSlot foregroundSlot(MediaContext context) const;

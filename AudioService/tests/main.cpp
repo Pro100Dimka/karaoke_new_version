@@ -719,6 +719,7 @@ constexpr std::array tests{
     Test{"mp3MediaSourceAppliesRateAndPitchAfterAccurateSeek",
          Tests::mp3MediaSourceAppliesRateAndPitchAfterAccurateSeek},
     Test{"transportSnapshotDoesNotWaitForDiagnosticText", Tests::transportSnapshotDoesNotWaitForDiagnosticText},
+    Test{"controllerSnapshotDoesNotWaitForDiagnosticText", Tests::controllerSnapshotDoesNotWaitForDiagnosticText},
     Test{"networkProcessClientUsesProtocolCadence", Tests::networkProcessClientUsesProtocolCadence},
     Test{"networkAlignmentMeasuresBeyondItsSuccessThreshold", Tests::networkAlignmentMeasuresBeyondItsSuccessThreshold},
     Test{"backgroundSuspendKeepsUnfinishedRecordingsOpen", Tests::backgroundSuspendKeepsUnfinishedRecordingsOpen},
