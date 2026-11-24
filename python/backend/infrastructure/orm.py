@@ -132,6 +132,9 @@ class AnalysisRow(Base):
     error_json: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        Index("ix_analysis_recording_recent", recording_id, created_at.desc(), analysis_id),
+    )
 
 
 class ModelRow(Base):

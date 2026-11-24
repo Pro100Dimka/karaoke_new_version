@@ -104,26 +104,30 @@ class SqlAnalysisRepository:
     def latest_summaries(self, recording_ids: Sequence[str]) -> dict[str, AnalysisSummary]:
         if not recording_ids:
             return {}
-        latest = (
+        # A bounded seek per requested take avoids ranking every historical analysis.
+        requested = func.json_each(dumps(recording_ids)).table_valued("value").alias("requested")
+        latest_id = (
+            select(AnalysisRow.id)
+            .where(AnalysisRow.recording_id == requested.c.value)
+            .order_by(AnalysisRow.created_at.desc(), AnalysisRow.analysis_id)
+            .limit(1)
+            .correlate(requested)
+            .scalar_subquery()
+        )
+        query = (
             select(
                 AnalysisRow.recording_id,
                 AnalysisRow.song_id,
                 AnalysisRow.song_revision,
                 AnalysisRow.algorithm_version,
                 AnalysisRow.state,
-                func.row_number()
-                .over(
-                    partition_by=AnalysisRow.recording_id,
-                    order_by=(AnalysisRow.created_at.desc(), AnalysisRow.analysis_id),
-                )
-                .label("position"),
             )
-            .where(AnalysisRow.recording_id.in_(recording_ids))
-            .subquery()
+            .select_from(requested)
+            .join(AnalysisRow, AnalysisRow.id == latest_id)
         )
         return {
             row.recording_id: AnalysisSummary(
                 row.song_id, row.song_revision, row.algorithm_version, AnalysisState(row.state)
             )
-            for row in self._session.execute(select(latest).where(latest.c.position == 1))
+            for row in self._session.execute(query)
         }

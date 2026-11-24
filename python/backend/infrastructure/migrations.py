@@ -10,7 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.domain_errors import DependencyError
-from backend.infrastructure.orm import Base, HistoryRow, JobRow, RecordingRow, SongRow
+from backend.infrastructure.orm import AnalysisRow, Base, HistoryRow, JobRow, RecordingRow, SongRow
 from backend.version import DB_SCHEMA_VERSION
 
 Migration = Callable[[Connection], None]
@@ -86,7 +86,7 @@ def _ensure_query_indexes(connection: Connection) -> None:
     tables: set[str] = set(
         connection.execute(text("SELECT name FROM sqlite_master WHERE type = 'table'")).scalars()
     )
-    for model in (JobRow, RecordingRow, HistoryRow, SongRow):
+    for model in (JobRow, RecordingRow, HistoryRow, SongRow, AnalysisRow):
         table = cast(Table, model.__table__)
         if table.name not in tables:
             continue
