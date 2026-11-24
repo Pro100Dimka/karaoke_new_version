@@ -1,11 +1,17 @@
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 
 const saved = vi.hoisted(() => ({ text: '{}', written: '' }));
+const disk = vi.hoisted(() => ({ sync: vi.fn(), write: vi.fn() }));
 vi.mock('node:fs', () => ({
   readFileSync: () => saved.text,
   writeFileSync: (_path: string, text: string) => {
+    disk.sync();
     saved.written = text;
   },
+}));
+vi.mock('node:fs/promises', () => ({
+  default: { writeFile: disk.write },
+  writeFile: disk.write,
 }));
 vi.mock('electron', () => ({
   app: { getPath: () => 'D:/isolated-profile' },
@@ -18,7 +24,78 @@ vi.mock('electron', () => ({
 }));
 
 import type { BrowserWindow } from 'electron';
-import { loadWindowState, saveWindowState } from './WindowState';
+import {
+  flushWindowState,
+  loadWindowState,
+  saveWindowState,
+} from './WindowState';
+
+beforeEach(() => {
+  disk.sync.mockClear();
+  disk.write.mockReset().mockImplementation(async (_path, text) => {
+    saved.written = text;
+  });
+});
+
+const placed = (x: number) =>
+  ({
+    isMaximized: () => false,
+    isFullScreen: () => false,
+    getBounds: () => ({ x, y: 80, width: 1280, height: 720 }),
+  }) as BrowserWindow;
+
+it('keeps close handling free of synchronous disk writes', async () => {
+  const saving = saveWindowState(placed(10));
+  await saving;
+  expect(disk.sync).not.toHaveBeenCalled();
+  expect(disk.write).toHaveBeenCalledOnce();
+  expect(JSON.parse(saved.written).x).toBe(10);
+});
+
+it('keeps only the latest pending placement while a slow write is in flight', async () => {
+  const writes: { text: string; finish(): void }[] = [];
+  disk.write.mockImplementation(
+    (_path, text: string) =>
+      new Promise<void>((resolve) => {
+        writes.push({ text, finish: resolve });
+      }),
+  );
+  const first = saveWindowState(placed(0));
+  await Promise.resolve();
+  let flushed = false;
+  const flushing = flushWindowState().then(() => {
+    flushed = true;
+  });
+  const pending = Array.from({ length: 100 }, (_, index) =>
+    saveWindowState(placed(index + 1)),
+  );
+  try {
+    expect(disk.sync).not.toHaveBeenCalled();
+    expect(writes).toHaveLength(1);
+    expect(flushed).toBe(false);
+    expect(JSON.parse(writes[0]!.text).x).toBe(0);
+    writes[0]!.finish();
+    await vi.waitFor(() => expect(writes).toHaveLength(2));
+    expect(flushed).toBe(false);
+    expect(JSON.parse(writes[1]!.text).x).toBe(100);
+    writes[1]!.finish();
+    await Promise.all([first, flushing, ...pending]);
+    expect(flushed).toBe(true);
+    expect(writes).toHaveLength(2);
+  } finally {
+    disk.write.mockResolvedValue(undefined);
+    for (const write of writes) write.finish();
+    await Promise.all([first, ...pending]);
+  }
+});
+
+it('allows a later save after a failed disk write without rejecting close', async () => {
+  disk.write.mockRejectedValueOnce(new Error('Read only profile'));
+  await saveWindowState(placed(10));
+  await saveWindowState(placed(20));
+  expect(disk.write).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(saved.written).x).toBe(20);
+});
 
 it.each(['width', 'height'] as const)(
   'repairs invalid saved %s without discarding valid placement',
@@ -77,14 +154,14 @@ it('centers a saved window when its former display is disconnected', () => {
   });
 });
 
-it('remembers full screen with the normal bounds to return to', () => {
+it('remembers full screen with the normal bounds to return to', async () => {
   const window = {
     isMaximized: () => false,
     isFullScreen: () => true,
     getNormalBounds: () => ({ x: 100, y: 80, width: 1280, height: 720 }),
     getBounds: () => ({ x: 0, y: 0, width: 1920, height: 1080 }),
   } as unknown as BrowserWindow;
-  saveWindowState(window);
+  await saveWindowState(window);
   expect(JSON.parse(saved.written)).toEqual({
     width: 1280,
     height: 720,

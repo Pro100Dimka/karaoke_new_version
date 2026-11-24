@@ -12,6 +12,7 @@ import { registerDesktopIpc } from './DesktopIpc';
 import { ipcChannels } from './ipcChannels';
 import { createKeyboardLightingProvider } from './KeyboardLighting';
 import { createMainWindow } from './MainWindow';
+import { flushWindowState } from './WindowState';
 import { ManagedServices } from './ManagedServices';
 import { registerProjectFileHandlers } from './ProjectFiles';
 import { roomParticipantId } from './RoomIdentity';
@@ -446,6 +447,7 @@ app.on('before-quit', (event) => {
       appLogs.stop(),
       new Promise<void>((resolve) => setTimeout(resolve, 1_500)),
     ]);
+    await flushWindowState();
     servicesStopped = true;
     app.quit();
   });
