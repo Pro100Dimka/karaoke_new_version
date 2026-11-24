@@ -39,30 +39,31 @@ def _band_viterbi(
 ) -> tuple[np.ndarray, np.ndarray]:
     """CREPE's 23-bin band plus librosa's finite off-band epsilon, including ties."""
     frames, states = log_prob.shape
-    value = np.zeros((frames, states), dtype=np.float64)
+    value = log_prob[0] + initial
+    following = np.zeros(states, dtype=np.float64)
     ptr = np.zeros((frames, states), dtype=np.uint16)
     path = np.zeros(frames, dtype=np.uint16)
-    value[0] = log_prob[0] + initial
     for t in range(1, frames):
         # Include every floor candidate; a band's actual transition dominates
         # its floor. Compare rounded sums, retaining the lowest index on ties.
-        floors = value[t - 1] + floor
+        floors = value + floor
         global_best = int(np.argmax(floors))
         for j in range(states):
             low, high = max(0, j - 11), min(states, j + 12)
             best, chosen = -np.inf, 0
             for k in range(low, high):
-                cost = value[t - 1, k] + log_transition[k, j]
+                cost = value[k] + log_transition[k, j]
                 if cost > best:
                     best, chosen = cost, k
             if floors[global_best] > best or (floors[global_best] == best and global_best < chosen):
                 best, chosen = floors[global_best], global_best
-            value[t, j] = log_prob[t, j] + best
+            following[j] = log_prob[t, j] + best
             ptr[t, j] = chosen
-    path[-1] = np.argmax(value[-1])
+        value, following = following, value
+    path[-1] = np.argmax(value)
     for t in range(frames - 2, -1, -1):
         path[t] = ptr[t + 1, path[t + 1]]
-    return path, value[-1:, path[-1]]
+    return path, value[path[-1] : path[-1] + 1]
 
 
 @lru_cache(maxsize=3)
@@ -126,12 +127,12 @@ def _pitch_points(
 def _predict_active(
     samples: np.ndarray, active: np.ndarray, target: str
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Keep CREPE's batches and decoder context; omit only wholly inaudible batches."""
+    """Infer in small batches, then decode one continuous musical timeline."""
     audio = torch.from_numpy(samples)[None]
-    frequency = torch.zeros((1, len(active)))
-    periodicity = torch.zeros_like(frequency)
     if not active.any():
-        return frequency, periodicity
+        frequency = torch.zeros((1, len(active)))
+        return frequency, torch.zeros_like(frequency)
+    probabilities = torch.zeros((1, 360, len(active)))
     infer = _pitch_inference(target)
     batch = _BATCH[target]
     # Include the model's 64-ms receptive field and the final confidence smoothing.
@@ -143,17 +144,23 @@ def _predict_active(
         if not active[max(0, first - margin) : last + margin].any():
             continue
         # Retain the full model: tiny can mistake harmonics for notes an octave or two higher.
-        probabilities = infer(frames)
-        predicted, confidence = torchcrepe.postprocess(
-            probabilities.T[None],
-            _FMIN,
-            _FMAX,
-            decoder=partial(_viterbi_decoder, active=active[first:last]),
-            return_periodicity=True,
-        )
-        frequency[:, first:last] = predicted.cpu()
-        periodicity[:, first:last] = confidence.cpu()
-    return frequency, periodicity
+        probabilities[:, :, first:last] = infer(frames).T.cpu()
+    frequency, periodicity = torchcrepe.postprocess(
+        probabilities,
+        _FMIN,
+        _FMAX,
+        decoder=partial(_viterbi_decoder, active=active),
+        return_periodicity=True,
+    )
+    # A real note entry must not become an unsupported glide between distant pitches.
+    peak_confidence, bins = probabilities.max(dim=1)
+    supported = (periodicity < 0.5) & (peak_confidence >= 0.5) & torch.from_numpy(active)[None]
+    centres = torchcrepe.convert.cents_to_frequency(
+        torchcrepe.CENTS_PER_BIN * bins + 1997.3794084376191
+    )
+    return torch.where(supported, centres, frequency), torch.where(
+        supported, peak_confidence, periodicity
+    )
 
 
 @njit(cache=True)

@@ -20,6 +20,56 @@ def test_identical_pitch_evidence_produces_identical_frequencies():
     assert torch.equal(first[1], repeated[1])
 
 
+@pytest.mark.parametrize("octave_leap", [False, True])
+def test_inference_batch_boundaries_do_not_change_the_performed_pitch(monkeypatch, octave_leap):
+    evidence = torch.zeros((12, 360))
+    evidence[:, 100] = 1
+    if octave_leap:
+        evidence[6:, 100] = 0
+        evidence[6:, 160] = 1
+    else:
+        evidence[4:8, 100] = 0.8
+        evidence[4:8, 160] = 0.9
+
+    def inference(_target):
+        offset = 0
+
+        def predict(frames):
+            nonlocal offset
+            result = evidence[offset : offset + len(frames)].clone()
+            offset += len(frames)
+            return result
+
+        return predict
+
+    monkeypatch.setattr(pitch, "_pitch_inference", inference)
+    times = np.arange(11 * 160) / 16_000
+    samples = np.sin(2 * np.pi * 220 * times).astype(np.float32)
+    active = np.ones(12, dtype=bool)
+    results = []
+    for batch in (4, 12):
+        monkeypatch.setattr(pitch, "_BATCH", {"cpu": batch})
+        results.append(pitch._predict_active(samples, active, "cpu"))
+
+    assert torch.equal(results[0][0], results[1][0])
+    assert torch.equal(results[0][1], results[1][1])
+    assert torch.all(results[0][1] >= 0.8)
+
+
+def test_weak_alternative_pitch_does_not_replace_an_uncertain_decoded_frame(monkeypatch):
+    evidence = torch.zeros((12, 360))
+    evidence[:, 100] = 1
+    evidence[4:8, 100] = 0.1
+    evidence[4:8, 160] = 0.49
+    monkeypatch.setattr(pitch, "_pitch_inference", lambda _: lambda frames: evidence.clone())
+
+    _, confidence = pitch._predict_active(
+        np.zeros(11 * 160, dtype=np.float32), np.ones(12, dtype=bool), "cpu"
+    )
+
+    assert torch.all(confidence[0, 4:8] < 0.5)
+
+
 @pytest.mark.parametrize("frames", [1, 128, 512])
 @pytest.mark.parametrize("mode", ["uniform", "random", "distant", "edge"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
