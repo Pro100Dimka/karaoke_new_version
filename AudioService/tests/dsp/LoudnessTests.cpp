@@ -5,10 +5,20 @@
 #include "realtime/VoiceLoudness.hpp"
 #include "recording/WavWriter.hpp"
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
+#include <mutex>
+#include <optional>
+#include <semaphore>
 #include <thread>
 #include <vector>
+
+#if defined(_M_X64) || defined(__x86_64__)
+#include <xmmintrin.h>
+#endif
 
 namespace {
 constexpr std::uint32_t Rate = 48'000;
@@ -33,9 +43,120 @@ double weightedGain(double hz) {
     }
     return std::sqrt(out / in);
 }
+
+class CancelledScanDecoder final : public IAudioDecoder {
+  public:
+    DecodedAudioFormat open(const std::string&) override {
+        std::lock_guard lock(mutex_);
+        cancelled_ = false;
+        return {Rate, 1, Rate};
+    }
+    std::uint32_t read(std::span<float>, std::uint32_t) override {
+        std::unique_lock lock(mutex_);
+        entered_.release();
+        (void)cancelledWake_.wait_for(lock, std::chrono::seconds(2), [this] { return cancelled_; });
+        return 0;
+    }
+    void seek(std::uint64_t) override { ++rewinds; }
+    void cancel() noexcept override {
+        std::lock_guard lock(mutex_);
+        cancelled_ = true;
+        cancelledWake_.notify_one();
+    }
+    void close() noexcept override {}
+    bool waitForScan() { return entered_.try_acquire_for(std::chrono::seconds(2)); }
+
+    unsigned rewinds{0};
+
+  private:
+    std::binary_semaphore entered_{0};
+    std::mutex mutex_;
+    std::condition_variable cancelledWake_;
+    bool cancelled_{false};
+};
+
+#if defined(_M_X64) || defined(__x86_64__)
+struct LoudnessScanModes {
+    bool denormalOperand{false};
+    bool playbackUsesCallerMode{false};
+};
+
+class SilentTailDecoder final : public IAudioDecoder {
+  public:
+    explicit SilentTailDecoder(LoudnessScanModes& modes) : modes_(modes) {}
+    DecodedAudioFormat open(const std::string&) override {
+        previousMode_ = _mm_getcsr();
+        _mm_setcsr(*previousMode_ & ~(FlushModes | 0x3fU));
+        return {Rate, 1, TotalFrames};
+    }
+    std::uint32_t read(std::span<float> output, std::uint32_t maxFrames) override {
+        if (scanning_)
+            modes_.denormalOperand |= (_mm_getcsr() & (1U << 1U)) != 0;
+        else
+            modes_.playbackUsesCallerMode = (_mm_getcsr() & FlushModes) == 0;
+        const auto frames = static_cast<std::uint32_t>(
+            std::min<std::uint64_t>({maxFrames, output.size(), TotalFrames - position_}));
+        std::fill_n(output.data(), frames, 0.0F);
+        if (position_ == 0 && frames != 0)
+            output[0] = 0.5F;
+        position_ += frames;
+        return frames;
+    }
+    void seek(std::uint64_t frame) override {
+        position_ = frame;
+        scanning_ = false;
+    }
+    void cancel() noexcept override {}
+    void close() noexcept override {
+        if (previousMode_) {
+            _mm_setcsr(*previousMode_);
+            previousMode_.reset();
+        }
+    }
+
+  private:
+    static constexpr unsigned FlushModes = 0x8040U;
+    static constexpr std::uint64_t TotalFrames = Rate * 4U;
+    LoudnessScanModes& modes_;
+    std::optional<unsigned> previousMode_;
+    std::uint64_t position_{0};
+    bool scanning_{true};
+};
+#endif
 } // namespace
 
 namespace Tests {
+void cancelledSongLoudnessScanDoesNotRewindDecoder() {
+    auto decoder = std::make_unique<CancelledScanDecoder>();
+    auto& scanning = *decoder;
+    MediaSource source{std::move(decoder), true};
+    source.prepareOutput(Rate, 1, Rate / 2U);
+    source.load("cancelled-scan");
+    expect(scanning.waitForScan(), "the decoder starts scanning before cancellation");
+    source.unload();
+    expect(scanning.rewinds == 0,
+           "unloading does not restart cancelled decoder I/O just to rewind a discarded scan");
+    expect(source.snapshot().state == PlaybackState::Empty,
+           "cancelled loading returns the source to Empty");
+}
+
+void songLoudnessScanDoesNotProcessSubnormalTails() {
+#if defined(_M_X64) || defined(__x86_64__)
+    LoudnessScanModes modes;
+    {
+        MediaSource source{std::make_unique<SilentTailDecoder>(modes), true};
+        source.prepareOutput(Rate, 1, Rate / 2U);
+        source.load("impulse-and-silence");
+        expect(source.waitUntilReady() == PlaybackState::Ready,
+               "a song with a silent tail completes loudness analysis");
+    }
+    expect(!modes.denormalOperand,
+           "loudness scanning does not spend CPU on inaudible subnormal filter tails");
+    expect(modes.playbackUsesCallerMode,
+           "loudness scanning restores the decoder worker's floating-point mode");
+#endif
+}
+
 void loudnessWeightingFollowsHearing() {
     expect(weightedGain(1'000.0) > 0.95 && weightedGain(1'000.0) < 1.15,
            "K weighting leaves a 1 kHz tone about as loud as it is");

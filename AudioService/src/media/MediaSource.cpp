@@ -1,5 +1,6 @@
 #include "media/MediaSource.hpp"
 #include "dsp/KWeighting.hpp"
+#include "dsp/ScopedNoDenormals.hpp"
 
 #include <algorithm>
 #include <array>
@@ -136,17 +137,23 @@ void MediaSource::load(std::string path) {
     if (path.empty() || outputSampleRateHz_ == 0 || outputChannels_ == 0 ||
         ring_.capacityFrames() == 0)
         throw std::invalid_argument("media source must be prepared before load");
-    requestUnloadAndWait();
     std::lock_guard lock(mutex_);
     RenderPause renderPause(*this);
     const auto generation = advanceGeneration();
+    decoder_->cancel();
     ring_.reset(generation);
     clearFailure();
     sourcePosition_.store(0, std::memory_order_relaxed);
     transportStartPosition_.store(0, std::memory_order_relaxed);
+    totalSourceFrames_.store(0, std::memory_order_relaxed);
+    sourceSampleRateHz_.store(0, std::memory_order_relaxed);
+    loadProgressFrames_.store(0, std::memory_order_relaxed);
+    loudnessRms_.store(0.0F, std::memory_order_relaxed);
+    processingLatencyFrames_.store(0, std::memory_order_relaxed);
     publishState(PlaybackState::Loading);
     path_ = std::move(path);
     loadRequested_ = true;
+    seekRequested_ = false;
     requestedGeneration_ = generation;
     requestWake();
 }
@@ -592,12 +599,24 @@ void MediaSource::applyUnload() {
 }
 
 void MediaSource::applyLoad(const std::string& loadPath) {
+    // Check under mutex_: a transport seek changes generation but still needs this source's
+    // decoder, format and processing buffers. Only another load/unload retires the source.
+    const auto superseded = [this] { return loadRequested_ || unloadRequested_ || terminate_; };
+    decoder_->close();
+    {
+        std::lock_guard lock(mutex_);
+        if (superseded())
+            return;
+    }
     format_ = decoder_->open(loadPath);
+    {
+        std::lock_guard lock(mutex_);
+        if (superseded())
+            return;
+    }
     if (format_.channels == 0 || format_.sampleRateHz == 0) {
         throw std::runtime_error("decoder returned invalid format");
     }
-    totalSourceFrames_.store(format_.totalFrames, std::memory_order_release);
-    sourceSampleRateHz_.store(format_.sampleRateHz, std::memory_order_release);
     decoderEof_ = false;
     constexpr std::uint32_t MaximumDecodeChunkFrames = 2048;
     decodeChunkFrames_ =
@@ -617,7 +636,13 @@ void MediaSource::applyLoad(const std::string& loadPath) {
     mappedScratch_.assign(static_cast<std::size_t>(decodeChunkFrames_) * outputChannels_, 0.0F);
     pendingFrames_ = pendingOffsetFrames_ = 0;
     decoderFrame_ = 0;
-    loudnessRms_.store(0.0F, std::memory_order_relaxed);
+    {
+        std::lock_guard lock(mutex_);
+        if (superseded())
+            return;
+        totalSourceFrames_.store(format_.totalFrames, std::memory_order_release);
+        sourceSampleRateHz_.store(format_.sampleRateHz, std::memory_order_release);
+    }
     if (measureLoudness_ && format_.totalFrames != 0)
         measureLoudness();
 }
@@ -626,6 +651,7 @@ void MediaSource::applyLoad(const std::string& loadPath) {
 // at file speed (a fraction of a second for a song) on this worker, and stops if a newer load or
 // unload supersedes it.
 void MediaSource::measureLoudness() {
+    ScopedNoDenormals noDenormals;
     constexpr double SilencePower = 1e-6; // -60 dB
     // Loudness as heard (ITU-R BS.1770 K weighting), comparable with the voices it is balanced to.
     std::array<KWeighting, MaxAudioChannels> weighting{};
@@ -651,10 +677,16 @@ void MediaSource::measureLoudness() {
             power += sum / static_cast<double>(samples);
             ++chunks;
         }
+        std::lock_guard lock(mutex_);
+        if (decodeGeneration_ != generation_.load(std::memory_order_acquire))
+            return;
         loadProgressFrames_.fetch_add(read, std::memory_order_relaxed);
     }
+    if (decodeGeneration_ != generation_.load(std::memory_order_acquire))
+        return;
     decoder_->seek(0);
-    if (chunks != 0)
+    std::lock_guard lock(mutex_);
+    if (chunks != 0 && decodeGeneration_ == generation_.load(std::memory_order_acquire))
         loudnessRms_.store(static_cast<float>(std::sqrt(power / static_cast<double>(chunks))),
                            std::memory_order_relaxed);
 }
@@ -708,7 +740,12 @@ void MediaSource::decodeChunk() {
     }
     processor_.setRate(rate_.load(std::memory_order_relaxed));
     processor_.setTranspose(transpose_.load(std::memory_order_relaxed));
-    processingLatencyFrames_.store(processor_.latencyFrames(), std::memory_order_release);
+    {
+        std::lock_guard lock(mutex_);
+        if (decodeGeneration_ != generation_.load(std::memory_order_acquire))
+            return;
+        processingLatencyFrames_.store(processor_.latencyFrames(), std::memory_order_release);
+    }
 
     const auto loopEnabled = loopEnabled_.load(std::memory_order_acquire);
     const auto loopStart = loopStartFrame_.load(std::memory_order_relaxed);
@@ -772,6 +809,17 @@ void MediaSource::workerMain() noexcept {
             break;
         }
 
+        bool loading = doLoad;
+        const auto fail = [this, &loading](MediaFailureCode code, std::string_view message) {
+            std::lock_guard lock(mutex_);
+            const auto currentLoad = loading && !loadRequested_ && !unloadRequested_ && !terminate_;
+            if (decodeGeneration_ != generation_.load(std::memory_order_acquire) && !currentLoad)
+                return;
+            // A transport change cannot recover a source that failed to open or prepare.
+            seekRequested_ = false;
+            setFailure(code, message);
+            publishState(PlaybackState::Failed);
+        };
         try {
             if (doUnload) {
                 applyUnload();
@@ -781,21 +829,16 @@ void MediaSource::workerMain() noexcept {
                 decodeGeneration_ = requestGeneration;
             if (doLoad)
                 applyLoad(loadPath);
+            loading = false;
+            if (decodeGeneration_ != generation_.load(std::memory_order_acquire))
+                continue;
             if (doSeek)
                 applySeek(seekFrame);
             decodeChunk();
         } catch (const std::exception& error) {
-            std::lock_guard lock(mutex_);
-            if (decodeGeneration_ == generation_.load(std::memory_order_acquire)) {
-                setFailure(MediaFailureCode::DecoderError, error.what());
-                publishState(PlaybackState::Failed);
-            }
+            fail(MediaFailureCode::DecoderError, error.what());
         } catch (...) {
-            std::lock_guard lock(mutex_);
-            if (decodeGeneration_ == generation_.load(std::memory_order_acquire)) {
-                setFailure(MediaFailureCode::Unknown, "non-standard media decoder exception");
-                publishState(PlaybackState::Failed);
-            }
+            fail(MediaFailureCode::Unknown, "non-standard media decoder exception");
         }
     }
     decoder_->close(); // Release thread-affine decoder resources on their owning worker.

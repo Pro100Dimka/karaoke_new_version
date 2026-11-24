@@ -199,6 +199,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/network/NetworkSimulationTests.cpp
         tests/network/NetworkResilienceTests.cpp
         tests/media/MediaTests.cpp
+        tests/media/MediaLoadingTests.cpp
         tests/media/Mp3DecoderTests.cpp
         tests/media/MediaFoundationTests.cpp
         tests/devices/WindowsDeviceTests.cpp
