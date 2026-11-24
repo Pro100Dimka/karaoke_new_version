@@ -334,7 +334,7 @@ const sampleRateOf = (values: Record<string, string>): number =>
   );
 
 export const currentSampleRate = async (): Promise<number> =>
-  sampleRateOf(await diagnostics());
+  sampleRateOf(await diagnostics(true));
 
 const playbackStates: Readonly<
   Partial<Record<number, PlaybackSnapshot['state']>>
@@ -403,7 +403,7 @@ export const waitForReady = async (isCurrent = () => true): Promise<void> => {
   do {
     if (!isCurrent())
       throw new DOMException('Song loading cancelled', 'AbortError');
-    const values = await diagnostics();
+    const values = await diagnostics(true);
     if (!isCurrent())
       throw new DOMException('Song loading cancelled', 'AbortError');
     const state = Number(values.PlaybackState ?? 0);
