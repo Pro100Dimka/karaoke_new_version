@@ -1,3 +1,4 @@
+import type { WebContents } from 'electron';
 import { roomVoiceEffects } from './ipcChannels';
 import {
   sendAudioRequest,
@@ -63,6 +64,28 @@ const registerBackendRequests = (
   audioEvent: (reason: string) => void,
 ) => {
   const subscriptions = new Map<string, () => void>();
+  const radioRequests = new WeakMap<WebContents, AbortController>();
+  const radioOwners = new WeakSet<WebContents>();
+  const cancelRadio = (sender: WebContents) => {
+    radioRequests.get(sender)?.abort();
+    radioRequests.delete(sender);
+  };
+  const beginRadio = (sender: WebContents) => {
+    cancelRadio(sender);
+    const request = new AbortController();
+    radioRequests.set(sender, request);
+    if (!radioOwners.has(sender)) {
+      radioOwners.add(sender);
+      sender.once('destroyed', () => cancelRadio(sender));
+      sender.on('render-process-gone', () => cancelRadio(sender));
+      sender.on('did-start-navigation', (navigation) => {
+        if (navigation.isMainFrame && !navigation.isSameDocument)
+          cancelRadio(sender);
+      });
+    }
+    if (sender.isDestroyed()) cancelRadio(sender);
+    return request;
+  };
   const stopNotifications = () => {
     for (const stop of subscriptions.values()) stop();
     subscriptions.clear();
@@ -93,16 +116,31 @@ const registerBackendRequests = (
       });
     }
   });
-  trustedIpc.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
+  trustedIpc.handle(ipcChannels.pythonRequest, async (event, raw: unknown) => {
     const request = requireBackendRequest(raw);
+    // A replaced station must release its HTTP request and backend resolver work.
+    const radio =
+      request.method === 'GET' && /^\/radio\/youtube(?:\?|$)/.test(request.path)
+        ? beginRadio(event.sender)
+        : undefined;
     try {
       return await backendEndpoint.request(request.path, {
         method: request.method,
+        signal: radio?.signal,
         headers: { 'Content-Type': 'application/json', ...request.headers },
         body:
           request.body === undefined ? undefined : JSON.stringify(request.body),
       });
     } catch (error) {
+      if (radio?.signal.aborted)
+        return {
+          status: 499,
+          ok: false,
+          body: {
+            code: 'RequestCancelled',
+            message: 'Radio request was cancelled',
+          },
+        };
       // A backend that is still starting or restarting is an expected state, reported as data instead of an IPC failure.
       const message = errorMessage(error, 'Python backend is unreachable');
       return {
@@ -110,11 +148,15 @@ const registerBackendRequests = (
         ok: false,
         body: { code: 'BackendUnavailable', message },
       };
+    } finally {
+      if (radio && radioRequests.get(event.sender) === radio)
+        radioRequests.delete(event.sender);
     }
   });
-  trustedIpc.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
+  trustedIpc.handle(ipcChannels.audioRequest, async (event, raw: unknown) => {
     const record = requireObject(raw, 'Audio request');
     const command = requireString(record.command, 'command');
+    if (command === 'StopRadio') cancelRadio(event.sender);
     // The transport checks every argument's name and value before anything reaches the pipe.
     const args =
       record.args && typeof record.args === 'object'
