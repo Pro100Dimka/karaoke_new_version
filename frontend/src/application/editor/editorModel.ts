@@ -274,6 +274,13 @@ export const isEditorDirty = (
     const timing = ({ wordId, pitch, start, end }: typeof savedContent) =>
       JSON.stringify([wordId, pitch, start, end]);
     if (timing(savedContent) !== timing(currentContent)) return true;
+    if (savedContent.contour === currentContent.contour) {
+      // Recovery creates fresh note objects while retaining immutable analysis.
+      // Comparing their metadata must not serialize that same contour twice.
+      const { contour: _savedContour, ...savedFields } = savedContent;
+      const { contour: _currentContour, ...currentFields } = currentContent;
+      return JSON.stringify(savedFields) !== JSON.stringify(currentFields);
+    }
     return JSON.stringify(savedContent) !== JSON.stringify(currentContent);
   });
 };
