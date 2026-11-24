@@ -6,6 +6,53 @@ from backend.ai_worker import ctc
 from backend.ai_worker.acoustic_retry import recover_emission
 from backend.ai_worker.ctc import AlignedWord
 from backend.ai_worker.lead_vocals import backing_overlap_indices, with_lead_vocals
+from backend.ai_worker.speech_alignment import _AlignmentPass
+from tests.test_asr_recovery import _scores
+
+
+@pytest.mark.parametrize("text", ["оно", "сама", "alone"])
+@pytest.mark.parametrize("stable_context", [False, True])
+def test_recovered_entry_uses_phonemes_when_its_following_context_stays_in_place(
+    text, stable_context
+):
+    step = 0.02
+    words = [
+        AlignedWord(
+            text,
+            1,
+            2,
+            tuple(np.linspace(1, 2, len(text), endpoint=False)),
+            0.8,
+            ("IndependentLeadEntry", "ApproximateLetterTiming"),
+        ),
+        AlignedWord("не", 2, 2.4, (2, 2.2), 0.8),
+        AlignedWord("уйдёт", 2.4, 3.6, (2.4, 2.6, 2.8, 3, 3.2), 0.8),
+    ]
+    shift = 0 if stable_context else 0.6
+    scores = _scores(
+        [(text, 1.4, 0.95), ("не", 2.04 + shift, 0.95), ("уйдёт", 2.44 + shift, 0.95)], duration=4
+    )
+    audio = np.arange(4 * 16_000, dtype=np.float32)
+    pass_ = _AlignmentPass(
+        audio, None, scores, step, [w.text for w in words], " ".join(w.text for w in words), [], []
+    )
+    pass_.emit = lambda samples: (
+        scores[round(float(samples[0]) / 320) : round((float(samples[0]) + len(samples)) / 320)],
+        step,
+    )
+
+    payload = pass_._finish_alignment(
+        words,
+        np.ones(401, bool),
+        (np.ones((401, 16)), np.ones(401)),
+        lambda _contexts: {},
+        frozenset(),
+        {},
+    )
+
+    assert payload["words"][0]["start"] == pytest.approx(1.4 if stable_context else 1)
+    assert payload["words"][0]["end"] == 2
+    assert [(w["start"], w["end"]) for w in payload["words"][1:]] == [(2, 2.4), (2.4, 3.6)]
 
 
 @pytest.mark.parametrize("text", ["please", "прошу"])

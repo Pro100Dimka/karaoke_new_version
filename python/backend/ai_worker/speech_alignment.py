@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 import numpy as np
 import torch
@@ -8,6 +8,7 @@ from backend.ai_worker.acoustic_retry import recover_compressed_cues, recover_we
 from backend.ai_worker.ctc_bounds import _preserved_onset_letters as _preserved_onset_letters
 from backend.ai_worker.ctc import (
     AlignedWord,
+    _LARGEST_LAG_SECONDS,
     Window,
     align_guided,
     align_words,
@@ -200,10 +201,43 @@ class _AlignmentPass:
             independent_timings(self.words, [self.heard, *self.views], timed),
         )
         timed = with_lead_vocals(timed, self.views, activity, acoustic[1], recognize=recognize)
+        timed = self._refine_recovered_entries(timed, activity)
         timed, intervals, recovered = self._retime_outro(timed, activity, intervals, recovered)
         return self._vocalization_payload(
             timed, activity, acoustic[1], recognize, recovered, intervals
         )
+
+    def _refine_recovered_entries(
+        self, words: list[AlignedWord], activity: np.ndarray
+    ) -> list[AlignedWord]:
+        result = list(words)
+        for index, word in enumerate(words):
+            if "IndependentLeadEntry" not in word.diagnostics:
+                continue
+            context = words[index : index + 3]
+            candidate = self._fit_voice(
+                [item.text for item in context], word.start, context[-1].end
+            )
+            if len(candidate) != len(context):
+                continue
+            candidate = with_voice_onsets(candidate, self.audio, activity)
+            if any(
+                before.text != after.text or abs(before.start - after.start) > _LARGEST_LAG_SECONDS
+                for before, after in zip(context[1:], candidate[1:], strict=True)
+            ):
+                continue
+            head = candidate[0]
+            if (
+                head.text == word.text
+                and head.score >= 0.1
+                and word.start <= head.start < head.end <= word.end
+            ):
+                result[index] = replace(
+                    head,
+                    end=word.end,
+                    diagnostics=tuple(dict.fromkeys((*word.diagnostics, *head.diagnostics))),
+                )
+        return result
 
     def _retime_outro(
         self,
