@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from backend.bootstrap.container import PackageCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
+from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.local_storage import LocalPackageOutputStorage
 from backend.infrastructure.zip_archive import ZipPackageArchive
 from backend.infrastructure.library_storage import SqlLibraryStorage
@@ -36,7 +37,7 @@ def build_package_cases(
         project.validator,
         processing.workspaces,
         project.journal,
-        runtime.hasher,
+        sha256_file,
     )
     importer = ImportPackage(
         runtime.database,
@@ -74,7 +75,7 @@ def _library_archive(
         PackageSecurityValidator(policy),
         processing.workspaces,
         project.operations,
-        runtime.hasher,
+        sha256_file,
     )
 
 
@@ -91,7 +92,7 @@ def _package_export(
         LocalPackageOutputStorage(runtime.config.roots.app / "exports"),
         processing.workspaces,
         project.operations,
-        runtime.hasher,
+        sha256_file,
         runtime.clock,
         runtime.ids,
     )
