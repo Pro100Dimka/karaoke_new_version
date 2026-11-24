@@ -99,6 +99,65 @@ const finish = async (index: number, value: ProcessingJobDto[]) => {
   await vi.advanceTimersByTimeAsync(1);
 };
 
+it('refreshes known jobs without rereading the completed history on every progress event', async () => {
+  const archived = Array.from({ length: 1000 }, (_, index) =>
+    job(100, 'completed', `archived-${index}`),
+  );
+  const values = new Map(
+    [job(0), ...archived].map((value) => [value.id, value]),
+  );
+  let transferredRows = 0;
+  const list = vi.mocked(pythonClient.listJobs);
+  list.mockImplementation(async (ids?: readonly string[]) => {
+    const result = ids
+      ? ids.map((id) => values.get(id)!)
+      : [...values.values()];
+    transferredRows += result.length;
+    return result;
+  });
+  stop = subscribeApplication(client);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(client.getQueryData<ProcessingJobDto[]>(['jobs'])).toHaveLength(1001);
+  list.mockClear();
+  transferredRows = 0;
+
+  for (let tick = 1; tick <= 3; tick++) {
+    values.set('job', job(tick * 10));
+    for (let burst = 0; burst < 20; burst++) push(event(tick * 10));
+    await vi.advanceTimersByTimeAsync(250);
+  }
+
+  expect.soft(transferredRows).toBe(3);
+  expect
+    .soft(list.mock.calls.map(([ids]) => ids))
+    .toEqual([['job'], ['job'], ['job']]);
+  const shown = client.getQueryData<ProcessingJobDto[]>(['jobs'])!;
+  expect(shown).toHaveLength(1001);
+  expect(shown[0]?.progress).toBe(30);
+  expect(shown.slice(1)).toEqual(archived);
+  expect(shown.at(-1)).toBe(archived.at(-1));
+});
+
+it('keeps manual invalidation authoritative when a known progress event is pending', async () => {
+  let values = [job(0), job(100, 'completed', 'history')];
+  const list = vi.mocked(pythonClient.listJobs);
+  list.mockImplementation(async (ids) =>
+    ids ? values.filter((value) => ids.includes(value.id)) : values,
+  );
+  stop = subscribeApplication(client);
+  await vi.advanceTimersByTimeAsync(1);
+  list.mockClear();
+
+  // A processing action invalidates the history before the new job's creation
+  // event necessarily arrives. A different known job must not narrow that read.
+  push(event(10));
+  values = [job(0, 'queued', 'new'), job(10), values[1]!];
+  await client.invalidateQueries({ queryKey: ['jobs'] });
+
+  expect(list.mock.calls.map(([ids]) => ids)).toEqual([undefined]);
+  expect(client.getQueryData(['jobs'])).toEqual(values);
+});
+
 it.each([false, true])(
   'publishes completed job reads during continuous progress (cached: %s)',
   async (cached) => {

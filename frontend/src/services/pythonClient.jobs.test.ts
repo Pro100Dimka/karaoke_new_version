@@ -1,14 +1,226 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installBridge, model } from './pythonClientFixture';
 import { QueryClient } from '@tanstack/react-query';
-import { changeModel, isActiveJob, jobQuery, modelKey } from '../components/api-service';
+import {
+  changeModel,
+  isActiveJob,
+  jobQuery,
+  modelKey,
+} from '../components/api-service';
 import { pythonClient } from './pythonClient';
+
+const completeJob = (id: string) => ({
+  jobId: id,
+  type: 'SongProcessing',
+  entityId: `song-${id}`,
+  state: 'Succeeded',
+  stage: 'Publish',
+  stageProgress: 1,
+  overallProgress: 1,
+  report: { processingBackend: 'Local', songTitle: 'Saved title' },
+  startedAt: '2026-11-24T10:00:01Z',
+  finishedAt: '2026-11-24T10:01:00Z',
+  error: null,
+});
+
 describe('pythonClient contract', () => {
   beforeEach(() => vi.stubGlobal('crypto', { randomUUID: () => 'key-1' }));
 
   afterEach(() => {
     vi.unstubAllGlobals();
     Reflect.deleteProperty(window, 'desktop');
+  });
+
+  it('loads complete details only for requested job IDs instead of listing the history', async () => {
+    // JobDto in backend/api/system_routes.py does not include createdAt.
+    const calls = installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body: call.path.startsWith('/jobs/')
+        ? completeJob(decodeURIComponent(call.path.slice('/jobs/'.length)))
+        : {
+            items: [completeJob('unrelated')],
+            total: 1,
+            limit: 200,
+            offset: 0,
+          },
+    }));
+    const result = await pythonClient.listJobs(['job/one', 'job two']);
+    expect(calls).toEqual([
+      { method: 'GET', path: '/jobs/job%2Fone' },
+      { method: 'GET', path: '/jobs/job%20two' },
+    ]);
+    expect(result.map((value) => value.id)).toEqual(['job/one', 'job two']);
+    expect(result[0]).toMatchObject({
+      state: 'completed',
+      processingBackend: 'Local',
+      songTitle: 'Saved title',
+      startedAt: '2026-11-24T10:00:01Z',
+      finishedAt: '2026-11-24T10:01:00Z',
+    });
+  });
+
+  it('reads a paginated history larger than the JavaScript argument limit', async () => {
+    const count = 200_000;
+    const calls = installBridge((call) => {
+      const offset = Number(
+        new URLSearchParams(call.path.split('?')[1]).get('offset') ?? 0,
+      );
+      return {
+        status: 200,
+        ok: true,
+        body: {
+          items: Array.from(
+            { length: Math.min(200, count - offset) },
+            (_, index) => completeJob(`job-${offset + index}`),
+          ),
+          limit: 200,
+          offset,
+        },
+      };
+    });
+    const result = await pythonClient.listJobs();
+    expect(result).toHaveLength(count);
+    expect(result[0]?.id).toBe('job-0');
+    expect(result.at(-1)?.id).toBe(`job-${count - 1}`);
+    expect(calls).toHaveLength(count / 200 + 1);
+  });
+
+  it.each([
+    'reference',
+    'unknown-state',
+    'wrong-id',
+    'missing-report',
+    'invalid-progress',
+  ])(
+    'rejects an incomplete targeted job before mapping it (%s)',
+    async (kind) => {
+      const body: Record<string, unknown> =
+        kind === 'reference'
+          ? { jobId: 'job', state: 'Running' }
+          : completeJob('job');
+      if (kind === 'unknown-state') body.state = 'Unexpected';
+      if (kind === 'wrong-id') body.jobId = 'other';
+      if (kind === 'missing-report') delete body.report;
+      if (kind === 'invalid-progress') body.overallProgress = Number.NaN;
+      installBridge(() => ({ status: 200, ok: true, body }));
+      await expect(pythonClient.listJobs(['job'])).rejects.toMatchObject({
+        code: 'InvalidJobSnapshot',
+      });
+    },
+  );
+
+  it.each(['success', 'missing', 'abort'] as const)(
+    'bounds targeted concurrency and drains the current batch before %s',
+    async (outcome) => {
+      type Reply = Awaited<ReturnType<DesktopApi['pythonRequest']>>;
+      const requests: { id: string; finish(reply: Reply): void }[] = [];
+      let active = 0,
+        maximum = 0;
+      Object.assign(window, {
+        desktop: {
+          pythonRequest: (call: PythonBridgeRequest) => {
+            active++;
+            maximum = Math.max(maximum, active);
+            return new Promise<Reply>((resolve) =>
+              requests.push({
+                id: decodeURIComponent(call.path.slice('/jobs/'.length)),
+                finish: (reply) => {
+                  active--;
+                  resolve(reply);
+                },
+              }),
+            );
+          },
+        },
+      });
+      const controller = new AbortController();
+      const ids = Array.from({ length: 17 }, (_, index) => `job-${index}`);
+      let settled = false;
+      const result = pythonClient.listJobs(ids, controller.signal).then(
+        (value) => {
+          settled = true;
+          return { value };
+        },
+        (error: unknown) => {
+          settled = true;
+          return { error };
+        },
+      );
+      expect(requests).toHaveLength(8);
+      const finish = (index: number) => {
+        const request = requests[index]!;
+        request.finish({
+          ok: true,
+          status: 200,
+          body: completeJob(request.id),
+        });
+      };
+      if (outcome === 'missing')
+        requests[0]!.finish({
+          ok: false,
+          status: 404,
+          body: { code: 'JobNotFound', message: 'Removed' },
+        });
+      else finish(0);
+      if (outcome === 'abort') controller.abort();
+      for (let index = 0; index < 5; index++) await Promise.resolve();
+      expect(settled).toBe(false);
+      expect(requests).toHaveLength(8);
+      for (let index = 1; index < 8; index++) finish(index);
+      if (outcome === 'success') {
+        await vi.waitFor(() => expect(requests).toHaveLength(16));
+        for (let index = 8; index < 16; index++) finish(index);
+        await vi.waitFor(() => expect(requests).toHaveLength(17));
+        finish(16);
+        const completed = await result;
+        expect(
+          'value' in completed && completed.value.map((value) => value.id),
+        ).toEqual(ids);
+      } else {
+        expect(await result).toMatchObject({
+          error:
+            outcome === 'missing'
+              ? { code: 'JobNotFound' }
+              : { name: 'AbortError' },
+        });
+        expect(requests).toHaveLength(8);
+      }
+      expect(maximum).toBe(8);
+      expect(active).toBe(0);
+    },
+  );
+
+  it('does not start another history page after cancellation', async () => {
+    type Reply = Awaited<ReturnType<DesktopApi['pythonRequest']>>;
+    let finish!: (reply: Reply) => void;
+    const request = vi.fn(
+      () =>
+        new Promise<Reply>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    Object.assign(window, { desktop: { pythonRequest: request } });
+    const controller = new AbortController();
+    const result = pythonClient.listJobs(undefined, controller.signal);
+    const rejected = expect(result).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    controller.abort();
+    finish({
+      ok: true,
+      status: 200,
+      body: {
+        items: Array.from({ length: 200 }, (_, index) =>
+          completeJob(`job-${index}`),
+        ),
+        total: 500,
+        limit: 200,
+        offset: 0,
+      },
+    });
+    await rejected;
+    expect(request).toHaveBeenCalledOnce();
   });
 
   it('reads model download progress through completion using the UI job query', async () => {
