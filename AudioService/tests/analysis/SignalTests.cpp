@@ -19,6 +19,14 @@ struct AnalysisTestAccess {
     static void stop(AnalysisEngine& engine) {
         engine.stopWorker();
     }
+    static void restartWithAllocationCounting(AnalysisEngine& engine) {
+        engine.stopWorker();
+        engine.terminate_.store(false, std::memory_order_release);
+        engine.worker_ = std::thread([&engine] {
+            RealtimeScope allocationCheck;
+            engine.workerMain();
+        });
+    }
 };
 
 namespace {
@@ -62,6 +70,61 @@ void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration() {
     AnalysisTestAccess::stop(analysis);
     expect(!AnalysisTestAccess::publishChecked(analysis, GenerationId{9}, samples),
            "a producer checked before reset cannot publish its old PCM after reset");
+
+    // Keep the real worker and producer path, but exclude its startup buffers from the count.
+    AnalysisTestAccess::restartWithAllocationCounting(analysis);
+    std::ranges::fill(samples, 0.0F);
+    constexpr MonotonicTicks steadyAt = 5'000'000'000;
+    const auto processedBefore = analysis.snapshot().processedFrames;
+    analysis.push(GenerationId{10}, samples, window, steadyAt);
+    waitForProcessedFrames(analysis, processedBefore + window);
+    const auto warmHistory = analysis.pitchHistory();
+    require(warmHistory.size() == 1, "the restarted worker publishes its first timestamped window");
+    const auto firstSequence = warmHistory.front().sequence;
+    RealtimeInstrumentation::reset();
+    constexpr std::uint32_t additionalBlocks = 80;
+    for (std::uint32_t block = 1; block <= additionalBlocks; ++block) {
+        analysis.push(GenerationId{10}, samples, window,
+                      steadyAt + static_cast<MonotonicTicks>(block * window) * 1'000'000'000 / rate);
+        const auto expectedFrames = processedBefore + (block + 1U) * window;
+        waitForProcessedFrames(analysis, expectedFrames);
+        require(analysis.snapshot().processedFrames == expectedFrames,
+                "the steady worker processes each submitted block without drops");
+    }
+    const auto activity = RealtimeInstrumentation::snapshot();
+    AnalysisTestAccess::stop(analysis);
+    RealtimeInstrumentation::reset();
+    expect(activity.allocations == 0 && activity.deallocations == 0,
+           "bounded pitch history performs no steady worker allocation/deallocation: " +
+               std::to_string(activity.allocations) + "/" + std::to_string(activity.deallocations));
+    constexpr std::size_t historyCapacity = 256;
+    constexpr auto observations = 1U + additionalBlocks * window / hop;
+    const auto retained = analysis.pitchHistory();
+    require(retained.size() == historyCapacity, "wrapped pitch history retains exactly 256 windows");
+    for (std::size_t index = 0; index < retained.size(); ++index) {
+        const auto windowIndex = observations - historyCapacity + index;
+        const auto centre = steadyAt +
+            static_cast<MonotonicTicks>(windowIndex * hop + window / 2) * 1'000'000'000 / rate;
+        const auto end = steadyAt +
+            static_cast<MonotonicTicks>(windowIndex * hop + window) * 1'000'000'000 / rate;
+        const auto& point = retained[index];
+        expect(point.sequence == firstSequence + windowIndex && point.frames == hop &&
+                   point.windowFrames == window && std::abs(point.capturedAt - centre) <= 1 &&
+                   std::abs(point.capturedEndAt - end) <= 2 && point.pitchHz == 0.0F &&
+                   !point.audioActive && point.confidence == 0.0F,
+               "wrapped history preserves chronological sequence and every capture field");
+    }
+    analysis.setGeneration(GenerationId{11});
+    expect(analysis.pitchHistory().empty(), "generation change clears a wrapped history");
+    analysis.prepare(1, rate, rate, GenerationId{12});
+    expect(analysis.pitchHistory().empty(), "prepared history starts empty after a worker restart");
+    analysis.push(GenerationId{12}, samples, window, steadyAt);
+    waitForProcessedFrames(analysis, window);
+    const auto restarted = analysis.pitchHistory();
+    require(restarted.size() == 1, "the new worker publishes only its new capture window");
+    expect(restarted.front().sequence == retained.back().sequence + 1U &&
+               restarted.front().capturedAt == warmHistory.front().capturedAt,
+           "restarting history retains sequence continuity without old capture entries");
 }
 
 void analysisStopNeverLosesTheWorkerWakeup() {

@@ -5,13 +5,13 @@
 #include "realtime/RealtimeInstrumentation.hpp"
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <thread>
 #include <vector>
 #include <array>
 #include <mutex>
-#include <deque>
 
 struct PitchObservation {
     std::uint64_t sequence{0};
@@ -55,7 +55,10 @@ class AnalysisEngine {
     GenerationPcmRingBuffer queue_;
     std::array<MonotonicTicks, MaxBlockFrames> captureTimes_{}; // sole realtime producer
     mutable std::mutex pitchMutex_; // analysis worker/control only; never taken by push()
-    std::deque<PitchObservation> pitchHistory_;
+    static constexpr std::size_t PitchHistoryWindows = 256;
+    std::array<PitchObservation, PitchHistoryWindows> pitchHistory_{};
+    std::size_t pitchHistorySize_{0};
+    std::size_t pitchHistoryWrite_{0};
     std::uint64_t pitchSequence_{0};
     std::atomic<std::uint64_t> wakeSequence_{0};
     std::atomic<bool> terminate_{false};
