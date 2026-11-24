@@ -285,12 +285,10 @@ export const pythonClient: PythonClient = {
   },
 
   async importProject(path, decision = 'SafeOnly') {
-    const job = await request<BackendJobRef>(
-      'POST',
-      '/packages/import',
-      { path, decision },
-      { 'Idempotency-Key': crypto.randomUUID() },
-    );
+    const job = await request<BackendJobRef>('POST', '/packages/import', {
+      path,
+      decision,
+    });
     const report = await waitForPackageReport(job.jobId);
     if (typeof report.songId !== 'string' || !report.songId)
       throw new Error('Package import completed without a song id');
