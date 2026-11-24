@@ -139,7 +139,11 @@ class LocalRecordingStorage:
             missing_ok=True
         )
 
-    def recovery_descriptors(self) -> tuple[Path, ...]:
+    def recovery_descriptors(self, recording_id: str | None = None) -> tuple[Path, ...]:
+        if recording_id is not None:
+            # Keep the ID literal: valid recording names may contain glob metacharacters.
+            directory = self._root / validate_recording_id(recording_id)
+            return tuple(directory.glob("recording-recovery.json"))
         return tuple(self._root.glob("*/recording-recovery.json"))
 
     def quarantine(self, recording_id: str, file_path: Path) -> Path:
