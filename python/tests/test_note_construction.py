@@ -439,8 +439,13 @@ def test_a_short_stable_phrase_edge_keeps_its_own_note(ending):
 
 @pytest.mark.parametrize("ending", [False, True])
 @pytest.mark.parametrize("stride", [1, 2])
-def test_a_quantized_slide_does_not_gain_a_note_from_a_momentarily_flat_pitch(ending, stride):
+@pytest.mark.parametrize("backstep", [False, True])
+def test_a_quantized_slide_does_not_gain_a_note_from_a_momentarily_flat_pitch(
+    ending, stride, backstep
+):
     pitches = [50.0] * 5 + [50.2, 50.6, 50.8, 51.0, 51.4, 51.8]
+    if backstep:
+        pitches[7] = pitches[6] - 0.2
     pitches += [52.2, 52.8, 52.8, 53.0, 53.0, 53.2, 53.4] + [54.0] * 60
     if ending:
         pitches.reverse()
@@ -457,8 +462,9 @@ def test_a_quantized_slide_does_not_gain_a_note_from_a_momentarily_flat_pitch(en
 
 
 @pytest.mark.parametrize("ending", [False, True])
-def test_a_short_phrase_edge_with_vibrato_keeps_its_held_pitch(ending):
-    pitches = [60 + 0.3 * math.cos(2 * math.pi * 6 * i / 100) for i in range(8)]
+@pytest.mark.parametrize("frames,amplitude", [(8, 0.3), (32, 0.7)])
+def test_a_short_phrase_edge_with_vibrato_keeps_its_held_pitch(ending, frames, amplitude):
+    pitches = [60 + amplitude * math.cos(2 * math.pi * 6 * i / 100) for i in range(frames)]
     pitches += [57.0] * 80
     if ending:
         pitches.reverse()
@@ -466,10 +472,26 @@ def test_a_short_phrase_edge_with_vibrato_keeps_its_held_pitch(ending):
         PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
         for i, pitch in enumerate(pitches)
     ]
+    duration = len(pitches) / 100
     document = construct_document(
-        "t", "a", 0.88, "la", [WordTiming("la", 0, 0.88, 1)], points, _music()
+        "t", "a", duration, "la", [WordTiming("la", 0, duration, 1)], points, _music()
     )
     assert [note.note for note in document.words[0].notes] == ([57, 60] if ending else [60, 57])
+
+
+def test_an_unanchored_glide_does_not_arbitrarily_keep_only_its_last_fragment():
+    from backend.processing.algorithms import _held_edges
+
+    pitches = [60 - i * 0.2 for i in range(16)]
+    segments = [(0, 7), (8, 15)]
+    assert _held_edges(segments.copy(), pitches, 0.01) == segments
+
+
+def test_a_held_vibrato_is_an_anchor_even_when_it_crosses_the_quantized_note_band():
+    from backend.processing.algorithms import _has_held_core
+
+    pitches = [54.2 + 0.8 * math.sin(2 * math.pi * 6 * i / 100) for i in range(60)]
+    assert _has_held_core(pitches, 9)
 
 
 def test_vibrato_around_a_semitone_boundary_stays_one_note() -> None:
