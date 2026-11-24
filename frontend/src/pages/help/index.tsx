@@ -11,6 +11,7 @@ import {
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { observer } from 'mobx-react-lite';
+import { version } from '../../../package.json';
 import { titleBarLeadingId } from '../../app/TitleBar';
 import { store } from '../../providers/store';
 import { openSettings } from '../library/modals/settings';
@@ -144,7 +145,9 @@ export const HelpPage = observer(() => {
       />
       <div className="helpHeaderTitle">
         <Icon name="document" size={18} />
-        <span>{tr('Инструкция')}</span>
+        <span>
+          {tr('Инструкция')} · v{version}
+        </span>
       </div>
     </header>
   );
@@ -394,7 +397,10 @@ export const HelpPage = observer(() => {
                     </Button>
                   ))}
                 </div>
-                <section className="helpQuick" aria-labelledby={`${headingId}-quick`}>
+                <section
+                  className="helpQuick"
+                  aria-labelledby={`${headingId}-quick`}
+                >
                   <h2 id={`${headingId}-quick`}>{tr('Быстрые ответы')}</h2>
                   <div>
                     {articles

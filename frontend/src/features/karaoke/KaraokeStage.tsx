@@ -281,9 +281,16 @@ const Lyrics = ({
             )
         )
           return [];
+        const completed = index < lineIndex;
         return [
           {
-            line,
+            line: completed
+              ? {
+                  ...line,
+                  words: line.words.map((word) => ({ ...word, progress: 1 })),
+                }
+              : line,
+            completed,
             active: index === lineIndex,
             slot:
               layout === 'alternating'
@@ -343,11 +350,12 @@ const Lyrics = ({
           }}
         >
           {textVisible &&
-            rows.map(({ line, active, slot }) => (
+            rows.map(({ line, active, completed, slot }) => (
               <KaraokeLyrics
                 key={line.start}
                 className="lyrics"
                 data-lyric-row=""
+                data-completed={completed || undefined}
                 data-reduced-motion={reducedMotion || undefined}
                 data-slot={slot}
                 style={{
@@ -357,8 +365,8 @@ const Lyrics = ({
                       ? `translateY(${(slot - (scroll - scrollIndex)) * 100}%)`
                       : undefined,
                 }}
-                current={active ? line.words : noWords}
-                next={active ? noWords : line.words}
+                current={active || completed ? line.words : noWords}
+                next={active || completed ? noWords : line.words}
                 currentKey={`${line.start}-current-${active}`}
                 nextKey={`${line.start}-next-${active}`}
               />

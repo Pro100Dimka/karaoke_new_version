@@ -122,6 +122,7 @@ export interface Preferences {
   /** 0..1, applied to the microphone in karaoke; the program settings' monitoring test always plays the clean voice. */
   noiseSuppression: number;
   radioStation: string;
+  radioBroadcastStation: string;
   radioYoutubePlaylist: string;
   radioVolume: number;
   notificationVolume: number;
@@ -186,6 +187,7 @@ export const defaultPreferences = (): Preferences => ({
   },
   noiseSuppression: 0,
   radioStation: '',
+  radioBroadcastStation: '',
   radioYoutubePlaylist: '',
   radioVolume: 35,
   notificationVolume: 45,
@@ -445,6 +447,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.radioStation === 'string'
         ? value.radioStation
         : base.radioStation,
+    radioBroadcastStation:
+      typeof value.radioBroadcastStation === 'string'
+        ? value.radioBroadcastStation
+        : base.radioBroadcastStation,
     radioVolume: percentage(value.radioVolume, base.radioVolume),
     notificationVolume: percentage(
       value.notificationVolume,

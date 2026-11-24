@@ -109,9 +109,10 @@ export const PerformanceAnalysisModal = ({
   if (!viewed && analysis) return null;
   const active = viewed?.id === analyzedTakeId;
   const roomPerformance = viewed?.roomPerformance;
-  const overallScore = roomPerformance
+  const score = roomPerformance
     ? roomPerformance.overallScore
     : analysis?.score;
+  const overallScore = score === undefined ? undefined : Math.round(score);
   const practice = analysis ? weakestMetric(analysis) : null;
   const mastering =
     studioMaster?.recordingId === viewed?.id ? studioMaster : null;

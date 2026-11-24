@@ -94,8 +94,10 @@ it.each([
 
 it.each([
   [84, false, undefined],
+  [84.6, false, undefined],
   [undefined, false, undefined],
   [84, true, undefined],
+  [84.4, true, undefined],
   [undefined, true, undefined],
   [undefined, false, 'pending'],
   [undefined, true, 'pending'],
@@ -145,7 +147,7 @@ it.each([
           ? status === 'pending'
             ? 'roomPerformancePending'
             : 'roomPerformanceUnavailable'
-          : '84',
+          : String(Math.round(overallScore)),
       ),
     ).toBeTruthy();
     expect(screen.getByText('roomPerformanceOverall')).toBeTruthy();

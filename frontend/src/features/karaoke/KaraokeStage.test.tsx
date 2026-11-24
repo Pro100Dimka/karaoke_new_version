@@ -112,6 +112,35 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+it('keeps departing credits highlighted and resets them after seeking backwards', () => {
+  Object.assign(store.preferences, {
+    karaokeLyricsLayout: 'credits',
+    karaokeLyricsLines: 3,
+  });
+  vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(1200);
+  const { rerender } = render(view(20.2));
+  rerender(view(21.2));
+  const completed = screen.getByText('one');
+  expect(completed.closest('.ad-lyrics-current')).toBeInTheDocument();
+  expect(completed.style.getPropertyValue('--ad-lyric-fill')).toBe('100%');
+  const active = screen.getByText('two');
+  expect(
+    parseFloat(active.style.getPropertyValue('--ad-lyric-fill')),
+  ).toBeGreaterThan(0);
+  expect(
+    parseFloat(active.style.getPropertyValue('--ad-lyric-fill')),
+  ).toBeLessThan(100);
+  rerender(view(20.2));
+  expect(
+    parseFloat(
+      screen.getByText('one').style.getPropertyValue('--ad-lyric-fill'),
+    ),
+  ).toBeLessThan(100);
+  expect(
+    screen.getByText('two').closest('.ad-lyrics-next'),
+  ).toBeInTheDocument();
+});
+
 it('does not recheck every earlier hit on each unchanged animation frame', () => {
   probe.hitNoteIds = new Set(Array.from({ length: 2000 }, (_, i) => `n${i}`));
   const has = vi.spyOn(probe.hitNoteIds, 'has');

@@ -57,6 +57,26 @@ const RadioConnection = ({ libraryActive }: { libraryActive: boolean }) => {
 };
 
 describe('RadioConnection', () => {
+  it('remembers the broadcast station and advancing YouTube position independently', () => {
+    const playlistId = 'PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y';
+    act(() => {
+      setRadioStation('kiss-fm');
+      setYoutubePlaylist(
+        `https://youtube.com/playlist?list=${playlistId}&index=4`,
+      );
+      store.radio.enabled = false;
+      changeRadioStation();
+      setRadioStation('radio-jazz');
+    });
+    expect(store.preferences.radioYoutubePlaylist).toBe(
+      `https://www.youtube.com/playlist?list=${playlistId}&index=5`,
+    );
+    expect(store.preferences.radioBroadcastStation).toBe('radio-jazz');
+    expect(store.radio.enabled).toBe(false);
+    act(() => setRadioStation(`youtube:${playlistId}:5`));
+    expect(store.preferences.radioBroadcastStation).toBe('radio-jazz');
+    expect(store.radio.enabled).toBe(false);
+  });
   it('can skip an unavailable playlist item without retrying the same failed position', async () => {
     appState.resolveYoutube.mockImplementation(
       async (playlistId: string, index: number) => {

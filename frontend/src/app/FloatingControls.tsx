@@ -23,7 +23,11 @@ import {
   toggleRadio,
 } from '../providers/radio';
 import { useRadioTrack } from './desktop/shellBus';
-import { radioStations, youtubeSource } from './radioStations';
+import {
+  radioStations,
+  youtubeSource,
+  youtubeSourceFromUrl,
+} from './radioStations';
 import { volumeFromKnob, volumeToKnob } from '../shared/utils/mixerLevel';
 
 /** Library music controls share one source selector and one volume. */
@@ -54,11 +58,14 @@ export const FloatingControls = observer(() => {
   );
   const [invalidUrl, setInvalidUrl] = useState(false);
   const playlistId = youtube?.playlistId;
+  const playlistIndex = youtube?.index;
   useEffect(() => {
     setSource(playlistId ? 'youtube' : 'radio');
     if (playlistId)
-      setPlaylistUrl(`https://www.youtube.com/playlist?list=${playlistId}`);
-  }, [playlistId]);
+      setPlaylistUrl(
+        `https://www.youtube.com/playlist?list=${playlistId}&index=${playlistIndex}`,
+      );
+  }, [playlistId, playlistIndex]);
   const openPlayer = () => {
     setSource(youtube ? 'youtube' : 'radio');
     setOpen(true);
@@ -207,6 +214,14 @@ export const FloatingControls = observer(() => {
             onValueChange={(value) => {
               setSource(value);
               setInvalidUrl(false);
+              const selected =
+                value === 'radio'
+                  ? store.preferences.radioBroadcastStation ||
+                    radioStations[0]?.id
+                  : youtubeSourceFromUrl(
+                      store.preferences.radioYoutubePlaylist,
+                    );
+              if (selected) setRadioStation(selected);
             }}
           />
           <div className="radioSourceControls">

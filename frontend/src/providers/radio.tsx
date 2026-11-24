@@ -50,7 +50,19 @@ export const toggleRadio = () => {
 };
 export const setRadioStation = (id: string, enabled = store.radio.enabled) => {
   if (!store.radio.canControl) return;
-  store.updatePreferences({ radioStation: id });
+  const youtube = youtubeSource(id);
+  const current = store.radio.stationId;
+  store.updatePreferences({
+    radioStation: id,
+    radioBroadcastStation: youtube
+      ? radioStations.some((station) => station.id === current)
+        ? current
+        : store.preferences.radioBroadcastStation
+      : id,
+    ...(youtube && {
+      radioYoutubePlaylist: `https://www.youtube.com/playlist?list=${youtube.playlistId}&index=${youtube.index}`,
+    }),
+  });
   if (store.online.room)
     void observeOperation(
       'errors.radioMetadata',

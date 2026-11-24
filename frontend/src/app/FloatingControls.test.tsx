@@ -31,7 +31,11 @@ describe('library music controls', () => {
       store.radio.enabled = true;
       store.radio.loading = false;
       store.radio.error = false;
-      store.updatePreferences({ radioStation: 'groove-salad' });
+      store.updatePreferences({
+        radioStation: 'groove-salad',
+        radioBroadcastStation: '',
+        radioYoutubePlaylist: '',
+      });
     });
   });
 
@@ -74,7 +78,7 @@ describe('library music controls', () => {
     expect(
       screen.getByRole('textbox', { name: tr('radioPlaylistUrl') }),
     ).toHaveValue(
-      'https://www.youtube.com/playlist?list=PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y',
+      'https://www.youtube.com/playlist?list=PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y&index=2',
     );
   });
 
@@ -127,10 +131,13 @@ describe('library music controls', () => {
     expect(screen.getByText(tr('radioPlaylistInvalid'))).toBeVisible();
   });
 
-  it('lets the user browse radio stations without replacing the playing YouTube source', () => {
+  it('restores each source selection when switching between radio and YouTube', () => {
     act(() => {
       store.updatePreferences({
         radioStation: 'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:2',
+        radioBroadcastStation: 'kiss-fm',
+        radioYoutubePlaylist:
+          'https://www.youtube.com/playlist?list=PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y&index=2',
       });
     });
     render(
@@ -143,7 +150,12 @@ describe('library music controls', () => {
     expect(
       screen.getByRole('group', { name: tr('radioStation') }),
     ).toBeVisible();
-    expect(setRadioStation).not.toHaveBeenCalled();
+    expect(setRadioStation).toHaveBeenLastCalledWith('kiss-fm');
+    act(() => store.updatePreferences({ radioStation: 'kiss-fm' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'YouTube' }));
+    expect(setRadioStation).toHaveBeenLastCalledWith(
+      'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:2',
+    );
     expect(toggleRadio).not.toHaveBeenCalled();
   });
 

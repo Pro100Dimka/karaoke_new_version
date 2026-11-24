@@ -63,7 +63,7 @@ export const useLyricFill = (
     const observeLine = () => {
       const root = host.document.getElementById(id);
       const line = root?.querySelector<HTMLElement>(
-        '.ad-lyrics-current:not(:empty)',
+        ':not([data-completed]) > .ad-lyrics-current:not(:empty)',
       );
       if (!root || !line) return;
       let width = 0;
