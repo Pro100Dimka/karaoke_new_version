@@ -2,10 +2,109 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILD_STEPS = "build-steps.mjs"
+
+
+@pytest.mark.parametrize("wait_pid", [False, True])
+def test_automatic_update_waits_for_the_previous_application_to_exit(
+    tmp_path: Path, wait_pid: bool
+) -> None:
+    import os
+    import shutil
+    import ctypes
+    from ctypes import wintypes
+    from uuid import uuid4
+
+    compiler = shutil.which("ISCC.exe") or str(
+        Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6/ISCC.exe"
+    )
+    if sys.platform != "win32" or not Path(compiler).is_file():
+        pytest.skip("Requires Windows and Inno Setup")
+    event_name = "Local\\ADVoiceUpdate-" + uuid4().hex
+    source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
+    wait_start = source.find("function OpenProcess(")
+    wait_code = (
+        source[wait_start : source.index("function RequireClosedApplication(")]
+        if wait_start >= 0
+        else ""
+    )
+    # Observe the actual blocking boundary without changing its wait or exit decisions.
+    wait_code = wait_code.replace(
+        "Status := WaitForSingleObject(", "SignalReady; Status := WaitForSingleObject("
+    )
+    start = source.index("function PrepareToInstall(")
+    prepare = source[start : source.index("function InitializeUninstall:", start)]
+    closed = tmp_path / "application-closed"
+    payload = tmp_path / "payload.txt"
+    payload.write_text("updated", encoding="utf-8")
+    script = tmp_path / "update.iss"
+    script.write_text(
+        "[Setup]\nAppName=Update verification\nAppVersion=1\n"
+        f"DefaultDirName={tmp_path / 'installed'}\nOutputDir={tmp_path}\n"
+        "OutputBaseFilename=update\nPrivilegesRequired=lowest\n"
+        "Uninstallable=no\nCreateUninstallRegKey=no\n"
+        f'[Files]\nSource: "{payload}"; DestDir: "{{app}}"\n'
+        "[CustomMessages]\nCloseBeforeInstall=Application is still running\n"
+        "UpdatePreparing=Waiting for application shutdown\n"
+        "[Code]\nvar VerificationPage: TOutputMarqueeProgressWizardPage;\n"
+        "procedure InitializeWizard;\nbegin\n"
+        "VerificationPage := CreateOutputMarqueeProgressPage('Preparing', 'Checking');\nend;\n"
+        "function GetTickCount64: Int64; external 'GetTickCount64@kernel32.dll stdcall';\n"
+        "function OpenEvent(Access: LongWord; Inherit: Boolean; Name: String): THandle; external 'OpenEventW@kernel32.dll stdcall';\n"
+        "function SetEvent(Handle: THandle): Boolean; external 'SetEvent@kernel32.dll stdcall';\n"
+        "function CloseEventHandle(Handle: THandle): Boolean; external 'CloseHandle@kernel32.dll stdcall';\n"
+        "procedure SignalReady; var Handle: THandle; begin\n"
+        f"Handle := OpenEvent(2, False, '{event_name}');\n"
+        "if Handle <> 0 then begin SetEvent(Handle); CloseEventHandle(Handle); end; end;\n"
+        f"{wait_code}\n"
+        "function RequireClosedApplication(const Message: String): String;\nbegin\nSignalReady;\n"
+        f"if FileExists('{closed}') then Result := '' else Result := Message;\nend;\n"
+        f"{prepare}",
+        encoding="utf-8-sig",
+    )
+    compiled = subprocess.run([compiler, "/Q", str(script)], capture_output=True)
+    assert compiled.returncode == 0, compiled.stdout.decode(
+        errors="replace"
+    ) + compiled.stderr.decode(errors="replace")
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.CreateEventW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
+    api.CreateEventW.restype = wintypes.HANDLE
+    api.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    api.WaitForSingleObject.restype = wintypes.DWORD
+    api.CloseHandle.argtypes = (wintypes.HANDLE,)
+    ready = api.CreateEventW(None, True, False, event_name)
+    assert ready
+    owner = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            f"import sys; from pathlib import Path; sys.stdin.read(1); Path({str(closed)!r}).touch()",
+        ],
+        stdin=subprocess.PIPE,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    command = [str(tmp_path / "update.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+    if wait_pid:
+        command.append(f"/WAITPID={owner.pid}")
+    installer = subprocess.Popen(command)
+    try:
+        assert api.WaitForSingleObject(ready, 10_000) == 0
+        assert owner.poll() is None
+        assert not (tmp_path / "installed/payload.txt").exists()
+        owner.communicate(input=b"x", timeout=10)
+        assert installer.wait(timeout=30) == 0, "Update must wait before replacing files"
+        assert owner.poll() is not None
+        assert (tmp_path / "installed/payload.txt").read_text(encoding="utf-8") == "updated"
+        assert subprocess.run([*command, f"/WAITPID={owner.pid}"], timeout=30).returncode == 0
+    finally:
+        if owner.poll() is None:
+            owner.communicate(input=b"x", timeout=10)
+        installer.wait(timeout=30)
+        api.CloseHandle(ready)
 
 
 def test_explorer_offers_every_audio_format_accepted_by_song_import() -> None:

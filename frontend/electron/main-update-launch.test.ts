@@ -179,7 +179,13 @@ it.each([
         expect(fetchRelease).toHaveBeenCalledOnce();
         expect(installer.spawn).toHaveBeenCalledExactlyOnceWith(
           cachedInstaller,
-          ['/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS'],
+          [
+            '/SILENT',
+            '/NORESTART',
+            '/CLOSEAPPLICATIONS',
+            `/WAITPID=${process.pid}`,
+            `/LOG=${cachedInstaller}.log`,
+          ],
           expect.objectContaining({ detached: true, stdio: 'ignore' }),
         );
         expect(app.exit).toHaveBeenCalledExactlyOnceWith(0);

@@ -164,12 +164,16 @@ export const fetchInstaller = async (
     if ((await stat(file)).size === installer.size) {
       const hash = createHash('sha256');
       for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
-      if (hash.digest('hex') === expected) return file;
+      if (hash.digest('hex') === expected) {
+        onPercent(100);
+        return file;
+      }
     }
   } catch {
     // Not downloaded yet.
   }
   if (!downloadMissing) return null;
+  onPercent(0);
   await mkdir(directory, { recursive: true });
   // Older installers go; one still held open (the antivirus scanning it) is simply left for later.
   for (const name of await readdir(directory))
@@ -255,8 +259,7 @@ export const fetchInstaller = async (
       controller.abort();
     }
   }
-  if ((await fileSize(partial)) !== installer.size)
-    return null;
+  if ((await fileSize(partial)) !== installer.size) return null;
   const hash = createHash('sha256');
   for await (const chunk of fs.createReadStream(partial)) hash.update(chunk);
   if (hash.digest('hex') !== expected) {
@@ -272,17 +275,28 @@ export const fetchInstaller = async (
  * Runs a verified installer after this app has exited; its progress stays visible and it opens
  * the app again when installation finishes.
  */
-const runInstaller = (file: string): Promise<void> => new Promise((resolve, reject) => {
-  const child = spawn(file, ['/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS'], {
-    detached: true,
-    stdio: 'ignore',
+const runInstaller = (file: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const child = spawn(
+      file,
+      [
+        '/SILENT',
+        '/NORESTART',
+        '/CLOSEAPPLICATIONS',
+        `/WAITPID=${process.pid}`,
+        `/LOG=${file}.log`,
+      ],
+      {
+        detached: true,
+        stdio: 'ignore',
+      },
+    );
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
   });
-  child.once('error', reject);
-  child.once('spawn', () => {
-    child.unref();
-    resolve();
-  });
-});
 
 /**
  * Updates from GitHub Releases, as in Discord: before the app opens it checks for a newer version
@@ -343,7 +357,6 @@ export const startAutoUpdate = ({
       offer(installer);
       if (!automatic()) return;
       downloading = true;
-      downloadProgress(0);
       const file = await fetchInstaller(
         fetchImpl,
         installer,
@@ -449,7 +462,6 @@ export const startAutoUpdate = ({
       const installer = downloaded ?? offered;
       if (!installer || checking) return false;
       checking = true;
-      downloadProgress(0);
       void fetchInstaller(fetchImpl, installer, updates, downloadProgress)
         .then((file) => {
           if (!file)
@@ -481,7 +493,9 @@ export const startAutoUpdate = ({
           installFailed();
           return false;
         })
-        .finally(() => { launchingInstall = undefined; });
+        .finally(() => {
+          launchingInstall = undefined;
+        });
       return launchingInstall;
     },
     cancelInstall(): void {

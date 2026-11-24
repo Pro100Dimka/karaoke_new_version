@@ -58,59 +58,65 @@ const release = {
   ],
 };
 
-it.each(['spawn', 'error'])('opens the application unless the cached installer starts (%s)', async (outcome) => {
-  vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] });
-  const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
-  roots.push(directory);
-  mocks.spawn.mockClear();
-  let finishDownload!: () => void;
-  const slow = new Promise<void>((resolve) => (finishDownload = resolve));
-  const fetchImpl = vi.fn(async (url: string) => {
-    if (url.includes('api.github.com'))
-      return new Response(JSON.stringify(release));
-    const body = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        controller.enqueue(new Uint8Array(payload.subarray(0, 100_000)));
-        await slow;
-        controller.enqueue(new Uint8Array(payload.subarray(100_000)));
-        controller.close();
-      },
+it.each(['spawn', 'error'])(
+  'opens the application unless the cached installer starts (%s)',
+  async (outcome) => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] });
+    const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
+    roots.push(directory);
+    mocks.spawn.mockClear();
+    let finishDownload!: () => void;
+    const slow = new Promise<void>((resolve) => (finishDownload = resolve));
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('api.github.com'))
+        return new Response(JSON.stringify(release));
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          controller.enqueue(new Uint8Array(payload.subarray(0, 100_000)));
+          await slow;
+          controller.enqueue(new Uint8Array(payload.subarray(100_000)));
+          controller.close();
+        },
+      });
+      return new Response(body);
     });
-    return new Response(body);
-  });
-  const ready = vi.fn();
-  const updater = startAutoUpdate({
-    ready,
-    log: vi.fn(),
-    quit: vi.fn(),
-    fetchImpl: fetchImpl as unknown as typeof fetch,
-    directory,
-  });
+    const ready = vi.fn();
+    const updater = startAutoUpdate({
+      ready,
+      log: vi.fn(),
+      quit: vi.fn(),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      directory,
+    });
 
-  expect(updater.requiresLaunchCheck()).toBe(false);
-  expect(await updater.beforeLaunch(() => undefined)).toBe(false);
-  expect(fetchImpl).toHaveBeenCalledTimes(0);
-  expect(mocks.spawn).not.toHaveBeenCalled();
-  // A slow background download must not prevent the already running app from opening.
-  await vi.advanceTimersByTimeAsync(31_000);
-  await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
-  finishDownload();
-  await vi.waitFor(() => expect(ready).toHaveBeenCalledWith('1.1.5'));
-  expect(updater.requiresLaunchCheck()).toBe(true);
-  if (outcome === 'error') mocks.spawn.mockImplementationOnce(() => {
-    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
-    child.on('error', () => {});
-    queueMicrotask(() => child.emit('error', new Error('EACCES')));
-    return child;
-  });
-  expect(await updater.beforeLaunch(() => undefined)).toBe(outcome === 'spawn');
-  expect(mocks.spawn).toHaveBeenCalledWith(
-    path.join(directory, 'AD-Voice-Setup-1.1.5.exe'),
-    expect.arrayContaining(['/SILENT']),
-    expect.anything(),
-  );
-  updater.stop();
-});
+    expect(updater.requiresLaunchCheck()).toBe(false);
+    expect(await updater.beforeLaunch(() => undefined)).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(0);
+    expect(mocks.spawn).not.toHaveBeenCalled();
+    // A slow background download must not prevent the already running app from opening.
+    await vi.advanceTimersByTimeAsync(31_000);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+    finishDownload();
+    await vi.waitFor(() => expect(ready).toHaveBeenCalledWith('1.1.5'));
+    expect(updater.requiresLaunchCheck()).toBe(true);
+    if (outcome === 'error')
+      mocks.spawn.mockImplementationOnce(() => {
+        const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+        child.on('error', () => {});
+        queueMicrotask(() => child.emit('error', new Error('EACCES')));
+        return child;
+      });
+    expect(await updater.beforeLaunch(() => undefined)).toBe(
+      outcome === 'spawn',
+    );
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      path.join(directory, 'AD-Voice-Setup-1.1.5.exe'),
+      expect.arrayContaining(['/SILENT', `/WAITPID=${process.pid}`]),
+      expect.anything(),
+    );
+    updater.stop();
+  },
+);
 
 it('does not hold startup on a slow update check when automatic installation is off', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
@@ -142,52 +148,63 @@ it('does not hold startup on a slow update check when automatic installation is 
   }
 });
 
-it.each(['spawn', 'error', 'cancel'])('offers updates and launches only after close approval (%s)', async (outcome) => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
-  roots.push(directory);
-  mocks.spawn.mockClear();
-  const fetchImpl = vi.fn(async (url: string) =>
-    url.includes('api.github.com')
-      ? new Response(JSON.stringify(release))
-      : new Response(new Uint8Array(payload)),
-  );
-  const available = vi.fn();
-  const percents: number[] = [];
-  const quit = vi.fn();
-  const installFailed = vi.fn();
-  const updater = startAutoUpdate({
-    ready: vi.fn(),
-    log: vi.fn(),
-    quit,
-    installFailed,
-    fetchImpl: fetchImpl as unknown as typeof fetch,
-    directory,
-    automatic: () => false,
-    available,
-    canInstallBeforeLaunch: () => false,
-    progress: (percent) => percents.push(percent),
-  });
+it.each(['spawn', 'error', 'cancel'])(
+  'offers updates and launches only after close approval (%s)',
+  async (outcome) => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
+    roots.push(directory);
+    mocks.spawn.mockClear();
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes('api.github.com')
+        ? new Response(JSON.stringify(release))
+        : new Response(new Uint8Array(payload)),
+    );
+    const available = vi.fn();
+    const percents: number[] = [];
+    const quit = vi.fn();
+    const installFailed = vi.fn();
+    const updater = startAutoUpdate({
+      ready: vi.fn(),
+      log: vi.fn(),
+      quit,
+      installFailed,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      directory,
+      automatic: () => false,
+      available,
+      canInstallBeforeLaunch: () => false,
+      progress: (percent) => percents.push(percent),
+    });
 
-  // Start-up: nothing is downloaded or installed, the version is offered.
-  expect(await updater.beforeLaunch(() => undefined)).toBe(false);
-  await vi.waitFor(() => expect(available).toHaveBeenCalledWith('1.1.5'));
-  expect(fetchImpl).toHaveBeenCalledTimes(1);
-  expect(mocks.spawn).not.toHaveBeenCalled();
+    // Start-up: nothing is downloaded or installed, the version is offered.
+    expect(await updater.beforeLaunch(() => undefined)).toBe(false);
+    await vi.waitFor(() => expect(available).toHaveBeenCalledWith('1.1.5'));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(mocks.spawn).not.toHaveBeenCalled();
 
-  // "Install": downloaded with progress, then the app exits and the installer runs.
-  expect(updater.install()).toBe(true);
-  await vi.waitFor(() => expect(quit).toHaveBeenCalled());
-  expect(percents.at(-1)).toBe(100);
-  expect(mocks.spawn).not.toHaveBeenCalled();
-  if (outcome === 'cancel') updater.cancelInstall();
-  if (outcome === 'error') mocks.spawn.mockImplementationOnce(() => {
-    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
-    child.on('error', () => {});
-    queueMicrotask(() => child.emit('error', new Error('EACCES')));
-    return child;
-  });
-  expect(await updater.prepareQuit()).toBe(outcome !== 'error');
-  expect(mocks.spawn).toHaveBeenCalledTimes(outcome === 'cancel' ? 0 : 1);
-  expect(installFailed).toHaveBeenCalledTimes(outcome === 'error' ? 1 : 0);
-  updater.stop();
-});
+    // "Install": downloaded with progress, then the app exits and the installer runs.
+    expect(updater.install()).toBe(true);
+    await vi.waitFor(() => expect(quit).toHaveBeenCalled());
+    expect(percents.at(-1)).toBe(100);
+    expect(mocks.spawn).not.toHaveBeenCalled();
+    updater.cancelInstall();
+    percents.length = 0;
+    quit.mockClear();
+    expect(updater.install()).toBe(true);
+    await vi.waitFor(() => expect(quit).toHaveBeenCalled());
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(percents).toEqual([100]);
+    if (outcome === 'cancel') updater.cancelInstall();
+    if (outcome === 'error')
+      mocks.spawn.mockImplementationOnce(() => {
+        const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+        child.on('error', () => {});
+        queueMicrotask(() => child.emit('error', new Error('EACCES')));
+        return child;
+      });
+    expect(await updater.prepareQuit()).toBe(outcome !== 'error');
+    expect(mocks.spawn).toHaveBeenCalledTimes(outcome === 'cancel' ? 0 : 1);
+    expect(installFailed).toHaveBeenCalledTimes(outcome === 'error' ? 1 : 0);
+    updater.stop();
+  },
+);

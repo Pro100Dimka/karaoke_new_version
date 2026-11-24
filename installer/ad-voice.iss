@@ -514,6 +514,51 @@ begin
       Result := False;
 end;
 
+function OpenProcess(DesiredAccess: LongWord; InheritHandle: Boolean; ProcessId: LongWord): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function WaitForSingleObject(Handle: THandle; Milliseconds: LongWord): LongWord;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+const
+  SynchronizeAccess = $00100000;
+  WaitSliceMilliseconds = 100;
+  MaximumWaitSlices = 600;
+
+function WaitForUpdateOwner: Boolean;
+var
+  Owner: THandle;
+  ProcessId, Status: LongWord;
+  Attempt: Integer;
+begin
+  ProcessId := StrToIntDef(ExpandConstant('{param:WAITPID|0}'), 0);
+  Result := ProcessId = 0;
+  if Result then Exit;
+  Owner := OpenProcess(SynchronizeAccess, False, ProcessId);
+  if Owner = 0 then
+  begin
+    Result := DLLGetLastError = 87; { The owner already exited. }
+    Exit;
+  end;
+  try
+    for Attempt := 1 to MaximumWaitSlices do
+    begin
+      Status := WaitForSingleObject(Owner, WaitSliceMilliseconds);
+      if Status = 0 then
+      begin
+        Result := True;
+        Exit;
+      end;
+      if Status = $FFFFFFFF then Exit;
+      { SetText pumps messages while the application finishes its approved shutdown. }
+      VerificationPage.SetText(CustomMessage('UpdatePreparing'), '');
+    end;
+  finally
+    CloseHandle(Owner);
+  end;
+end;
+
 function RequireClosedApplication(const Message: String): String;
 var
   Locator, Services, Processes, Process: Variant;
@@ -548,9 +593,22 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Deadline: Int64;
 begin
+  Result := CustomMessage('CloseBeforeInstall');
+  if WaitForUpdateOwner then
+  begin
+    { Older updaters have no WAITPID. They also need time to stop their services. }
+    Deadline := GetTickCount64 + WaitSliceMilliseconds * MaximumWaitSlices;
+    repeat
+      Result := RequireClosedApplication(CustomMessage('CloseBeforeInstall'));
+      if (Result = '') or not WizardSilent or (GetTickCount64 >= Deadline) then Break;
+      VerificationPage.SetText(CustomMessage('UpdatePreparing'), Result);
+      Sleep(WaitSliceMilliseconds);
+    until False;
+  end;
   VerificationPage.Hide;
-  Result := RequireClosedApplication(CustomMessage('CloseBeforeInstall'));
 end;
 
 function InitializeUninstall: Boolean;
