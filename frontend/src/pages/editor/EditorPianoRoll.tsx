@@ -26,6 +26,7 @@ import {
   PianoKeyboard,
   useControllable,
   useTr,
+  type PianoRollGesture,
   type PianoRollProps,
   type TokenStyle,
 } from '@neo-ui-kit/react';
@@ -43,6 +44,7 @@ import type {
 } from '../../application/editor/editorModel';
 import { editorRollIndex } from './editorRollWindow';
 import { useEditorRollClock } from './useEditorRollClock';
+import { useEditorDragPreview } from './useEditorDragPreview';
 import {
   editorPixelsPerSecond,
   useEditorRollViewport,
@@ -66,6 +68,25 @@ type Drag = { pointerId: number; x: number } & (
   | { kind: 'resize'; id: string; edge: 'start' | 'end'; secondPx: number }
   | { kind: 'area'; y: number; additive: boolean; box: DOMRect }
 );
+
+const noteGesture = (
+  current: Exclude<Drag, { kind: 'area' }>,
+  x: number,
+  y: number,
+): PianoRollGesture =>
+  current.kind === 'move'
+    ? {
+        kind: 'move',
+        ids: current.ids,
+        seconds: (x - current.x) / current.secondPx,
+        pitch: -Math.round((y - current.y) / current.rowPx),
+      }
+    : {
+        kind: 'resize',
+        id: current.id,
+        edge: current.edge,
+        seconds: (x - current.x) / current.secondPx,
+      };
 
 export const EditorPianoRoll = ({
   document,
@@ -97,6 +118,7 @@ export const EditorPianoRoll = ({
   const world = useRef<HTMLDivElement>(null);
   const areaBox = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  const preview = useEditorDragPreview(onNoteDrag);
   const [captured, setCaptured] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const pendingFocus = useRef<string | null>(null);
@@ -205,6 +227,7 @@ export const EditorPianoRoll = ({
   const cancel = () => {
     const current = drag.current;
     drag.current = null;
+    preview.cancel();
     setCaptured(null);
     if (!current) return;
     if (areaBox.current) areaBox.current.style.display = 'none';
@@ -222,7 +245,11 @@ export const EditorPianoRoll = ({
     if (event.type !== 'pointerup') return cancel();
     drag.current = null;
     setCaptured(null);
-    if (current.kind !== 'area') return onNoteDragEnd?.();
+    if (current.kind !== 'area') {
+      // Release can arrive before the queued paint and after the last move sample.
+      preview.finish(noteGesture(current, event.clientX, event.clientY));
+      return onNoteDragEnd?.();
+    }
     if (areaBox.current) areaBox.current.style.display = 'none';
     const { secondPx, rowPx } = scale();
     const x0 =
@@ -384,20 +411,8 @@ export const EditorPianoRoll = ({
           onPointerMove={(event) => {
             const current = drag.current;
             if (!current || current.pointerId !== event.pointerId) return;
-            if (current.kind === 'move')
-              onNoteDrag?.({
-                kind: 'move',
-                ids: current.ids,
-                seconds: (event.clientX - current.x) / current.secondPx,
-                pitch: -Math.round((event.clientY - current.y) / current.rowPx),
-              });
-            else if (current.kind === 'resize')
-              onNoteDrag?.({
-                kind: 'resize',
-                id: current.id,
-                edge: current.edge,
-                seconds: (event.clientX - current.x) / current.secondPx,
-              });
+            if (current.kind !== 'area')
+              preview.queue(noteGesture(current, event.clientX, event.clientY));
             else if (areaBox.current)
               Object.assign(areaBox.current.style, {
                 display: 'block',

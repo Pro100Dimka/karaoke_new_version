@@ -242,7 +242,8 @@ it.each(['move', 'resize'] as const)(
     pointer(world, 'pointermove', 130, kind === 'move' ? 80 : 100);
     const first = note.getAttribute('style');
     pointer(world, 'pointermove', 130.2, kind === 'move' ? 80 : 100);
-    expect(note.getAttribute('style')).not.toBe(first);
+    // Fine movement is visible on the next paint, even within the old snap cell.
+    await waitFor(() => expect(note.getAttribute('style')).not.toBe(first));
     pointer(world, 'pointercancel', 130.2, 80);
     expect(note.getAttribute('style')).toBe(geometry);
     expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
