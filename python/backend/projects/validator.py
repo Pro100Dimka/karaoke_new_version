@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from threading import Lock
+from collections.abc import Callable
 
 from backend.domain_errors import DomainError
 from backend.lyrics.codec import decode_document
@@ -44,11 +45,20 @@ class ProjectValidator:
         *,
         require_ready: bool,
         reuse_audio: bool = False,
+        hasher: FileHasher | None = None,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> None:
+        if ensure_not_cancelled:
+            ensure_not_cancelled()
         self._validate_manifest(manifest, manifest.song_id, manifest.revision, require_ready)
         for artifact in manifest.artifacts:
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
             path = self._storage.working_path(working, artifact.relative_path)
-            self._validate_file(path, artifact, reuse_audio=reuse_audio)
+            # Bind a cancellable reader for this call without mutating the shared validator.
+            self._validate_file(path, artifact, reuse_audio=reuse_audio, hasher=hasher)
+        if ensure_not_cancelled:
+            ensure_not_cancelled()
         lyrics = next(
             (item for item in manifest.artifacts if item.logical_name == "lyricsSync"),
             None,
@@ -56,6 +66,8 @@ class ProjectValidator:
         if lyrics:
             raw = self._storage.read_working_text(working, lyrics.relative_path)
             self._validate_lyrics(raw)
+        if ensure_not_cancelled:
+            ensure_not_cancelled()
 
     @staticmethod
     def _validate_manifest(
@@ -81,7 +93,8 @@ class ProjectValidator:
             _validate_relative_path(artifact)
 
     def _validate_file(
-        self, path: Path, artifact: ProjectArtifact, *, reuse_audio: bool = False
+        self, path: Path, artifact: ProjectArtifact, *, reuse_audio: bool = False,
+        hasher: FileHasher | None = None,
     ) -> None:
         if not path.is_file():
             raise DomainError(
@@ -99,7 +112,7 @@ class ProjectValidator:
             with self._cache_lock:
                 if key in self._verified_audio:
                     return
-        if artifact.checksum and self._hasher(path) != artifact.checksum:
+        if artifact.checksum and (hasher or self._hasher)(path) != artifact.checksum:
             raise DomainError(
                 "ProjectInvalid",
                 "Project artifact checksum failed",

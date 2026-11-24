@@ -8,7 +8,7 @@ from typing import Callable
 from backend.domain_errors import DomainError
 from backend.packages.domain import PackageCompatibility
 from backend.packages.inspect_package import PackageInspection
-from backend.packages.ports import PackageArchive
+from backend.packages.ports import PackageArchive, PackageFileHasher
 from backend.projects.domain import ProjectManifest
 from backend.projects.fingerprint import manifest_fingerprint
 from backend.projects.manifest_codec import decode_manifest, encode_manifest
@@ -16,7 +16,6 @@ from backend.projects.ports import ProjectStorage
 from backend.projects.validator import ProjectValidator
 from backend.recovery.domain import RecoveryEntry, RecoveryOperation
 from backend.recovery.ports import RecoveryJournal
-from backend.songs.ports import FileHasher
 from backend.storage.ports import WorkStorage
 from backend.version import PROJECT_FORMAT_VERSION
 
@@ -40,7 +39,7 @@ class PackageProjectPublication:
         validator: ProjectValidator,
         workspaces: WorkStorage,
         journal: RecoveryJournal,
-        hasher: FileHasher,
+        hasher: PackageFileHasher,
     ) -> None:
         self._archive = archive
         self._projects = projects
@@ -56,18 +55,18 @@ class PackageProjectPublication:
         song_id: str,
         *,
         install_cover: Callable[[Path], Path] | None = None,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> PublishedPackageProject:
         workspace = self._workspaces.allocate(f"import-{song_id}")
         published = False
         try:
-            self._archive.extract(archive_path, workspace)
-            self._verify_artifacts(inspection, workspace)
-            project = self._read_project(workspace)
-            self._validate_identity(inspection, project)
-            project = self._local_project(project, inspection, song_id, workspace)
-            project = self._upgrade_if_supported(inspection, project, workspace)
-            self._validator.validate_working(project, workspace, require_ready=True)
+            project = self._prepare_project(
+                archive_path, inspection, song_id, workspace, ensure_not_cancelled,
+            )
             cover = self._install_cover(inspection, workspace, install_cover)
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
+            # Once published, return its rollback handle before any further cancellation check.
             entry = self._journal.begin(
                 RecoveryOperation.PACKAGE_IMPORT,
                 {"songId": song_id, "revision": project.revision},
@@ -91,6 +90,39 @@ class PackageProjectPublication:
 
     def complete(self, published: PublishedPackageProject) -> None:
         self._journal.complete(published.recovery_entry.transaction_id)
+
+    def _prepare_project(
+        self,
+        archive_path: Path,
+        inspection: PackageInspection,
+        song_id: str,
+        workspace: Path,
+        ensure_not_cancelled: Callable[[], None] | None,
+    ) -> ProjectManifest:
+        self._extract_verified(archive_path, inspection, workspace, ensure_not_cancelled)
+        project = self._read_project(workspace)
+        self._validate_identity(inspection, project)
+        project = self._local_project(project, inspection, song_id, workspace)
+        project = self._upgrade_if_supported(inspection, project, workspace)
+        self._validator.validate_working(
+            project, workspace, require_ready=True,
+            hasher=lambda path: self._hasher(path, ensure_not_cancelled),
+            ensure_not_cancelled=ensure_not_cancelled,
+        )
+        return project
+
+    def _extract_verified(
+        self,
+        archive_path: Path,
+        inspection: PackageInspection,
+        workspace: Path,
+        ensure_not_cancelled: Callable[[], None] | None,
+    ) -> None:
+        self._archive.extract(
+            archive_path, workspace,
+            progress=(lambda _: ensure_not_cancelled()) if ensure_not_cancelled else None,
+        )
+        self._verify_artifacts(inspection, workspace, ensure_not_cancelled)
 
     def _local_project(
         self, project: ProjectManifest, inspection: PackageInspection, song_id: str, workspace: Path
@@ -126,6 +158,7 @@ class PackageProjectPublication:
         song_id: str,
         *,
         install_cover: Callable[[Path], Path] | None = None,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> Path | None:
         clip_path = PurePosixPath("media/clip.mp4")
         has_clip = any(item.path == clip_path for item in inspection.manifest.artifacts)
@@ -133,9 +166,10 @@ class PackageProjectPublication:
             return None
         workspace = self._workspaces.allocate(f"supplement-{song_id}")
         try:
-            self._archive.extract(archive_path, workspace)
-            self._verify_artifacts(inspection, workspace)
+            self._extract_verified(archive_path, inspection, workspace, ensure_not_cancelled)
             cover = self._install_cover(inspection, workspace, install_cover)
+            if ensure_not_cancelled:
+                ensure_not_cancelled()
             if has_clip:
                 self._projects.install_revision_artifact(
                     song_id,
@@ -172,12 +206,13 @@ class PackageProjectPublication:
         self,
         inspection: PackageInspection,
         workspace: Path,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> None:
         for artifact in inspection.manifest.artifacts:
             target = workspace.joinpath(*artifact.path.parts)
             if not target.is_file():
                 self._checksum_error(artifact.path.as_posix())
-            if self._hasher(target) != artifact.checksum:
+            if self._hasher(target, ensure_not_cancelled) != artifact.checksum:
                 self._checksum_error(artifact.path.as_posix())
 
     @staticmethod
