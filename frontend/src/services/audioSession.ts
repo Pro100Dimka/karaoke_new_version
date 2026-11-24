@@ -109,18 +109,8 @@ export const observeAudioTelemetry = (
   let recovering = false;
   let pending = false;
   let latest: { text: string; revision: number; ticks: number } | undefined;
-  const publish = (text: string) => {
-    if (!active) return;
-    if (name !== 'GetPlaybackSnapshot') {
-      onValue(text);
-      return;
-    }
-    latest = {
-      text,
-      revision: commandRevision,
-      ticks: Number(parseKeyValues(text).MonotonicTicks),
-    };
-    if (pending) return;
+  const schedule = () => {
+    if (!active || pending || !latest) return;
     pending = true;
     void enqueueAudioOperation(async () => {
       const value = latest;
@@ -141,7 +131,25 @@ export const observeAudioTelemetry = (
       })
       .finally(() => {
         pending = false;
+        // A consumer can await reconciliation while the final stream frame
+        // arrives. Deliver that frame behind any already queued control work.
+        schedule();
       });
+  };
+  const publish = (text: string) => {
+    if (!active) return;
+    if (name !== 'GetPlaybackSnapshot') {
+      onValue(text);
+      return;
+    }
+    const ticks = Number(parseKeyValues(text).MonotonicTicks);
+    if (
+      !Number.isFinite(ticks) ||
+      (latest?.revision === commandRevision && ticks < latest.ticks)
+    )
+      return;
+    latest = { text, revision: commandRevision, ticks };
+    schedule();
   };
   const stop = desktopBridge().onAudioNotification(
     name,
@@ -152,10 +160,22 @@ export const observeAudioTelemetry = (
         publish(value.text);
       } else if (!recovering) {
         recovering = true;
+        const recoveryRevision = commandRevision;
         void command(name)
-          .then(publish, (error) => {
-            if (active) onError(error);
-          })
+          .then(
+            (text) => {
+              // A delayed read must not acquire a newer transport revision,
+              // including before the native clock can fence old timestamps.
+              if (
+                name !== 'GetPlaybackSnapshot' ||
+                recoveryRevision === commandRevision
+              )
+                publish(text);
+            },
+            (error) => {
+              if (active) onError(error);
+            },
+          )
           .finally(() => {
             recovering = false;
           });
@@ -164,6 +184,7 @@ export const observeAudioTelemetry = (
   );
   return () => {
     active = false;
+    latest = undefined;
     stop();
   };
 };
