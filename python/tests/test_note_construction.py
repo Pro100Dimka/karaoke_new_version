@@ -511,6 +511,26 @@ def test_a_held_vibrato_is_an_anchor_even_when_it_crosses_the_quantized_note_ban
     assert _has_held_core(pitches, 9)
 
 
+@pytest.mark.parametrize("ending", [False, True])
+@pytest.mark.parametrize("start", [0, 140])
+def test_a_sung_edge_keeps_its_local_held_core_after_an_entry_glide(ending, start):
+    pitches = [53.26, 54.06, 54.86, 55.26, 55.66, 56.06, 56.26, 56.46, 56.46]
+    pitches += [56.66, 56.66, 56.86, 56.86, 57.06, 57.26, 57.46]
+    pitches += [57.66, 57.66, 57.86, 58.06, 58.06, 58.06, 58.06, 57.86, 57.66]
+    pitches += [57.46, 57.26, 57.26, 57.46, 57.66] + [59.0] * 60
+    if ending:
+        pitches.reverse()
+    points = [
+        PitchPoint(start + i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
+        for i, pitch in enumerate(pitches)
+    ]
+    duration = start + len(pitches) / 100
+    document = construct_document(
+        "t", "a", duration, "la", [WordTiming("la", start, duration, 1)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == ([59, 57] if ending else [57, 59])
+
+
 def test_vibrato_around_a_semitone_boundary_stays_one_note() -> None:
     # A held note sung around 69.5 with +-0.4 semitone vibrato crosses the A4/A#4 boundary every few
     # frames; rounding each frame alone would chop it into a flurry of alternating notes.

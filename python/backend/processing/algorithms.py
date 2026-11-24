@@ -262,7 +262,7 @@ def _held_edges(
     # A phrase can enter or leave through a slide without holding its fitted edge note.
     # Quantized frames can briefly repeat during a slide. Look for a held half-semitone core
     # over the note-change penalty's frame window, without imposing a minimum note duration.
-    frames = max(2, math.ceil(_NOTE_CHANGE_COST * _DEFAULT_PITCH_STEP_SECONDS / step) + 1)
+    frames = max(2, math.ceil(round(_NOTE_CHANGE_COST * _DEFAULT_PITCH_STEP_SECONDS / step, 8)) + 1)
     held = [_has_held_core(pitches[first : last + 1], frames) for first, last in segments]
     if not any(held):
         return segments
@@ -275,11 +275,11 @@ def _held_edges(
 
 def _has_held_core(pitches: Sequence[float], frames: int) -> bool:
     width = min(frames, len(pitches))
-    target = round(median(pitches))
     # A held vibrato can cross the rounding boundary while returning to its tonal centre.
+    # An entry glide must not move the centre used to recognize a later held core.
     return _has_vibrato(pitches) or any(
-        max(abs(pitch - target) for pitch in pitches[index : index + width]) <= 0.5
-        for index in range(len(pitches) - width + 1)
+        max(window) - 0.5 <= round(median(window)) <= min(window) + 0.5
+        for window in (pitches[index : index + width] for index in range(len(pitches) - width + 1))
     )
 
 
