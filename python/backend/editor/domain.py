@@ -10,3 +10,10 @@ class EditorDocument:
     song_id: str
     revision: int
     document: LyricsDocument
+    document_fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class EditorSaveResult:
+    revision: int
+    document_fingerprint: str

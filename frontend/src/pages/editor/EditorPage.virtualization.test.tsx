@@ -103,7 +103,7 @@ beforeEach(() => {
   });
   vi.mocked(pythonClient.projectCompatibility).mockResolvedValue('Current');
   vi.mocked(editorApi.load).mockResolvedValue(document);
-  vi.mocked(editorApi.save).mockResolvedValue(2);
+  vi.mocked(editorApi.save).mockResolvedValue({ revision: 2 });
   vi.mocked(audioClient.seek).mockImplementation(async (positionSeconds) => ({
     ...ready,
     positionSeconds,

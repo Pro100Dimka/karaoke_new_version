@@ -103,6 +103,7 @@ class EditorDto(ApiModel):
     song_id: str
     revision: int
     document: LyricsDocumentDto
+    document_fingerprint: str
 
 
 class SaveEditorDto(ApiModel):
@@ -116,6 +117,7 @@ class ResetEditorDto(ApiModel):
 
 class RevisionDto(ApiModel):
     revision: int
+    document_fingerprint: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CompatibilityDto(ApiModel):
@@ -162,6 +164,7 @@ def editor_dto(editor: EditorDocument) -> EditorDto:
         song_id=editor.song_id,
         revision=editor.revision,
         document=lyrics_document_dto(editor.document),
+        document_fingerprint=editor.document_fingerprint,
     )
 
 

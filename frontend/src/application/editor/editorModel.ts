@@ -20,6 +20,8 @@ export interface EditorWord {
 
 export interface EditorDocument {
   revision: number;
+  /** Backend identity of the saved lyrics bytes; local edits retain this base identity. */
+  documentFingerprint?: string;
   bpm?: number;
   key?: string;
   words: readonly EditorWord[];

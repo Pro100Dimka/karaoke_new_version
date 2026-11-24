@@ -6,6 +6,54 @@ import { createEditorApi } from './editorApi';
 describe('editorApi music metadata', () => {
   afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
+  it.each([
+    {
+      label: 'authoritative fingerprints',
+      loaded: 'a'.repeat(64),
+      saved: 'b'.repeat(64),
+    },
+    {
+      label: 'an older backend without fingerprints',
+      loaded: undefined,
+      saved: undefined,
+    },
+  ])('retains revision metadata from $label', async ({ loaded, saved }) => {
+    const source = {
+      songId: 'song',
+      revision: 7,
+      documentFingerprint: loaded,
+      document: {
+        title: 'Song',
+        artist: 'Singer',
+        duration: 20,
+        bpm: null,
+        key: null,
+        lyrics: '',
+        words: [],
+      },
+    };
+    const response = { revision: 8, documentFingerprint: saved };
+    const request = vi.fn(async ({ method }: PythonBridgeRequest) =>
+      method === 'GET' ? source : response,
+    );
+    const api = createEditorApi(request);
+
+    const document = await api.load('song');
+    expect(document).toMatchObject({
+      revision: 7,
+      documentFingerprint: loaded,
+    });
+    await expect(
+      api.save({ id: 'song' } as SongDto, document, 7),
+    ).resolves.toEqual(response);
+    expect(request.mock.lastCall?.[0].body).toMatchObject({
+      expectedRevision: 7,
+    });
+    expect(
+      (request.mock.lastCall?.[0].body as { document: unknown }).document,
+    ).not.toHaveProperty('documentFingerprint');
+  });
+
   it('resets to the saved AI baseline using the exact confirmed revision', async () => {
     const request = vi.fn(async () => ({ revision: 8 }));
     const api = createEditorApi(request);
@@ -94,7 +142,7 @@ describe('editorApi music metadata', () => {
         document,
         7,
       ),
-    ).toBe(8);
+    ).toEqual({ revision: 8 });
     expect(request.mock.lastCall?.[0].body).toMatchObject({
       expectedRevision: 7,
       document: {
@@ -253,7 +301,7 @@ describe('editorApi music metadata', () => {
         projectFormatVersion: 1,
       };
 
-      expect(await api.save(song, edited, 7)).toBe(8);
+      expect(await api.save(song, edited, 7)).toEqual({ revision: 8 });
 
       expect(request.mock.lastCall?.[0]).toEqual({
         method: 'PUT',

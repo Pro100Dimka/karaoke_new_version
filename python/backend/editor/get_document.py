@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from backend.domain_errors import NotFoundError
 from backend.editor.domain import EditorDocument
 from backend.lyrics.codec import decode_document
@@ -24,4 +26,5 @@ class GetEditorDocument:
             raise NotFoundError(
                 "ProjectInvalid", "Editor document is invalid", songId=song_id
             ) from exc
-        return EditorDocument(song_id, song.active_revision, document)
+        fingerprint = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        return EditorDocument(song_id, song.active_revision, document, fingerprint)
