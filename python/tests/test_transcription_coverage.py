@@ -5,13 +5,38 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import numpy as np
 
 from backend.ai_worker import speech
+from backend.ai_worker import speech_observations
 from backend.infrastructure.sidecar_lyrics import LocalSidecarLyricsReader
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy, PreparedLyrics
 from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.songs.domain import Song, SongStatus, SourceState
 from tests.fakes import FakeAiProvider
+
+
+@pytest.mark.parametrize("spoken", [False, True])
+@pytest.mark.parametrize(
+    "credit", ["Субтитры создавал Автор", "Субтитри зробив Автор", "Subtitles by Author"]
+)
+def test_subtitle_credits_over_music_need_speech_evidence(monkeypatch, credit, spoken):
+    probability = np.full(94, 0.9 if spoken else 0.01, dtype=np.float32)
+    monkeypatch.setattr(
+        speech_observations, "get_vad_model", lambda: lambda _samples: probability, raising=False
+    )
+    segments = [
+        {"text": " We sing.", "start": 0.2, "end": 0.7},
+        {"text": f" {credit}", "start": 1.2, "end": 1.7},
+    ]
+    payload = {"text": "".join(s["text"] for s in segments), "segments": segments}
+    samples = np.full(48_000, 0.03, dtype=np.float32)
+
+    result = speech_observations.discard_silent_segments(payload, samples)
+
+    expected = segments if spoken else segments[:1]
+    assert result["segments"] == expected
+    assert result["text"] == "".join(s["text"] for s in expected)
 
 
 @pytest.mark.parametrize(

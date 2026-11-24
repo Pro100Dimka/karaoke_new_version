@@ -5,8 +5,10 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from math import isfinite
 from pathlib import Path
+import re
 
 import numpy as np
+from faster_whisper.vad import get_vad_model
 
 from backend.ai_worker.speech_windows import _HOP, _SAMPLE_RATE
 from backend.ai_worker.timing import _ABSOLUTE_FLOOR_DB, _levels
@@ -32,12 +34,28 @@ def discard_silent_segments(
     levels, _ = _levels(samples, _HOP)
     audible = levels >= _ABSOLUTE_FLOOR_DB
     retained = [segment for segment in lines if _touches_audible_audio(segment, audible)]
+    credits = [
+        segment
+        for segment in retained
+        if re.match(r"\s*(?:субтитры|субтитри|subtitles?)\b", segment["text"], re.IGNORECASE)
+    ]
+    if credits:
+        speech = get_vad_model()(np.pad(samples, (0, -len(samples) % 512))).reshape(-1) >= 0.5
+        retained = [
+            segment
+            for segment in retained
+            if segment not in credits or _touches_audible_audio(segment, speech, _SAMPLE_RATE / 512)
+        ]
     if len(retained) == len(lines):
         return result
     return dict(result, segments=retained, text="".join(segment["text"] for segment in retained))
 
 
-def _touches_audible_audio(segment: Mapping[str, object], audible: np.ndarray) -> bool:
+def _touches_audible_audio(
+    segment: Mapping[str, object],
+    audible: np.ndarray,
+    frames_per_second: float = _SAMPLE_RATE / _HOP,
+) -> bool:
     start, end = segment.get("start"), segment.get("end")
     if (
         not isinstance(start, int | float)
@@ -46,7 +64,6 @@ def _touches_audible_audio(segment: Mapping[str, object], audible: np.ndarray) -
     ):
         return True
     # Allow timing jitter around the segment and keep quiet vocals above the absolute floor.
-    frames_per_second = _SAMPLE_RATE / _HOP
     first = round(max(0.0, start - 0.2) * frames_per_second)
     last = round((end + 0.2) * frames_per_second) + 1
     return bool(audible[first:last].any())
