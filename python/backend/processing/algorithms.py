@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, replace
-from itertools import accumulate, pairwise
+from itertools import pairwise
 from statistics import median
 from typing import Sequence
 
@@ -267,13 +267,7 @@ def _held_edges(
     if not any(held):
         return segments
     for edge in (0, -1):
-        while len(segments) > 1:
-            first, last = segments[edge]
-            contour = (
-                pitches[first : last + 2] if edge == 0 else pitches[max(0, first - 1) : last + 1]
-            )
-            if held[edge] or not _moving_towards_core(contour):
-                break
+        while len(segments) > 1 and not held[edge]:
             segments.pop(edge)
             held.pop(edge)
     return segments
@@ -283,17 +277,31 @@ def _has_held_core(pitches: Sequence[float], frames: int) -> bool:
     width = min(frames, len(pitches))
     target = round(median(pitches))
     # A held vibrato can cross the rounding boundary while returning to its tonal centre.
-    return not _moving_towards_core(pitches) or any(
+    return _has_vibrato(pitches) or any(
         max(abs(pitch - target) for pitch in pitches[index : index + width]) <= 0.5
         for index in range(len(pitches) - width + 1)
     )
 
 
-def _moving_towards_core(pitches: Sequence[float]) -> bool:
-    return any(
-        all(peak - pitch <= 0.5 + 1e-8 for peak, pitch in zip(accumulate(values, max), values))
-        for values in (pitches, tuple(-pitch for pitch in pitches))
-    )
+def _has_vibrato(pitches: Sequence[float]) -> bool:
+    # A single turn on an entry/release is a bend, not a recurring held vibrato.
+    direction = turns = 0
+    extreme = pitches[0]
+    for pitch in pitches[1:]:
+        delta = pitch - extreme
+        if not direction:
+            if abs(delta) > 0.5 + 1e-8:
+                direction = 1 if delta > 0 else -1
+                extreme = pitch
+        elif direction * delta >= 0:
+            extreme = pitch
+        elif abs(delta) > 0.5 + 1e-8:
+            direction = -direction
+            extreme = pitch
+            turns += 1
+            if turns >= 2:
+                return True
+    return False
 
 
 def _frame_cost(pitch: float, note: int) -> float:

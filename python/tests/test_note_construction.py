@@ -487,6 +487,23 @@ def test_an_unanchored_glide_does_not_arbitrarily_keep_only_its_last_fragment():
     assert _held_edges(segments.copy(), pitches, 0.01) == segments
 
 
+@pytest.mark.parametrize("ending", [False, True])
+def test_an_edge_scoop_can_reverse_before_reaching_its_held_note(ending):
+    pitches = [60 - i * 0.2 for i in range(7)]
+    pitches += [60 + i * 0.6 for i in range(12)] + [67.0] * 80
+    if ending:
+        pitches.reverse()
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
+        for i, pitch in enumerate(pitches)
+    ]
+    duration = len(pitches) / 100
+    document = construct_document(
+        "t", "a", duration, "la", [WordTiming("la", 0, duration, 1)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [67]
+
+
 def test_a_held_vibrato_is_an_anchor_even_when_it_crosses_the_quantized_note_band():
     from backend.processing.algorithms import _has_held_core
 
