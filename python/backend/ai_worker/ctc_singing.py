@@ -230,8 +230,11 @@ def with_voice_onsets(
     heard = heard or {}
     words = _recover_vowel_onsets(words, samples, voiced, heard)
     found = _voice_entries(words, voiced, step)
-    if not found and len(samples):
-        found = _voice_entries(words, voiced, step, vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP))
+    if len(samples):
+        found = (
+            _voice_entries(words, voiced, step, vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP))
+            | found
+        )
     lags = [words[index].start - onset for index, onset in found.items()]
     lag = min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags)))) if lags else 0.0
     return _calibrated_onsets(words, found, lag)
@@ -329,13 +332,15 @@ def _calibrated_onsets(
     for index, word in enumerate(words):
         if index in found:
             lag = min(_LARGEST_LAG_SECONDS, max(0.0, word.start - found[index]))
-        # A locally recovered entry supplies its own anchor. Calibrate it only from
-        # a nearby acoustic entry, never from the unrelated first word's lag.
-        start = (
-            word.start
-            if "OnsetRecovered" in word.diagnostics and index not in found
-            else found.get(index, word.start - lag)
-        )
+        # Reliable phonetic cores need their own acoustic anchor. Retain the
+        # phrase estimate only for weak cores, preserving locally recovered entries.
+        start = found.get(index, word.start)
+        if (
+            index not in found
+            and word.score <= _PREFERENCE
+            and "OnsetRecovered" not in word.diagnostics
+        ):
+            start -= lag
         start = max(min(start, word.end - 0.001), floor)
         shift = start - word.start
         end = max(word.end, start + 0.001)

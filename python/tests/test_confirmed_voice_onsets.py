@@ -83,3 +83,31 @@ def test_a_recovered_acoustic_entry_does_not_inherit_an_unrelated_phrase_lag() -
 
     assert result[0].start == 0.26
     assert result[1] == recovered
+
+
+def test_a_confirmed_entry_does_not_shift_later_phonetic_cores_without_local_evidence() -> None:
+    words = [
+        AlignedWord("opening", 1.22, 2.10, (1.22, 1.4, 1.5, 1.6, 1.8, 1.9, 2.0), 0.98),
+        AlignedWord("we", 2.20, 2.34, (2.20, 2.32), 0.97),
+        AlignedWord("have", 2.70, 3.20, (2.70, 2.84, 3.14, 3.18), 0.52),
+    ]
+
+    result = with_voice_onsets(words, np.empty(0), _activity((1.10, 3.30)))
+
+    assert result[0].start == 1.10
+    assert result[1:] == words[1:]
+
+
+def test_a_confirmed_first_entry_does_not_hide_a_later_local_level_rise() -> None:
+    times = np.arange(4 * 16_000) / 16_000
+    levels = np.where((times >= 1) & ((times < 2.5) | (times >= 2.8)), 0.2, 0.001)
+    samples = (levels * np.sin(2 * np.pi * 220 * times)).astype(np.float32)
+    words = [
+        AlignedWord("opening", 1.2, 2.4, (), 0.8),
+        AlignedWord("again", 3.0, 3.6, (), 0.8),
+    ]
+
+    result = with_voice_onsets(words, samples, _activity((1, 4)))
+
+    assert result[0].start == 1
+    assert result[1].start == pytest.approx(2.8, abs=0.02)
