@@ -21,6 +21,7 @@ import {
   buildLines,
   syllableProgress,
   currentLineIndex,
+  nextLineIndex,
   lyricSilenceSeconds,
   pitchAccuracy,
   pitchMatchesTarget,
@@ -240,7 +241,7 @@ const Lyrics = ({
   const current = lines[lineIndex];
   const count = layout === 'alternating' ? 2 : lineCount;
   // The credits camera follows musical time, independently of the highlighted row.
-  const nextScroll = lines.findIndex((line) => line.start > position);
+  const nextScroll = nextLineIndex(lines, position);
   const scrollIndex = Math.max(
     0,
     (nextScroll < 0 ? lines.length : nextScroll) - 1,

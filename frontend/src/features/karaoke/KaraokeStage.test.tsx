@@ -7,11 +7,17 @@ import { KaraokeStage } from './KaraokeStage';
 import { SceneBackdrop } from './SceneBackdrop';
 import { desktopClient } from '../../services/desktopClient';
 import { store } from '../../providers/store';
-import { targetPitchAt } from './karaokeLyrics';
+import { targetPitchAt, type LyricLine } from './karaokeLyrics';
 
 const probe = vi.hoisted(() => {
   const props: MelodyRollProps[] = [];
-  return { props, mounts: 0, playing: false, hitNoteIds: new Set<string>() };
+  return {
+    props,
+    mounts: 0,
+    playing: false,
+    hitNoteIds: new Set<string>(),
+    lines: [] as readonly LyricLine[],
+  };
 });
 vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
@@ -55,7 +61,10 @@ vi.mock('./show/ShowLayers', () => {
     noteScore: undefined,
   };
   return {
-    useShowEngine: () => engine,
+    useShowEngine: ({ lines }: { lines: readonly LyricLine[] }) => {
+      probe.lines = lines;
+      return engine;
+    },
     StageFx: () => null,
     RollFx: ({ playing }: { playing: boolean }) => {
       probe.playing = playing;
@@ -160,6 +169,57 @@ it('does not rescan passed song notes for roll visibility and target pitch on ev
   expect.soft(reads.start).toBeLessThan(10_000);
   expect.soft(reads.end).toBeLessThan(10_000);
 });
+
+it.each(['classic', 'alternating', 'credits'] as const)(
+  'does not revisit every earlier lyric line on each %s playback frame',
+  (layout) => {
+    Object.assign(store.preferences, { karaokeLyricsLayout: layout });
+    const source: EditorDocument = {
+      revision: 1,
+      lyrics: Array.from({ length: 1000 }, (_, index) => `line${index}`).join(
+        '\n',
+      ),
+      words: Array.from({ length: 1000 }, (_, index) => ({
+        id: `word-${index}`,
+        text: `line${index}`,
+        start: index * 2,
+        end: index * 2 + 1.95,
+      })),
+      notes: [],
+    };
+    const { rerender } = render(view(1800.1, source));
+    expect(probe.lines).toHaveLength(1000);
+    const reads = { start: 0, end: 0 };
+    // Measure the real lines built by the stage after one-time document work.
+    for (const line of probe.lines) {
+      const { start, end } = line;
+      Object.defineProperties(line, {
+        start: {
+          get: () => {
+            reads.start++;
+            return start;
+          },
+        },
+        end: {
+          get: () => {
+            reads.end++;
+            return end;
+          },
+        },
+      });
+    }
+    for (let frame = 1; frame <= 60; frame++)
+      rerender(view(1800.1 + frame / 60, source));
+    console.info(
+      JSON.stringify({ scenario: '1000-lyric-lines-60-frames', layout, reads }),
+    );
+    expect(
+      screen.getByText('line900').closest('.ad-lyrics-current'),
+    ).toBeInTheDocument();
+    expect.soft(reads.start).toBeLessThan(10_000);
+    expect.soft(reads.end).toBeLessThan(10_000);
+  },
+);
 
 it('retains inclusive roll window edges while zooming and seeking backwards', () => {
   const source = {

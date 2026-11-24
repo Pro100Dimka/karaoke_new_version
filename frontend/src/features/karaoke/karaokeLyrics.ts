@@ -87,16 +87,74 @@ export const buildLines = (
         activity.some(([start, end]) => start < line.end && end > line.start),
     );
 
+interface LineBlock {
+  from: number;
+  to: number;
+  start: number;
+  lastStart: number;
+  end: number;
+}
+const lineBlocks = new WeakMap<readonly LyricLine[], readonly LineBlock[]>();
+
+/** Immutable document lines retain source order, including overlapping timings. */
+const firstLine = (
+  lines: readonly LyricLine[],
+  position: number,
+  active: boolean,
+): number => {
+  let blocks = lineBlocks.get(lines);
+  if (!blocks) {
+    const built: LineBlock[] = [];
+    for (let from = 0; from < lines.length; from += 128) {
+      const to = Math.min(lines.length, from + 128);
+      let start = Infinity;
+      let lastStart = -Infinity;
+      let end = -Infinity;
+      for (let index = from; index < to; index++) {
+        const line = lines[index]!;
+        start = Math.min(start, line.start);
+        lastStart = Math.max(lastStart, line.start);
+        end = Math.max(end, line.end);
+      }
+      built.push({ from, to, start, lastStart, end });
+    }
+    blocks = built;
+    lineBlocks.set(lines, blocks);
+  }
+  for (const block of blocks) {
+    if (
+      active
+        ? block.start > position || block.end < position
+        : block.lastStart <= position
+    )
+      continue;
+    for (let index = block.from; index < block.to; index++) {
+      const line = lines[index]!;
+      if (
+        active
+          ? position >= line.start && position <= line.end
+          : line.start > position
+      )
+        return index;
+    }
+  }
+  return -1;
+};
+
+/** First future line in document order; shared with the credits camera. */
+export const nextLineIndex = (
+  lines: readonly LyricLine[],
+  position: number,
+): number => firstLine(lines, position, false);
+
 export const currentLineIndex = (
   lines: readonly LyricLine[],
   position: number,
 ): number => {
   if (lines.length === 0) return -1;
-  const active = lines.findIndex(
-    (line) => position >= line.start && position <= line.end,
-  );
+  const active = firstLine(lines, position, true);
   if (active >= 0) return active;
-  const upcoming = lines.findIndex((line) => line.start > position);
+  const upcoming = nextLineIndex(lines, position);
   const previous = lines[upcoming - 1];
   const next = lines[upcoming];
   if (
