@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import shutil
 from collections.abc import Callable, Mapping
@@ -13,6 +14,8 @@ from backend.projects.domain import ArtifactCategory, ProjectArtifact, ProjectMa
 from backend.projects.manifest_codec import decode_manifest, encode_manifest
 from backend.storage.domain import StorageRoots
 from backend.version import PROJECT_FORMAT_VERSION
+
+logger = logging.getLogger(__name__)
 
 
 class LocalProjectStorage:
@@ -183,17 +186,26 @@ class LocalProjectStorage:
         shutil.rmtree(self._revision_root(song_id, revision), ignore_errors=True)
 
     def install_revision_artifact(
-        self, song_id: str, revision: int, relative_path: Path, source: Path
+        self, song_id: str, revision: int, relative_path: Path, source: Path,
+        *,
+        publish: Callable[[Path, Path], None] | None = None,
+        ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> None:
         target = self._revision_root(song_id, revision) / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = target.with_name(f".{target.name}.importing")
         try:
-            shutil.copyfile(source, temporary)
-            os.replace(temporary, target)
+            _copy_snapshot_file(source, temporary, ensure_not_cancelled)
+            (publish or os.replace)(temporary, target)
         except OSError as exc:
-            temporary.unlink(missing_ok=True)
             raise DependencyError("StorageUnavailable", "Project artifact import failed") from exc
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                logger.warning(
+                    "Could not remove temporary project artifact: %s", temporary, exc_info=True
+                )
 
     def portable_revision_size(self, song_id: str, revision: int) -> int:
         root = self._revision_root(song_id, revision)

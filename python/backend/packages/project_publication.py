@@ -158,6 +158,7 @@ class PackageProjectPublication:
         song_id: str,
         *,
         install_cover: Callable[[Path], Path] | None = None,
+        publish_artifact: Callable[[Path, Path], None] | None = None,
         ensure_not_cancelled: Callable[[], None] | None = None,
     ) -> Path | None:
         clip_path = PurePosixPath("media/clip.mp4")
@@ -176,6 +177,8 @@ class PackageProjectPublication:
                     inspection.local_revision or inspection.manifest.revision,
                     Path(*clip_path.parts),
                     workspace.joinpath(*clip_path.parts),
+                    publish=publish_artifact,
+                    ensure_not_cancelled=ensure_not_cancelled,
                 )
             return cover
         finally:
