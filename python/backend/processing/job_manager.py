@@ -44,6 +44,8 @@ class ProcessingJobManager:
         self._clock = clock
         self._ids = ids
         self._events = events
+        # File removal excludes new inputs/submissions without delaying running job controls.
+        self._submission_lock = threading.RLock()
         # Serialize job transitions with progress so stale snapshots cannot undo cancellation.
         self._state_lock = threading.RLock()
         self._preparing_submissions = 0
@@ -75,10 +77,11 @@ class ProcessingJobManager:
             created_at=now,
             updated_at=now,
         )
-        with self._uow.create() as transaction:
-            transaction.jobs.add(job)
-            transaction.commit()
-        self._submit(job, work, on_finally, admit)
+        with self._submission_lock:
+            with self._uow.create() as transaction:
+                transaction.jobs.add(job)
+                transaction.commit()
+            self._submit(job, work, on_finally, admit)
         return job
 
     def _submit(
@@ -141,7 +144,7 @@ class ProcessingJobManager:
     @contextmanager
     def prepare_submission(self) -> Iterator[None]:
         """Keep input files stable until start() registers the job, without holding progress locks."""
-        with self._state_lock:
+        with self._submission_lock, self._state_lock:
             self._preparing_submissions += 1
         try:
             yield
@@ -157,17 +160,18 @@ class ProcessingJobManager:
         allow_job_types: tuple[JobType, ...] = (),
     ) -> None:
         """Keep removal atomic with submission; cancelled workers may still own files."""
-        with self._state_lock:
-            busy = (
-                any(kind not in allow_job_types for kind in self._active_job_types.values())
-                if allow_job_types
-                else bool(self._executor.stats().get("activeOrQueued", 0))
-            )
-            # An input snapshot has no job type yet; allowed running jobs cannot waive its safety.
-            if self._preparing_submissions or busy:
-                raise busy_error or ConflictError(
-                    "ModelsInUse", "Wait for background jobs to finish before deleting models"
+        with self._submission_lock:
+            with self._state_lock:
+                busy = (
+                    any(kind not in allow_job_types for kind in self._active_job_types.values())
+                    if allow_job_types
+                    else bool(self._executor.stats().get("activeOrQueued", 0))
                 )
+                # An input snapshot has no job type yet; allowed jobs cannot waive its safety.
+                if self._preparing_submissions or busy:
+                    raise busy_error or ConflictError(
+                        "ModelsInUse", "Wait for background jobs to finish before deleting models"
+                    )
             action()
 
     def list(
