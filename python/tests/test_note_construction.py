@@ -437,6 +437,41 @@ def test_a_short_stable_phrase_edge_keeps_its_own_note(ending):
     assert [note.note for note in document.words[0].notes] == ([57, 48] if ending else [48, 57])
 
 
+@pytest.mark.parametrize("ending", [False, True])
+@pytest.mark.parametrize("stride", [1, 2])
+def test_a_quantized_slide_does_not_gain_a_note_from_a_momentarily_flat_pitch(ending, stride):
+    pitches = [50.0] * 5 + [50.2, 50.6, 50.8, 51.0, 51.4, 51.8]
+    pitches += [52.2, 52.8, 52.8, 53.0, 53.0, 53.2, 53.4] + [54.0] * 60
+    if ending:
+        pitches.reverse()
+    pitches = pitches[::stride]
+    points = [
+        PitchPoint(i * stride / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
+        for i, pitch in enumerate(pitches)
+    ]
+    duration = len(pitches) * stride / 100
+    document = construct_document(
+        "t", "a", duration, "la", [WordTiming("la", 0, duration, 1)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [54]
+
+
+@pytest.mark.parametrize("ending", [False, True])
+def test_a_short_phrase_edge_with_vibrato_keeps_its_held_pitch(ending):
+    pitches = [60 + 0.3 * math.cos(2 * math.pi * 6 * i / 100) for i in range(8)]
+    pitches += [57.0] * 80
+    if ending:
+        pitches.reverse()
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
+        for i, pitch in enumerate(pitches)
+    ]
+    document = construct_document(
+        "t", "a", 0.88, "la", [WordTiming("la", 0, 0.88, 1)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == ([57, 60] if ending else [60, 57])
+
+
 def test_vibrato_around_a_semitone_boundary_stays_one_note() -> None:
     # A held note sung around 69.5 with +-0.4 semitone vibrato crosses the A4/A#4 boundary every few
     # frames; rounding each frame alone would chop it into a flurry of alternating notes.

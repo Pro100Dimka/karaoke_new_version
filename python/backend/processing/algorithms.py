@@ -260,14 +260,14 @@ def _held_edges(
     segments: list[tuple[int, int]], pitches: Sequence[float], step: float
 ) -> list[tuple[int, int]]:
     # A phrase can enter or leave through a slide without holding its fitted edge note.
-    # Require the same evidence duration that can pay for a note change, within half a semitone.
-    frames = max(
-        2, math.ceil(_NOTE_CHANGE_COST / _MAX_FRAME_DEVIATION * _DEFAULT_PITCH_STEP_SECONDS / step)
-    )
+    # Quantized frames can briefly repeat during a slide. Look for a held half-semitone core
+    # over the note-change penalty's frame window, without imposing a minimum note duration.
+    frames = max(2, math.ceil(_NOTE_CHANGE_COST * _DEFAULT_PITCH_STEP_SECONDS / step))
     for edge in (0, -1):
         while len(segments) > 1:
             first, last = segments[edge]
             width = min(frames, last - first + 1)
+            target = round(median(pitches[first : last + 1]))
             contour = (
                 pitches[first : last + 2] if edge == 0 else pitches[max(0, first - 1) : last + 1]
             )
@@ -276,7 +276,7 @@ def _held_edges(
                 for direction in (-1, 1)
             )
             if not moving or any(
-                max(pitches[index : index + width]) - min(pitches[index : index + width]) <= 0.5
+                max(abs(pitch - target) for pitch in pitches[index : index + width]) <= 0.5
                 for index in range(first, last - width + 2)
             ):
                 break
