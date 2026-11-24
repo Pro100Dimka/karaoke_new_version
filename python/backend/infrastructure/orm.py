@@ -100,6 +100,10 @@ class RecordingRow(Base):
     session_json: Mapped[str] = mapped_column(Text)
     display_name: Mapped[str | None] = mapped_column(String(300))
     file_status: Mapped[str] = mapped_column(String(32), default="Ready")
+    __table_args__ = (
+        Index("ix_recordings_recent", created_at.desc(), recording_id),
+        Index("ix_recordings_song_recent", song_id, created_at.desc(), recording_id),
+    )
 
 
 class AnalysisRow(Base):
@@ -143,11 +147,15 @@ class HistoryRow(Base):
     __tablename__ = "history_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     event_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    event_type: Mapped[str] = mapped_column(String(100))
     entity_type: Mapped[str | None] = mapped_column(String(64))
     entity_id: Mapped[str | None] = mapped_column(String(128), index=True)
     details_json: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    __table_args__ = (
+        Index("ix_history_recent", created_at.desc(), event_id),
+        Index("ix_history_type_recent", event_type, created_at.desc(), event_id),
+    )
 
 
 class SettingsRow(Base):
