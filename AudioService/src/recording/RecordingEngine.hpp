@@ -68,6 +68,8 @@ class RecordingEngine {
                std::uint32_t leadInFrames = 0);
     void pause(SessionFrame sessionFrame);
     void resume(SessionFrame sessionFrame);
+    // Fence new PCM and let the existing worker drain/finalize; storage stays owned until terminal state.
+    void beginStop(SessionFrame sessionFrame);
     RecordingResult stop(SessionFrame sessionFrame);
     // Control-side failure: stop producers and the writer before abandoning the partial file.
     void fail(std::string_view error) noexcept;

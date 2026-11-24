@@ -284,6 +284,41 @@ struct NetworkTestAccess {
 };
 
 namespace Tests {
+void pausedPerformanceKeepsItsDryStemWhenRemoteVoiceArrives() {
+    constexpr std::uint32_t Frames = 480, Blocks = 32;
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    (void)service.session().prepare({});
+    service.session().start();
+    service.realtime().setMicrophoneEnabled(false);
+    service.realtime().setSystemGain(1.0F);
+    require(service.network().addRemoteParticipant("late-remote"), "the later singer has a render queue");
+    const auto path = tempRoot / "paused-solo-dry.wav";
+    require(service.handleLine("1|PrepareRecording|id=solo|tap=performance|backing=true|path=" +
+                                path.string()).status == ControlStatus::Ok &&
+                service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+            "the solo take starts before another singer arrives");
+    const std::vector<float> input(Frames), remote(Frames, 0.1F);
+    std::vector<float> output(Frames * 2U);
+    for (std::uint32_t block = 0; block < Blocks; ++block)
+        fake->pump(input, 1, output, 2, block * Frames, block * Frames);
+    require(service.handleLine("1|PauseRecording").status == ControlStatus::Ok,
+            "the recording boundary is frozen before the remote voice");
+    require(NetworkTestAccess::queueVoice(service.network(), "late-remote", remote),
+            "the remote voice arrives after the recorded interval");
+    fake->pump(input, 1, output, 2, Blocks * Frames, Blocks * Frames);
+    expect(service.realtime().snapshot().remoteMixNonzeroBlocks > 0 &&
+               std::ranges::any_of(output, [](float value) { return value != 0.0F; }),
+           "the later voice remains audible while the take is inactive");
+    require(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+            "the paused solo take finalizes normally");
+    expect(std::filesystem::exists(path.string() + ".dry.wav") &&
+               !std::filesystem::exists(path.string() + ".dry-incomplete.wav"),
+           "a voice outside the recording interval cannot invalidate the saved solo dry stem");
+}
+
 void masterCompanionRecordsTheExactRenderedBacking() {
     constexpr std::uint32_t frames = 480, blocks = 32;
     const auto musicPath = tempRoot / "companion-source-44100.wav";

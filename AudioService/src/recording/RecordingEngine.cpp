@@ -239,7 +239,7 @@ void RecordingEngine::appendPerformanceTail(SessionFrame cutoff, std::span<const
     lastSessionFrame_.store(cutoff, std::memory_order_relaxed);
 }
 
-RecordingResult RecordingEngine::stop(SessionFrame sessionFrame) {
+void RecordingEngine::beginStop(SessionFrame sessionFrame) {
     if (state() == RecordingState::Idle) {
         throw std::logic_error("recording is not active");
     }
@@ -256,6 +256,10 @@ RecordingResult RecordingEngine::stop(SessionFrame sessionFrame) {
             break;
     }
     wakeWorker();
+}
+
+RecordingResult RecordingEngine::stop(SessionFrame sessionFrame) {
+    beginStop(sessionFrame);
     while (state() == RecordingState::Finalizing)
         state_.wait(RecordingState::Finalizing);
     drainProducers();
