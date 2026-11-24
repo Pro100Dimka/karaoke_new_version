@@ -64,21 +64,23 @@ it.each(['readiness', 'migration', 'update', 'running'] as const)(
         delivered.mock.calls
           .map(([command]) => command)
           .filter((command) => !['displays', 'power'].includes(command.type));
-      expect(actions()).toEqual([
-        { type: 'addSong' },
-        { type: 'joinRoom', code: 'EARLY42' },
-        { type: 'openRoom' },
-        { type: 'importFiles', paths: [file] },
-      ]);
+      await vi.waitFor(() =>
+        expect(actions()).toEqual([
+          { type: 'addSong' },
+          { type: 'joinRoom', code: 'EARLY42' },
+          { type: 'openRoom' },
+          { type: 'importFiles', paths: [file] },
+        ]),
+      );
       // A replacement renderer must not receive the already-consumed launch again.
       shell.disconnect();
       shell.connect(delivered);
       expect(actions()).toHaveLength(4);
       launch(['advoice://room/late42']);
-      expect(actions()).toHaveLength(5);
+      await vi.waitFor(() => expect(actions()).toHaveLength(5));
       expect(actions().at(-1)).toEqual({ type: 'joinRoom', code: 'LATE42' });
       launch([file]);
-      expect(actions()).toHaveLength(6);
+      await vi.waitFor(() => expect(actions()).toHaveLength(6));
       expect(actions().at(-1)).toEqual({ type: 'importFiles', paths: [file] });
     } finally {
       release();

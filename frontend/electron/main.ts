@@ -210,7 +210,7 @@ shell.onStatus((next) => {
 });
 const pendingLaunches: (readonly string[])[] = [];
 const hasLaunchIntent = (argv: readonly string[]): boolean =>
-  commandsFromArguments(argv.slice(1)).length > 0;
+  commandsFromArguments(argv.slice(1), () => true).length > 0;
 const updater = startAutoUpdate({
   ready: (version) => shell.send({ type: 'updateReady', version }),
   automatic: readAutoUpdate,

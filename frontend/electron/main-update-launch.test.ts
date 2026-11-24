@@ -190,13 +190,15 @@ it.each([
           : scenario.endsWith('task')
             ? { type: 'addSong' }
             : { type: 'joinRoom', code: 'AB12CD' };
-        expect(
-          actions(),
-          JSON.stringify({
-            installerStarts: installer.spawn.mock.calls.length,
-            exits: app.exit.mock.calls,
-          }),
-        ).toEqual([expected]);
+        await vi.waitFor(() =>
+          expect(
+            actions(),
+            JSON.stringify({
+              installerStarts: installer.spawn.mock.calls.length,
+              exits: app.exit.mock.calls,
+            }),
+          ).toEqual([expected]),
+        );
         expect(installer.spawn).not.toHaveBeenCalled();
         expect(app.exit).not.toHaveBeenCalled();
         expect(fetchRelease).toHaveBeenCalledTimes(
