@@ -159,7 +159,7 @@ def test_unsuccessful_reprocessing_keeps_the_previously_ready_revision(
             assert client.post(f"/songs/processing/{job_id}/cancel").status_code == 200
         assert finished.wait(3)
         expected = "Cancelled" if outcome == "cancel" else "Failed"
-        assert client.get(f"/jobs/{job_id}").json()["state"] == expected
+        assert wait_for_job(client, job_id)["state"] == expected
         after = client.get(f"/songs/{song_id}").json()
         assert after["status"] == "Ready"
         assert after["activeRevision"] == before["activeRevision"]
