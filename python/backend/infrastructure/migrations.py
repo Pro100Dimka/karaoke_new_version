@@ -10,7 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.domain_errors import DependencyError
-from backend.infrastructure.orm import Base, HistoryRow, JobRow, RecordingRow
+from backend.infrastructure.orm import Base, HistoryRow, JobRow, RecordingRow, SongRow
 from backend.version import DB_SCHEMA_VERSION
 
 Migration = Callable[[Connection], None]
@@ -86,12 +86,20 @@ def _ensure_query_indexes(connection: Connection) -> None:
     tables: set[str] = set(
         connection.execute(text("SELECT name FROM sqlite_master WHERE type = 'table'")).scalars()
     )
-    for model in (JobRow, RecordingRow, HistoryRow):
+    for model in (JobRow, RecordingRow, HistoryRow, SongRow):
         table = cast(Table, model.__table__)
         if table.name not in tables:
             continue
+        columns = {
+            str(row[1]) for row in connection.execute(text(f"PRAGMA table_info({table.name})"))
+        }
         for index in sorted(table.indexes, key=lambda item: item.name or ""):
-            if index.name and index.name.endswith("_recent") and not index.unique:
+            if (
+                index.name
+                and (index.name.endswith("_recent") or index.name.startswith("ix_songs_catalog_"))
+                and not index.unique
+                and set(index.columns.keys()) <= columns
+            ):
                 index.create(connection, checkfirst=True)
     if "history_events" in tables:
         # The composite has the same event_type prefix. Keeping the old index makes

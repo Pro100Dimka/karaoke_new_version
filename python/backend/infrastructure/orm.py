@@ -45,6 +45,13 @@ class SongRow(Base):
     project_format_version: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    __table_args__ = (
+        # Catalog cursors always break date ties by ascending song ID, in either direction.
+        Index("ix_songs_catalog_newest", created_at.desc(), song_id),
+        Index("ix_songs_catalog_oldest", created_at, song_id),
+        Index("ix_songs_catalog_status_newest", status, created_at.desc(), song_id),
+        Index("ix_songs_catalog_status_oldest", status, created_at, song_id),
+    )
 
 
 class ProjectRevisionRow(Base):
