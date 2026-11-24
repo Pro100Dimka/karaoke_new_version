@@ -378,6 +378,65 @@ def test_a_scoop_into_a_held_note_does_not_draw_a_staircase() -> None:
     assert [note.note for note in document.words[0].notes] == [60, 62]
 
 
+@pytest.mark.parametrize("ending", [False, True])
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_a_continuously_moving_phrase_edge_is_not_a_separate_held_note(ending, direction):
+    glide = [
+        57 + direction * value
+        for value in (
+            9.8,
+            9.6,
+            9.4,
+            9.2,
+            8.8,
+            8.4,
+            7.8,
+            7.0,
+            6.4,
+            5.8,
+            5.2,
+            4.2,
+            3.6,
+            3.0,
+            2.2,
+            1.8,
+            1.2,
+            1.0,
+            0.6,
+            0.4,
+            0.2,
+        )
+    ]
+    pitches = glide + [57.0] * 80
+    if ending:
+        pitches.reverse()
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
+        for i, pitch in enumerate(pitches)
+    ]
+    document = construct_document(
+        "t", "a", 1.01, "la", [WordTiming("la", 0, 1.01, 1)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [57]
+    note = document.words[0].notes[0]
+    assert (note.end < 1.01) if ending else (note.start > 0)
+
+
+@pytest.mark.parametrize("ending", [False, True])
+def test_a_short_stable_phrase_edge_keeps_its_own_note(ending):
+    pitches = [48.0] * 7 + [57.0] * 80
+    if ending:
+        pitches.reverse()
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True)
+        for i, pitch in enumerate(pitches)
+    ]
+    document = construct_document(
+        "t", "a", 0.87, "la", [WordTiming("la", 0, 0.87, 1)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == ([57, 48] if ending else [48, 57])
+
+
 def test_vibrato_around_a_semitone_boundary_stays_one_note() -> None:
     # A held note sung around 69.5 with +-0.4 semitone vibrato crosses the A4/A#4 boundary every few
     # frames; rounding each frame alone would chop it into a flurry of alternating notes.

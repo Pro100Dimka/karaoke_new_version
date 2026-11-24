@@ -216,7 +216,7 @@ def _notes_for_run(
         # boundary or carries vibrato; the median of the whole held segment is the pitch actually sung.
         note = round(median(pitches[first : last + 1]))
         note_start = max(start, points[first].time) if position == 0 else points[first].time
-        notes.append(Note(note, note_start, end))
+        notes.append(Note(note, note_start, min(end, points[last].time + step)))
         if position > 0:
             previous = notes[-2]
             notes[-2] = Note(previous.note, previous.start, note_start)
@@ -253,6 +253,34 @@ def _held_segments(pitches: Sequence[float], step: float) -> list[tuple[int, int
         if index == len(path) or path[index] != path[first]:
             segments.append((first, index - 1))
             first = index
+    return _held_edges(segments, pitches, step)
+
+
+def _held_edges(
+    segments: list[tuple[int, int]], pitches: Sequence[float], step: float
+) -> list[tuple[int, int]]:
+    # A phrase can enter or leave through a slide without holding its fitted edge note.
+    # Require the same evidence duration that can pay for a note change, within half a semitone.
+    frames = max(
+        2, math.ceil(_NOTE_CHANGE_COST / _MAX_FRAME_DEVIATION * _DEFAULT_PITCH_STEP_SECONDS / step)
+    )
+    for edge in (0, -1):
+        while len(segments) > 1:
+            first, last = segments[edge]
+            width = min(frames, last - first + 1)
+            contour = (
+                pitches[first : last + 2] if edge == 0 else pitches[max(0, first - 1) : last + 1]
+            )
+            moving = any(
+                all(direction * (right - left) >= -1e-8 for left, right in pairwise(contour))
+                for direction in (-1, 1)
+            )
+            if not moving or any(
+                max(pitches[index : index + width]) - min(pitches[index : index + width]) <= 0.5
+                for index in range(first, last - width + 2)
+            ):
+                break
+            segments.pop(edge)
     return segments
 
 
