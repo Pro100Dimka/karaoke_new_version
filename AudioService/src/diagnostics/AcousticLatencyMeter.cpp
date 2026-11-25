@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 
 namespace {
@@ -27,6 +28,19 @@ std::uint32_t frames(double seconds, std::uint32_t rateHz) noexcept {
 }
 } // namespace
 
+AcousticLatencyMeter::~AcousticLatencyMeter() {
+    retireAnalysis();
+}
+
+void AcousticLatencyMeter::retireAnalysis() noexcept {
+    // Retire the worker's read lease before a new format, capture or destruction changes PCM.
+    state_.store(State::Idle, std::memory_order_release);
+    if (analysis_.valid()) {
+        analysis_.wait();
+        analysis_ = {};
+    }
+}
+
 std::vector<float> AcousticLatencyMeter::chirp(std::uint32_t rateHz) {
     const auto count = frames(ChirpSeconds, rateHz);
     std::vector<float> out(count);
@@ -41,6 +55,7 @@ std::vector<float> AcousticLatencyMeter::chirp(std::uint32_t rateHz) {
 }
 
 void AcousticLatencyMeter::prepare(std::uint32_t renderRateHz, std::uint32_t captureRateHz) {
+    retireAnalysis();
     renderRateHz_ = std::max(1U, renderRateHz);
     captureRateHz_ = std::max(1U, captureRateHz);
     const auto single = chirp(renderRateHz_);
@@ -58,6 +73,7 @@ void AcousticLatencyMeter::prepare(std::uint32_t renderRateHz, std::uint32_t cap
     result_ = {};
     recentResults_ = {};
     nextResult_ = 0;
+    cancelled_.store(false, std::memory_order_relaxed);
     state_.store(State::Idle, std::memory_order_release);
 }
 
@@ -65,6 +81,7 @@ bool AcousticLatencyMeter::start() noexcept {
     auto current = state_.load(std::memory_order_acquire);
     if (recorded_.empty() || current == State::Playing || current == State::Recorded)
         return false;
+    retireAnalysis();
     renderPosition_ = 0;
     recordedFrames_ = 0;
     recordStartTicks_ = 0;
@@ -147,9 +164,13 @@ void AcousticLatencyMeter::capture(std::span<const float> interleaved, std::uint
 }
 
 void AcousticLatencyMeter::cancel() noexcept {
-    auto playing = State::Playing;
-    if (state_.compare_exchange_strong(playing, State::Failed, std::memory_order_acq_rel))
-        cancelled_.store(true, std::memory_order_release);
+    auto state = state_.load(std::memory_order_acquire);
+    while (state == State::Playing || state == State::Recorded) {
+        if (state_.compare_exchange_weak(state, State::Failed, std::memory_order_acq_rel)) {
+            cancelled_.store(true, std::memory_order_release);
+            return;
+        }
+    }
 }
 
 void AcousticLatencyMeter::invalidateTiming() noexcept {
@@ -160,6 +181,12 @@ void AcousticLatencyMeter::invalidateTiming() noexcept {
 std::optional<std::pair<std::uint32_t, double>>
 AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const float> single,
                              std::uint32_t rateHz) {
+    return locate(recorded, single, rateHz, nullptr);
+}
+
+AcousticLatencyMeter::ChirpLocation
+AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const float> single,
+                             std::uint32_t rateHz, const std::atomic<State>* activeState) {
     std::array<std::uint32_t, ChirpOffsetsSeconds.size()> offsets{};
     for (std::size_t index = 0; index < offsets.size(); ++index)
         offsets[index] = frames(ChirpOffsetsSeconds[index], rateHz);
@@ -175,6 +202,8 @@ AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const fl
     std::uint32_t bestLag = 0;
     std::vector<double> confidenceByLag(lastLag + 1U);
     for (std::uint32_t lag = 0; lag <= lastLag; ++lag) {
+        if (activeState && activeState->load(std::memory_order_acquire) != State::Recorded)
+            return std::nullopt;
         double score = 0.0, weakest = 1.0;
         for (const auto offset : offsets) {
             double dot = 0.0, energy = 0.0;
@@ -210,27 +239,46 @@ AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const fl
 AcousticLatencyMeter::State AcousticLatencyMeter::poll(Result& result) {
     auto state = state_.load(std::memory_order_acquire);
     if (state == State::Recorded) {
-        result_.timingInvalid = invalidTiming_.load(std::memory_order_acquire);
-        const auto found = invalidTiming_.load(std::memory_order_acquire)
-                               ? std::nullopt : locate(recorded_, captureChirp_, captureRateHz_);
+        Result measured;
+        measured.timingInvalid = invalidTiming_.load(std::memory_order_acquire);
+        ChirpLocation found;
+        if (!measured.timingInvalid) {
+            const auto ready = analysis_.valid() && analysis_.wait_for(std::chrono::seconds(0)) ==
+                                                        std::future_status::ready;
+            if (!analysis_.valid()) {
+                analysis_ = std::async(std::launch::async, [this] {
+                    return locate(recorded_, captureChirp_, captureRateHz_, &state_);
+                });
+            }
+            if (!ready) {
+                result = result_;
+                return state_.load(std::memory_order_acquire);
+            }
+            found = analysis_.get();
+        }
         state = State::Failed;
         if (found) {
             const auto capturedAt = captureTimes_[found->first];
             const auto hidden = capturedAt - probePresentedAt_.load(std::memory_order_acquire);
             if (hidden >= EarliestPlausibleNs &&
                 hidden <= static_cast<MonotonicTicks>(MaxRoundTripSeconds * NanosecondsPerSecond)) {
-                result_ = {std::max<MonotonicTicks>(0, hidden), found->second};
-                result_.probeWrittenAtNs = probeWrittenAt_.load(std::memory_order_acquire);
-                result_.probePresentedAtNs = probePresentedAt_.load(std::memory_order_acquire);
-                result_.chirpDeliveredAtNs = captureDeliveredTimes_[found->first];
-                result_.chirpRawStampNs = captureRawTimes_[found->first];
-                result_.chirpCapturedAtNs = capturedAt;
+                measured = {std::max<MonotonicTicks>(0, hidden), found->second};
+                measured.probeWrittenAtNs = probeWrittenAt_.load(std::memory_order_acquire);
+                measured.probePresentedAtNs = probePresentedAt_.load(std::memory_order_acquire);
+                measured.chirpDeliveredAtNs = captureDeliveredTimes_[found->first];
+                measured.chirpRawStampNs = captureRawTimes_[found->first];
+                measured.chirpCapturedAtNs = capturedAt;
                 state = State::Done;
             }
         }
-        recentResults_[nextResult_] = result_;
-        nextResult_ = (nextResult_ + 1U) % recentResults_.size();
-        state_.store(state, std::memory_order_release);
+        auto recorded = State::Recorded;
+        if (state_.compare_exchange_strong(recorded, state, std::memory_order_acq_rel)) {
+            result_ = measured;
+            recentResults_[nextResult_] = measured;
+            nextResult_ = (nextResult_ + 1U) % recentResults_.size();
+        } else {
+            state = recorded; // Playback cancellation wins over an unpublished worker result.
+        }
     }
     result = result_;
     return state;

@@ -2,13 +2,16 @@
 #include "diagnostics/AcousticLatencyMeter.hpp"
 #include "diagnostics/LatencyRegistry.hpp"
 #include "diagnostics/TraceBuffer.hpp"
+#include "realtime/RealtimeInstrumentation.hpp"
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <deque>
 #include <new>
 #include <span>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -67,17 +70,12 @@ void acousticLatencyLocatesChirpTrainOffset() {
 namespace {
 // Plays the meter's output into a simulated room: the microphone hears whatever was presented
 // `acousticFrames` earlier, and the device stamps each captured block with its capture time.
-AcousticLatencyMeter::State simulateAcousticRoom(AcousticLatencyMeter& meter,
-                                                 std::uint32_t acousticFrames, float loopGain,
-                                                 AcousticLatencyMeter::Result& result,
-                                                 bool prepare = true) {
-    constexpr std::uint32_t rate = 48'000;
-    constexpr std::uint32_t block = 480;
+void recordAcousticRoom(AcousticLatencyMeter& meter, std::uint32_t rate,
+                        std::uint32_t acousticFrames, float loopGain) {
+    const auto block = rate / 100U;
     constexpr MonotonicTicks start = 1'000'000'000'000;
     constexpr MonotonicTicks blockNs = 10'000'000;
-    if (prepare)
-        meter.prepare(rate, rate);
-    (void)meter.start();
+    require(meter.start(), "the deliberately requested acoustic measurement starts");
     std::deque<float> air(acousticFrames, 0.0F);
     std::vector<float> output(block), microphone(block);
     for (std::uint32_t index = 0; index < 250; ++index) {
@@ -91,9 +89,109 @@ AcousticLatencyMeter::State simulateAcousticRoom(AcousticLatencyMeter& meter,
         }
         meter.capture(microphone, block, 1, presentedAt);
     }
-    return meter.poll(result);
+}
+
+AcousticLatencyMeter::State awaitAcousticResult(AcousticLatencyMeter& meter,
+                                                AcousticLatencyMeter::Result& result) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    auto state = meter.poll(result);
+    while (state == AcousticLatencyMeter::State::Recorded &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::yield();
+        state = meter.poll(result);
+    }
+    require(state != AcousticLatencyMeter::State::Recorded, "acoustic analysis completes");
+    return state;
+}
+
+AcousticLatencyMeter::State simulateAcousticRoom(AcousticLatencyMeter& meter,
+                                                 std::uint32_t acousticFrames, float loopGain,
+                                                 AcousticLatencyMeter::Result& result,
+                                                 bool prepare = true) {
+    constexpr std::uint32_t rate = 48'000;
+    if (prepare)
+        meter.prepare(rate, rate);
+    recordAcousticRoom(meter, rate, acousticFrames, loopGain);
+    return awaitAcousticResult(meter, result);
 }
 } // namespace
+
+void acousticLatencyPollingDoesNotFinishCorrelationOnControlThread() {
+    constexpr std::uint32_t rate = 192'000, delayFrames = 5'760;
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    meter.prepare(rate, rate);
+    recordAcousticRoom(meter, rate, delayFrames, 0.3F);
+    require(meter.poll(result) == AcousticLatencyMeter::State::Recorded,
+            "the first poll leaves recorded correlation pending so other commands can run");
+    expect(!meter.start(), "an outstanding correlation cannot overlap a new measurement");
+    expect(awaitAcousticResult(meter, result) == AcousticLatencyMeter::State::Done &&
+               result.hiddenLatencyNs == 30'000'000 && result.confidence > 0.999,
+           "asynchronous analysis preserves the exact high-rate delay and confidence");
+    meter.cancel();
+    expect(meter.poll(result) == AcousticLatencyMeter::State::Done && !meter.cancelled(),
+           "cancelling later playback retains an already published measurement");
+}
+
+void acousticLatencyCancellationRetiresPendingCorrelation() {
+    constexpr std::uint32_t rate = 192'000;
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    meter.prepare(rate, rate);
+    recordAcousticRoom(meter, rate, 5'760, 0.3F);
+    require(meter.poll(result) == AcousticLatencyMeter::State::Recorded,
+            "the completed capture still has an unpublished correlation");
+    RealtimeInstrumentation::reset();
+    {
+        RealtimeScope realtime;
+        meter.cancel();
+    }
+    const auto activity = RealtimeInstrumentation::snapshot();
+    expect(activity.allocations == 0 && activity.deallocations == 0 && activity.blockingCalls == 0,
+           "playback can cancel pending analysis without allocation or a realtime wait");
+    expect(meter.poll(result) == AcousticLatencyMeter::State::Failed && meter.cancelled() &&
+               meter.lastResult().confidence == 0 && !meter.acceptsCalibration(30'000'000),
+           "cancelled correlation never becomes calibration evidence");
+    require(meter.start(), "another deliberate measurement retires the cancelled worker");
+    expect(!meter.cancelled(), "the next measurement starts without the retired cancellation");
+    meter.cancel();
+}
+
+void acousticLatencyReconfigurationRetiresPendingCorrelation() {
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    meter.prepare(192'000, 192'000);
+    recordAcousticRoom(meter, 192'000, 5'760, 0.3F);
+    require(meter.poll(result) == AcousticLatencyMeter::State::Recorded,
+            "the previous format has a pending analysis");
+    meter.prepare(48'000, 48'000);
+    expect(meter.poll(result) == AcousticLatencyMeter::State::Idle &&
+               meter.lastResult().confidence == 0 && !meter.acceptsCalibration(30'000'000),
+           "reconfiguration retires old analysis before replacing its buffers and history");
+    recordAcousticRoom(meter, 48'000, 2'400, -0.3F);
+    expect(awaitAcousticResult(meter, result) == AcousticLatencyMeter::State::Done &&
+               result.hiddenLatencyNs == 50'000'000 && result.confidence > 0.999,
+           "the new format publishes only its own captured signal and timestamps");
+}
+
+void acousticLatencyWorkerCreationFailureCanRetry() {
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    meter.prepare(48'000, 48'000);
+    recordAcousticRoom(meter, 48'000, 1'440, 0.3F);
+    failNextAllocationOfSize(1, true);
+    bool allocationFailed = false;
+    try {
+        (void)meter.poll(result);
+    } catch (const std::bad_alloc&) {
+        allocationFailed = true;
+    }
+    failNextAllocationOfSize(0);
+    expect(allocationFailed, "worker creation reports allocation failure on the control thread");
+    expect(awaitAcousticResult(meter, result) == AcousticLatencyMeter::State::Done &&
+               result.hiddenLatencyNs == 30'000'000,
+           "a failed worker launch leaves the captured measurement available to retry");
+}
 
 void acousticLatencyMeasuresTheUnreportedRoundTrip() {
     for (const auto polarity : std::array{0.3F, -0.3F}) {

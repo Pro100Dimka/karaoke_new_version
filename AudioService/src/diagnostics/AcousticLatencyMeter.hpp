@@ -2,9 +2,10 @@
 
 #include "common/Types.hpp"
 
-#include <atomic>
 #include <array>
+#include <atomic>
 #include <cstdint>
+#include <future>
 #include <optional>
 #include <span>
 #include <vector>
@@ -16,7 +17,8 @@
  * residual delay, which can include both physical buffering and timestamp error.
  *
  * Threads: start()/poll() on the control thread, render() on the render thread, capture() on the
- * capture thread. Buffers are allocated in prepare(); the realtime calls never allocate or lock.
+ * capture thread. Correlation runs on a worker only after an explicit measurement was recorded.
+ * Buffers are allocated in prepare(); the realtime calls never allocate or lock.
  */
 class AcousticLatencyMeter {
   public:
@@ -38,6 +40,7 @@ class AcousticLatencyMeter {
     };
     enum class State : std::uint32_t { Idle, Playing, Recorded, Done, Failed };
 
+    ~AcousticLatencyMeter();
     void prepare(std::uint32_t renderRateHz, std::uint32_t captureRateHz);
     /** Arms a measurement; false while another one is running. */
     [[nodiscard]] bool start() noexcept;
@@ -57,7 +60,8 @@ class AcousticLatencyMeter {
     [[nodiscard]] bool cancelled() const noexcept {
         return cancelled_.load(std::memory_order_acquire);
     }
-    /** Finishes a recorded measurement (correlation runs here, on the calling thread). */
+    /** Starts/polls recorded correlation without waiting; Recorded stays pending until it finishes.
+     */
     [[nodiscard]] State poll(Result& result);
     /** The last completed measurement (control thread, after poll). */
     [[nodiscard]] Result lastResult() const noexcept {
@@ -73,6 +77,11 @@ class AcousticLatencyMeter {
     locate(std::span<const float> recorded, std::span<const float> chirp, std::uint32_t rateHz);
 
   private:
+    using ChirpLocation = std::optional<std::pair<std::uint32_t, double>>;
+    [[nodiscard]] static ChirpLocation locate(std::span<const float> recorded,
+                                              std::span<const float> chirp, std::uint32_t rateHz,
+                                              const std::atomic<State>* activeState);
+    void retireAnalysis() noexcept;
     std::vector<float> renderProbe_;
     std::vector<float> captureChirp_;
     std::vector<float> recorded_;
@@ -93,4 +102,5 @@ class AcousticLatencyMeter {
     Result result_{};
     std::array<Result, 3> recentResults_{};
     std::size_t nextResult_{0};
+    std::future<ChirpLocation> analysis_;
 };
