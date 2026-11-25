@@ -10,7 +10,7 @@ import {
   within,
 } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, onTestFailed, vi } from 'vitest';
 import type {
   AnalysisDto,
   RecordingDto,
@@ -170,6 +170,10 @@ const returnTake = async (take = finishedTake) => {
 it.each(['loaded', 'failed', 'late-success', 'late-failure'] as const)(
   'closes the %s archive when another song returns without leaving its takes under the old title',
   async (state) => {
+    let stage = 'opening archive';
+    onTestFailed(() =>
+      console.info('Recording return stage', { state, stage }),
+    );
     const previous = deferred<RecordingDto[]>();
     if (state.startsWith('late-'))
       api.listRecordings.mockReturnValueOnce(previous.promise);
@@ -189,6 +193,7 @@ it.each(['loaded', 'failed', 'late-success', 'late-failure'] as const)(
         ),
       ).toBeVisible();
 
+    stage = 'opening returned analysis';
     await returnTake();
     if (state.startsWith('late-')) {
       await act(async () => {
@@ -200,6 +205,7 @@ it.each(['loaded', 'failed', 'late-success', 'late-failure'] as const)(
     expect(within(current).getByText(finishedSong.title)).toBeVisible();
     expect(onAnalysisReady).toHaveBeenLastCalledWith(finishedTake.id);
     expect(api.latestAnalysis).toHaveBeenLastCalledWith(finishedTake.id);
+    stage = 'opening recording folder';
     fireEvent.click(within(current).getByLabelText(tr('openFolder')));
     await waitFor(() =>
       expect(desktop.revealInExplorer).toHaveBeenCalledWith(
@@ -214,6 +220,7 @@ it.each(['loaded', 'failed', 'late-success', 'late-failure'] as const)(
       ).not.toBeInTheDocument();
     expect(document.querySelector('.recordingsDialog')).not.toBeInTheDocument();
 
+    stage = 'closing analysis';
     fireEvent.click(within(current).getByLabelText(tr('closeDialog')));
     expect(document.querySelector('.analysisDialog')).not.toBeInTheDocument();
     expect(screen.queryByText(archiveSong.title)).not.toBeInTheDocument();
