@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Callable, Protocol
+from dataclasses import dataclass
+from typing import Callable, Literal, Protocol
 
 import anyio
 from starlette.websockets import WebSocketDisconnect
@@ -17,6 +18,12 @@ class Socket(Protocol):
     async def close(self, code: int = 1000) -> None: ...
 
 
+@dataclass(slots=True)
+class _SnapshotDelivery:
+    pending: dict[str, tuple[object, tuple[str, str] | None]]
+    task: asyncio.Task[None] | None = None
+
+
 class SocialHub:
     """
     The open apps' sockets, by account. Being connected is being online. Whatever changes for an
@@ -28,6 +35,8 @@ class SocialHub:
         self._sockets: dict[str, set[Socket]] = {}
         self._rooms: dict[str, str] = {}
         self._send_locks: dict[Socket, asyncio.Lock] = {}
+        self._deliveries: dict[Socket, _SnapshotDelivery] = {}
+        self._changes: dict[str, bool] = {}
         self._lock = threading.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._render: Callable[[str], object] | None = None
@@ -66,7 +75,7 @@ class SocialHub:
             for account in account_ids:
                 self._rooms.pop(account, None)
             for socket in sockets:
-                self._send_locks.pop(socket, None)
+                self._forget_socket(socket)
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._spawn_close, sockets)
 
@@ -87,53 +96,100 @@ class SocialHub:
         with self._lock:
             sockets = self._sockets.get(account_id, set())
             sockets.discard(socket)
-            self._send_locks.pop(socket, None)
+            self._forget_socket(socket)
             if sockets:
                 return False
             self._sockets.pop(account_id, None)
             self._rooms.pop(account_id, None)
             return True
 
+    def _forget_socket(self, socket: Socket) -> None:
+        self._send_locks.pop(socket, None)
+        delivery = self._deliveries.pop(socket, None)
+        if delivery is not None and delivery.task is not None and self._loop is not None:
+            self._loop.call_soon_threadsafe(delivery.task.cancel)
+
     def changed(self, account_ids: tuple[str, ...]) -> None:
         """Safe from any thread: pushes a fresh view to every connected account among these."""
         loop = self._loop
         if loop is None:
             return
-        for account_id in set(account_ids):
-            if self.online(account_id):
-                loop.call_soon_threadsafe(self._spawn, account_id)
+        scheduled = []
+        with self._lock:
+            for account_id in set(account_ids):
+                if not self._sockets.get(account_id):
+                    continue
+                if account_id not in self._changes:
+                    scheduled.append(account_id)
+                self._changes[account_id] = True
+        for account_id in scheduled:
+            loop.call_soon_threadsafe(self._spawn, account_id)
 
     def broadcast_room(self, room_id: str, message: object) -> None:
-        """Safe from the UDP relay thread: pushes transient data to apps in one room."""
+        """Keep only current room meters; a slow app must not queue obsolete levels for others."""
+        with self._lock:
+            recipients = [
+                (account_id, socket)
+                for account_id, current_room in self._rooms.items()
+                if current_room == room_id
+                for socket in self._sockets.get(account_id, ())
+            ]
+        for account_id, socket in recipients:
+            self._queue_snapshot(socket, "room", message, room=(account_id, room_id))
+
+    def _queue_snapshot(
+        self,
+        socket: Socket,
+        channel: Literal["inbox", "room"],
+        message: object,
+        *,
+        room: tuple[str, str] | None = None,
+    ) -> None:
         loop = self._loop
         if loop is None:
             return
         with self._lock:
-            account_ids = tuple(
-                account_id
-                for account_id, current_room in self._rooms.items()
-                if current_room == room_id and self._sockets.get(account_id)
-            )
-        if account_ids:
-            loop.call_soon_threadsafe(self._spawn_broadcast, account_ids, message)
+            if socket not in self._send_locks:
+                return
+            delivery = self._deliveries.get(socket)
+            scheduled = delivery is None
+            if delivery is None:
+                delivery = _SnapshotDelivery({})
+                self._deliveries[socket] = delivery
+            delivery.pending[channel] = (message, room)
+        if scheduled:
+            loop.call_soon_threadsafe(self._spawn_delivery, socket, delivery)
 
-    def _spawn_broadcast(self, account_ids: tuple[str, ...], message: object) -> None:
-        task = asyncio.create_task(self._broadcast(account_ids, message))
+    def _spawn_delivery(self, socket: Socket, delivery: _SnapshotDelivery) -> None:
+        with self._lock:
+            if self._deliveries.get(socket) is not delivery:
+                return
+            task = asyncio.create_task(self._deliver(socket, delivery))
+            delivery.task = task
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def _broadcast(self, account_ids: tuple[str, ...], message: object) -> None:
-        with self._lock:
-            sockets = tuple(
-                socket for account_id in account_ids for socket in self._sockets.get(account_id, ())
-            )
-        for socket in sockets:
-            try:
-                await self._send(socket, message)
-            except (WebSocketDisconnect, RuntimeError, OSError):
-                logger.debug("Room push to a closing socket was dropped", exc_info=True)
+    async def _deliver(self, socket: Socket, delivery: _SnapshotDelivery) -> None:
+        try:
+            while True:
+                with self._lock:
+                    if self._deliveries.get(socket) is not delivery:
+                        return
+                    if not delivery.pending:
+                        self._deliveries.pop(socket)
+                        return
+                    message, room = delivery.pending.pop(next(iter(delivery.pending)))
+                await self._send(socket, message, room=room)
+        except (WebSocketDisconnect, RuntimeError, OSError):
+            logger.debug("Snapshot push to a closing socket was dropped", exc_info=True)
+        finally:
+            with self._lock:
+                if self._deliveries.get(socket) is delivery:
+                    self._deliveries.pop(socket)
 
-    async def _send(self, socket: Socket, message: object) -> None:
+    async def _send(
+        self, socket: Socket, message: object, *, room: tuple[str, str] | None = None
+    ) -> None:
         with self._lock:
             lock = self._send_locks.get(socket)
         if lock is None:
@@ -142,12 +198,30 @@ class SocialHub:
             with self._lock:
                 if self._send_locks.get(socket) is not lock:
                     return
+                if room is not None and self._rooms.get(room[0]) != room[1]:
+                    return
             await socket.send_json(message)
 
     def _spawn(self, account_id: str) -> None:
-        task = asyncio.create_task(self.push(account_id))
+        task = asyncio.create_task(self._push_changes(account_id))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+
+    async def _push_changes(self, account_id: str) -> None:
+        try:
+            while True:
+                with self._lock:
+                    if not self._changes[account_id] or not self._sockets.get(account_id):
+                        self._changes.pop(account_id)
+                        return
+                    self._changes[account_id] = False
+                # Notices are persisted in the inbox. Render a fresh snapshot after changes
+                # during this render, instead of racing a worker and stale payload per change.
+                await self.push(account_id)
+        except BaseException:
+            with self._lock:
+                self._changes.pop(account_id, None)
+            raise
 
     async def push(self, account_id: str) -> None:
         render = self._render
@@ -157,11 +231,7 @@ class SocialHub:
         with self._lock:
             sockets = tuple(self._sockets.get(account_id, ()))
         for socket in sockets:
-            try:
-                await self._send(socket, view)
-            except (WebSocketDisconnect, RuntimeError, OSError):
-                # A socket closing meanwhile is removed by its own handler.
-                logger.debug("Social push to a closing socket was dropped", exc_info=True)
+            self._queue_snapshot(socket, "inbox", view)
 
     async def send(self, socket: Socket, message: object) -> None:
         """Sends a protocol reply through the same serialization lock as inbox pushes."""
