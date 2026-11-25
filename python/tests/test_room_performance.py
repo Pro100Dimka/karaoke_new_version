@@ -49,11 +49,25 @@ def test_silent_duet_partner_does_not_reduce_group_score(duet):
     )
 
 
-def test_group_score_weights_each_singers_actual_contribution(duet):
+@pytest.mark.parametrize(
+    "contributions,expected",
+    [
+        ([("host", 100, 10), ("guest", 50, 1)], 1050 / 11),
+        ([("host", 100, 10), ("guest", 50, 10), ("third", 0, 1)], 1500 / 21),
+        ([("host", 100, 4), ("guest", 80, 3), ("third", 60, 2), ("fourth", 40, 1)], 80),
+    ],
+)
+def test_group_score_weights_each_singers_actual_contribution(duet, contributions, expected):
     client, code, room = duet
-    assert report(client, code, room, "host", 100, 10).status_code == 204
-    assert report(client, code, room, "guest", 50, 1).status_code == 204
-    assert client.get(f"/rooms/{code}").json()["performanceAccuracy"] == pytest.approx(1050 / 11)
+    for participant, accuracy, seconds in contributions:
+        if participant not in ("host", "guest"):
+            joined = client.post(
+                f"/rooms/{code}/join",
+                json={"participantId": participant, "displayName": participant},
+            )
+            assert joined.status_code == 200
+        assert report(client, code, room, participant, accuracy, seconds).status_code == 204
+    assert client.get(f"/rooms/{code}").json()["performanceAccuracy"] == pytest.approx(expected)
 
 
 def test_both_singers_matter_in_a_shared_chorus(duet):
