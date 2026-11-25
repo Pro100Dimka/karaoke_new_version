@@ -123,6 +123,7 @@ let latestVoiceLevels: Record<string, number> = {};
 let pushedVoiceLevelsAt: number | undefined;
 const voiceLevelsFreshMs = 2000;
 let nextLegacyLevelsRequestAt = 0;
+let pendingLegacyLevels: ActiveVoiceSession | undefined;
 let voiceGeneration = 0;
 let transitionTail = Promise.resolve();
 let pendingTransitions = 0;
@@ -170,6 +171,7 @@ const closeActiveVoice = async (force = false): Promise<void> => {
   latestVoiceLevels = {};
   pushedVoiceLevelsAt = undefined;
   nextLegacyLevelsRequestAt = 0;
+  pendingLegacyLevels = undefined;
   if (session || force)
     await sendAudioRequest({ command: 'LeaveMediaSession' }).catch(
       () => undefined,
@@ -256,33 +258,42 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   if (
     (pushedVoiceLevelsAt !== undefined &&
       now - pushedVoiceLevelsAt < voiceLevelsFreshMs) ||
-    now < nextLegacyLevelsRequestAt
+    now < nextLegacyLevelsRequestAt ||
+    pendingLegacyLevels === session
   )
     return { ...latestVoiceLevels };
   nextLegacyLevelsRequestAt = now + 1_000;
-  const response = await roomServerRequest({
-    method: 'POST',
-    path: '/voice/levels',
-    body: {
-      roomId: session.roomId,
-      participantId: session.participantId,
-      machineId,
-      voiceToken: session.voiceToken,
-    },
-  });
-  if (
-    activeVoice?.generation !== session.generation ||
-    !response.ok ||
-    !response.body ||
-    typeof response.body !== 'object'
-  )
+  pendingLegacyLevels = session;
+  const previous = latestVoiceLevels;
+  try {
+    const response = await roomServerRequest({
+      method: 'POST',
+      path: '/voice/levels',
+      body: {
+        roomId: session.roomId,
+        participantId: session.participantId,
+        machineId,
+        voiceToken: session.voiceToken,
+      },
+    });
+    // A pushed snapshot received during the fallback is newer than its response.
+    if (
+      activeVoice !== session ||
+      latestVoiceLevels !== previous ||
+      !response.ok ||
+      !response.body ||
+      typeof response.body !== 'object'
+    )
+      return { ...latestVoiceLevels };
+    latestVoiceLevels = Object.fromEntries(
+      Object.entries(response.body as Record<string, unknown>).filter(
+        (entry): entry is [string, number] => typeof entry[1] === 'number',
+      ),
+    );
     return { ...latestVoiceLevels };
-  latestVoiceLevels = Object.fromEntries(
-    Object.entries(response.body as Record<string, unknown>).filter(
-      (entry): entry is [string, number] => typeof entry[1] === 'number',
-    ),
-  );
-  return { ...latestVoiceLevels };
+  } finally {
+    if (pendingLegacyLevels === session) pendingLegacyLevels = undefined;
+  }
 };
 
 export const setRoomVoiceParticipantGain = (participantId: string, gain: number): Promise<void> =>
