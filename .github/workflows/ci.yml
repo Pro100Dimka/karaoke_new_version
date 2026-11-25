@@ -38,7 +38,7 @@ jobs:
         id: python-cache
         with:
           path: python/.venv
-          key: python-env-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('python/requirements.lock', 'python/pyproject.toml', '.github/workflows/ci.yml') }}
+          key: python-cpu-env-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('python/requirements.lock', 'python/pyproject.toml') }}
       - &python-activate
         name: Activate isolated Python environment
         shell: pwsh
@@ -107,6 +107,7 @@ jobs:
           files = sorted(Path('tests').rglob('test_*.py'))
           selected = files[int(os.environ['TEST_SHARD'])::int(os.environ['TEST_SHARDS'])]
           marker = ['-m', os.environ['TEST_MARKER']] if os.environ.get('TEST_MARKER') else []
+          Path('../.dev-data/temp/checks').mkdir(parents=True, exist_ok=True)
           raise SystemExit(subprocess.call([
               sys.executable, '-m', 'pytest', '-q', '--durations=15',
               '--basetemp=../.dev-data/temp/checks/pytest', *marker, *map(str, selected),
