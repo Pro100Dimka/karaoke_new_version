@@ -56,6 +56,7 @@ export const createAudioPlayers = (
   ops: AudioPlayerOperations,
 ): AudioPlayers => {
   let radioGeneration = 0;
+  let radioLoadGeneration = 0;
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
   let loadingPreview:
@@ -226,13 +227,20 @@ export const createAudioPlayers = (
 
   return {
     async loadRadio(url) {
+      const generation = ++radioLoadGeneration;
+      const assertCurrent = () => {
+        if (generation !== radioLoadGeneration)
+          throw new Error('Radio loading cancelled');
+      };
       await ops.ensureSession();
+      assertCurrent();
       await ops.command('LoadRadioStation', { url });
       await waitFor(
         'RadioState',
         [readyState],
         radioPollMilliseconds,
         'radio stream',
+        assertCurrent,
       );
     },
     async playRadio() {
@@ -247,6 +255,7 @@ export const createAudioPlayers = (
     },
     async stopRadio() {
       radioGeneration += 1;
+      radioLoadGeneration += 1;
       await ops.command('StopRadio');
     },
     async setRadioGain(gain) {
