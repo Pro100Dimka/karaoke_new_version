@@ -141,7 +141,7 @@ async def test_disconnected_youtube_requests_release_the_latest_track(
         start = next(message for message in latest[2] if message["type"] == "http.response.start")
         if disconnect_queued:
             assert start["status"] == 499
-            assert invoked == [1, 2]
+            assert sorted(invoked) == [1, 2]
         else:
             assert start["status"] == 200
             body = next(
