@@ -153,7 +153,7 @@ void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noe
         envelope_ = level + envelopeCoefficient * (envelope_ - level);
         voiceDecimationSum_ += dominant;
         if (++voiceDecimationCount_ == voiceDecimation_) {
-            voiceAnalysis_[voiceAnalysisSize_++] = voiceDecimationSum_ / voiceDecimation_;
+            voiceAnalysis_[voiceAnalysisSize_++] = voiceDecimationSum_ / static_cast<float>(voiceDecimation_);
             voiceDecimationCount_ = 0;
             voiceDecimationSum_ = 0.0F;
             if (voiceAnalysisSize_ == VoiceAnalysisFrames) {
@@ -336,7 +336,7 @@ void PitchShiftProcessor::analyzePitch(std::span<const float> samples,
         decimationSum_ += samples[static_cast<std::size_t>(frame) * channels_];
         if (++decimationCount_ != pitchDecimation_)
             continue;
-        pitchAnalysis_[pitchAnalysisSize_++] = decimationSum_ / pitchDecimation_;
+        pitchAnalysis_[pitchAnalysisSize_++] = decimationSum_ / static_cast<float>(pitchDecimation_);
         decimationCount_ = 0;
         decimationSum_ = 0.0F;
         if (pitchAnalysisSize_ == PitchAnalysisFrames) {

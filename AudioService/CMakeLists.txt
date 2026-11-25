@@ -49,14 +49,13 @@ option(AUDIOSERVICE_BUILD_RELEASE_GATES "Build long release repetition gates" OF
 option(AUDIOSERVICE_ENABLE_ASIO "Build native ASIO backend on Windows" ON)
 option(AUDIOSERVICE_ENABLE_MSVC_ANALYSIS "Enable MSVC code analysis" OFF)
 
-set(AUDIOSERVICE_DSP_SOURCES src/dsp/BasicProcessors.cpp src/dsp/DspChain.cpp)
+set(AUDIOSERVICE_DSP_SOURCES src/dsp/BasicProcessors.cpp src/dsp/DspChain.cpp src/analysis/PitchEstimator.cpp)
 set(AUDIOSERVICE_CORE_SOURCES
     src/network/VoicePacketTrace.cpp
     src/realtime/RealtimeInstrumentation.cpp
     src/realtime/RealtimeBufferPool.cpp
     src/diagnostics/GraphIntrospection.cpp
     src/analysis/AnalysisEngine.cpp
-    src/analysis/PitchEstimator.cpp
     src/analysis/SignalMetrics.cpp
     src/analysis/OutputSpectrum.cpp
     src/app/AudioService.cpp
