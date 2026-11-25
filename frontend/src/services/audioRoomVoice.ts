@@ -215,6 +215,7 @@ export const createRoomVoice = (
 
   joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
     return enqueueAudioOperation(async () => {
+      const previousSession = voice.session;
       audioState.roomActive = true;
       try {
         await ensureSession();
@@ -247,8 +248,8 @@ export const createRoomVoice = (
         };
         await restoreRemoteParticipants();
       } catch (error) {
-        voice.session = null;
-        audioState.roomActive = false;
+        voice.session = previousSession;
+        audioState.roomActive = previousSession !== null;
         try {
           await desktopBridge().leaveRoomVoice();
         } finally {

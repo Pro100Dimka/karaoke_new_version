@@ -547,6 +547,63 @@ void roomDeadlineTrimKeepsTheCurrentVoiceContinuous() {
            "continuity never retains expired samples or adds a delayed packet");
 }
 
+void roomDeadlineTrimPreservesTheCurrentVowelWaveform() {
+    for (const auto rate : {44'100U, 48'000U, 96'000U, 192'000U}) {
+        for (const auto frequency : {80.0, 220.0, 440.0}) {
+            NetworkAudioEngine network;
+            const auto frames = rate / 400U;
+            constexpr std::uint64_t start = 1'000'000;
+            network.prepare(rate, 1, rate / 10U, frames, GenerationId{1});
+            network.setSharedTimeline(true);
+            network.setRoomPlayoutDelay(55.0F);
+            expect(network.addRemoteParticipant("singer"), "the held singer joins");
+            NetworkTestAccess::bypassRemoteEffects(network, "singer");
+            const auto voice = [rate, frequency](std::uint32_t frame) {
+                return static_cast<float>(0.25 * std::sin(
+                    2.0 * 3.14159265358979 * frequency * frame / rate));
+            };
+            std::vector<float> first(frames), current(frames + 2U), output(frames);
+            for (std::uint32_t frame = 0; frame < frames; ++frame)
+                first[frame] = voice(frame);
+            for (std::uint32_t frame = 0; frame < frames + 2U; ++frame)
+                current[frame] = voice(frames + frame - 2U);
+            expect(NetworkTestAccess::queueVoice(network, "singer", first, true, start),
+                   "real voice seeds the preceding render");
+            (void)network.renderRemote(GenerationId{1}, output, frames, start);
+            expect(NetworkTestAccess::queueVoice(network, "singer", current, true, start + frames - 3U),
+                   "a small clock trim precedes the intact current vowel");
+            (void)network.renderRemote(GenerationId{1}, output, frames, start + frames);
+            double error = 0.0, power = 0.0;
+            for (std::uint32_t frame = 0; frame < frames; ++frame) {
+                const auto expected = voice(frames + frame);
+                const auto difference = output[frame] - expected;
+                error += difference * difference;
+                power += expected * expected;
+            }
+            std::printf("VOICE_TRIM rate=%u frequency=%.0f relativeError=%g\n", rate, frequency, error / power);
+            expect(error / power < 0.005,
+                   "a two-sample trim must not attenuate a whole packet of the current vowel");
+            expect(network.diagnostics().participants.front().expiredPlayoutFrames == 2,
+                   "the waveform check still discards every expired sample");
+        }
+    }
+}
+
+void pcmRecoveryCannotExceedTheCurrentWaveformRange() {
+    PcmPlayoutConcealer continuity;
+    const std::array previous{0.9F};
+    continuity.remember(previous);
+    continuity.discontinue();
+    std::array<float, 120> current{};
+    for (std::size_t frame = 0; frame < current.size(); ++frame)
+        current[frame] = frame % 2U == 0 ? -0.9F : 0.9F;
+    continuity.process(current, static_cast<std::uint32_t>(current.size()), 48'000);
+    expect(std::all_of(current.begin(), current.end(), [](float sample) {
+               return std::abs(sample) <= 0.900001F;
+           }) && std::abs(current.front() - previous.back()) < 0.03F,
+           "boundary recovery smooths a phase jump without overshooting the real voice range");
+}
+
 void roomHotMicrophoneDoesNotHitAHardQuantizerCorner() {
     UdpSocket receiver;
     receiver.bind(0);

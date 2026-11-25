@@ -1463,9 +1463,20 @@ struct WasapiBackend::Impl {
                 submittedRenderFrames = rebased;
             }
             measureStarvation(position, qpc, pad, queueFrames);
-            presentation = static_cast<MonotonicTicks>(qpc) * 100 +
+            const auto observedPresentation = static_cast<MonotonicTicks>(qpc) * 100 +
                            static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                                1'000'000'000LL / outputFormat->nSamplesPerSec;
+            const auto phaseError = observedPresentation - presentation;
+            const auto frameNs = 1'000'000'000LL / outputFormat->nSamplesPerSec;
+            // Healthy exclusive clock readings can wander without any missing PCM. Follow their
+            // long-term phase without repeatedly trimming/stretching the remote voice. Real
+            // device skips and jumps beyond one endpoint period retain their measured position.
+            if (mode == WasapiMode::Exclusive && nextRenderPresentationNs != 0 &&
+                confirmedSkip == 0 &&
+                std::llabs(phaseError) < static_cast<MonotonicTicks>(runtime.outputPeriodFrames) * frameNs)
+                presentation += std::clamp(phaseError / 64, -frameNs, frameNs);
+            else
+                presentation = observedPresentation;
         }
         // Acquire one native packet. Bounded DSP blocks fill views into it before one submission.
         float packetPeak = 0.0F;

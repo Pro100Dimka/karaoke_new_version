@@ -62,7 +62,7 @@ class PcmPlayoutConcealer {
     [[nodiscard]] std::uint32_t recoveryFrames() const noexcept { return recoveryFrames_; }
     void reset() noexcept {
         written_ = available_ = missingFrames_ = periodFrames_ = recoveryFrames_ = 0;
-        lastOutput_ = recoveryFrom_ = 0.0F;
+        lastOutput_ = recoveryOffset_ = 0.0F;
     }
 
     // A deadline trim discards old PCM, then joins the current waveform at its own position.
@@ -91,7 +91,7 @@ class PcmPlayoutConcealer {
         const auto recoveryLength = std::max(1U, sampleRateHz / 400U); // one 2.5 ms voice packet
         if (received != 0 && missingFrames_ != 0) {
             recoveryFrames_ = recoveryLength;
-            recoveryFrom_ = lastOutput_;
+            recoveryOffset_ = lastOutput_ - samples.front();
             missingFrames_ = 0;
         }
         for (std::size_t frame = 0; frame < received; ++frame) {
@@ -99,7 +99,9 @@ class PcmPlayoutConcealer {
             if (recoveryFrames_ != 0) {
                 const auto mix = static_cast<float>(recoveryLength - recoveryFrames_ + 1U) /
                                  static_cast<float>(recoveryLength);
-                sample = recoveryFrom_ + (sample - recoveryFrom_) * mix;
+                // Decay the boundary offset without attenuating the current waveform.
+                sample = std::clamp(sample + recoveryOffset_ * (1.0F - mix),
+                                    std::min(sample, lastOutput_), std::max(sample, lastOutput_));
                 --recoveryFrames_;
             }
             rememberSample(sample);
@@ -173,7 +175,7 @@ class PcmPlayoutConcealer {
     static constexpr std::uint32_t HistoryFrames = 2'048;
     std::array<float, HistoryFrames> history_{};
     std::uint32_t written_{0}, available_{0}, missingFrames_{0}, periodFrames_{0}, recoveryFrames_{0};
-    float lastOutput_{0.0F}, recoveryFrom_{0.0F};
+    float lastOutput_{0.0F}, recoveryOffset_{0.0F};
 };
 
 // Receive-worker state. Output storage can be reused independently of the continuity history,

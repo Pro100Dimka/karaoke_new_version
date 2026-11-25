@@ -58,6 +58,33 @@ describe('audioClient contract', () => {
     );
   });
 
+  it.each([true, false])('recovers voice after a transient join failure only for an existing room (%s)', async (existing) => {
+    let failNextJoin = false;
+    const joinRoomVoice = vi.fn(async () => {
+      if (failNextJoin) {
+        failNextJoin = false;
+        throw new Error('AudioService request timed out: JoinMediaSession');
+      }
+    });
+    installBridge(({ command }) => ({
+      status: 0,
+      text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+        ? 'SessionState: Running\nBackend: ASIO' : 'Ok',
+    }), { joinRoomVoice, leaveRoomVoice: vi.fn(async () => undefined) });
+    await audioClient.leaveVoiceSession();
+    audioClient.setPreferredConfiguration({ backend: 'ASIO', sampleRate: 48_000, periodFrames: 256 });
+    if (existing) await audioClient.joinVoiceSession('ROOM-1', 'self');
+    failNextJoin = true;
+    await expect(audioClient.joinVoiceSession('ROOM-1', 'self')).rejects.toThrow('timed out');
+    joinRoomVoice.mockClear();
+
+    await audioClient.reconnectVoiceSession();
+
+    if (existing) expect(joinRoomVoice).toHaveBeenCalledWith('ROOM-1', 'self');
+    else expect(joinRoomVoice).not.toHaveBeenCalled();
+    await audioClient.leaveVoiceSession();
+  });
+
   it('registers voice with both the room and participant identity', async () => {
     const joinRoomVoice = vi.fn(async () => undefined);
 

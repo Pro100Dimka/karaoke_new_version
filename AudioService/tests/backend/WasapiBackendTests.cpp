@@ -1246,6 +1246,52 @@ void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {
     expect(fixture.callback.lost == 1, "silent endpoint loss must enter recovery");
 }
 
+void Tests::wasapiExclusiveClockJitterCannotRetimeEveryVoicePacket() {
+    Fixture fixture{WasapiMode::Exclusive};
+    fixture.inputAvailable = false;
+    fixture.output.client.silentEvents = true;
+    fixture.output.client.render.frames = 128;
+    fixture.output.client.clock.frames = 0;
+    const auto startedAt = monotonicTicksNow() / 100;
+    fixture.output.client.clock.ticks = static_cast<UINT64>(startedAt);
+    auto request = fixture.request(128);
+    request.inputDeviceId.clear();
+    (void)fixture.backend.open(request);
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
+    require(fixture.output.client.state.attempted.wait(), "the first render anchors presentation");
+    constexpr auto periodNs = 128LL * 1'000'000'000 / 48'000;
+    for (unsigned step = 1; step <= 6; ++step) {
+        ResetEvent(fixture.output.client.state.attempted.handle);
+        fixture.output.client.clock.frames = step * 128U;
+        // The device consumes every submitted frame. Its correlated clock reading wanders by
+        // one millisecond, as observed without clock skips in the live exclusive-mode trace.
+        fixture.output.client.clock.ticks = static_cast<UINT64>(startedAt) +
+            static_cast<UINT64>(step) * 128U * 10'000'000U / 48'000U +
+            (step % 2U != 0 ? 10'000U : 0U);
+        SetEvent(fixture.output.client.event);
+        require(fixture.output.client.state.attempted.wait(), "the next complete packet is submitted");
+        const auto& previous = fixture.callback.renders[step - 1U];
+        const auto& current = fixture.callback.renders[step];
+        expect(std::llabs(current.presentationTicks - previous.presentationTicks - periodNs) <=
+                   1'000'000'000LL / 48'000,
+               "a healthy device clock observation cannot move voice presentation by a millisecond");
+    }
+    expect(fixture.backend.snapshot().renderClockSkipFrames == 0,
+           "the observed phase jitter is not a missing hardware packet");
+    ResetEvent(fixture.output.client.state.attempted.handle);
+    fixture.output.client.clock.frames = 2'048;
+    fixture.output.client.clock.ticks = static_cast<UINT64>(startedAt) +
+        2'048ULL * 10'000'000U / 48'000U;
+    SetEvent(fixture.output.client.event);
+    require(fixture.output.client.state.attempted.wait(), "a genuine hardware skip is observed");
+    fixture.backend.stop();
+    expect(fixture.backend.snapshot().renderClockSkipFrames != 0 &&
+               fixture.callback.renders[7].presentationTicks ==
+                   static_cast<MonotonicTicks>(fixture.output.client.clock.ticks) * 100,
+           "a genuine skip immediately reanchors presentation instead of smoothing late voice");
+}
+
 void Tests::wasapiExclusiveRecoversOnlySustainedClockStall() {
     struct ClockCase { HRESULT result; unsigned inaccurateCalls; };
     constexpr std::array cases{ClockCase{S_OK, 0}, ClockCase{S_FALSE, 0}, ClockCase{S_OK, 1}};
@@ -1578,6 +1624,7 @@ void Tests::wasapiFailedStartRollsBackTheRunningSession() {}
 void Tests::wasapiCallbackThreadInitializesCom() {}
 void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {}
 void Tests::wasapiExclusiveRecoversOnlySustainedClockStall() {}
+void Tests::wasapiExclusiveClockJitterCannotRetimeEveryVoicePacket() {}
 void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {}
 void Tests::wasapiSharedReportsIndependentEndpointPeriods() {}
 void Tests::wasapiDiagnosticCanReverseStreamOpenOrder() {}
