@@ -260,22 +260,29 @@ void stableLatenessRingReallyEvictsOldBadHistory() {
     constexpr auto normal = 35U * FramesPerMillisecond;
     for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
         noteStableBlock(history, 220U * FramesPerMillisecond);
-    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet) {
+    for (std::uint32_t packet = 0; packet < room_audio_contract::ReturnCalibrationPackets; ++packet) {
         recent.note(normal);
         history.note(normal);
-        if (packet + 1U < VoiceLatenessTracker::WindowPackets)
+        if (packet + 1U < room_audio_contract::ReturnCalibrationPackets)
             expect(history.targetFrames(recent) == history.targetFrames(),
                    "an incomplete fresh window cannot retire the established requirement");
     }
     expect(history.targetFrames(recent) < 60U * FramesPerMillisecond &&
                history.targetFrames() > 200U * FramesPerMillisecond,
-           "thirty healthy seconds retire stale latency without waiting for three-minute history");
-    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet) {
+           "two healthy seconds retire stale latency without waiting for thirty-second history");
+    for (std::uint32_t packet = 0; packet < room_audio_contract::ReturnCalibrationPackets; ++packet) {
         recent.note(220U * FramesPerMillisecond);
         history.note(220U * FramesPerMillisecond);
     }
     expect(history.targetFrames(recent) > 200U * FramesPerMillisecond,
            "recurring sustained delays cannot remain hidden behind a previous recovery");
+    for (std::uint32_t packet = 0; packet < room_audio_contract::ReturnCalibrationPackets; ++packet) {
+        recent.note(normal);
+        history.note(normal);
+    }
+    expect(recent.targetFrames() > 200U * FramesPerMillisecond &&
+               history.targetFrames(recent) < 60U * FramesPerMillisecond,
+           "recovery also retires a burst still retained by the same thirty-second window");
     for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
         noteStableBlock(history, normal);
     expect(history.blocks() == StableLatenessHistory::Blocks &&

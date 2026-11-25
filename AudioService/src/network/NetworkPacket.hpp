@@ -389,6 +389,9 @@ class VoiceLatenessTracker {
     static constexpr std::uint32_t FollowOutlierPerThousand = 50U;
     static constexpr std::uint32_t MedianOutlierPerThousand = 500U; // diagnostics only
 
+    explicit VoiceLatenessTracker(std::uint32_t windowPackets = WindowPackets) noexcept
+        : windowPackets_(std::clamp(windowPackets, 1U, WindowPackets)) {}
+
     void reset() noexcept {
         counts_.fill(0);
         size_ = 0;
@@ -403,7 +406,7 @@ class VoiceLatenessTracker {
     void note(std::int64_t latenessFrames) noexcept {
         const auto bin = static_cast<std::uint16_t>(std::min<std::int64_t>(
             BinCount - 1U, std::max<std::int64_t>(0, latenessFrames) / BinFrames));
-        if (size_ == WindowPackets) {
+        if (size_ == windowPackets_) {
             const auto oldest = window_[head_];
             --counts_[oldest];
             playout_.leave(oldest);
@@ -415,7 +418,7 @@ class VoiceLatenessTracker {
         }
         window_[head_] = bin;
         ++counts_[bin];
-        head_ = (head_ + 1U) % WindowPackets;
+        head_ = (head_ + 1U) % windowPackets_;
         latestFrames_ = latenessFrames;
         playout_.enter(bin, counts_, size_);
         follow_.enter(bin, counts_, size_);
@@ -482,6 +485,7 @@ class VoiceLatenessTracker {
 
     std::array<std::uint32_t, BinCount> counts_{};
     std::array<std::uint16_t, WindowPackets> window_{};
+    std::uint32_t windowPackets_{WindowPackets};
     std::uint32_t size_{0};
     std::uint32_t head_{0};
     Quantile playout_{PlayoutOutlierPerThousand};
@@ -540,6 +544,7 @@ class StableLatenessHistory {
     }
 
     void note(std::int64_t latenessFrames) noexcept {
+        recovery_.note(latenessFrames);
         const auto bin = static_cast<std::uint32_t>(std::min<std::int64_t>(
             BinCount - 1U, std::max<std::int64_t>(0, latenessFrames) / BinFrames));
         ++counts_[bin];
@@ -582,14 +587,17 @@ class StableLatenessHistory {
         return baselineFrames() + marginFrames();
     }
 
-    /** A full recent window can retire startup latency before the long history expires. */
+    /** A calibrated healthy route retires old latency without waiting for the long window. */
     [[nodiscard]] std::uint32_t targetFrames(const VoiceLatenessTracker& recent) const noexcept {
-        return recent.samples() < VoiceLatenessTracker::WindowPackets
+        return recent.samples() < room_audio_contract::ReturnCalibrationPackets
                    ? targetFrames()
-                   : std::min(targetFrames(), recent.targetFrames() + MinimumMarginFrames);
+                   : std::min(targetFrames(),
+                              std::min(recent.targetFrames(), recovery_.targetFrames()) +
+                                  MinimumMarginFrames);
     }
 
   private:
+    VoiceLatenessTracker recovery_{room_audio_contract::ReturnCalibrationPackets};
     void noteBootstrap(std::uint32_t bin) noexcept {
         ++bootstrapCounts_[bin];
         if (bin > bootstrapBin_)
