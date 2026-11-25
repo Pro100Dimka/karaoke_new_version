@@ -584,6 +584,41 @@ def test_adjacent_measured_events_share_one_exact_time_boundary():
     assert left.end == right.start == 102.3
 
 
+@pytest.mark.parametrize("sung_fragment", [False, True])
+def test_a_word_boundary_does_not_turn_an_unvoiced_release_into_a_new_note(sung_fragment):
+    words = [WordTiming("и", 0, 0.12, 1), WordTiming("вся", 0.14, 1, 1)]
+    points = [
+        PitchPoint(
+            i / 100,
+            _A4,
+            0.9 if i < 10 or i >= 30 or (sung_fragment and i >= 14) else 0.2,
+            True,
+            69 if i < 16 else 67 if i >= 30 else 0,
+        )
+        for i in range(100)
+    ]
+
+    document = construct_document("t", "a", 1, "и вся", words, points, _music())
+
+    assert [n.note for n in document.words[0].notes] == [69]
+    assert [n.note for n in document.words[1].notes] == ([69, 67] if sung_fragment else [67])
+    assert [(w.start, w.end) for w in document.words] == [(0, 0.12), (0.14, 1)]
+
+
+@pytest.mark.parametrize("word_break", [False, True])
+def test_a_pitch_dropout_inside_a_supported_note_does_not_cut_the_note(word_break):
+    points = [PitchPoint(i / 100, _A4, 0.2 if 40 <= i < 48 else 0.9, True, 69) for i in range(100)]
+    intervals = [(0, 0.4), (0.4, 0.48), (0.48, 1)] if word_break else [(0, 1)]
+    words = [WordTiming("la", start, end, 1) for start, end in intervals]
+    document = construct_document(
+        "t", "a", 1, " ".join(w.text for w in words), words, points, _music()
+    )
+
+    assert [(n.note, n.start, n.end) for w in document.words for n in w.notes] == [
+        (69, start, end) for start, end in intervals
+    ]
+
+
 def test_unobserved_pitch_gap_and_word_tail_do_not_become_a_required_held_note() -> None:
     points = _pitch([i / 100 for i in range(20)], _A4) + _pitch(
         [i / 100 for i in range(80, 100)], _A4

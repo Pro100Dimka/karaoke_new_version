@@ -124,7 +124,12 @@ def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequ
     notes = [
         replace(note, start=max(word.start, note.start), end=min(word.end, note.end))
         for note in melody
-        if note.start < word.end and note.end > word.start
+        if note.start < word.end
+        and note.end > word.start
+        and (
+            (note.start < word.start and note.end > word.end)
+            or any(_has_pitch(point) for point in points if note.start <= point.time < note.end)
+        )
     ]
     measured = tuple(
         replace(
