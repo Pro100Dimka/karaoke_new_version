@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/Types.hpp"
+#include "network/RoomAudioContract.hpp"
 #include "realtime/PcmRingBuffer.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #include "recording/WavWriter.hpp"
@@ -21,8 +22,10 @@ enum class RecordingTap { RawInput, CleanVoice, ProcessedVoice, MasterMix, Perfo
 
 // All timeline fields use the 48 kHz room clock, separately from the WAV sample rate.
 // NetworkInput records the effective packet position and the physical source capture interval;
-// MasterMix records its scheduled device presentation position. Zero capture fields are unused.
+// MasterMix records device presentation; PerformanceMix records the aligned musical position.
+// Zero capture fields are unused.
 struct RecordingTimeline {
+    static constexpr std::uint32_t SampleRateHz = room_audio_contract::VoiceSampleRateHz;
     std::uint64_t frame{0};
     std::uint64_t captureFrame{0};
     std::uint64_t captureEndFrame{0};

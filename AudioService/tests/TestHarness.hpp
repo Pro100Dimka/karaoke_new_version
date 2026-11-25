@@ -48,6 +48,7 @@ void masterCompanionRecordsTheExactRenderedBacking();
 void masterCompanionSharesOverrunsAndLifecycle();
 void networkReferenceRecordsTheActualPreCodecMicrophone();
 void masterRecordingTimelineUsesActualPresentation();
+void performanceRecordingTimelineRetainsPauseAndTrim();
 void recordingTimelineClosesWithLifecycle();
 void networkReferenceRetainsTheCaptureSpanAcrossBlocks();
 void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus();

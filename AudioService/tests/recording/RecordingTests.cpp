@@ -391,6 +391,51 @@ void masterRecordingTimelineUsesActualPresentation() {
            "WAV frame zero is anchored to actual output presentation, not recording command time");
 }
 
+void performanceRecordingTimelineRetainsPauseAndTrim() {
+    for (const auto rate : {44'100U, 48'000U}) {
+        RecordingEngine recording;
+        constexpr auto generation = GenerationId{1};
+        constexpr std::uint32_t lead = 17, frames = 128;
+        recording.setGeneration(generation);
+        const auto path = tempRoot / ("performance-timeline-" + std::to_string(rate) + ".wav");
+        recording.prepare("performance", path.string(), rate, 1, RecordingTap::PerformanceMix,
+                          1024);
+        recording.start(SessionFrame{100}, 0, lead);
+        const std::vector<float> pcm(frames, 0.1F);
+        recording.push(generation, RecordingTap::PerformanceMix, SessionFrame{100}, pcm, frames,
+                       {48'000, 0, 0, true});
+        recording.pause(SessionFrame{228});
+        recording.resume(SessionFrame{400});
+        recording.push(generation, RecordingTap::PerformanceMix, SessionFrame{400}, pcm, frames,
+                       {96'000, 0, 0, true});
+        expect(recording.stop(SessionFrame{528}).finalized,
+               "the performance and its per-singer timeline finalize together");
+        std::ifstream timeline(path.string() + ".timeline.csv");
+        std::string row;
+        std::getline(timeline, row);
+        const auto retained = frames - lead;
+        const auto trim = static_cast<std::uint64_t>(lead) * 48'000 / rate;
+        for (const auto [offset, position] :
+             {std::pair{0U, 48'000ULL}, std::pair{retained, 96'000ULL}}) {
+            std::getline(timeline, row);
+            expect(row == std::to_string(offset) + "," + std::to_string(position + trim) + "," +
+                              std::to_string(retained) + "," + std::to_string(rate) +
+                              ",1,0,0,48000",
+                   "each retained singer segment keeps its absolute room position after pause and "
+                   "lead trim");
+        }
+        const auto soloPath = path.string() + ".solo.wav";
+        recording.prepare("solo", soloPath, rate, 1, RecordingTap::PerformanceMix, 1024);
+        recording.start(SessionFrame{600}, 0);
+        recording.push(generation, RecordingTap::PerformanceMix, SessionFrame{600}, pcm, frames);
+        expect(recording.stop(SessionFrame{728}).finalized, "the solo capture finalizes normally");
+        std::ifstream soloTimeline(soloPath + ".timeline.csv");
+        std::getline(soloTimeline, row);
+        expect(!std::getline(soloTimeline, row),
+               "solo captures do not write a redundant room-clock row for every audio callback");
+    }
+}
+
 void networkReferenceRecordsTheActualPreCodecMicrophone() {
     for (const auto inputRate : {44'100U, 48'000U}) {
         FakeBackendSettings settings;

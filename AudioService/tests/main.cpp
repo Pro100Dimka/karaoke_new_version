@@ -66,6 +66,8 @@ constexpr std::array tests{
          Tests::networkReferenceRecordsTheActualPreCodecMicrophone},
     Test{"masterRecordingTimelineUsesActualPresentation",
          Tests::masterRecordingTimelineUsesActualPresentation},
+    Test{"performanceRecordingTimelineRetainsPauseAndTrim",
+         Tests::performanceRecordingTimelineRetainsPauseAndTrim},
     Test{"recordingTimelineClosesWithLifecycle", Tests::recordingTimelineClosesWithLifecycle},
     Test{"networkReferenceRetainsTheCaptureSpanAcrossBlocks",
          Tests::networkReferenceRetainsTheCaptureSpanAcrossBlocks},

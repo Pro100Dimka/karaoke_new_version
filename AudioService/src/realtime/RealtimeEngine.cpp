@@ -1296,9 +1296,16 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     if (performanceActive && pairedPerformance)
         dryAligner_.read(dry, performanceReadFrames);
     if (performanceActive) {
-        recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
-                        performanceReadFrames, {}, recordedBacking,
-                        pairedPerformance ? dry : std::span<float>{});
+        const auto musicalAt =
+            presentationTicks - static_cast<MonotonicTicks>(aligner_.leadFrames()) *
+                                    NanosecondsPerSecond / plan_.internalSampleRateHz;
+        recording_.push(
+            generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
+            performanceReadFrames,
+            {scaleFramePosition(network_.roomTimelineFrame(musicalAt, 0),
+                                plan_.internalSampleRateHz, RecordingTimeline::SampleRateHz),
+             0, 0, network_.hasRoomClock() && buffer.presentationTicks > 0 && musicalAt > 0},
+            recordedBacking, pairedPerformance ? dry : std::span<float>{});
         if (finishDraining) {
             finishExtraFrames_ += performanceReadFrames;
         } else {

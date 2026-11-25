@@ -97,7 +97,9 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
                 dryQueue_.prepare(queueFrames, channels);
             }
         }
-        if (tap == RecordingTap::NetworkInput || tap == RecordingTap::MasterMix) {
+        constexpr std::array timelineTaps{RecordingTap::NetworkInput, RecordingTap::MasterMix,
+                                          RecordingTap::PerformanceMix};
+        if (std::ranges::find(timelineTaps, tap) != timelineTaps.end()) {
             const auto timelinePath = path + ".timeline.csv";
             timelineWriter_.open(
                 std::filesystem::path{std::u8string{timelinePath.begin(), timelinePath.end()}},
@@ -351,6 +353,9 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
             dry = dry.subspan(static_cast<std::size_t>(dropped) * channels_);
         frames -= dropped;
         sessionFrame = SessionFrame{sessionFrame.value() + dropped};
+        if (tap == RecordingTap::PerformanceMix)
+            timeline.frame += static_cast<std::uint64_t>(dropped) *
+                              RecordingTimeline::SampleRateHz / sampleRateHz_;
     }
     const auto offset = timelineFrames_.fetch_add(frames, std::memory_order_relaxed);
     // NetworkInput has its own packet/capture coordinates in the sidecar. Keep the legacy
@@ -475,12 +480,14 @@ void RecordingEngine::workerMain() noexcept {
                 const auto read = blockRead_.load(std::memory_order_relaxed);
                 const auto block = blocks_[read % blocks_.size()];
                 silenceUntil(block.timelineOffset);
-                if (timelineWriter_.is_open()) {
+                if (timelineWriter_.is_open() &&
+                    (selectedTap() != RecordingTap::PerformanceMix || block.timeline.roomClockValid)) {
                     const auto& stamp = block.timeline;
-                    timelineWriter_ << block.timelineOffset << ',' << stamp.frame << ','
-                                    << block.frames << ',' << sampleRateHz_ << ','
-                                    << stamp.roomClockValid << ',' << stamp.captureFrame << ','
-                                    << stamp.captureEndFrame << ",48000\n";
+                    timelineWriter_
+                        << block.timelineOffset << ',' << stamp.frame << ',' << block.frames << ','
+                        << sampleRateHz_ << ',' << stamp.roomClockValid << ',' << stamp.captureFrame
+                        << ',' << stamp.captureEndFrame << ',' << RecordingTimeline::SampleRateHz
+                        << '\n';
                     if (!timelineWriter_)
                         throw std::runtime_error("recording timeline write failed");
                 }
