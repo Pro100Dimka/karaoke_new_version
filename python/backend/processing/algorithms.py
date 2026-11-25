@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, replace
-from itertools import pairwise
+from itertools import accumulate, pairwise
 from statistics import median
 from typing import Sequence
 
@@ -77,15 +78,19 @@ def construct_document(
     # a short word on the crest of vibrato becomes an invented semitone change.
     melody = _notes_from_points(pitch, 0.0, duration)
     performed = tuple(word for word in words if "BackingVocalOverlap" not in word.diagnostics)
-    mapped_words = tuple(_word_with_notes(word, pitch, melody) for word in performed)
-    activity = _vocal_activity(
-        [
-            point
-            for point in pitch
-            if any(word.start <= point.time < word.end for word in performed)
-        ],
-        duration,
+    times = tuple(point.time for point in pitch)
+    ordered = all(left <= right for left, right in pairwise(times))
+    mapped_words = tuple(
+        _word_with_notes(
+            word,
+            pitch[bisect_left(times, word.start) : bisect_right(times, word.end)]
+            if ordered
+            else pitch,
+            melody,
+        )
+        for word in performed
     )
+    activity = _vocal_activity(_pitch_during_words(pitch, performed), duration)
     document = LyricsDocument(
         title,
         artist,
@@ -98,6 +103,20 @@ def construct_document(
     )
     document.validate()
     return document
+
+
+def _pitch_during_words(
+    pitch: Sequence[PitchPoint], words: Sequence[WordTiming]
+) -> list[PitchPoint]:
+    intervals = sorted((word.start, word.end) for word in words)
+    starts = [start for start, _ in intervals]
+    # A long word can enclose later shorter words; the latest start alone cannot identify activity.
+    ends = list(accumulate((end for _, end in intervals), max))
+    return [
+        point
+        for point in pitch
+        if (index := bisect_right(starts, point.time)) and point.time < ends[index - 1]
+    ]
 
 
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequence[Note]) -> Word:
