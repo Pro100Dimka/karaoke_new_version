@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/Types.hpp"
+#include "analysis/PitchEstimator.hpp"
 #include "dsp/AudioProcessor.hpp"
 
 #include <array>
@@ -131,6 +132,9 @@ class NoiseProcessor final : public IAudioProcessor {
     void reset() noexcept override {
         gain_ = 1.0F;
         envelope_ = 0.0F;
+        open_ = false;
+        voiceAnalysisSize_ = voiceDecimationCount_ = voiceHoldFrames_ = 0;
+        voiceDecimationSum_ = 0.0F;
     }
     [[nodiscard]] std::uint32_t latencyFrames() const noexcept override {
         return 0;
@@ -145,6 +149,13 @@ class NoiseProcessor final : public IAudioProcessor {
     std::atomic<float> reduction_{1.0F};
     float gain_{1.0F};
     float envelope_{0.0F};
+    bool open_{false};
+    static constexpr std::uint32_t VoiceAnalysisFrames = 384, VoiceAnalysisHop = 120;
+    PitchEstimator voiceEstimator_;
+    std::array<float, VoiceAnalysisFrames> voiceAnalysis_{};
+    std::uint32_t voiceAnalysisSize_{0}, voiceDecimation_{4}, voiceDecimationCount_{0};
+    std::uint32_t voiceHoldFrames_{0}, voiceHoldLength_{0};
+    float voiceDecimationSum_{0.0F};
 };
 
 class ReverbProcessor final : public IAudioProcessor {
@@ -166,6 +177,7 @@ class ReverbProcessor final : public IAudioProcessor {
     std::uint32_t channels_{0};
     std::array<std::vector<float>, 3> lines_;
     std::array<std::uint32_t, 3> positions_{};
+    bool active_{false};
     std::atomic<float> mix_{0.0F};
     std::atomic<float> decay_{0.45F};
 };
@@ -194,6 +206,7 @@ class DelayProcessor final : public IAudioProcessor {
     std::vector<float> delayLine_;
     std::uint32_t capacityFrames_{0};
     std::uint32_t writeFrame_{0};
+    bool active_{false};
     std::atomic<float> mix_{0.0F};
     std::atomic<float> feedback_{0.25F};
     std::atomic<float> delayMs_{120.0F};
@@ -227,10 +240,11 @@ class PitchShiftProcessor final : public IAudioProcessor {
     std::uint32_t windowFrames_{0};
     std::uint32_t capacityFrames_{0};
     bool shortDelay_{false};
+    bool active_{false};
     std::uint64_t writeFrame_{0};
     double phase_{0.0};
     float currentSemitones_{0.0F};
-    static constexpr std::uint32_t PitchDecimation = 4;
+    std::uint32_t pitchDecimation_{4};
     static constexpr std::uint32_t PitchAnalysisFrames = 384;
     static constexpr std::uint32_t PitchAnalysisHop = 12;
     std::array<float, PitchAnalysisFrames> pitchAnalysis_{};

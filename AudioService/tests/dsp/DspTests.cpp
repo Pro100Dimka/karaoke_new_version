@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <numbers>
 #include <vector>
 
@@ -135,7 +136,7 @@ void autoTunePreservesReferenceWaveformAcrossSampleRates() {
         float amount;
         std::array<float, 4> expected;
     };
-    // Samples from the scalar energy sums, including both sides of the hard-tune boundary.
+    // Reference samples include both sides of the hard-tune boundary and rate-normalized analysis.
     constexpr Fixture fixtures[]{
         {44100, 0.4F, {-0.327199608088F, -0.32042530179F, -0.30443662405F, -0.279156923294F}},
         {44100,
@@ -151,14 +152,14 @@ void autoTunePreservesReferenceWaveformAcrossSampleRates() {
         {48000,
          1.0F,
          {0.0173852965236F, -0.000503875315189F, -0.0157357156277F, -0.0279369279742F}},
-        {96000, 0.4F, {0.195201337337F, 0.182997018099F, 0.170765325427F, 0.158618673682F}},
-        {96000, 0.999F, {-0.186562731862F, -0.186776787043F, -0.186536744237F, -0.185801431537F}},
-        {96000, 1.0F, {-0.187785685062F, -0.187918514013F, -0.187586501241F, -0.186775609851F}},
-        {192000, 0.4F, {-0.0571190901101F, -0.048242110759F, -0.0393341556191F, -0.0304085016251F}},
+        {96000, 0.4F, {0.037098005414F, 0.0294650364667F, 0.022056337446F, 0.0147978868335F}},
+        {96000, 0.999F, {0.0528709106147F, 0.0451261922717F, 0.0372355952859F, 0.0291596576571F}},
+        {96000, 1.0F, {0.060930788517F, 0.0532048866153F, 0.04542446509F, 0.0375519953668F}},
+        {192000, 0.4F, {0.260975301266F, 0.258188188076F, 0.255184233189F, 0.251975774765F}},
         {192000,
          0.999F,
-         {0.00522119551897F, 0.000388592481613F, -0.00457359105349F, -0.00965368002653F}},
-        {192000, 1.0F, {0.0559961274266F, 0.0521260872483F, 0.0480947196484F, 0.0439057424664F}},
+         {0.130148455501F, 0.128614887595F, 0.126878559589F, 0.124938644469F}},
+        {192000, 1.0F, {0.151915773749F, 0.151562809944F, 0.150995820761F, 0.150206178427F}},
     };
     for (const auto& fixture : fixtures) {
         const auto frames = fixture.rate / 10U;
@@ -265,5 +266,234 @@ void noiseSuppressionPreservesVoicedWaveform() {
     }
     expect(error / signal < 0.0001F,
            "noise suppression does not reshape voiced waveform zero crossings");
+}
+
+void noiseSuppressionDoesNotChatterOnHeldVoice() {
+    for (const auto rate : {44'100U, 48'000U}) {
+        for (const auto frequency : {80.0, 110.0, 220.0, 440.0}) {
+            NoiseProcessor noise;
+            noise.prepare(rate, 1, 1);
+            noise.setThreshold(0.03F);
+            noise.setReduction(0.25F);
+            double error = 0.0, power = 0.0;
+            for (std::uint32_t frame = 0; frame < rate; ++frame) {
+                const auto amplitude = frame < rate / 10U ? 0.08 : 0.031;
+                const auto voice = static_cast<float>(amplitude * std::sin(
+                    2.0 * std::numbers::pi * frequency * frame / rate));
+                std::array sample{voice};
+                noise.process(sample, 1);
+                if (frame >= rate / 2U) {
+                    const auto difference = sample.front() - voice;
+                    error += difference * difference;
+                    power += voice * voice;
+                }
+            }
+            std::printf("HELD_VOICE_NOISE rate=%u frequency=%.0f relativeError=%g\n",
+                        rate, frequency, error / power);
+            expect(error / power < 0.0001,
+                   "an opened noise suppressor must not repeatedly gate a held vowel near its threshold");
+            std::array<float, 1> quiet{};
+            for (std::uint32_t frame = 0; frame < rate; ++frame) {
+                quiet.front() = 0.005F;
+                noise.process(quiet, 1);
+            }
+            expect(quiet.front() < 0.0013F,
+                   "the lower closing threshold must still attenuate noise after the vowel ends");
+        }
+    }
+}
+void noiseSuppressionPreservesQuietHeldVoiceAboveBackground() {
+    for (const auto rate : {44'100U, 48'000U, 96'000U, 192'000U}) {
+        for (const auto frequency : {80.0, 220.0, 440.0}) {
+            NoiseProcessor noise;
+            noise.prepare(rate, 1, 1);
+            noise.setThreshold(0.03F);
+            noise.setReduction(0.25F);
+            std::uint32_t random = 12345;
+            double error = 0.0, power = 0.0;
+            for (std::uint32_t frame = 0; frame < rate; ++frame) {
+                random = random * 1664525U + 1013904223U;
+                const auto phase = 2.0 * std::numbers::pi * frequency * frame / rate;
+                const auto source = static_cast<float>(0.004 * std::sin(phase) +
+                    0.001 * std::sin(phase * 2) + (static_cast<double>(random) / 4294967295.0 * 2 - 1) * 0.0002);
+                std::array sample{source};
+                noise.process(sample, 1);
+                if (frame >= rate / 2U) {
+                    const auto difference = sample.front() - source;
+                    error += difference * difference;
+                    power += source * source;
+                }
+            }
+            std::printf("QUIET_VOICE_NOISE rate=%u frequency=%.0f relativeError=%g\n",
+                        rate, frequency, error / power);
+            expect(error / power < 0.0001,
+                   "a quiet held vowel clearly above background must not be gated by an absolute microphone level");
+            double noiseInput = 0.0, noiseOutput = 0.0;
+            float transitionError = 0.0F;
+            for (std::uint32_t frame = 0; frame < rate; ++frame) {
+                random = random * 1664525U + 1013904223U;
+                const auto source = static_cast<float>(
+                    (static_cast<double>(random) / 4294967295.0 * 2 - 1) * 0.0002);
+                std::array sample{source};
+                noise.process(sample, 1);
+                if (frame < rate / 20U)
+                    transitionError = std::max(transitionError, std::abs(sample.front() - source));
+                if (frame >= rate * 3U / 4U) {
+                    noiseInput += source * source;
+                    noiseOutput += sample.front() * sample.front();
+                }
+            }
+            expect(transitionError < 0.000001F,
+                   "a short unvoiced transition after a vowel must not close the voice abruptly");
+            expect(noiseOutput / noiseInput < 0.07,
+                   "voice protection must release and still suppress background after the phrase");
+        }
+    }
+}
+
+void autoTunePreservesAnInTuneLowVoiceAcrossRates() {
+    for (const auto rate : {44'100U, 48'000U, 96'000U, 192'000U}) {
+        constexpr std::uint32_t Block = 128;
+        PitchShiftProcessor processor;
+        processor.setShortDelay(true);
+        processor.prepare(rate, Block, 1);
+        processor.setAutoTuneAmount(1.0F);
+        const auto voice = [rate](double frame) {
+            return static_cast<float>(0.3 * std::sin(2.0 * std::numbers::pi * 110.0 * frame / rate));
+        };
+        std::array<float, Block> samples{};
+        double error = 0.0, power = 0.0;
+        for (std::uint32_t from = 0; from < rate; from += Block) {
+            const auto count = std::min(Block, rate - from);
+            for (std::uint32_t frame = 0; frame < count; ++frame)
+                samples[frame] = voice(from + frame);
+            processor.process(std::span{samples}.first(count), count);
+            if (from < rate / 2U) continue;
+            for (std::uint32_t frame = 0; frame < count; ++frame) {
+                const auto expected = voice(static_cast<double>(from + frame) - processor.latencyFrames());
+                const auto difference = samples[frame] - expected;
+                error += difference * difference;
+                power += expected * expected;
+            }
+        }
+        std::printf("LOW_VOICE_AUTOTUNE rate=%u relativeError=%g\n", rate, error / power);
+        expect(error / power < 0.001,
+               "an already in-tune 110 Hz voice must not be retuned to another note at a higher device rate");
+    }
+}
+
+void voiceEffectsDoNotReplayOldVoiceAfterBypass() {
+    constexpr std::uint32_t Rate = 48'000, Frames = 128;
+    const std::pair<std::string_view, float> effects[]{
+        {"reverb.mix", 0.8F}, {"echo.amount", 0.8F}, {"delay.mix", 0.8F},
+        {"pitch.semitones", 12.0F}, {"autotune.amount", 0.4F},
+    };
+    for (const auto& [parameter, value] : effects) {
+        for (const bool wholeChain : {true, false}) {
+            DspChain chain;
+            chain.prepare(Rate, Frames, 1, true);
+            chain.setEnabled(true);
+            require(chain.setParameter("delay.ms", 20.0F), "the short delay is accepted");
+            require(chain.setParameter(parameter, value), "the buffered effect is accepted");
+            std::array<float, Frames> voice{}, output{};
+            for (std::uint32_t frame = 0; frame < Frames; ++frame)
+                voice[frame] = static_cast<float>(0.3 * std::sin(2.0 * std::numbers::pi * 220 * frame / Rate));
+            for (int block = 0; block < 32; ++block) {
+                output = voice;
+                chain.process(output, Frames);
+            }
+            if (wholeChain) chain.setEnabled(false);
+            else require(chain.setParameter(parameter, 0.0F), "the effect bypass is accepted");
+            for (std::uint32_t frame = 0; frame < Rate; frame += Frames) {
+                output.fill(0.0F);
+                chain.process(output, Frames);
+            }
+            if (wholeChain) chain.setEnabled(true);
+            else require(chain.setParameter(parameter, value), "the effect returns from bypass");
+            float peak = 0.0F;
+            for (std::uint32_t frame = 0; frame < Rate; frame += Frames) {
+                output.fill(0.0F);
+                chain.process(output, Frames);
+                for (const auto sample : output) peak = std::max(peak, std::abs(sample));
+            }
+            std::printf("EFFECT_BYPASS parameter=%.*s wholeChain=%u peak=%g\n",
+                        static_cast<int>(parameter.size()), parameter.data(), static_cast<unsigned>(wholeChain), peak);
+            expect(peak < 0.00001F,
+                   "re-enabling an effect after silent bypass must not replay the preceding voice");
+        }
+    }
+}
+
+void voiceEffectsStayRealtimeSafeWhileControlsChange() {
+    using Parameter = std::pair<std::string_view, float>;
+    struct Scenario {
+        const char* name;
+        std::initializer_list<Parameter> parameters;
+    };
+    const Scenario scenarios[]{
+        {"base", {}},
+        {"highpass", {{"highpass.cutoffHz", 300.0F}}},
+        {"equalizer", {{"eq.lowGain", 2.0F}, {"eq.midGain", 0.5F}, {"eq.highGain", 2.0F}}},
+        {"compressor", {{"compressor.threshold", 0.1F}, {"compressor.ratio", 10.0F}}},
+        {"gate", {{"gate.threshold", 0.03F}}},
+        {"noise", {{"noise.threshold", 0.03F}, {"noise.reduction", 0.25F}}},
+        {"reverb", {{"reverb.mix", 1.0F}, {"reverb.decay", 0.85F}}},
+        {"echo", {{"echo.amount", 0.95F}}},
+        {"delay", {{"delay.mix", 1.0F}, {"delay.feedback", 0.8F}, {"delay.ms", 320.0F}}},
+        {"octave", {{"pitch.semitones", 12.0F}}},
+        {"autotune", {{"autotune.amount", 0.4F}}},
+        {"hardtune", {{"autotune.amount", 1.0F}}},
+        {"combined", {{"noise.threshold", 0.03F}, {"noise.reduction", 0.25F},
+                      {"echo.amount", 0.6F}, {"reverb.mix", 0.4F},
+                      {"delay.mix", 0.3F}, {"autotune.amount", 0.4F}}},
+    };
+    struct Format { std::uint32_t rate, frames; };
+    for (const auto format : {Format{44'100, 128}, Format{44'100, 133}, Format{48'000, 120},
+                              Format{96'000, 256}, Format{192'000, 512}}) {
+        std::vector<float> voice(format.frames * 2U), output(voice.size());
+        for (std::uint32_t frame = 0; frame < format.frames; ++frame)
+            voice[frame * 2U] = voice[frame * 2U + 1U] = static_cast<float>(
+                0.6 * std::sin(2.0 * std::numbers::pi * 220.0 * frame / format.rate));
+        for (const auto& scenario : scenarios) {
+            DspChain chain;
+            chain.prepare(format.rate, format.frames, 2, true);
+            chain.setEnabled(true);
+            for (const auto& [parameter, value] : scenario.parameters)
+                require(chain.setParameter(parameter, value), "the effect parameter is accepted");
+            for (int block = 0; block < 32; ++block) {
+                output = voice;
+                chain.process(output, format.frames);
+            }
+            RealtimeInstrumentation::reset();
+            std::chrono::nanoseconds elapsed{}, maximum{};
+            bool finite = true;
+            float peak = 0.0F;
+            constexpr int Blocks = 256;
+            for (int block = 0; block < Blocks; ++block) {
+                std::copy(voice.begin(), voice.end(), output.begin());
+                const auto start = std::chrono::steady_clock::now();
+                {
+                    RealtimeScope realtime;
+                    if (block % 16 == 0)
+                        for (const auto& [parameter, value] : scenario.parameters)
+                            (void)chain.setParameter(parameter, value * (block % 32 == 0 ? 0.9F : 1.0F));
+                    chain.process(output, format.frames);
+                }
+                const auto duration = std::chrono::steady_clock::now() - start;
+                elapsed += duration;
+                maximum = std::max(maximum, std::chrono::duration_cast<std::chrono::nanoseconds>(duration));
+                finite &= std::ranges::all_of(output, [](float sample) { return std::isfinite(sample); });
+                for (const auto sample : output) peak = std::max(peak, std::abs(sample));
+            }
+            const auto activity = RealtimeInstrumentation::snapshot();
+            std::printf("DSP_EFFECT name=%s rate=%u frames=%u meanUs=%.3f maxUs=%.3f budgetUs=%.3f latencyFrames=%u peak=%.6f\n",
+                        scenario.name, format.rate, format.frames, elapsed.count() / (Blocks * 1000.0),
+                        maximum.count() / 1000.0, format.frames * 1'000'000.0 / format.rate,
+                        chain.latencyFrames(), peak);
+            expect(finite, "effect changes must keep every output sample finite");
+            expect(activity.allocations == 0 && activity.deallocations == 0 && activity.blockingCalls == 0,
+                   "every warmed effect and control update must avoid heap work and blocking on the audio thread");
+        }
+    }
 }
 } // namespace Tests

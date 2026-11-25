@@ -29,7 +29,9 @@ void DspChain::reset() noexcept {
     pitch_.reset();
 }
 void DspChain::process(std::span<float> samples, std::uint32_t frames) noexcept {
-    if (!enabled_.load(std::memory_order_relaxed))
+    if (resetRequested_.exchange(false, std::memory_order_acq_rel))
+        reset();
+    if (!enabled_.load(std::memory_order_acquire))
         return;
     ScopedNoDenormals noDenormals;
     highPass_.process(samples, frames);

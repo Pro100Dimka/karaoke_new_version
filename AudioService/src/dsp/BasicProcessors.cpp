@@ -128,6 +128,9 @@ void NoiseProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t,
     release_ = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz)));
     gainAttack_ = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz)));
     channels_ = channels;
+    voiceDecimation_ = std::max(1U, (sampleRateHz + 6'000U) / 12'000U);
+    voiceHoldLength_ = sampleRateHz / 5U;
+    voiceEstimator_.prepare(VoiceAnalysisFrames, sampleRateHz / voiceDecimation_);
     reset();
 }
 void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
@@ -139,13 +142,35 @@ void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noe
     const auto release = release_;
     const auto gainAttack = gainAttack_;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        float level = 0.0F;
-        for (std::uint32_t channel = 0; channel < channels_; ++channel)
-            level = std::max(
-                level, std::abs(samples[static_cast<std::size_t>(frame) * channels_ + channel]));
+        float dominant = 0.0F;
+        for (std::uint32_t channel = 0; channel < channels_; ++channel) {
+            const auto sample = samples[static_cast<std::size_t>(frame) * channels_ + channel];
+            if (std::abs(sample) > std::abs(dominant))
+                dominant = sample;
+        }
+        const auto level = std::abs(dominant);
         const auto envelopeCoefficient = level > envelope_ ? envelopeAttack : release;
         envelope_ = level + envelopeCoefficient * (envelope_ - level);
-        const auto target = envelope_ >= threshold ? 1.0F : reduction;
+        voiceDecimationSum_ += dominant;
+        if (++voiceDecimationCount_ == voiceDecimation_) {
+            voiceAnalysis_[voiceAnalysisSize_++] = voiceDecimationSum_ / voiceDecimation_;
+            voiceDecimationCount_ = 0;
+            voiceDecimationSum_ = 0.0F;
+            if (voiceAnalysisSize_ == VoiceAnalysisFrames) {
+                float confidence = 0.0F;
+                const auto pitch = voiceEstimator_.estimate(voiceAnalysis_, 1, confidence);
+                if (pitch > 0.0F && confidence >= 0.8F)
+                    voiceHoldFrames_ = voiceHoldLength_;
+                std::move(voiceAnalysis_.begin() + VoiceAnalysisHop, voiceAnalysis_.end(),
+                          voiceAnalysis_.begin());
+                voiceAnalysisSize_ -= VoiceAnalysisHop;
+            }
+        }
+        // Keep an opened vowel above the lower closing threshold instead of gating every cycle.
+        open_ = voiceHoldFrames_ != 0 || envelope_ >= threshold * (open_ ? 0.75F : 1.0F);
+        if (voiceHoldFrames_ != 0)
+            --voiceHoldFrames_;
+        const auto target = open_ ? 1.0F : reduction;
         const auto coefficient = target > gain_ ? gainAttack : release;
         gain_ = target + coefficient * (gain_ - target);
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
@@ -167,11 +192,16 @@ void ReverbProcessor::reset() noexcept {
     for (auto& line : lines_)
         std::fill(line.begin(), line.end(), 0.0F);
     positions_.fill(0);
+    active_ = false;
 }
 void ReverbProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
     const auto mix = std::clamp(mix_.load(std::memory_order_relaxed), 0.0F, 1.0F);
-    if (mix <= 0.0F)
+    if (mix <= 0.0F) {
+        if (active_)
+            reset();
         return;
+    }
+    active_ = true;
     const auto decay = std::clamp(decay_.load(std::memory_order_relaxed), 0.0F, 0.85F);
     if (channels_ == 0)
         return;
@@ -208,13 +238,18 @@ void DelayProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t, std::uin
 void DelayProcessor::reset() noexcept {
     std::fill(delayLine_.begin(), delayLine_.end(), 0.0F);
     writeFrame_ = 0;
+    active_ = false;
 }
 void DelayProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
     if (capacityFrames_ == 0)
         return;
     const auto mix = std::clamp(mix_.load(std::memory_order_relaxed), 0.0F, 1.0F);
-    if (mix <= 0.0F)
+    if (mix <= 0.0F) {
+        if (active_)
+            reset();
         return;
+    }
+    active_ = true;
     const auto delayFrames =
         std::clamp(static_cast<std::uint32_t>(delayMs_.load(std::memory_order_relaxed) *
                                               static_cast<float>(sampleRateHz_) / 1000.0F),
@@ -242,6 +277,7 @@ void DelayProcessor::process(std::span<float> samples, std::uint32_t frames) noe
 void PitchShiftProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
                                   std::uint32_t channels) {
     sampleRateHz_ = sampleRateHz;
+    pitchDecimation_ = std::max(1U, (sampleRateHz + 6'000U) / 12'000U);
     channels_ = channels;
     windowFrames_ = std::clamp(sampleRateHz / 40U, 256U, 2048U);
     capacityFrames_ = windowFrames_ * 3U + maxFrames;
@@ -259,6 +295,7 @@ void PitchShiftProcessor::reset() noexcept {
     decimationCount_ = 0;
     decimationSum_ = 0.0F;
     autoTuneCorrection_ = 0.0F;
+    active_ = false;
 }
 std::uint32_t PitchShiftProcessor::latencyFrames() const noexcept {
     const auto amount = std::clamp(autoTuneAmount_.load(std::memory_order_relaxed), 0.0F, 1.0F);
@@ -297,9 +334,9 @@ void PitchShiftProcessor::analyzePitch(std::span<const float> samples,
         return;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         decimationSum_ += samples[static_cast<std::size_t>(frame) * channels_];
-        if (++decimationCount_ != PitchDecimation)
+        if (++decimationCount_ != pitchDecimation_)
             continue;
-        pitchAnalysis_[pitchAnalysisSize_++] = decimationSum_ / PitchDecimation;
+        pitchAnalysis_[pitchAnalysisSize_++] = decimationSum_ / pitchDecimation_;
         decimationCount_ = 0;
         decimationSum_ = 0.0F;
         if (pitchAnalysisSize_ == PitchAnalysisFrames) {
@@ -313,7 +350,7 @@ void PitchShiftProcessor::analyzePitch(std::span<const float> samples,
     }
 }
 float PitchShiftProcessor::detectedCorrection() noexcept {
-    const auto analysisRate = sampleRateHz_ / PitchDecimation;
+    const auto analysisRate = sampleRateHz_ / pitchDecimation_;
     const auto minimumLag = std::max(1U, analysisRate / 1000U);
     const auto maximumLag = std::min(PitchAnalysisFrames / 2U, analysisRate / 70U);
     double mean = 0.0;
@@ -415,8 +452,12 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
     const auto targetSemitones = std::clamp(semitones_.load(std::memory_order_relaxed) +
                                                 autoTuneCorrection_ * autoTuneStrength,
                                             -12.0F, 12.0F);
-    if (capacityFrames_ == 0 || (amount < 0.001F && std::abs(targetSemitones) < 0.001F))
+    if (capacityFrames_ == 0 || (amount < 0.001F && std::abs(targetSemitones) < 0.001F)) {
+        if (active_)
+            reset();
         return;
+    }
+    active_ = true;
     // At 100% this is the deliberate Cher/T-Pain hard-tune sound. Lower knob values
     // lengthen the retune time so the same control can still be used more gently.
     const auto retuneSeconds = 0.050F - 0.0499F * amount;

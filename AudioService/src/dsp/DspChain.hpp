@@ -15,7 +15,9 @@ class DspChain {
     void reset() noexcept;
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept;
     void setEnabled(bool enabled) noexcept {
-        enabled_.store(enabled, std::memory_order_relaxed);
+        if (enabled_.load(std::memory_order_acquire) != enabled)
+            resetRequested_.store(true, std::memory_order_release);
+        enabled_.store(enabled, std::memory_order_release);
     }
     [[nodiscard]] bool setParameter(std::string_view name, float value) noexcept;
     [[nodiscard]] std::optional<float> setVoiceEffect(std::string_view name, float value) noexcept;
@@ -23,6 +25,7 @@ class DspChain {
 
   private:
     std::atomic<bool> enabled_{false};
+    std::atomic<bool> resetRequested_{false};
     HighPassProcessor highPass_;
     EqualizerProcessor equalizer_;
     CompressorProcessor compressor_;
