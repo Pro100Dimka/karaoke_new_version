@@ -74,7 +74,7 @@ def _register_take(client, song, metadata):
     return target["recordingId"]
 
 
-def _verify_master(client, job, original_id, metadata):
+def _verify_master(client, job, original_id, metadata, covered):
     master_id = job["report"]["recordingId"]
     master = client.get(f"/recordings/{master_id}").json()
     assert master_id != original_id and master["sourceRecordingId"] == original_id
@@ -82,8 +82,8 @@ def _verify_master(client, job, original_id, metadata):
     assert rate == _RATE and samples.shape == (_FRAMES, 1)
     assert np.isfinite(samples).all() and float(np.max(np.abs(samples))) > 0.01
     processing = job["report"]["balance"]["processing"]
-    assert processing["referenceValidIntervals"] == [[0, 2]]
-    assert processing["referenceCoverage"] == pytest.approx(1)
+    assert processing["referenceValidIntervals"] == [[0, covered]]
+    assert processing["referenceCoverage"] == pytest.approx(covered / 2)
     assert processing["synchronization"] == "native-playback-timeline"
     assert processing["vocalSource"] == "dry" and processing["vocalChain"]
     assert processing["stageSeconds"]["vocalInserts"] > 0
@@ -93,9 +93,9 @@ def _verify_master(client, job, original_id, metadata):
     assert original.session_metadata == metadata
 
 
-@pytest.mark.parametrize("origin", [0, 0.5])
+@pytest.mark.parametrize("origin,covered", [(0, 2), (0.5, 2), (2.5, 1.5)])
 def test_studio_master_request_preserves_take_with_same_frame_and_trailing_states(
-    tmp_path: Path, monkeypatch, origin
+    tmp_path: Path, monkeypatch, origin, covered
 ) -> None:
     source = tmp_path / "song.wav"
     write_wav(source, seconds=4, frequency=220)
@@ -113,4 +113,4 @@ def test_studio_master_request_preserves_take_with_same_frame_and_trailing_state
         assert started.status_code == 202, started.text
         job = wait_for_job(client, started.json()["jobId"], timeout=30)
         assert job["state"] == "Succeeded", job
-        _verify_master(client, job, original_id, metadata)
+        _verify_master(client, job, original_id, metadata, covered)

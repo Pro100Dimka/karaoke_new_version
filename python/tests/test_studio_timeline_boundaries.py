@@ -152,3 +152,30 @@ def test_reference_coverage_uses_the_same_surviving_states(reference, tmp_path):
     np.testing.assert_array_equal(
         sf.read(prepared.reference_vocal, dtype="float32")[0], samples[RATE : 3 * RATE]
     )
+
+
+@pytest.mark.parametrize("covered", [1.984, 0.75, 0])
+def test_native_partial_reference_keeps_known_intervals_and_recorded_backing(
+    reference, tmp_path, covered
+):
+    source, samples = reference
+    take = tmp_path / "take.wav"
+    captured = samples[:FRAMES]
+    sf.write(take, captured, RATE, subtype="FLOAT")
+    prepared = prepare_sources(
+        FfmpegStudioMasterRenderer(ProcessRunner()),
+        take,
+        take,
+        source,
+        source,
+        take,
+        tmp_path,
+        threading.Event(),
+        [_point(0, 6 - covered)],
+        exact_stems=True,
+    )
+    assert prepared.reference_intervals == (((0, covered),) if covered else ())
+    assert (prepared.reference_vocal is not None) == bool(covered)
+    assert prepared.backing == take
+    np.testing.assert_array_equal(sf.read(prepared.backing, dtype="float32")[0], captured)
+    assert sf.info(prepared.backing).frames == FRAMES

@@ -155,6 +155,7 @@ class _SourcePreparation:
     project: Path = field(init=False)
     reference: Path = field(init=False)
     trusted: bool = field(init=False)
+    reference_coverage: float = field(init=False)
     reference_shift: int = field(default=0, init=False)
     report: dict[str, object] = field(default_factory=dict, init=False)
 
@@ -164,14 +165,19 @@ class _SourcePreparation:
         self._map_reference()
         self._recover_stems()
         original = self._optional_original()
+        backing = (
+            self.project if self.trusted and self.reference_coverage == 1 else self.recorded_backing
+        )
         self.report["backingSource"] = (
-            "project-timeline-without-monitor-gains" if self.trusted else "recorded-accompaniment"
+            "project-timeline-without-monitor-gains"
+            if backing == self.project
+            else "recorded-accompaniment"
         )
         intervals = self._reference_intervals()
         self.report["referenceValidIntervals"] = [list(interval) for interval in intervals]
         return MasterSources(
             self.vocal,
-            self.project if self.trusted else self.recorded_backing,
+            backing,
             self.reference if self.trusted else None,
             self.project if self.trusted else None,
             original,
@@ -285,12 +291,14 @@ class _SourcePreparation:
             self.work / "reference-timeline.wav",
         )
         jobs = ((self.original_backing, self.project), (self.reference_vocal, self.reference))
-        coverage = min(ordered_map(self._map_track, jobs))
+        coverage = self.reference_coverage = min(ordered_map(self._map_track, jobs))
         correction, confidence = self.renderer._reference_offset(
             self.recorded_backing, self.project, 0.0, self.cancel
         )
         # Native timestamps are authoritative; legacy takes need same-backing evidence.
-        self.trusted = (bool(self.adjustments) or confidence >= 0.9) and coverage >= 0.999
+        self.trusted = coverage > 0 and (
+            bool(self.adjustments) or (confidence >= 0.9 and coverage >= 0.999)
+        )
         self.report.update(
             referenceCoverage=coverage,
             referenceCorrelation=confidence,
