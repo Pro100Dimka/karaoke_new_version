@@ -188,23 +188,54 @@ def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -
         return ()
     step = _pitch_step(points)
     if any(point.melody_note is not None for point in points):
-        return tuple(
-            _merged_repeats(
-                [
-                    Note(
-                        point.melody_note,
-                        max(start, point.time),
-                        min(
-                            end,
-                            point.time + step,
-                            points[index + 1].time if index + 1 < len(points) else end,
-                        ),
-                    )
-                    for index, point in enumerate(points)
-                    if point.melody_note and point.time < end and point.time + step > start
-                ]
-            )
+        notes = _merged_repeats(
+            [
+                Note(
+                    point.melody_note,
+                    max(start, point.time),
+                    min(
+                        end,
+                        point.time + step,
+                        points[index + 1].time if index + 1 < len(points) else end,
+                    ),
+                )
+                for index, point in enumerate(points)
+                if point.melody_note and point.time < end and point.time + step > start
+            ]
         )
+        refined: list[Note] = []
+        frames = max(
+            2, math.ceil(round(_NOTE_CHANGE_COST * _DEFAULT_PITCH_STEP_SECONDS / step, 8)) + 1
+        )
+        for note in notes:
+            run = [point for point in points if note.start <= point.time < note.end]
+            fitted = (
+                _notes_for_run(run, note.start, note.end, step)
+                if len(run) > 1
+                and all(_has_pitch(point) for point in run)
+                and not _has_vibrato([_frequency_to_midi(point.frequency) for point in run])
+                else (note,)
+            )
+            low, high = min(n.note for n in fitted), max(n.note for n in fitted)
+            # One event can hide two held pitches; their unsung midpoint is not a third note.
+            refined.extend(
+                fitted
+                if low < note.note < high
+                and high - low <= 2 * _MAX_FRAME_DEVIATION
+                and all(
+                    _has_held_core(
+                        [
+                            _frequency_to_midi(point.frequency)
+                            for point in run
+                            if part.start <= point.time < part.end
+                        ],
+                        frames,
+                    )
+                    for part in fitted
+                )
+                else (note,)
+            )
+        return tuple(_merged_repeats(refined))
     return tuple(
         note
         for run in _pitch_runs(points, step)

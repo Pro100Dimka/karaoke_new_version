@@ -584,6 +584,49 @@ def test_adjacent_measured_events_share_one_exact_time_boundary():
     assert left.end == right.start == 102.3
 
 
+@pytest.mark.parametrize("center", [48, 60, 72])
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_a_merged_event_does_not_invent_a_middle_note_between_two_held_pitches(center, direction):
+    pitches = [center + direction] * 15 + [center - direction] * 15
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True, center)
+        for i, pitch in enumerate(pitches)
+    ]
+    document = construct_document(
+        "t", "a", 0.3, "la", [WordTiming("la", 0, 0.3, 1)], points, _music()
+    )
+
+    assert [(n.note, n.start, n.end) for n in document.words[0].notes] == [
+        (center + direction, 0, pytest.approx(0.15)),
+        (center - direction, pytest.approx(0.15), 0.3),
+    ]
+
+
+def test_a_measured_event_keeps_its_register_through_a_brief_octave_error():
+    pitches = [60] * 10 + [48] * 10 + [60] * 10
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True, 60)
+        for i, pitch in enumerate(pitches)
+    ]
+    document = construct_document(
+        "t", "a", 0.3, "la", [WordTiming("la", 0, 0.3, 1)], points, _music()
+    )
+
+    assert [(n.note, n.start, n.end) for n in document.words[0].notes] == [(60, 0, 0.3)]
+
+
+def test_a_continuous_glide_does_not_become_extra_held_notes_inside_an_event():
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((pitch - 69) / 12), 0.9, True, 60)
+        for i, pitch in enumerate(np.linspace(62, 58, 30))
+    ]
+    document = construct_document(
+        "t", "a", 0.3, "la", [WordTiming("la", 0, 0.3, 1)], points, _music()
+    )
+
+    assert [(n.note, n.start, n.end) for n in document.words[0].notes] == [(60, 0, 0.3)]
+
+
 @pytest.mark.parametrize("sung_fragment", [False, True])
 def test_a_word_boundary_does_not_turn_an_unvoiced_release_into_a_new_note(sung_fragment):
     words = [WordTiming("и", 0, 0.12, 1), WordTiming("вся", 0.14, 1, 1)]
