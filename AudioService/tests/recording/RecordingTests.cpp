@@ -415,7 +415,7 @@ void performanceRecordingTimelineRetainsPauseAndTrim() {
         std::getline(timeline, row);
         const auto retained = frames - lead;
         const auto trim = static_cast<std::uint64_t>(lead) * 48'000 / rate;
-        for (const auto [offset, position] :
+        for (const auto& [offset, position] :
              {std::pair{0U, 48'000ULL}, std::pair{retained, 96'000ULL}}) {
             std::getline(timeline, row);
             expect(row == std::to_string(offset) + "," + std::to_string(position + trim) + "," +
