@@ -46,6 +46,7 @@ export class OpenRgbKeyboardLighting {
   private pending: Promise<void> = Promise.resolve();
   private revision = 0;
   private appliedState: string | undefined;
+  private discovery: Promise<KeyboardLightingCapabilities> | undefined;
 
   constructor(
     executable: string,
@@ -63,7 +64,13 @@ export class OpenRgbKeyboardLighting {
       }),
   ) {}
 
-  async capabilities(): Promise<KeyboardLightingCapabilities> {
+  capabilities(): Promise<KeyboardLightingCapabilities> {
+    return (this.discovery ??= this.discover().finally(() => {
+      this.discovery = undefined;
+    }));
+  }
+
+  private async discover(): Promise<KeyboardLightingCapabilities> {
     try {
       this.keyboards = parseOpenRgbKeyboards(
         await this.run(['--list-devices']),
@@ -86,14 +93,19 @@ export class OpenRgbKeyboardLighting {
       // A slow CLI command must finish before a newer setting can take effect. While it
       // runs, music animation frames may pile up; only the newest pending state matters.
       if (revision !== this.revision) return;
-      await this.applyCurrent(request);
+      await this.applyCurrent(request, revision);
     });
     this.pending = applied.catch(() => undefined);
     return applied;
   }
 
-  private async applyCurrent(request: KeyboardLightingRequest): Promise<void> {
-    if (!this.keyboards.length && !(await this.capabilities()).available) {
+  private async applyCurrent(
+    request: KeyboardLightingRequest,
+    revision: number,
+  ): Promise<void> {
+    if (!this.keyboards.length) await this.capabilities();
+    if (revision !== this.revision) return;
+    if (!this.keyboards.length) {
       if (request.enabled) throw new Error('Keyboard lighting is unavailable');
       return;
     }
