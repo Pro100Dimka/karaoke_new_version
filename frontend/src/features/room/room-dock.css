@@ -80,6 +80,10 @@
 .roomPerson .ad-avatar[data-ad-size][data-variant] {
   --ad-avatar: 5.25rem;
 }
+/* Match the seal's inset artwork to the ordinary avatar's outer ring. */
+.roomPerson .ad-host-seal {
+  scale: 1.26;
+}
 .roomPersonCrown {
   position: absolute;
   z-index: 1;
