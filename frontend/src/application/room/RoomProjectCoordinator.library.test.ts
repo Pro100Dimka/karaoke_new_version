@@ -129,3 +129,92 @@ it('refreshes the library on changes without reading it every second', async () 
     vi.useRealTimers();
   }
 });
+
+it.each(['export', 'upload'] as const)(
+  'publishes a newly processed song while another project is still in %s',
+  async (blocked) => {
+    vi.useFakeTimers();
+    const { services, scope, getRoom, setRoom } = setup();
+    const song: SongDto = {
+      id: 'selected',
+      activeRevision: 1,
+      status: 'ready',
+      title: 'Selected',
+      artist: 'Singer',
+      language: 'Auto',
+      coverState: 'Fallback',
+      durationSeconds: 60,
+      createdAt: '',
+      projectFormatVersion: 1,
+    };
+    const processed: SongDto = {
+      ...song,
+      id: 'processed',
+      title: 'Freshly processed',
+    };
+    setRoom({
+      ...getRoom(),
+      songId: song.id,
+      revision: 1,
+      participants: [
+        {
+          id: 'guest',
+          name: 'Guest',
+          role: 'participant',
+          self: false,
+          connected: true,
+          muted: false,
+          volume: 1,
+          readiness: 'missing',
+        },
+      ],
+    });
+    const exporting = deferred<string>(),
+      uploading = deferred<void>();
+    if (blocked === 'export')
+      services.python.exportProject.mockReturnValueOnce(exporting.promise);
+    else
+      services.desktop.uploadRoomProject.mockReturnValueOnce(uploading.promise);
+    services.python.listSongs.mockResolvedValue([
+      song,
+      { ...processed, status: 'processing' },
+    ]);
+    let changed: () => void = () => undefined;
+    const coordinator = new RoomProjectCoordinator(scope, {
+      ...services,
+      python: {
+        ...services.python,
+        onLibraryChange: (listener) => {
+          changed = listener;
+          return () => undefined;
+        },
+      },
+    });
+    try {
+      coordinator.setPythonReady(true);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(services.room.publishLibrary).toHaveBeenLastCalledWith('room-a', [
+        song,
+      ]);
+      expect(services.python.exportProject).toHaveBeenCalledOnce();
+      services.python.listSongs.mockResolvedValue([song, processed]);
+      changed();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(services.room.publishLibrary).toHaveBeenLastCalledWith('room-a', [
+        song,
+        processed,
+      ]);
+      expect(services.python.exportProject).toHaveBeenCalledOnce();
+      setRoom({ ...getRoom(), songId: processed.id });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(services.desktop.cancelRoomProjectTransfer).toHaveBeenCalledOnce();
+      expect(services.python.exportProject).toHaveBeenCalledTimes(2);
+    } finally {
+      coordinator.stop();
+      exporting.resolve('archive.zip');
+      uploading.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      vi.useRealTimers();
+    }
+  },
+);

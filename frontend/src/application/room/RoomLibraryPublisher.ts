@@ -14,7 +14,7 @@ type Library =
       lastKey: string | undefined;
       key: string;
       uploaded: Set<string>;
-      uploadId?: string;
+      upload?: { id: string; key: string };
       songs?: readonly SongDto[];
       readAt: number;
       revision: number;
@@ -37,9 +37,9 @@ export class RoomLibraryPublisher {
       if (previous.type === 'publishing') {
         clearInterval(previous.timer);
         previous.unsubscribe?.();
-        if (previous.uploadId)
+        if (previous.upload)
           void this.ports.desktop
-            .cancelRoomProjectTransfer(previous.uploadId)
+            .cancelRoomProjectTransfer(previous.upload.id)
             .catch(() => undefined);
       }
       return;
@@ -131,6 +131,16 @@ export class RoomLibraryPublisher {
           owner,
           this.ports.participantId,
         );
+        const projectKey = song
+          ? roomProjectKey(this.scope.code, song)
+          : undefined;
+        if (library.upload && library.upload.key !== projectKey) {
+          const previous = library.upload;
+          library.upload = undefined;
+          void this.ports.desktop
+            .cancelRoomProjectTransfer(previous.id)
+            .catch(() => undefined);
+        }
         if (!song) return;
         const needsArchive = selected?.participants.some(
           (person) =>
@@ -144,34 +154,43 @@ export class RoomLibraryPublisher {
                 item.projectHash === song.projectHash,
             ),
         );
-        if (!needsArchive) return;
-        const transferId = crypto.randomUUID();
-        try {
-          const path = await this.ports.python.exportProject(
-            song.id,
-            song.activeRevision,
-          );
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          library.uploadId = transferId;
-          await this.ports.desktop.uploadRoomProject({
-            roomId: this.scope.code,
-            participantId: this.ports.participantId,
-            songId: song.id,
-            revision: song.activeRevision,
-            path,
-            transferId,
-          });
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          library.uploaded.add(roomProjectKey(this.scope.code, song));
-        } catch (error) {
-          if (this.library !== library || !this.scope.isCurrent()) return;
-          console.error('Room project export/upload failed', error);
-          const failed = this.scope.getRoom();
-          if (failed?.transferId === transferId)
-            this.scope.setSnapshot({ ...failed, transferError: true });
-        } finally {
-          library.uploadId = undefined;
-        }
+        if (!needsArchive || library.upload) return;
+        const upload = {
+          id: crypto.randomUUID(),
+          key: roomProjectKey(this.scope.code, song),
+        };
+        library.upload = upload;
+        void (async () => {
+          const current = () =>
+            this.library === library &&
+            this.scope.isCurrent() &&
+            library.upload === upload;
+          try {
+            const path = await this.ports.python.exportProject(
+              song.id,
+              song.activeRevision,
+            );
+            if (!current()) return;
+            await this.ports.desktop.uploadRoomProject({
+              roomId: this.scope.code,
+              participantId: this.ports.participantId,
+              songId: song.id,
+              revision: song.activeRevision,
+              path,
+              transferId: upload.id,
+            });
+            if (!current()) return;
+            library.uploaded.add(roomProjectKey(this.scope.code, song));
+          } catch (error) {
+            if (!current()) return;
+            console.error('Room project export/upload failed', error);
+            const failed = this.scope.getRoom();
+            if (failed?.transferId === upload.id)
+              this.scope.setSnapshot({ ...failed, transferError: true });
+          } finally {
+            if (library.upload === upload) library.upload = undefined;
+          }
+        })();
         clearOperationFailure('errors.roomLibrary');
       } catch (error) {
         if (this.library === library && this.scope.isCurrent())
