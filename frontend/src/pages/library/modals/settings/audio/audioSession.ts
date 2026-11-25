@@ -76,6 +76,13 @@ const createAudioSession = (
   };
   const listeners = new Set<() => void>();
   let tail = Promise.resolve();
+  let queuedConfiguration:
+    | {
+        entry: { work(): Promise<void> };
+        result: Promise<void>;
+        tail: Promise<void>;
+      }
+    | undefined;
   let pending = 0;
   let revision = 0;
   let needsPersistence = false;
@@ -212,7 +219,11 @@ const createAudioSession = (
     driver?: DeviceDto,
   ) => {
     const id = ++revision;
-    pending++;
+    // Only adjacent changes that have not touched the driver can be replaced.
+    // Opening its control panel or applying effects through enqueue is a barrier.
+    const previous =
+      queuedConfiguration?.tail === tail ? queuedConfiguration : undefined;
+    if (!previous) pending++;
     configurationDirty = true;
     publish({
       requested: request,
@@ -220,7 +231,7 @@ const createAudioSession = (
       configurationCapabilities: emptyCapabilities,
       configurationCapabilitiesBackend: request.backend,
     });
-    return enqueue(async () => {
+    const work = async () => {
       let prepared = false;
       try {
         if (driver) {
@@ -261,7 +272,18 @@ const createAudioSession = (
         }
         publish();
       }
+    };
+    if (previous) {
+      previous.entry.work = work;
+      return previous.result;
+    }
+    const entry = { work };
+    const result = enqueue(() => {
+      if (queuedConfiguration?.entry === entry) queuedConfiguration = undefined;
+      return entry.work();
     });
+    queuedConfiguration = { entry, result, tail };
+    return result;
   };
 
   return {
