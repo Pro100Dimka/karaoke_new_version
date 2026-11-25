@@ -450,6 +450,10 @@ export const useKaraokeSession = (
     setGains,
     setMonitoring,
   });
+  const displayedGains = useMemo(
+    () => ({ ...gains, ...controls.pendingGains }),
+    [gains, controls.pendingGains],
+  );
   const updateKaraokeNoteScore = useCallback(
     (score: KaraokeNoteScore) => {
       recordingCoordinator.updateKaraokeNoteScore(score);
@@ -508,7 +512,7 @@ export const useKaraokeSession = (
     monitoring,
     recording,
     recordingId,
-    gains,
+    gains: displayedGains,
     interactive,
     practiceLocked: Boolean(
       room && (!canControlRoom(room) || room.playbackLocked),

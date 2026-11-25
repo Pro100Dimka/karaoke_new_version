@@ -9,6 +9,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -177,20 +178,39 @@ export const useKaraokeControls = ({
     [key, position, setKeyShift, speed],
   );
 
+  const gainRequests = useRef(new Map<keyof MixerChannelGains, symbol>());
+  const [pendingGains, setPendingGains] = useState<Partial<MixerChannelGains>>(
+    {},
+  );
   const changeGain = useCallback(
     async (channel: keyof MixerChannelGains, value: number) => {
+      const request = Symbol();
+      let applied = true;
       if (channel !== 'mic') {
-        const applied = await observeOperation(
+        gainRequests.current.set(channel, request);
+        // Controlled knobs need the gesture now, including the next keyboard step.
+        // Accepted gains remain separate so recovery and preferences never use a failed value.
+        setPendingGains((current) => ({ ...current, [channel]: value }));
+        applied = await observeOperation(
           'errors.mixer',
           audioClient.setMixer(channel, value),
         ).then(
           () => true,
           () => false,
         );
-        if (!applied) return;
       }
-      setGains((current) => ({ ...current, [channel]: value }));
-      updatePreferences({ [gainPreferences[channel]]: value });
+      if (applied) {
+        setGains((current) => ({ ...current, [channel]: value }));
+        updatePreferences({ [gainPreferences[channel]]: value });
+      }
+      if (gainRequests.current.get(channel) === request) {
+        gainRequests.current.delete(channel);
+        setPendingGains((current) => {
+          const next = { ...current };
+          delete next[channel];
+          return next;
+        });
+      }
     },
     [setGains, updatePreferences],
   );
@@ -251,6 +271,7 @@ export const useKaraokeControls = ({
     changeSpeed,
     changeKey,
     changeGain,
+    pendingGains,
     toggleMonitoring,
     showNotes: preferences.karaokeShowNotes,
     showLyrics: preferences.karaokeShowLyrics,
