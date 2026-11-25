@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections import OrderedDict
 from dataclasses import replace
-from functools import lru_cache
+from threading import Event, Lock
 import numpy as np
 
 from backend.domain_errors import DomainError
@@ -27,15 +28,33 @@ class FfmpegMediaInspector:
         self._ffmpeg = ffmpeg
         self._sidecar = sidecar
         self._waveform_locks = KeyedLockManager()
+        self._waveform_guard = Lock()
+        self._waveforms: OrderedDict[tuple[Path, int, int, int], tuple[float, ...]] = OrderedDict()
 
-    def waveform_peaks(self, source: Path, bins: int) -> list[float]:
+    def waveform_peaks(
+        self, source: Path, bins: int, *, cancel: Event | None = None
+    ) -> list[float]:
+        _ensure_waveform_active(cancel)
         source = source.resolve()
-        with self._waveform_locks.acquire(str(source)):
+        with self._waveform_locks.acquire(
+            str(source), ensure_not_cancelled=lambda: _ensure_waveform_active(cancel)
+        ):
             stat = source.stat()
-            return list(self._waveform(source, bins, stat.st_mtime_ns, stat.st_size))
+            key = source, bins, stat.st_mtime_ns, stat.st_size
+            with self._waveform_guard:
+                cached = self._waveforms.get(key)
+                if cached is not None:
+                    self._waveforms.move_to_end(key)
+                    return list(cached)
+            peaks = self._waveform(source, bins, cancel)
+            _ensure_waveform_active(cancel)
+            with self._waveform_guard:
+                self._waveforms[key] = peaks
+                if len(self._waveforms) > 256:
+                    self._waveforms.popitem(last=False)
+            return list(peaks)
 
-    @lru_cache(maxsize=256)
-    def _waveform(self, source: Path, bins: int, _mtime: int, _size: int) -> tuple[float, ...]:
+    def _waveform(self, source: Path, bins: int, cancel: Event | None) -> tuple[float, ...]:
         result = self._runner.run(
             [
                 self._ffmpeg,
@@ -55,6 +74,7 @@ class FfmpegMediaInspector:
                 "pipe:1",
             ],
             timeout_seconds=60,
+            cancel=cancel,
         )
         if result.exit_code != 0:
             raise DomainError("InvalidMedia", "Song waveform could not be read", 400)
@@ -164,6 +184,11 @@ class FfmpegMediaInspector:
             ),
             has_embedded_artwork=has_artwork,
         )
+
+
+def _ensure_waveform_active(cancel: Event | None) -> None:
+    if cancel is not None and cancel.is_set():
+        raise DomainError("ProcessCancelled", "Waveform decoding was cancelled", 499)
 
 
 def _tag(sources: list[object], *keys: str, prefix: str | None = None) -> str | None:

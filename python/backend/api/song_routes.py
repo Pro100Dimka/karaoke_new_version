@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from functools import partial
+from threading import Event
 from typing import Annotated, Literal
 from uuid import uuid4
 import anyio
@@ -12,7 +14,7 @@ from backend.api.dependencies import container
 from backend.api.song_dto import ImportSongDto, SongDto, SongPageDto, UpdateSongDto, song_dto
 from backend.api.song_dto import SongSummaryDto
 from backend.bootstrap.container import ApplicationContainer
-from backend.domain_errors import NotFoundError
+from backend.domain_errors import DomainError, NotFoundError
 from backend.songs.domain import CoverState, Language, Song
 from backend.songs.ports import SongSearch
 from backend.songs.domain import SongStatus
@@ -152,10 +154,37 @@ def _song_cover(song_id: str, app: ApplicationContainer) -> FileResponse:
 async def get_song_waveform(
     song_id: str, request: Request, app: ContainerDep, bins: int = Query(120, ge=16, le=480)
 ) -> list[float] | Response:
-    async with waveform_limit:
-        if await request.is_disconnected():
-            return Response(status_code=499)
-        return await anyio.to_thread.run_sync(app.songs.get_waveform.execute, song_id, bins)
+    if await request.is_disconnected():
+        return Response(status_code=499)
+    cancel = Event()
+    result: list[float] | DomainError | None = None
+    async with anyio.create_task_group() as tasks:
+
+        async def disconnected() -> None:
+            try:
+                while True:
+                    if (await request.receive())["type"] == "http.disconnect":
+                        tasks.cancel_scope.cancel()
+                        return
+            finally:
+                cancel.set()
+
+        tasks.start_soon(disconnected)
+        try:
+            async with waveform_limit:
+                result = await anyio.to_thread.run_sync(
+                    partial(app.songs.get_waveform.execute, song_id, bins, cancel=cancel)
+                )
+        except DomainError as error:
+            result = error
+        finally:
+            cancel.set()
+            tasks.cancel_scope.cancel()
+    if isinstance(result, DomainError):
+        if result.code != "ProcessCancelled":
+            raise result
+        result = None
+    return result if result is not None else Response(status_code=499)
 
 
 @router.delete("/{song_id}/cover", response_model=SongDto)

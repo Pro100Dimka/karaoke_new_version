@@ -5,6 +5,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from threading import Event
 from typing import Protocol, Sequence
 
 from backend.songs.domain import Language, Song, SongStatus
@@ -94,7 +95,9 @@ class MediaInspector(Protocol):
 
     def extract_artwork(self, source: Path, target: Path) -> bool: ...
 
-    def waveform_peaks(self, source: Path, bins: int) -> list[float]: ...
+    def waveform_peaks(
+        self, source: Path, bins: int, *, cancel: Event | None = None
+    ) -> list[float]: ...
 
 
 class SongMediaUpdate(Protocol):

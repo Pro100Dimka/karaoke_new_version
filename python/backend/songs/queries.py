@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event
 
 from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
@@ -66,11 +67,11 @@ class GetSongWaveform:
         self._songs = songs
         self._media = media
 
-    def execute(self, song_id: str, bins: int) -> list[float]:
+    def execute(self, song_id: str, bins: int, *, cancel: Event | None = None) -> list[float]:
         song = self._songs.execute(song_id)
         if song.source_path is None or not song.source_path.is_file():
             raise NotFoundError("SourceMissing", "Song source is unavailable")
-        return self._media.waveform_peaks(song.source_path, bins)
+        return self._media.waveform_peaks(song.source_path, bins, cancel=cancel)
 
 
 class ListSongs:

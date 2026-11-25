@@ -3,6 +3,8 @@ import threading
 import weakref
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from backend.projects.content_lock import KeyedLockManager
 
 
@@ -61,3 +63,24 @@ def test_pending_owners_remain_mutually_exclusive_while_entries_are_reclaimed():
         for future in [pool.submit(update) for _ in range(4)]:
             future.result(timeout=5)
     assert not violations and active == 0
+
+
+@pytest.mark.parametrize("check_to_cancel", [1, 2])
+def test_cancelled_lock_acquisition_preserves_the_outer_owner_and_reclaims_waiter(check_to_cancel):
+    manager = KeyedLockManager()
+    checks = 0
+
+    def cancelled():
+        nonlocal checks
+        checks += 1
+        if checks == check_to_cancel:
+            raise InterruptedError("No longer needed")
+
+    with manager.acquire("same"):
+        with pytest.raises(InterruptedError, match="No longer needed"):
+            with manager.acquire("same", ensure_not_cancelled=cancelled):
+                pytest.fail("Cancelled work acquired a usable lock")
+        assert manager._locks["same"].users == 1
+        with manager.acquire("same"):
+            assert manager._locks["same"].users == 2
+    assert not manager._locks
