@@ -124,6 +124,7 @@ void GateProcessor::process(std::span<float> samples, std::uint32_t frames) noex
 
 void NoiseProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t,
                              std::uint32_t channels) {
+    backgroundAttack_ = std::exp(-1.0F / (0.3F * static_cast<float>(sampleRateHz)));
     envelopeAttack_ = std::exp(-1.0F / (0.001F * static_cast<float>(sampleRateHz)));
     release_ = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz)));
     gainAttack_ = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz)));
@@ -141,6 +142,7 @@ void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noe
     const auto envelopeAttack = envelopeAttack_;
     const auto release = release_;
     const auto gainAttack = gainAttack_;
+    constexpr float VoiceOnsetRatio = 2.5F;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         float dominant = 0.0F;
         for (std::uint32_t channel = 0; channel < channels_; ++channel) {
@@ -151,6 +153,11 @@ void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noe
         const auto level = std::abs(dominant);
         const auto envelopeCoefficient = level > envelope_ ? envelopeAttack : release;
         envelope_ = level + envelopeCoefficient * (envelope_ - level);
+        const auto backgroundCoefficient = envelope_ > backgroundEnvelope_ ? backgroundAttack_ : release;
+        backgroundEnvelope_ = envelope_ + backgroundCoefficient * (backgroundEnvelope_ - envelope_);
+        // Preserve rising phrases before a complete pitch window is available.
+        if (envelope_ > backgroundEnvelope_ * VoiceOnsetRatio)
+            voiceHoldFrames_ = voiceHoldLength_;
         voiceDecimationSum_ += dominant;
         if (++voiceDecimationCount_ == voiceDecimation_) {
             voiceAnalysis_[voiceAnalysisSize_++] = voiceDecimationSum_ / static_cast<float>(voiceDecimation_);

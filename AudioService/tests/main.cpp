@@ -860,6 +860,7 @@ constexpr std::array tests{
     Test{"autoTunePreservesAnInTuneLowVoiceAcrossRates", Tests::autoTunePreservesAnInTuneLowVoiceAcrossRates},
     Test{"voiceEffectsDoNotReplayOldVoiceAfterBypass", Tests::voiceEffectsDoNotReplayOldVoiceAfterBypass},
     Test{"noiseSuppressionPreservesQuietHeldVoiceAboveBackground", Tests::noiseSuppressionPreservesQuietHeldVoiceAboveBackground},
+    Test{"noiseSuppressionPreservesTheStartOfAQuietPhrase", Tests::noiseSuppressionPreservesTheStartOfAQuietPhrase},
     Test{"ipcParsesMonitoringCommand", Tests::ipcParsesMonitoringCommand},
     Test{"ipcMapsRemoteParticipantCommand", Tests::ipcMapsRemoteParticipantCommand},
     Test{"ipcMapsDirectPeerCommand", Tests::ipcMapsDirectPeerCommand},

@@ -131,7 +131,7 @@ class NoiseProcessor final : public IAudioProcessor {
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept override;
     void reset() noexcept override {
         gain_ = 1.0F;
-        envelope_ = 0.0F;
+        envelope_ = backgroundEnvelope_ = 0.0F;
         open_ = false;
         voiceAnalysisSize_ = voiceDecimationCount_ = voiceHoldFrames_ = 0;
         voiceDecimationSum_ = 0.0F;
@@ -141,14 +141,14 @@ class NoiseProcessor final : public IAudioProcessor {
     }
 
   private:
-    float envelopeAttack_{0.0F};
+    float envelopeAttack_{0.0F}, backgroundAttack_{0.0F};
     float release_{0.0F};
     float gainAttack_{0.0F};
     std::uint32_t channels_{0};
     std::atomic<float> threshold_{0.0F};
     std::atomic<float> reduction_{1.0F};
     float gain_{1.0F};
-    float envelope_{0.0F};
+    float envelope_{0.0F}, backgroundEnvelope_{0.0F};
     bool open_{false};
     static constexpr std::uint32_t VoiceAnalysisFrames = 384, VoiceAnalysisHop = 120;
     PitchEstimator voiceEstimator_;

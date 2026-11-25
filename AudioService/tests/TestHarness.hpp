@@ -592,6 +592,7 @@ void voiceEffectsStayRealtimeSafeWhileControlsChange();
 void autoTunePreservesAnInTuneLowVoiceAcrossRates();
 void voiceEffectsDoNotReplayOldVoiceAfterBypass();
 void noiseSuppressionPreservesQuietHeldVoiceAboveBackground();
+void noiseSuppressionPreservesTheStartOfAQuietPhrase();
 void ipcParsesMonitoringCommand();
 void ipcMapsRemoteParticipantCommand();
 void ipcMapsDirectPeerCommand();

@@ -351,6 +351,43 @@ void noiseSuppressionPreservesQuietHeldVoiceAboveBackground() {
     }
 }
 
+void noiseSuppressionPreservesTheStartOfAQuietPhrase() {
+    for (const auto rate : {44'100U, 48'000U, 96'000U, 192'000U}) {
+        for (const auto& [frequency, rampSeconds] : {
+                 std::pair{80.0, 0.0}, {150.0, 0.0}, {300.0, 0.0},
+                 {80.0, 0.08}, {150.0, 0.08}, {300.0, 0.08}}) {
+            NoiseProcessor noise;
+            noise.prepare(rate, 1, 1);
+            noise.setThreshold(0.03F);
+            noise.setReduction(0.25F);
+            std::uint32_t random = 12345;
+            double input = 0.0, output = 0.0;
+            const auto onset = rate / 2U;
+            for (std::uint32_t frame = 0; frame < onset + rate / 50U; ++frame) {
+                random = random * 1664525U + 1013904223U;
+                const auto background =
+                    (static_cast<double>(random) / 4294967295.0 * 2 - 1) * 0.0002;
+                const auto ramp = rampSeconds > 0.0 && frame >= onset
+                    ? std::min(1.0, (frame - onset) / (rate * rampSeconds)) : 1.0;
+                const auto voice = frame < onset ? 0.0 : 0.014 * ramp * std::sin(
+                    2.0 * std::numbers::pi * frequency * (frame - onset) / rate);
+                const auto source = static_cast<float>(voice + background);
+                std::array sample{source};
+                noise.process(sample, 1);
+                if (frame >= onset) {
+                    input += source * source;
+                    output += sample.front() * sample.front();
+                }
+            }
+            const auto gain = std::sqrt(output / input);
+            std::printf("VOICE_ONSET_NOISE rate=%u frequency=%.0f ramp=%.2f gain=%g\n",
+                        rate, frequency, rampSeconds, gain);
+            expect(gain > 0.8,
+                   "the start of a clear quiet phrase must not wait for a full pitch-analysis window");
+        }
+    }
+}
+
 void autoTunePreservesAnInTuneLowVoiceAcrossRates() {
     for (const auto rate : {44'100U, 48'000U, 96'000U, 192'000U}) {
         constexpr std::uint32_t Block = 128;
