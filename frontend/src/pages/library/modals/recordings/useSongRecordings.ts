@@ -19,6 +19,7 @@ import {
   backendPollInterval,
   nextRecordingChange,
   onRecordingsChange,
+  readBackendSnapshot,
 } from '../../../../services/backendEvents';
 import { pythonClient as catalog } from '../../../../services/pythonClient';
 import {
@@ -62,6 +63,7 @@ export const useSongRecordings = (
   // The take whose analysis was opened: songs finished on the TV open theirs one after another.
   const handled = useRef<string | null>(null);
   const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
+  const openingRecordings = useRef<AbortController | null>(null);
   const analysisRuns = useRef(new Map<string, number>());
   const analysisTarget = useRef<{ recordingId: string; songId: string } | null>(
     null,
@@ -178,12 +180,16 @@ export const useSongRecordings = (
     if (!recordingsTargetId) return;
     let active = true;
     let pending = false;
+    const controller = new AbortController();
     const request = requests.current.recordings;
     const refresh = () => {
       if (pending) return;
       pending = true;
-      void catalog
-        .listRecordings(recordingsTargetId)
+      void readBackendSnapshot(
+        () => catalog.listRecordings(recordingsTargetId),
+        onRecordingsChange,
+        controller.signal,
+      )
         .then((items) => {
           if (active && request === requests.current.recordings) {
             clearOperationFailure('errors.recordings');
@@ -205,6 +211,7 @@ export const useSongRecordings = (
       : undefined;
     return () => {
       active = false;
+      controller.abort();
       stop();
       window.clearInterval(timer);
     };
@@ -213,19 +220,28 @@ export const useSongRecordings = (
   const open = (target: SongDto) =>
     guarded(async () => {
       const request = ++requests.current.recordings;
+      openingRecordings.current?.abort();
+      const controller = new AbortController();
+      openingRecordings.current = controller;
       // Show the dialog immediately; the network must not delay its first paint.
       setSong(target);
       setRecordings([]);
       setLoadingRecordings(true);
       setFailedRecordings(false);
       try {
-        const items = await catalog.listRecordings(target.id);
+        const items = await readBackendSnapshot(
+          () => catalog.listRecordings(target.id),
+          onRecordingsChange,
+          controller.signal,
+        );
         if (request === requests.current.recordings) setRecordings(items);
       } catch (error) {
         if (request !== requests.current.recordings) return;
         setFailedRecordings(true);
         throw error;
       } finally {
+        if (openingRecordings.current === controller)
+          openingRecordings.current = null;
         if (request === requests.current.recordings)
           setLoadingRecordings(false);
       }
@@ -236,6 +252,7 @@ export const useSongRecordings = (
       analysisRuns.current.clear();
       handled.current = null;
       requests.current.recordings += 1;
+      openingRecordings.current?.abort();
       requests.current.analysis += 1;
       requests.current.master += 1;
     },
@@ -256,6 +273,7 @@ export const useSongRecordings = (
     setAnalysisRecordId(takeId);
     if (song?.id !== songId) {
       // The returned take now owns the shared list and its refresh subscription.
+      openingRecordings.current?.abort();
       setSong(null);
       setRecordings([]);
       setLoadingRecordings(false);
@@ -441,6 +459,7 @@ export const useSongRecordings = (
     createStudioMaster,
     close: () => {
       requests.current.recordings += 1;
+      openingRecordings.current?.abort();
       setLoadingRecordings(false);
       setFailedRecordings(false);
       setSong(null);
