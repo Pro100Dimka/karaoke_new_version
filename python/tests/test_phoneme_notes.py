@@ -24,6 +24,7 @@ def test_note_events_use_sung_offsets_and_ignore_unpitched_reverb():
     scores[[10, 50], 0] = 0.9
     scores[[40, 90], 1] = 0.9
     frequency = np.r_[np.full(100, 440.0), np.full(102, 523.25)]
+    frequency[82:100] = np.nan
     labels = _decode(scores, frequency)
     assert np.array_equal(labels[20:82], np.full(62, 69))
     assert np.array_equal(labels[100:182], np.full(82, 72))
@@ -66,6 +67,56 @@ def test_separate_sung_octaves_keep_their_own_register():
 
     assert np.array_equal(labels[:28], np.full(28, 58))
     assert np.array_equal(labels[30:58], np.full(28, 46))
+
+
+@pytest.mark.parametrize("continuation", ["held", "breath", "different_pitch"])
+def test_equal_notes_only_join_through_the_same_continuing_voice(continuation):
+    scores = np.zeros((31, 3), dtype=np.float32)
+    scores[:, 2] = 0.9
+    scores[[0, 18], 0] = 0.9
+    scores[[9, 29], 1] = 0.9
+    frequency = np.full(62, 220.0)
+    frequency[20:36] = {"held": 220.0, "breath": np.nan, "different_pitch": 261.63}[continuation]
+
+    labels = _decode(scores, frequency)
+
+    assert np.array_equal(labels[:20], np.full(20, 57))
+    assert np.array_equal(labels[20:36], np.full(16, 57 if continuation == "held" else 0))
+    assert np.array_equal(labels[36:60], np.full(24, 57))
+    assert not labels[60:].any()
+
+
+def test_a_quiet_reverberant_gap_does_not_join_two_repeated_notes():
+    scores = np.zeros((31, 3), dtype=np.float32)
+    scores[:, 2] = 0.9
+    scores[[0, 18], 0] = 0.9
+    scores[[9, 29], 1] = 0.9
+    frequency = np.full(62, 220.0)
+    levels = np.zeros(62)
+    levels[20:36] = -20
+
+    labels = _decode(scores, frequency, levels)
+
+    assert not labels[20:36].any()
+    assert np.array_equal(labels[:20], np.full(20, 57))
+    assert np.array_equal(labels[36:60], np.full(24, 57))
+
+
+def test_a_continuous_pitch_change_does_not_create_a_gap_between_sung_notes():
+    scores = np.zeros((31, 3), dtype=np.float32)
+    scores[:, 2] = 0.9
+    scores[[0, 18], 0] = 0.9
+    scores[[9, 29], 1] = 0.9
+    pitches = np.r_[np.full(20, 57), np.linspace(57, 59, 16), np.full(26, 59)]
+    frequency = 440 * 2 ** ((pitches - 69) / 12)
+
+    labels = _decode(scores, frequency, np.zeros(62))
+
+    assert labels[20:36].min() == 57
+    assert labels[20:36].max() == 59
+    assert (np.diff(labels[20:36]) >= 0).all()
+    assert np.array_equal(labels[:20], np.full(20, 57))
+    assert np.array_equal(labels[36:60], np.full(24, 59))
 
 
 @pytest.mark.parametrize("value", [True, -1, 128, 69.5, "69"])

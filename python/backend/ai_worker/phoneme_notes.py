@@ -12,7 +12,7 @@ import wquantiles
 from backend.ai.catalog import NOTE_MODEL
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.phoneme_model import PhonemeNoteModel
-from backend.ai_worker.timing import _runs
+from backend.ai_worker.timing import _levels, _runs
 
 
 def melody_labels(
@@ -32,7 +32,7 @@ def melody_labels(
     probabilities = prediction.sigmoid()[0].cpu().numpy()
     frequencies = frequency[0].numpy().copy()
     frequencies[(confidence[0].numpy() < 0.5) | ~active] = np.nan
-    return _decode(probabilities, frequencies)
+    return _decode(probabilities, frequencies, _levels(samples, 160)[0])
 
 
 def _peaks(scores: np.ndarray) -> list[int]:
@@ -63,7 +63,9 @@ def _note_offset(
     return offset
 
 
-def _decode(scores: np.ndarray, frequency: np.ndarray) -> np.ndarray:
+def _decode(
+    scores: np.ndarray, frequency: np.ndarray, levels: np.ndarray | None = None
+) -> np.ndarray:
     labels = np.zeros(len(frequency), dtype=np.int16)
     onsets = _peaks(scores[:, 0])
     offsets = set(_peaks(scores[:, 1]))
@@ -92,4 +94,23 @@ def _decode(scores: np.ndarray, frequency: np.ndarray) -> np.ndarray:
         pitch = float(wquantiles.median(values, weights / weights.sum()))
         if np.isfinite(pitch) and 0 < round(pitch) <= 127:
             labels[first * 2 : (end + 1) * 2] = round(pitch)
+    for first, last in _runs(labels == 0, True):
+        if not first or last == len(labels) or last - first > 20:
+            continue
+        heard = 69 + 12 * np.log2(frequency[first:last] / 440)
+        distance = np.abs(heard[:, None] - labels[[first - 1, last]])
+        if not np.isfinite(heard).all() or np.any(distance.min(axis=1) > 1.5):
+            continue
+        # A quiet reverberant release is not a continuing sung note.
+        if (
+            levels is not None
+            and np.min(levels[first:last])
+            < min(np.median(levels[max(0, first - 5) : first]), np.median(levels[last : last + 5]))
+            - 6
+        ):
+            continue
+        # Keep at most one transition between the existing notes, without vibrato retriggers.
+        split = first + int(np.argmin(np.r_[0, np.cumsum(distance[:, 0] - distance[:, 1])]))
+        labels[first:split] = labels[first - 1]
+        labels[split:last] = labels[last]
     return labels
