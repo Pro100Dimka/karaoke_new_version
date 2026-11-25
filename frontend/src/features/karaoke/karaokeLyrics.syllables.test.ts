@@ -2,6 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { word } from './karaokeLyricsFixture';
 import { syllableProgress } from './karaokeLyrics';
 describe('syllable fill', () => {
+  it('keeps the measured vowel onset inside a reviewed consonant cluster', () => {
+    const text = 'одиночества';
+    const start = 19.4;
+    const end = 22.02;
+    const saved = {
+      ...word(text, start, end),
+      letters: [
+        19.4, 20.1, 20.22, 20.5, 20.62, 21.2, 21.32, 21.42, 21.52, 21.62, 21.74,
+      ].map((at) => (at - start) / (end - start)),
+      lettersApproximate: true,
+    };
+    const geometry = [...text].map(
+      (_, i) => [i / text.length, (i + 1) / text.length] as const,
+    );
+
+    expect(syllableProgress(saved, 21.7, geometry)).toBeLessThan(10 / 11);
+    expect(syllableProgress(saved, 21.74, geometry)).toBeCloseTo(10 / 11);
+    expect(syllableProgress(saved, 21.9, geometry)).toBeGreaterThan(10 / 11);
+  });
+
   it('holds a sung number through its word interval instead of rushing through its digits', () => {
     const saved = word('100', 0, 2);
     expect(syllableProgress(saved, 0.16)).toBeLessThan(0.5);
@@ -119,11 +139,9 @@ describe('syllable fill', () => {
         lettersApproximate: true,
       };
       expect(syllableProgress(saved, 0.16)).toBeCloseTo(0.5);
-      expect(syllableProgress(saved, 0.26)).toBeCloseTo(
-        0.5 + (0.25 * 0.1) / 0.14,
-      );
+      expect(syllableProgress(saved, 0.26)).toBeCloseTo(0.75);
       expect(syllableProgress(saved, 0.63)).toBeCloseTo(
-        0.75 + (0.25 * 0.33) / 0.7,
+        0.75 + (0.25 * 0.37) / 0.74,
       );
       expect(syllableProgress(saved, 1)).toBe(1);
     },
@@ -133,8 +151,9 @@ describe('syllable fill', () => {
     expect(syllableProgress(measured, 0.2)).toBeCloseTo(2 / 3);
     expect(syllableProgress(measured, 0.6)).toBeCloseTo(5 / 6);
     const saved = { ...measured, lettersApproximate: true };
-    expect(syllableProgress(saved, 0.2)).toBeCloseTo(1 / 3 + 0.06 / 0.72 / 3);
-    expect(syllableProgress(saved, 0.6)).toBeCloseTo(1 / 3 + 0.46 / 0.72 / 3);
+    expect(syllableProgress(saved, 0.1)).toBeCloseTo(1 / 3);
+    expect(syllableProgress(saved, 0.2)).toBeCloseTo(1 / 3 + 0.1 / 0.76 / 3);
+    expect(syllableProgress(saved, 0.6)).toBeCloseTo(1 / 3 + 0.5 / 0.76 / 3);
     expect(syllableProgress(saved, 0.94)).toBeGreaterThan(2 / 3);
     const deep = {
       ...word('deep', 0, 3.2),
@@ -162,25 +181,31 @@ describe('syllable fill', () => {
       end: 0.84,
       letters: [0, 0.08, 0.08, 0.22, 0.34],
       at: 0.11,
-      expected: 2 / 5 + ((1 / 5) * 0.022) / 0.132,
+      expected: 2 / 5 + ((1 / 5) * 0.03) / 0.14,
+      vowelAt: 0.08,
+      vowelIndex: 2,
     },
     {
       text: 'слухала',
       end: 0.7,
       letters: [0, 0.2, 0.22, 0.36, 0.44, 0.54, 0.6],
       at: 0.18,
-      expected: 2 / 7 + ((1 / 7) * 0.036) / 0.216,
+      expected: 1 / 7 + ((1 / 7) * 0.07) / 0.11,
+      vowelAt: 0.22,
+      vowelIndex: 2,
     },
     {
       text: 'Так',
       end: 0.22,
       letters: [0, 0.08, 0.1],
       at: 0.11,
-      expected: 0.5,
+      expected: 1 / 3 + ((1 / 3) * 0.03) / 0.084,
+      vowelAt: 0.08,
+      vowelIndex: 1,
     },
   ])(
     'fills short clusters in $text smoothly within measured syllable boundaries',
-    ({ text, end, letters, at, expected }) => {
+    ({ text, end, letters, at, expected, vowelAt, vowelIndex }) => {
       const saved = Object.freeze({
         ...word(text, 0, end),
         letters: Object.freeze(letters.map((t) => t / end)),
@@ -190,6 +215,9 @@ describe('syllable fill', () => {
         (_, i) => [i / text.length, (i + 1) / text.length] as const,
       );
       expect(syllableProgress(saved, at, geometry)).toBeCloseTo(expected);
+      expect(syllableProgress(saved, vowelAt, geometry)).toBeCloseTo(
+        vowelIndex / text.length,
+      );
       expect(syllableProgress(saved, 0, geometry)).toBe(0);
       expect(syllableProgress(saved, end, geometry)).toBe(1);
     },

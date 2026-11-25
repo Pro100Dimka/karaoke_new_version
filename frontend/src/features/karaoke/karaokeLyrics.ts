@@ -409,16 +409,30 @@ export const syllableProgress = (
     const last = boundaries[group + 1];
     const begin = measured ? (starts[first] ?? 0) : 0;
     const end = last === undefined ? 1 : (starts[last] ?? 1);
-    const text = characters.slice(first, last).join('');
-    const seconds = characterSeconds(
-      text,
-      (end - begin) * duration,
-      consonantSweepSeconds,
-    );
-    let at = begin;
-    for (const [index, local] of spokenIndices(text).entries()) {
-      phonetic[first + local] = at;
-      at += (seconds[index] ?? 0) / duration;
+    let vowel = measured ? (indices[nuclei[group] ?? 0] ?? first) : first;
+    const prefix = characters.slice(first, vowel).join('');
+    if (
+      ((starts[vowel] ?? begin) - begin) * duration >
+      consonantSweepSeconds * spokenIndices(prefix).length
+    )
+      vowel = first;
+    const vowelAt = measured ? (starts[vowel] ?? begin) : begin;
+    // Keep the measured vowel onset while estimating uncertain consonants around it.
+    for (const part of [
+      { first, last: vowel, begin, end: vowelAt },
+      { first: vowel, last, begin: vowelAt, end },
+    ]) {
+      const text = characters.slice(part.first, part.last).join('');
+      const seconds = characterSeconds(
+        text,
+        (part.end - part.begin) * duration,
+        consonantSweepSeconds,
+      );
+      let at = part.begin;
+      for (const [index, local] of spokenIndices(text).entries()) {
+        phonetic[part.first + local] = at;
+        at += (seconds[index] ?? 0) / duration;
+      }
     }
   }
   return timedLetterProgress(
