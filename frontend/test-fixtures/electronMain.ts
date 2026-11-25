@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     ) => void
   >(),
   stopService: vi.fn(),
+  stopLogs: vi.fn(async () => undefined),
   flushWindowState: vi.fn(async () => undefined),
   quit: vi.fn(),
   relaunch: vi.fn(),
@@ -67,7 +68,7 @@ vi.mock('../electron/AppLogUploader', () => ({
   AppLogUploader: class {
     captureConsole = vi.fn();
     start = vi.fn();
-    stop = vi.fn().mockResolvedValue(undefined);
+    stop = mocks.stopLogs;
     write = vi.fn();
     add = vi.fn();
     sendReport = vi.fn().mockResolvedValue(undefined);

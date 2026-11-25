@@ -1,6 +1,7 @@
 import { StringDecoder } from 'node:string_decoder';
 import { format } from 'node:util';
-import { readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { writeFile, rename, rm } from 'node:fs/promises';
 import { roomParticipantId } from './RoomIdentity';
 import {
   roomServerRequest,
@@ -61,6 +62,10 @@ export class AppLogUploader {
   private inFlight: Promise<void> | undefined;
   private dropped = 0;
   private stopping?: Promise<void>;
+  private persistenceStarted = false;
+  private persistAgain = false;
+  private persisting?: Promise<void>;
+  private reportingPersistenceFailure = false;
 
   constructor(
     private readonly send: (entries: AppLogEntry[]) => Promise<unknown>,
@@ -116,26 +121,47 @@ export class AppLogUploader {
         }
         if (this.queue.length >= count) break;
       } while (this.queue.length && Date.now() < deadline);
-      this.persist();
+      await this.persist();
     })();
     return this.stopping;
   }
 
-  private persist(): void {
-    if (!this.queuePath) return;
-    try {
-      if (!this.queue.length) rmSync(this.queuePath, { force: true });
-      else {
-        writeFileSync(
-          this.queuePath + '.tmp',
-          JSON.stringify(this.queue),
-          'utf8',
-        );
-        renameSync(this.queuePath + '.tmp', this.queuePath);
+  private persist(): Promise<void> {
+    const file = this.queuePath;
+    if (!file) return Promise.resolve();
+    this.persistenceStarted = true;
+    this.persistAgain = true;
+    // Shutdown drains online batches first. A late upload may supersede an
+    // in-flight save; serialize it so an older rename cannot restore sent logs.
+    this.persisting ??= Promise.resolve().then(async () => {
+      try {
+        while (this.persistAgain) {
+          this.persistAgain = false;
+          try {
+            if (!this.queue.length) await rm(file, { force: true });
+            else {
+              await writeFile(
+                file + '.tmp',
+                JSON.stringify(this.queue),
+                'utf8',
+              );
+              await rename(file + '.tmp', file);
+            }
+          } catch (error) {
+            // Console capture must not turn a disk failure into endless saves.
+            this.reportingPersistenceFailure = true;
+            try {
+              console.warn('Could not save pending application logs', error);
+            } finally {
+              this.reportingPersistenceFailure = false;
+            }
+          }
+        }
+      } finally {
+        this.persisting = undefined;
       }
-    } catch (error) {
-      console.warn('Could not save pending application logs', error);
-    }
+    });
+    return this.persisting;
   }
 
   captureConsole(
@@ -201,6 +227,8 @@ export class AppLogUploader {
       message: redact(message).slice(0, maximumMessage),
     };
     this.queue.push(entry);
+    if (this.persisting && !this.reportingPersistenceFailure)
+      this.persistAgain = true;
     this.recent.push(entry);
     if (this.recent.length > 60) this.recent.shift();
   }
@@ -299,7 +327,7 @@ export class AppLogUploader {
         await this.send(batch);
         this.queue.splice(0, count);
         this.dropped -= dropped;
-        if (this.stopping) this.persist();
+        if (this.persistenceStarted) await this.persist();
       } catch {
         // Upload failures stay local. The next interval retries the same entries.
       } finally {

@@ -442,11 +442,9 @@ app.on('before-quit', (event) => {
   }
   closeSplash();
   servicesStopping ??= services.stopGracefully().finally(async () => {
-    // A short final upload captures service shutdown errors without making offline exit wait for HTTP timeout.
-    await Promise.race([
-      appLogs.stop(),
-      new Promise<void>((resolve) => setTimeout(resolve, 1_500)),
-    ]);
+    // The uploader bounds its network drain; accepted asynchronous queue writes
+    // must finish before Electron exits and abandons their rename.
+    await appLogs.stop();
     await flushWindowState();
     servicesStopped = true;
     app.quit();
