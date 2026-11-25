@@ -203,8 +203,13 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
     for phase in ("first", "repeat", "repair"):
         log = tmp_path / f"{phase}.log"
         subprocess.run(
-            [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART", f"/LOG={log}",
-             *(["/VERIFYFILES=1"] if phase == "repair" else [])],
+            [
+                str(tmp_path / "probe.exe"),
+                "/VERYSILENT",
+                "/NORESTART",
+                f"/LOG={log}",
+                *(["/VERIFYFILES=1"] if phase == "repair" else []),
+            ],
             check=True,
             timeout=30,
         )
@@ -264,7 +269,9 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
     subprocess.run(
         [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART"], check=True, timeout=30
     )
-    assert target.read_bytes() == b"updated!", "An unwritable optional cache must not fail installation"
+    assert target.read_bytes() == b"updated!", (
+        "An unwritable optional cache must not fail installation"
+    )
 
 
 def _entrypoint(name: str) -> str:
