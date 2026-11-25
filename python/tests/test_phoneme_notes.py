@@ -69,6 +69,25 @@ def test_separate_sung_octaves_keep_their_own_register():
     assert np.array_equal(labels[30:58], np.full(28, 46))
 
 
+@pytest.mark.parametrize("pitch", [47, 59, 71])
+@pytest.mark.parametrize("direction", [-1, 1])
+@pytest.mark.parametrize("uncertain_edges", [False, True])
+def test_an_octave_outlier_with_a_sung_release_keeps_the_majority_register(
+    pitch, direction, uncertain_edges
+):
+    measured = pitch + direction * np.array(
+        [1.8, 0.8, 0.4, -11.6, -11.6, -11.8, -11.8, -12, 0, -0.4, -2, -3, -4]
+    )
+    if uncertain_edges:
+        measured = np.pad(measured, (1, 1), constant_values=np.nan)
+    scores = np.zeros((len(measured) + 1, 3), dtype=np.float32)
+    scores[:, 2] = 0.9
+    scores[0, 0] = scores[len(measured) - 1, 1] = 0.9
+    frequency = np.repeat(440 * 2 ** ((measured - 69) / 12), 2)
+
+    assert np.array_equal(_decode(scores, frequency), np.full(len(frequency), pitch))
+
+
 @pytest.mark.parametrize("continuation", ["held", "breath", "different_pitch"])
 def test_equal_notes_only_join_through_the_same_continuing_voice(continuation):
     scores = np.zeros((31, 3), dtype=np.float32)

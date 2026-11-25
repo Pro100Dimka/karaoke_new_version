@@ -77,11 +77,15 @@ def _decode(
         last = onsets[position + 1] if position + 1 < len(onsets) else len(scores) - 1
         end = _note_offset(first, last, offsets, scores)
         values = pitches[first : end + 1]
-        if end <= first or not np.isfinite(values).any():
+        voiced = np.flatnonzero(np.isfinite(values))
+        if end <= first or not voiced.size:
             continue
         # A brief doubled period at the centre must not outweigh the note's majority register.
         center = float(np.nanmedian(values))
         octave = 12 * np.rint((center - values) / 12)
+        # A continuous sung release can pull the median away from the majority register's core.
+        if voiced.size == voiced[-1] - voiced[0] + 1:
+            center = float(np.median(values[octave == 0]))
         values = np.where(
             (np.abs(octave) == 12) & (np.abs(values + octave - center) < 1),
             values + octave,
