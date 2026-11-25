@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 from functools import partial
 from pathlib import Path
-from typing import Annotated, Callable
+from typing import Annotated, Callable, NotRequired, TypedDict
 from uuid import UUID
 from threading import Lock
 
@@ -16,6 +15,7 @@ import anyio
 from fastapi import FastAPI, Header, Request, Response
 from fastapi.responses import FileResponse
 
+from backend.serialization import dumps, loads_list
 from backend.api.room_server_access import room_member
 from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
 from backend.infrastructure.ids import UuidGenerator
@@ -140,7 +140,7 @@ def _performance_members(
     room = repository.get(room_id)
     membership = root / room_id / str(performance_id) / "members.json"
     members = (
-        set(json.loads(membership.read_text(encoding="utf-8"))) if membership.is_file() else set()
+        set(loads_list(membership.read_text(encoding="utf-8"))) if membership.is_file() else set()
     )
     stored = set(members)
     if room is not None:
@@ -154,7 +154,7 @@ def _performance_members(
             "RoomPermissionDenied", "Only this performance's members may access its sources"
         )
     if members != stored:
-        atomic_write_text(membership, json.dumps(sorted(members)))
+        atomic_write_text(membership, dumps(sorted(members)))
     return members
 
 
@@ -173,27 +173,43 @@ def _performance_source_path(
     return target.with_suffix("") / f"{capture}.zip"
 
 
-def add_performance_source_routes(app: FastAPI, repository: RoomRepository, root: Path) -> None:
-    uploads: dict[Path, tuple[object, int, int]] = {}
-    membership_lock = Lock()
+class _FileStatus(TypedDict):
+    available: bool
+    sizeBytes: int
+    uploadBytes: NotRequired[int]
+    uploadTotalBytes: NotRequired[int]
 
-    async def members(room_id: str, performance_id: int, actor_id: str) -> tuple[str, set[str]]:
+
+class _CaptureStatus(_FileStatus):
+    captureId: str
+
+
+class _PerformanceSources:
+    def __init__(self, repository: RoomRepository, root: Path) -> None:
+        self.repository = repository
+        self.root = root
+        self.uploads: dict[Path, tuple[object, int, int]] = {}
+        self.membership_lock = Lock()
+
+    def _retained_members(self, room_id: str, performance_id: int, actor_id: str) -> set[str]:
+        with self.membership_lock:
+            return _performance_members(
+                self.repository, self.root, room_id, performance_id, actor_id
+            )
+
+    async def members(
+        self, room_id: str, performance_id: int, actor_id: str
+    ) -> tuple[str, set[str]]:
         room_id = normalize_room_id(room_id)
         if performance_id < 1:
             raise NotFoundError("RoomPerformanceNotFound", "Room performance was not found")
+        singers = await anyio.to_thread.run_sync(
+            partial(self._retained_members, room_id, performance_id, actor_id)
+        )
+        return room_id, singers
 
-        def retained_members() -> set[str]:
-            with membership_lock:
-                return _performance_members(repository, root, room_id, performance_id, actor_id)
-
-        return room_id, await anyio.to_thread.run_sync(retained_members)
-
-    @app.put("/rooms/{room_id}/performances/{performance_id}/sources/{singer}", status_code=204)
-    @app.put(
-        "/rooms/{room_id}/performances/{performance_id}/sources/{singer}/captures/{capture_id}",
-        status_code=204,
-    )
     async def upload_source(
+        self,
         room_id: str,
         performance_id: int,
         singer: str,
@@ -201,13 +217,13 @@ def add_performance_source_routes(app: FastAPI, repository: RoomRepository, root
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
         capture_id: str | None = None,
     ) -> Response:
-        room_id, _ = await members(room_id, performance_id, participant_id)
+        room_id, _ = await self.members(room_id, performance_id, participant_id)
         if singer != participant_id:
             raise ForbiddenError(
                 "RoomPermissionDenied", "A singer may upload only their own source"
             )
-        target = _performance_source_path(root, room_id, performance_id, singer, capture_id)
-        membership = root / room_id / str(performance_id) / "members.json"
+        target = _performance_source_path(self.root, room_id, performance_id, singer, capture_id)
+        membership = self.root / room_id / str(performance_id) / "members.json"
         if request.headers.get("content-length") == "0":
 
             def silent_source() -> None:
@@ -217,122 +233,130 @@ def add_performance_source_routes(app: FastAPI, repository: RoomRepository, root
                 membership.touch()
 
             await anyio.to_thread.run_sync(silent_source)
-            return Response(status_code=204)
-        await _tracked_upload(request, target, uploads)
-        await anyio.to_thread.run_sync(target.with_suffix(".pending").unlink, True)
-        await anyio.to_thread.run_sync(membership.touch)
+        else:
+            await _tracked_upload(request, target, self.uploads)
+            await anyio.to_thread.run_sync(target.with_suffix(".pending").unlink, True)
+            await anyio.to_thread.run_sync(membership.touch)
         return Response(status_code=204)
 
-    @app.post(
-        "/rooms/{room_id}/performances/{performance_id}/sources/{singer}/captures/{capture_id}",
-        status_code=204,
-    )
     async def begin_capture(
+        self,
         room_id: str,
         performance_id: int,
         singer: str,
         capture_id: str,
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
     ) -> Response:
-        room_id, _ = await members(room_id, performance_id, participant_id)
+        room_id, _ = await self.members(room_id, performance_id, participant_id)
         if singer != participant_id:
             raise ForbiddenError("RoomPermissionDenied", "A singer may open only their own capture")
-        target = _performance_source_path(root, room_id, performance_id, singer, capture_id)
+        target = _performance_source_path(self.root, room_id, performance_id, singer, capture_id)
 
         def prepare() -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             if not target.is_file():
                 target.with_suffix(".pending").touch(exist_ok=True)
-            (root / room_id / str(performance_id) / "members.json").touch()
+            (self.root / room_id / str(performance_id) / "members.json").touch()
 
         await anyio.to_thread.run_sync(prepare)
         return Response(status_code=204)
 
-    @app.get("/rooms/{room_id}/performances/{performance_id}/sources")
+    def _file_status(self, target: Path) -> _FileStatus:
+        uploading = self.uploads.get(target)
+        available = (
+            uploading is None and not target.with_suffix(".pending").exists() and target.is_file()
+        )
+        result: _FileStatus = {
+            "available": available,
+            "sizeBytes": target.stat().st_size if available else 0,
+        }
+        if uploading:
+            result.update({"uploadBytes": uploading[1], "uploadTotalBytes": uploading[2]})
+        return result
+
+    def _captures(self, target: Path) -> list[_CaptureStatus]:
+        directory = target.with_suffix("")
+        identities = sorted(
+            {path.stem for suffix in ("*.zip", "*.pending") for path in directory.glob(suffix)}
+        )
+        captures = []
+        for identity in identities:
+            item: _CaptureStatus = {
+                "captureId": identity,
+                **self._file_status(directory / f"{identity}.zip"),
+            }
+            captures.append(item)
+        return captures
+
+    def _singer_source(self, room_id: str, performance_id: int, singer: str) -> dict[str, object]:
+        target = _performance_source_path(self.root, room_id, performance_id, singer)
+        result: dict[str, object] = {"participantId": singer, **self._file_status(target)}
+        captures = self._captures(target)
+        if captures:
+            result.update(
+                captures=captures,
+                available=all(capture["available"] for capture in captures),
+                sizeBytes=sum(capture["sizeBytes"] for capture in captures),
+            )
+        return result
+
+    def _manifest(self, room_id: str, performance_id: int, singers: set[str]) -> dict[str, object]:
+        room = self.repository.get(room_id)
+        return {
+            "participants": [
+                self._singer_source(room_id, performance_id, singer) for singer in sorted(singers)
+            ],
+            "complete": room is None
+            or room.song_id is None
+            or performance_id != room.performance_id
+            or performance_result(room, performance_id)["complete"],
+        }
+
     async def list_sources(
+        self,
         room_id: str,
         performance_id: int,
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
     ) -> dict[str, object]:
-        room_id, singers = await members(room_id, performance_id, participant_id)
+        room_id, singers = await self.members(room_id, performance_id, participant_id)
+        return await anyio.to_thread.run_sync(
+            partial(self._manifest, room_id, performance_id, singers)
+        )
 
-        def manifest() -> dict[str, object]:
-            result = []
-            for singer in sorted(singers):
-                target = _performance_source_path(root, room_id, performance_id, singer)
-                available = target not in uploads and target.is_file()
-                result.append(
-                    {
-                        "participantId": singer,
-                        "available": available,
-                        "sizeBytes": target.stat().st_size if available else 0,
-                    }
-                )
-                pending = uploads.get(target)
-                if pending:
-                    result[-1]["uploadBytes"] = pending[1]
-                    result[-1]["uploadTotalBytes"] = pending[2]
-                directory = target.with_suffix("")
-                identities = sorted(
-                    {
-                        path.stem
-                        for suffix in ("*.zip", "*.pending")
-                        for path in directory.glob(suffix)
-                    }
-                )
-                if identities:
-                    captures = []
-                    all_available, total_bytes = True, 0
-                    for identity in identities:
-                        capture = directory / f"{identity}.zip"
-                        uploading = uploads.get(capture)
-                        ready = (
-                            uploading is None
-                            and not capture.with_suffix(".pending").exists()
-                            and capture.is_file()
-                        )
-                        size = capture.stat().st_size if ready else 0
-                        all_available = all_available and ready
-                        total_bytes += size
-                        item = {
-                            "captureId": identity,
-                            "available": ready,
-                            "sizeBytes": size,
-                        }
-                        if uploading:
-                            item.update(uploadBytes=uploading[1], uploadTotalBytes=uploading[2])
-                        captures.append(item)
-                    result[-1].update(
-                        captures=captures,
-                        available=all_available,
-                        sizeBytes=total_bytes,
-                    )
-            room = repository.get(room_id)
-            return {
-                "participants": result,
-                "complete": room is None
-                or room.song_id is None
-                or performance_id != room.performance_id
-                or performance_result(room, performance_id)["complete"],
-            }
-
-        return await anyio.to_thread.run_sync(manifest)
-
-    @app.get("/rooms/{room_id}/performances/{performance_id}/sources/{singer}")
-    @app.get(
-        "/rooms/{room_id}/performances/{performance_id}/sources/{singer}/captures/{capture_id}"
-    )
     async def download_source(
+        self,
         room_id: str,
         performance_id: int,
         singer: str,
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
         capture_id: str | None = None,
     ) -> FileResponse:
-        room_id, singers = await members(room_id, performance_id, participant_id)
+        room_id, singers = await self.members(room_id, performance_id, participant_id)
         if singer not in singers:
             raise NotFoundError("RoomPerformanceSourceNotFound", "Singer source was not found")
         target = await _downloadable_project(
-            _performance_source_path(root, room_id, performance_id, singer, capture_id), uploads
+            _performance_source_path(self.root, room_id, performance_id, singer, capture_id),
+            self.uploads,
         )
         return FileResponse(target, media_type="application/zip", filename="room-source.zip")
+
+
+def add_performance_source_routes(app: FastAPI, repository: RoomRepository, root: Path) -> None:
+    sources = _PerformanceSources(repository, root)
+    base = "/rooms/{room_id}/performances/{performance_id}/sources"
+    capture = "/{singer}/captures/{capture_id}"
+    routes: list[tuple[str, str, Callable[..., object]]] = [
+        ("", "GET", sources.list_sources),
+        ("/{singer}", "PUT", sources.upload_source),
+        ("/{singer}", "GET", sources.download_source),
+        (capture, "POST", sources.begin_capture),
+        (capture, "PUT", sources.upload_source),
+        (capture, "GET", sources.download_source),
+    ]
+    for suffix, method, endpoint in routes:
+        app.add_api_route(
+            base + suffix,
+            endpoint,
+            methods=[method],
+            status_code=204 if method in ["POST", "PUT"] else 200,
+        )

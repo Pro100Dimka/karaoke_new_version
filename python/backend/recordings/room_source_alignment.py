@@ -1,11 +1,14 @@
 """Map separate microphones onto a recipient's measured recording clock."""
 
 from fractions import Fraction
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 import threading
 
 import av
+from av.audio.stream import AudioStream
+from av.container import OutputContainer
 import numpy as np
 import soundfile as sf
 
@@ -51,51 +54,7 @@ def align_room_source(
     target_runs = _clock_runs(recipient_timeline, frames, rate)
     staging = target.with_suffix(".nut")
     try:
-        with sf.SoundFile(source) as audio, av.open(str(staging), "w", format="nut") as container:
-            stream = container.add_stream("pcm_f32le", rate=info.samplerate)
-            stream.layout = "mono"
-            written = False
-
-            def write(samples: np.ndarray, position: int) -> None:
-                frame = av.AudioFrame.from_ndarray(
-                    samples.reshape(1, -1), format="flt", layout="mono"
-                )
-                frame.sample_rate = info.samplerate
-                frame.time_base = Fraction(1, rate)
-                frame.pts = position
-                for packet in stream.encode(frame):
-                    container.mux(packet)
-
-            for destination in target_runs:
-                for origin in source_runs:
-                    _check_cancel(cancel)
-                    start = max(origin[0, 1], destination[0, 1])
-                    end = min(origin[-1, 1], destination[-1, 1])
-                    if end <= start:
-                        continue
-                    first, last = np.interp([start, end], origin[:, 1], origin[:, 0])
-                    offset, limit = int(np.ceil(first)), int(np.floor(last))
-                    audio.seek(offset)
-                    while offset < limit:
-                        _check_cancel(cancel)
-                        count = min(4096, limit - offset)
-                        room_position = np.interp(offset, origin[:, 0], origin[:, 1])
-                        position = round(
-                            float(np.interp(room_position, destination[:, 1], destination[:, 0]))
-                        )
-                        if not written and position > 0:
-                            write(np.zeros(1, dtype="float32"), 0)
-                        # Native microphone channels are copies of the same centred input.
-                        write(
-                            audio.read(count, dtype="float32", always_2d=True)[:, 0].copy(),
-                            position,
-                        )
-                        written = True
-                        offset += count
-            if not written:
-                write(np.zeros(1, dtype="float32"), 0)
-            for packet in stream.encode(None):
-                container.mux(packet)
+        _stage_timed_source(source, staging, source_runs, target_runs, rate, cancel)
         renderer._mix(
             staging,
             staging,
@@ -122,19 +81,9 @@ def align_room_captures(
     channels: int,
 ) -> None:
     destination_runs = _clock_runs(timeline, frames, rate)
-    captures = []
-    for source in sources:
-        info = sf.info(source / "voice.wav")
-        runs = _clock_runs(source / "timeline.csv", info.frames, info.samplerate)
-        captures.append((runs[0][0, 1], source, runs))
-    with _temporary_wave(target, samplerate=rate, channels=channels) as output:
-        for offset in range(0, frames, 65536):
-            _check_cancel(cancel)
-            output.write(np.zeros((min(65536, frames - offset), channels), dtype="float32"))
+    _empty_recording(target, frames, rate, channels, cancel)
     with sf.SoundFile(target, "r+") as output:
-        for index, (_, source, origin_runs) in enumerate(
-            sorted(captures, key=lambda item: item[0])
-        ):
+        for index, (_, source, origin_runs) in enumerate(_ordered_captures(sources)):
             aligned = target.with_stem(f"{target.stem}-capture-{index}")
             try:
                 align_room_source(
@@ -149,27 +98,115 @@ def align_room_captures(
                     channels=channels,
                 )
                 with sf.SoundFile(aligned) as audio:
-                    for destination in destination_runs:
-                        for origin in origin_runs:
-                            start = max(origin[0, 1], destination[0, 1])
-                            end = min(origin[-1, 1], destination[-1, 1])
-                            if end <= start:
-                                continue
-                            first, last = np.interp(
-                                [start, end], destination[:, 1], destination[:, 0]
-                            )
-                            offset, limit = int(np.ceil(first)), int(np.floor(last))
-                            audio.seek(offset)
-                            output.seek(offset)
-                            # A reconnected capture supersedes an overlap instead of doubling it.
-                            for position in range(offset, limit, 65536):
-                                _check_cancel(cancel)
-                                output.write(
-                                    audio.read(
-                                        min(65536, limit - position),
-                                        dtype="float32",
-                                        always_2d=True,
-                                    )
-                                )
+                    _copy_intervals(audio, output, origin_runs, destination_runs, cancel)
             finally:
                 aligned.unlink(missing_ok=True)
+
+
+def _overlaps(
+    sources: list[np.ndarray], destinations: list[np.ndarray]
+) -> Iterator[tuple[np.ndarray, np.ndarray, float, float]]:
+    for destination in destinations:
+        for origin in sources:
+            start, end = (
+                max(origin[0, 1], destination[0, 1]),
+                min(origin[-1, 1], destination[-1, 1]),
+            )
+            if end > start:
+                yield origin, destination, start, end
+
+
+@dataclass(slots=True)
+class _TimedSourceWriter:
+    audio: sf.SoundFile
+    stream: AudioStream
+    container: OutputContainer
+    rate: int
+    cancel: threading.Event
+    written: bool = False
+
+    def write(self, samples: np.ndarray, position: int) -> None:
+        frame = av.AudioFrame.from_ndarray(samples.reshape(1, -1), format="flt", layout="mono")
+        frame.sample_rate = self.audio.samplerate
+        frame.time_base = Fraction(1, self.rate)
+        frame.pts = position
+        for packet in self.stream.encode(frame):
+            self.container.mux(packet)
+
+    def mux(self, origin: np.ndarray, destination: np.ndarray, start: float, end: float) -> None:
+        _check_cancel(self.cancel)
+        first, last = np.interp([start, end], origin[:, 1], origin[:, 0])
+        offset, limit = int(np.ceil(first)), int(np.floor(last))
+        self.audio.seek(offset)
+        while offset < limit:
+            _check_cancel(self.cancel)
+            count = min(4096, limit - offset)
+            room_position = np.interp(offset, origin[:, 0], origin[:, 1])
+            position = round(float(np.interp(room_position, destination[:, 1], destination[:, 0])))
+            if not self.written and position > 0:
+                self.write(np.zeros(1, dtype="float32"), 0)
+            # Native microphone channels are copies of the same centred input.
+            self.write(
+                self.audio.read(count, dtype="float32", always_2d=True)[:, 0].copy(), position
+            )
+            self.written = True
+            offset += count
+
+    def finish(self) -> None:
+        if not self.written:
+            self.write(np.zeros(1, dtype="float32"), 0)
+        for packet in self.stream.encode(None):
+            self.container.mux(packet)
+
+
+def _stage_timed_source(
+    source: Path,
+    staging: Path,
+    sources: list[np.ndarray],
+    destinations: list[np.ndarray],
+    rate: int,
+    cancel: threading.Event,
+) -> None:
+    with sf.SoundFile(source) as audio, av.open(str(staging), "w", format="nut") as container:
+        stream = container.add_stream("pcm_f32le", rate=audio.samplerate)
+        stream.layout = "mono"
+        writer = _TimedSourceWriter(audio, stream, container, rate, cancel)
+        for overlap in _overlaps(sources, destinations):
+            writer.mux(*overlap)
+        writer.finish()
+
+
+def _copy_intervals(
+    audio: sf.SoundFile,
+    output: sf.SoundFile,
+    sources: list[np.ndarray],
+    destinations: list[np.ndarray],
+    cancel: threading.Event,
+) -> None:
+    for _, destination, start, end in _overlaps(sources, destinations):
+        first, last = np.interp([start, end], destination[:, 1], destination[:, 0])
+        offset, limit = int(np.ceil(first)), int(np.floor(last))
+        audio.seek(offset)
+        output.seek(offset)
+        # A reconnected capture supersedes an overlap instead of doubling it.
+        for position in range(offset, limit, 65536):
+            _check_cancel(cancel)
+            output.write(audio.read(min(65536, limit - position), dtype="float32", always_2d=True))
+
+
+def _ordered_captures(sources: Sequence[Path]) -> list[tuple[float, Path, list[np.ndarray]]]:
+    captures = []
+    for source in sources:
+        info = sf.info(source / "voice.wav")
+        runs = _clock_runs(source / "timeline.csv", info.frames, info.samplerate)
+        captures.append((runs[0][0, 1], source, runs))
+    return sorted(captures, key=lambda item: item[0])
+
+
+def _empty_recording(
+    target: Path, frames: int, rate: int, channels: int, cancel: threading.Event
+) -> None:
+    with _temporary_wave(target, samplerate=rate, channels=channels) as output:
+        for offset in range(0, frames, 65536):
+            _check_cancel(cancel)
+            output.write(np.zeros((min(65536, frames - offset), channels), dtype="float32"))

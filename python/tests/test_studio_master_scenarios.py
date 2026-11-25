@@ -135,8 +135,9 @@ def test_master_scenario(name: str, tmp_path: Path, monkeypatch):
 
 
 @pytest.mark.parametrize("singers", [2, 3, 4])
+@pytest.mark.parametrize("separate", [False, True])
 def test_shared_vocal_master_preserves_every_singer_and_their_timing(
-    tmp_path, monkeypatch, singers
+    tmp_path, monkeypatch, singers, separate
 ):
     from backend.recordings import studio_adaptive_mix
 
@@ -168,15 +169,30 @@ def test_shared_vocal_master_preserves_every_singer_and_their_timing(
     ):
         sf.write(path, samples, rate, subtype="FLOAT")
     target = tmp_path / "master.wav"
+    room_sources = None
+    if separate:
+        timeline = (
+            "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,timelineSampleRateHz\n"
+            f"0,480000,{len(vocal)},{rate},1,48000\n"
+        )
+        Path(str(paths[4]) + ".timeline.csv").write_text(timeline)
+        room_sources = {}
+        for index, voice in enumerate(voices):
+            source = tmp_path / f"singer-{index}"
+            source.mkdir()
+            sf.write(source / "voice.wav", voice, rate, subtype="FLOAT")
+            (source / "timeline.csv").write_text(timeline)
+            room_sources[str(index)] = [source]
     result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
         *paths[:4],
         target,
         threading.Event(),
         performance_mix=paths[4],
         exact_stems=True,
-        process_voice=False,
+        process_voice=separate,
         match_recording_loudness=True,
         adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
+        room_sources=room_sources,
     )
     master, actual_rate = sf.read(target)
     assert actual_rate == rate and master.shape == vocal.shape
@@ -191,7 +207,7 @@ def test_shared_vocal_master_preserves_every_singer_and_their_timing(
         assert abs(lag) <= rate * 0.03, (frequency, lag / rate)
         assert scores[peak] / (np.linalg.norm(actual) * np.linalg.norm(expected)) > 0.85
         assert np.sqrt(np.mean(actual**2)) > 0.1 * np.sqrt(np.mean(expected**2))
-    assert result.processing["vocalSource"] == "existing-effects"
+    assert result.processing["vocalSource"] == ("dry" if separate else "existing-effects")
 
 
 @pytest.mark.parametrize("singers", [2, 3, 4])
