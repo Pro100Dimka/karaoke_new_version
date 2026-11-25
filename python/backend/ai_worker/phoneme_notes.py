@@ -77,6 +77,14 @@ def _decode(scores: np.ndarray, frequency: np.ndarray) -> np.ndarray:
         values = pitches[first : end + 1]
         if end <= first or not np.isfinite(values).any():
             continue
+        # A brief doubled period at the centre must not outweigh the note's majority register.
+        center = float(np.nanmedian(values))
+        octave = 12 * np.rint((center - values) / 12)
+        values = np.where(
+            (np.abs(octave) == 12) & (np.abs(values + octave - center) < 1),
+            values + octave,
+            values,
+        )
         weights = torch.hann_window(len(values)).numpy()
         weights[~np.isfinite(values)] = 0
         if not weights.sum():

@@ -42,6 +42,32 @@ def test_a_note_at_the_file_start_is_not_lost_and_activation_can_end_it():
     assert not labels[60:].any()
 
 
+@pytest.mark.parametrize("pitch", [46, 58, 70])
+@pytest.mark.parametrize("octave", [-12, 12])
+def test_a_brief_central_octave_outlier_does_not_relabel_the_whole_note(pitch, octave):
+    scores = np.zeros((15, 3), dtype=np.float32)
+    scores[:, 2] = 0.9
+    scores[0, 0] = scores[13, 1] = 0.9
+    measured = np.full(14, float(pitch))
+    measured[4:9] += octave
+    frequency = np.repeat(440 * 2 ** ((measured - 69) / 12), 2)
+
+    assert np.array_equal(_decode(scores, frequency), np.full(28, pitch))
+
+
+def test_separate_sung_octaves_keep_their_own_register():
+    scores = np.zeros((30, 3), dtype=np.float32)
+    scores[:, 2] = 0.9
+    scores[[0, 15], 0] = 0.9
+    scores[[13, 28], 1] = 0.9
+    frequency = np.repeat(440 * 2 ** ((np.r_[np.full(15, 58), np.full(15, 46)] - 69) / 12), 2)
+
+    labels = _decode(scores, frequency)
+
+    assert np.array_equal(labels[:28], np.full(28, 58))
+    assert np.array_equal(labels[30:58], np.full(28, 46))
+
+
 @pytest.mark.parametrize("value", [True, -1, 128, 69.5, "69"])
 def test_provider_rejects_malformed_musical_note_labels(value):
     with pytest.raises(DependencyError, match="Musical note is malformed"):
