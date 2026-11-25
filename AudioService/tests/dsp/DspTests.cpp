@@ -487,8 +487,8 @@ void voiceEffectsStayRealtimeSafeWhileControlsChange() {
             }
             const auto activity = RealtimeInstrumentation::snapshot();
             std::printf("DSP_EFFECT name=%s rate=%u frames=%u meanUs=%.3f maxUs=%.3f budgetUs=%.3f latencyFrames=%u peak=%.6f\n",
-                        scenario.name, format.rate, format.frames, elapsed.count() / (Blocks * 1000.0),
-                        maximum.count() / 1000.0, format.frames * 1'000'000.0 / format.rate,
+                        scenario.name, format.rate, format.frames, static_cast<double>(elapsed.count()) / (Blocks * 1000.0),
+                        static_cast<double>(maximum.count()) / 1000.0, format.frames * 1'000'000.0 / format.rate,
                         chain.latencyFrames(), peak);
             expect(finite, "effect changes must keep every output sample finite");
             expect(activity.allocations == 0 && activity.deallocations == 0 && activity.blockingCalls == 0,
