@@ -439,7 +439,9 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
         eofGeneration_.load(std::memory_order_acquire) == generation &&
         generation_.load(std::memory_order_acquire) == generation)
         publishState(PlaybackState::Finished);
-    requestWake();
+    // The worker cannot refill above its low-water mark; avoid waking it for every audio block.
+    if (needsRefill())
+        requestWake();
     return read;
 }
 
@@ -539,6 +541,10 @@ void MediaSource::clearFailure() noexcept {
     failureCode_.store(MediaFailureCode::None, std::memory_order_release);
 }
 
+bool MediaSource::needsRefill() const noexcept {
+    return ring_.availableFrames() <= (ring_.capacityFrames() - 1U) / 2U;
+}
+
 void MediaSource::requestWake() noexcept {
     wakeEpoch_.fetch_add(1, std::memory_order_release);
     wakeEpoch_.notify_one();
@@ -553,8 +559,7 @@ bool MediaSource::waitForWorkerRequest(std::string& loadPath, bool& doLoad, bool
         const auto state = state_.load(std::memory_order_acquire);
         const auto work = terminate_ || unloadRequested_ || loadRequested_ || seekRequested_ ||
                           ((!decoderEof_ || pendingFrames_ != 0) && state != PlaybackState::Empty &&
-                           state != PlaybackState::Failed &&
-                           ring_.availableFrames() <= (ring_.capacityFrames() - 1U) / 2U);
+                           state != PlaybackState::Failed && needsRefill());
         if (work)
             break;
         lock.unlock();

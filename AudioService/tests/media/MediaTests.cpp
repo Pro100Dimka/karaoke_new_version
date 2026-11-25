@@ -14,6 +14,14 @@
 #include <vector>
 
 struct MediaSourceTestAccess {
+    static RealtimeMutex& workerMutex(MediaSource& source) {
+        return source.mutex_;
+    }
+
+    static std::uint64_t wakeRequests(const MediaSource& source) {
+        return source.wakeEpoch_.load(std::memory_order_acquire);
+    }
+
     static std::atomic_flag& failureMessageLock(MediaSource& source) {
         source.setFailure(MediaFailureCode::DecoderError, "decoder failure");
         return source.failureLock_;
@@ -32,6 +40,75 @@ struct MessageWriterRelease {
 } // namespace
 
 namespace Tests {
+void mediaRenderWakesDecoderOnlyWhenRefillCanRun() {
+    const auto path = tempRoot / "media-refill-wake.wav";
+    makeTestWav(path, 10000);
+    struct Scenario {
+        std::uint32_t rate, channels, capacity;
+    };
+    constexpr std::array scenarios{
+        Scenario{48000, 2, 8192},
+        Scenario{44100, 1, 127},
+        Scenario{96000, 2, 128},
+        Scenario{192000, 1, 1},
+    };
+    for (const auto& scenario : scenarios) {
+        MediaSource source{std::make_unique<WavDecoder>()};
+        source.prepareOutput(scenario.rate, scenario.channels, scenario.capacity);
+        source.load(path.string());
+        require(source.waitUntilReady() == PlaybackState::Ready, "refill source becomes ready");
+        const auto lowWater = (scenario.capacity - 1U) / 2U;
+        const auto awaitRefill = [&] {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (source.snapshot(false).bufferFillFrames <= lowWater &&
+                   std::chrono::steady_clock::now() < deadline)
+                std::this_thread::yield();
+            require(source.snapshot(false).bufferFillFrames > lowWater,
+                    "worker refills beyond the unchanged low-water threshold");
+        };
+        awaitRefill();
+        source.play();
+        std::vector<float> output(static_cast<std::size_t>(scenario.capacity) * scenario.channels);
+        {
+            // Hold only the worker while consuming PCM, so notification counts and the threshold
+            // boundary cannot depend on whether the decoder wins the scheduler race.
+            std::lock_guard lock(MediaSourceTestAccess::workerMutex(source));
+            const auto available = source.snapshot(false).bufferFillFrames;
+            const auto aboveThreshold = available - lowWater - 1U;
+            const auto before = MediaSourceTestAccess::wakeRequests(source);
+            RealtimeInstrumentation::reset();
+            if (aboveThreshold != 0) {
+                std::uint32_t rendered;
+                {
+                    RealtimeScope realtime;
+                    rendered = source.render(output, aboveThreshold);
+                }
+                expect(
+                    rendered == aboveThreshold,
+                    "render consumes queued PCM without asking the worker to do unavailable work");
+                expect(MediaSourceTestAccess::wakeRequests(source) == before,
+                       "buffered playback does not wake a decoder above its refill threshold");
+            }
+            const auto beforeRefill = MediaSourceTestAccess::wakeRequests(source);
+            std::uint32_t rendered;
+            {
+                RealtimeScope realtime;
+                rendered = source.render(output, 1);
+            }
+            expect(rendered == 1 && source.snapshot(false).bufferFillFrames == lowWater,
+                   "render reaches the refill boundary without an underrun");
+            expect(MediaSourceTestAccess::wakeRequests(source) == beforeRefill + 1U,
+                   "reaching the low-water threshold wakes the decoder immediately");
+            const auto activity = RealtimeInstrumentation::snapshot();
+            expect(
+                activity.allocations == 0 && activity.blockingCalls == 0 &&
+                    activity.diskIoCalls == 0,
+                "refill notification stays allocation-free and non-blocking on the audio thread");
+        }
+        awaitRefill();
+    }
+}
+
 void transportSnapshotDoesNotWaitForDiagnosticText() {
     MediaSource source(std::make_unique<WavDecoder>());
     auto& flag = MediaSourceTestAccess::failureMessageLock(source);

@@ -13,6 +13,7 @@
 #include <vector>
 
 namespace Tests {
+void mediaRenderWakesDecoderOnlyWhenRefillCanRun();
 void invalidCaptureTimingPreservesWaveform();
 void captureTimingRecoveryPreservesRealDiscontinuities();
 void networkDiagnosticsRetainSignedPeerAlignment();

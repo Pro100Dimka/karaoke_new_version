@@ -100,6 +100,7 @@ class MediaSource {
     void publishState(PlaybackState state) noexcept;
     void setFailure(MediaFailureCode code, std::string_view message) noexcept;
     void clearFailure() noexcept;
+    [[nodiscard]] bool needsRefill() const noexcept;
     void requestWake() noexcept;
     void requestUnloadAndWait() noexcept;
     [[nodiscard]] SourceGenerationId advanceGeneration() noexcept;

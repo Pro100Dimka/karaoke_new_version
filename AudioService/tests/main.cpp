@@ -719,6 +719,8 @@ constexpr std::array tests{
          Tests::mp3DecoderRejectsInvalidAndTruncatedInputs},
     Test{"mp3MediaSourceAppliesRateAndPitchAfterAccurateSeek",
          Tests::mp3MediaSourceAppliesRateAndPitchAfterAccurateSeek},
+    Test{"mediaRenderWakesDecoderOnlyWhenRefillCanRun",
+         Tests::mediaRenderWakesDecoderOnlyWhenRefillCanRun},
     Test{"transportSnapshotDoesNotWaitForDiagnosticText", Tests::transportSnapshotDoesNotWaitForDiagnosticText},
     Test{"controllerSnapshotDoesNotWaitForDiagnosticText", Tests::controllerSnapshotDoesNotWaitForDiagnosticText},
     Test{"networkProcessClientUsesProtocolCadence", Tests::networkProcessClientUsesProtocolCadence},
