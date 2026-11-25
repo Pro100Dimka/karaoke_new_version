@@ -865,6 +865,9 @@ void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo() {
         }
         expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
                "the jittered performance finalizes normally");
+        expect(service.recording().result().overrunCount == 0,
+               "the timestamp-jitter fixture must not overflow the recording queue: " +
+                   std::to_string(service.recording().result().overrunCount));
         for (const auto suffix : {"", ".dry.wav", ".vocal.wav"}) {
             WavDecoder decoder;
             const auto format = decoder.open(path.string() + suffix);
