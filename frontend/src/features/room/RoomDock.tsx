@@ -30,7 +30,6 @@ import {
 import { useRoomPeople } from '../social/useRoomPeople';
 import './room-dock.css';
 import { RoomHeadCard } from './RoomHeadCard';
-import { RoomLinkCard } from './RoomLinkCard';
 import { RoomPersonCard } from './RoomPersonCard';
 import { PlaylistDialog } from '../playlists/PlaylistDialog';
 import { canControlRoom } from '../../application/room/roomModel';
@@ -49,36 +48,6 @@ export const RoomDock = observer(() => {
   useLocale();
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [selectedSongArtwork, setSelectedSongArtwork] = useState<{
-    songId: string;
-    title: string;
-    url: string;
-  }>();
-
-  const selectedTransferReady =
-    room?.transferProgress === undefined || room.transferProgress >= 100;
-  useEffect(() => {
-    let active = true;
-    if (!room?.songId) {
-      setSelectedSongArtwork(undefined);
-      return () => {
-        active = false;
-      };
-    }
-    void runtime
-      .getProject()
-      ?.selectedArtwork()
-      .then((selected) => {
-        if (!active) return;
-        setSelectedSongArtwork(selected);
-      })
-      .catch(() => {
-        if (active) setSelectedSongArtwork(undefined);
-      });
-    return () => {
-      active = false;
-    };
-  }, [room?.songId, room?.revision, selectedTransferReady, runtime]);
 
   useEffect(() => {
     if (!copied) return;
@@ -320,11 +289,6 @@ export const RoomDock = observer(() => {
       >
         <RoomHeadCard
           room={room}
-          artwork={
-            selectedSongArtwork?.songId === room.songId
-              ? selectedSongArtwork
-              : undefined
-          }
           actions={{
             copied,
             detached: panel.detached,
@@ -336,6 +300,7 @@ export const RoomDock = observer(() => {
             onRetryTransfer: () => void retryTransfer(),
             onReplaceProject: replaceProject,
             onLeave: () => void handleLeave(),
+            onPlaylists: () => setPlaylistsOpen(true),
           }}
         />
         <ul className="roomPeople" aria-label={tr('participants')}>
@@ -350,12 +315,6 @@ export const RoomDock = observer(() => {
             />
           ))}
         </ul>
-        <RoomLinkCard />
-        <Button icon="list" onClick={() => setPlaylistsOpen(true)}>
-          {room.playlist
-            ? `${room.playlist.name} · ${room.playlist.index + 1}/${room.playlist.songs.length}`
-            : tr('playlists')}
-        </Button>
         {playlistsOpen && (
           <PlaylistDialog
             songs={[

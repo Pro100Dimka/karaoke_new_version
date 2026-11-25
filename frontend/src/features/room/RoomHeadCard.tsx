@@ -15,6 +15,7 @@ import { useRef, useState } from 'react';
 import type { RoomStateDto } from '../../contracts/models';
 import { useTransferEta } from './useTransferEta';
 import { formatBytes } from '../../shared/utils/format';
+import { RoomLinkCard } from './RoomLinkCard';
 
 // The code is shown as its first four groups; copying gives all of it.
 const shownCode = (code: string): string =>
@@ -29,6 +30,7 @@ interface RoomHeadActions {
   onRetryTransfer(): void;
   onReplaceProject(): void;
   onLeave(): void;
+  onPlaylists(): void;
 }
 
 /** What the transfer needs from the singer: wait for reconnection, retry, replace their copy, or just wait a few minutes. */
@@ -99,14 +101,12 @@ const TransferNote = ({
   );
 };
 
-/** The room: the selected song's picture, the code to share, what it is busy with, and its actions. */
+/** Room identity, connection, monitoring and actions share one compact surface. */
 export const RoomHeadCard = ({
   room,
-  artwork,
   actions,
 }: {
   room: RoomStateDto;
-  artwork?: { title: string; url: string };
   actions: RoomHeadActions;
 }) => {
   useLocale();
@@ -141,12 +141,8 @@ export const RoomHeadCard = ({
       border
       padding="sm"
       className="roomHead"
-      data-art={artwork ? '' : undefined}
       aria-label={tr('onlineRoom')}
     >
-      {artwork && (
-        <img className="roomArt" src={artwork.url} alt={artwork.title} />
-      )}
       <div className="roomHeadBody">
         <div className="roomCodeRow">
           <Typography as="strong" variant="title" truncate title={room.code}>
@@ -190,6 +186,17 @@ export const RoomHeadCard = ({
         <TransferNote room={room} actions={actions} failure={failure} />
       </div>
       <Stack gap={1} direction="row" align="center" className="roomHeadActions">
+        <IconButton
+          size="xs"
+          variant={room.playlist ? 'secondary' : 'ghost'}
+          icon="list"
+          label={
+            room.playlist
+              ? `${room.playlist.name} · ${room.playlist.index + 1}/${room.playlist.songs.length}`
+              : tr('playlists')
+          }
+          onClick={actions.onPlaylists}
+        />
         {menu.length > 0 && (
           <IconButton
             ref={menuAnchor}
@@ -209,15 +216,6 @@ export const RoomHeadCard = ({
           align="end"
           items={menu}
         />
-      </Stack>
-      <div
-        className="roomFrameControls"
-        style={{
-          zIndex: 21,
-          isolation: 'isolate',
-          boxShadow: '0 0 0 2px var(--ad-background, #19080d)',
-        }}
-      >
         {[
           {
             icon: actions.detached ? 'window' : 'minus',
@@ -233,14 +231,14 @@ export const RoomHeadCard = ({
           <IconButton
             key={icon}
             size="xs"
-            variant="secondary"
+            variant="ghost"
             icon={icon}
             label={label}
-            style={{ fontSize: '1rem', color: 'var(--ad-text)' }}
             onClick={onClick}
           />
         ))}
-      </div>
+      </Stack>
+      <RoomLinkCard />
     </Card>
   );
 };

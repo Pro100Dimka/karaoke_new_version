@@ -38,49 +38,6 @@ it('counts video archive upload before download and keeps byte updates within on
   coordinator.stop();
 });
 
-it.each(['direct', 'mapped', 'hash'])(
-  'loads selected artwork from the %s local copy',
-  async (matching) => {
-    const { coordinator, services, getRoom, setRoom } = setup();
-    const projectHash = 'a'.repeat(64);
-    setRoom({
-      ...getRoom(),
-      songId: 'remote-song',
-      revision: 1,
-      ...(matching === 'hash' && {
-        sharedSongs: [
-          {
-            songId: 'remote-song',
-            revision: 1,
-            projectHash,
-            ownerParticipantId: 'host',
-            title: 'Song',
-            artist: 'Artist',
-            durationSeconds: 10,
-          },
-        ],
-      }),
-    });
-    const localId = matching === 'direct' ? 'remote-song' : 'local-song';
-    if (matching === 'mapped') services.copies.get.mockReturnValue(localId);
-    services.python.listSongs.mockResolvedValue([
-      {
-        id: localId,
-        activeRevision: 1,
-        status: 'ready',
-        title: 'Song',
-        artworkUrl: 'local-cover.jpg',
-        projectHash,
-      } as SongDto,
-    ]);
-    expect(await coordinator.selectedArtwork()).toEqual({
-      songId: 'remote-song',
-      title: 'Song',
-      url: 'local-cover.jpg',
-    });
-  },
-);
-
 it('cancels transfer on leave and releases a late archive without importing it', async () => {
   const { coordinator, services, leave, getRoom } = setup();
   const downloading = deferred<string>();

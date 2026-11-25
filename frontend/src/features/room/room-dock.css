@@ -14,10 +14,6 @@
   overflow: hidden auto;
   scrollbar-width: none;
   touch-action: none;
-  padding-block-start: 0.7rem;
-}
-.roomDock:has(.roomArt) {
-  inline-size: min(30rem, calc(100vw - 2 * var(--ad-space-5)));
 }
 [data-panel-window] .detachedPanel .roomDock {
   position: relative;
@@ -33,38 +29,13 @@
   list-style: none;
 }
 
-/* Head: cover, code and state, actions on the right. */
+/* Identity and actions sit above the connection controls in one card. */
 .roomHead.ad-card {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--ad-space-3);
-}
-.roomFrameControls {
-  position: absolute;
-  inset-block-start: -0.7rem;
-  inset-inline-end: 0.65rem;
-  display: flex;
-  gap: 0.2rem;
-  border: 1px solid var(--ad-primary);
-  border-radius: 0.6rem;
-  background: var(--ad-background, #19080d);
-  padding: 0.1rem;
-}
-.roomFrameControls .ad-icon-button {
-  inline-size: 1.65rem;
-  min-inline-size: 1.65rem;
-  block-size: 1.65rem;
-}
-.roomHead.ad-card[data-art] {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-}
-.roomArt {
-  inline-size: clamp(3.5rem, 9vw, 5.5rem);
-  aspect-ratio: 1;
-  border-radius: var(--ad-radius);
-  object-fit: cover;
+  gap: var(--ad-space-2);
 }
 .roomHeadBody {
   display: grid;
@@ -77,6 +48,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ad-space-2);
+  min-inline-size: 0;
+}
+.roomCodeRow {
+  flex-wrap: nowrap;
+  gap: var(--ad-space-1);
+}
+.roomCodeRow > strong {
   min-inline-size: 0;
 }
 .roomProgressRow {
@@ -109,11 +87,14 @@
   gap: var(--ad-space-3);
   max-inline-size: 22rem;
 } /* Link: signal, delay, its trace, monitoring. */
-.roomLink.ad-card {
+.roomLink {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) minmax(2rem, 3rem) auto;
   align-items: center;
-  gap: var(--ad-space-3);
+  gap: var(--ad-space-2);
+  border-block-start: 1px solid rgb(from var(--ad-primary) r g b / 0.18);
+  padding-block-start: var(--ad-space-2);
 }
 .roomLinkSignal {
   display: grid;
@@ -134,7 +115,12 @@
 }
 .roomLinkTrace.ad-sparkline {
   inline-size: 100%;
-  block-size: 2.75rem;
+  block-size: 1.75rem;
+}
+.roomLinkValue {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-space-2);
 }
 .roomLinkMonitorLabel {
   display: inline-flex;

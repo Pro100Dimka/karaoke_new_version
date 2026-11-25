@@ -82,29 +82,6 @@ export class RoomProjectCoordinator {
       : 'AcceptOlder';
   }
 
-  async selectedArtwork(): Promise<
-    { songId: string; title: string; url: string } | undefined
-  > {
-    const selected = this.scope.getRoom();
-    if (!selected?.songId) return undefined;
-    const songs = await this.ports.python.listSongs();
-    const current = this.scope.getRoom();
-    if (
-      current?.songId !== selected.songId ||
-      current.selectionId !== selected.selectionId ||
-      current.revision !== selected.revision
-    )
-      return undefined;
-    const song = localRoomSong(
-      selected,
-      songs,
-      this.ports.copies.get(selected.songId, selected.revision),
-    );
-    return song?.artworkUrl
-      ? { songId: selected.songId, title: song.title, url: song.artworkUrl }
-      : undefined;
-  }
-
   async retry(): Promise<void> {
     const selected = this.scope.getRoom();
     if (!selected) return;

@@ -1,6 +1,5 @@
 import {
   Badge,
-  Card,
   Icon,
   SignalBars,
   Sparkline,
@@ -149,13 +148,7 @@ export const RoomLinkCard = () => {
   );
 
   return (
-    <Card
-      border
-      padding="sm"
-      className="roomLink"
-      role="status"
-      aria-label={tr('roomSyncResult')}
-    >
+    <div className="roomLink" role="status" aria-label={tr('roomSyncResult')}>
       <Tooltip content={details}>
         <button
           type="button"
@@ -177,9 +170,14 @@ export const RoomLinkCard = () => {
               : 'roomEstimatedLatencyLabel',
           )}
         </Typography>
-        <Typography as="strong" variant="h3">
-          {tr('millisecondsValue', { value: Math.round(delayMs) })}
-        </Typography>
+        <div className="roomLinkValue">
+          <Typography as="strong" variant="title">
+            {tr('millisecondsValue', { value: Math.round(delayMs) })}
+          </Typography>
+          <Badge tone={rated.bad ? 'warning' : 'success'}>
+            {tr(rated.key)}
+          </Badge>
+        </div>
         <Typography variant="caption" tone="muted">
           {tr('roomPing')}:{' '}
           {timing.networkTransportRunning && timing.roundTripMs > 0
@@ -188,7 +186,6 @@ export const RoomLinkCard = () => {
               })
             : '—'}
         </Typography>
-        <Badge tone={rated.bad ? 'warning' : 'success'}>{tr(rated.key)}</Badge>
       </div>
       <Sparkline
         fit
@@ -210,6 +207,6 @@ export const RoomLinkCard = () => {
           onValueChange={() => void toggleMonitoring()}
         />
       </div>
-    </Card>
+    </div>
   );
 };

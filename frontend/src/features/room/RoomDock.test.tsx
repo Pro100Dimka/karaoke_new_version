@@ -57,9 +57,14 @@ vi.mock('../../shared/ui/useFloatingPanel', () => ({
 vi.mock('../playlists/PlaylistDialog', () => ({ PlaylistDialog: () => null }));
 vi.mock('./RoomLinkCard', () => ({ RoomLinkCard: () => null }));
 vi.mock('./RoomHeadCard', () => ({
-  RoomHeadCard: ({ room }: ComponentProps<typeof RoomHeadCard>) => (
+  RoomHeadCard: ({ room, actions }: ComponentProps<typeof RoomHeadCard>) => (
     <div aria-label="room status">
       {room.connectionStatus} {room.songId} {room.transferProgress}
+      <button onClick={actions.onPlaylists}>
+        {room.playlist
+          ? `${room.playlist.name} · ${room.playlist.index + 1}/${room.playlist.songs.length}`
+          : 'playlists'}
+      </button>
     </div>
   ),
 }));
