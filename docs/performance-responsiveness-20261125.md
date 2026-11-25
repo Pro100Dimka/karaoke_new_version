@@ -500,21 +500,29 @@ Node worker, удержанным чтением WAV и 2000 отменённы�
 зависшей операции ОС этим изменением не заявляется.
 
 Три исходных серверных воспроизведения упали до исправления. Прошли 17 адресных
-Python-тестов и 59 тестов frontend/Electron, включая bridge, владельцев запросов,
+Python-тестов и 74 теста frontend/Electron, включая bridge, владельцев запросов,
 общий кэш, настоящую очередь worker, сохранённые форматы WAV и потребителей волны.
 Независимое ревью дополнительно нашло очередь отменённых worker-заданий; она
 исправлена и защищена приведённой проверкой на 2000 запросах.
 
 ### Проверки третьего прохода
 
-**145 разных адресных тестов прошли:** 43 для управления громкостью и очереди
-команд, 12 для voice chain, 59 для полного пути волн, 17 Python и 14 native.
+**160 разных адресных тестов прошли:** 43 для управления громкостью и очереди
+команд, 12 для voice chain, 74 для полного пути волн, 17 Python и 14 native.
 Повторные запуски не суммировались; этот итог не складывается автоматически
 с проверками предыдущих этапов. Добавлено 37 новых тестовых случаев.
 
 Прошли renderer/Electron TypeScript, архитектурные проверки frontend и Python,
 Ruff lint/format, Windows-target mypy, Prettier изменённых frontend-файлов и
 `git diff --check`. Локальные проверки ограничены затронутыми сценариями.
+
+Первый CI этого прохода выявил три ожидания старой сигнатуры вызова в
+`FileIpc.responsiveness`, `RecordingsModal.missingFile` и
+`RecordingsModal.returnedSong`. Сбой воспроизведён локально. Проверки обновлены
+для нового третьего аргумента: `undefined` у запроса без отмены и UUIDv4 у
+предпросмотра записи. Точные ID записей, количество bins, число вызовов и
+проверки поведения сохранены. Все 15 тестов этих файлов прошли; они входят
+в 160 выше, новых тестовых случаев это дополнение не добавляет.
 
 Основные новые проверки:
 
@@ -523,6 +531,7 @@ Ruff lint/format, Windows-target mypy, Prettier изменённых frontend-ф
 npx vitest run src/features/karaoke/useKaraokeSession.gains.test.tsx
 npx vitest run src/features/karaoke/console/voiceChain.test.ts src/features/karaoke/console/voiceChain.responsiveness.test.ts
 npx vitest run electron/PeaksService.cancellation.test.ts electron/ProjectFiles.cancellation.test.ts electron/WavPeaksWorker.cancellation.test.ts src/shared/hooks/useWaveformPeaks.cancellation.test.tsx
+npx vitest run electron/FileIpc.responsiveness.test.ts src/pages/library/modals/recordings/RecordingsModal.missingFile.test.tsx src/pages/library/modals/recordings/RecordingsModal.returnedSong.test.tsx
 
 # python/
 python -m pytest -q tests/test_waveform_responsiveness.py tests/test_content_lock.py tests/test_processing_cpu_admission.py::test_library_waveform_does_not_allocate_a_machine_sized_filter_pool tests/test_song_recognition.py::test_song_waveform_uses_the_imported_audio_before_processing

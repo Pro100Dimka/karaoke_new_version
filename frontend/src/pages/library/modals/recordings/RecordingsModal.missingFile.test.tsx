@@ -175,7 +175,13 @@ it('explains a missing AD Master source file and retries the same take after res
   });
 
   expect(screen.getByText(tr('studioMasterReady'))).toBeVisible();
-  expect(desktop.recordingPeaks).toHaveBeenCalledWith(master.id, 240);
+  expect(desktop.recordingPeaks).toHaveBeenCalledWith(
+    master.id,
+    240,
+    expect.stringMatching(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    ),
+  );
   expect(api.createStudioMaster).toHaveBeenCalledTimes(2);
   expect(api.createStudioMaster).toHaveBeenLastCalledWith(
     take.id,

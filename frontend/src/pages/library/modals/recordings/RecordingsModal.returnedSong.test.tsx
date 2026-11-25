@@ -235,7 +235,13 @@ it('refreshes the returned song after an archive of another song was open', asyn
     expect(api.listRecordings).toHaveBeenCalledExactlyOnceWith(finishedSong.id),
   );
   await waitFor(() =>
-    expect(desktop.recordingPeaks).toHaveBeenCalledWith(finishedMaster.id, 240),
+    expect(desktop.recordingPeaks).toHaveBeenCalledWith(
+      finishedMaster.id,
+      240,
+      expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      ),
+    ),
   );
   const current = dialog('.analysisDialog');
   expect(within(current).getByText(finishedSong.title)).toBeVisible();

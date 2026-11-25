@@ -147,7 +147,11 @@ it.each([ipcChannels.resolveProjectArtifacts, ipcChannels.waveformPeaks])(
       await expect(result).resolves.toMatchObject({ instrumental });
     else {
       await expect(result).resolves.toEqual([0.2, 1]);
-      expect(peaks).toHaveBeenCalledExactlyOnceWith(instrumental, 64);
+      expect(peaks).toHaveBeenCalledExactlyOnceWith(
+        instrumental,
+        64,
+        undefined,
+      );
     }
   },
 );
