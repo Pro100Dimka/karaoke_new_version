@@ -14,11 +14,19 @@ export const useEditorPreview = (
   playingRef.current = playing;
   const generation = useRef(0);
   const pendingToggle = useRef<number | null>(null);
+  const seekRevision = useRef(0);
+  const pendingSeek = useRef<number | null>(null);
+  const confirmedPosition = useRef(0);
+  const seekOwner = useRef<() => boolean>(() => false);
 
   useEffect(() => {
-    generation.current += 1;
+    const request = ++generation.current;
+    // A stable owner lets the native queue merge adjacent seeks in this session.
+    seekOwner.current = () => request === generation.current;
     pendingToggle.current = null;
+    pendingSeek.current = null;
     if (!audioReady) {
+      confirmedPosition.current = 0;
       playingRef.current = false;
       setPlaying(false);
       runInAction(() => position.set(0));
@@ -32,8 +40,13 @@ export const useEditorPreview = (
     if (!audioReady || !playing) return;
     return audioClient.observeSnapshots(
       (snapshot) => {
-        runInAction(() => position.set(snapshot.positionSeconds));
-        if (['finished', 'ready'].includes(snapshot.state)) setPlaying(false);
+        confirmedPosition.current = snapshot.positionSeconds;
+        if (pendingSeek.current === null)
+          runInAction(() => position.set(snapshot.positionSeconds));
+        if (['finished', 'ready'].includes(snapshot.state)) {
+          playingRef.current = false;
+          setPlaying(false);
+        }
       },
       () => {
         setPlaying(false);
@@ -64,12 +77,24 @@ export const useEditorPreview = (
     async (seconds: number) => {
       if (!audioReady) return;
       const request = generation.current;
+      const seekRequest = ++seekRevision.current;
+      pendingSeek.current = seekRequest;
+      // Only the explicit gesture is optimistic; native acknowledgements resume
+      // the clock, and failed seeks return to the last confirmed position.
+      runInAction(() => position.set(seconds));
       const snapshot = await observeOperation(
         'errors.seek',
-        audioClient.seek(seconds),
+        audioClient.seek(seconds, seekOwner.current),
       ).catch(() => null);
-      if (snapshot && request === generation.current)
-        runInAction(() => position.set(snapshot.positionSeconds));
+      if (request !== generation.current) return;
+      if (snapshot) confirmedPosition.current = snapshot.positionSeconds;
+      if (pendingSeek.current !== seekRequest) return;
+      pendingSeek.current = null;
+      if (snapshot) {
+        playingRef.current = snapshot.state === 'playing';
+        setPlaying(playingRef.current);
+      }
+      runInAction(() => position.set(confirmedPosition.current));
     },
     [audioReady, position],
   );
@@ -78,7 +103,9 @@ export const useEditorPreview = (
     (snapshot: PlaybackSnapshot) => {
       playingRef.current = snapshot.state === 'playing';
       setPlaying(playingRef.current);
-      runInAction(() => position.set(snapshot.positionSeconds));
+      confirmedPosition.current = snapshot.positionSeconds;
+      if (pendingSeek.current === null)
+        runInAction(() => position.set(snapshot.positionSeconds));
     },
     [position],
   );

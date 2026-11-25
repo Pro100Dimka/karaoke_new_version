@@ -135,7 +135,7 @@ describe('editor preview lifecycle', () => {
       expect(result.current.position).toBe(position);
       expect(formatPreciseTime(result.current.position)).toBe(formatted);
       await act(() => result.current.seek(7));
-      expect(audioClient.seek).toHaveBeenCalledWith(7);
+      expect(audioClient.seek).toHaveBeenCalledWith(7, expect.any(Function));
       expect(result.current.position).toBe(7);
     },
   );
