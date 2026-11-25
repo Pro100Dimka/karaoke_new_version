@@ -232,7 +232,7 @@ it('keeps a newer returned take selected when older metadata arrives late', asyn
 });
 
 it.each(['AnalysisPitchUncertain', 'JobCancelled'])(
-  'preserves dismissal after %s instead of leaving the new opening loader stuck',
+  'settles %s without leaving the opening loader stuck',
   async (code) => {
     api.latestAnalysis.mockResolvedValue(null);
     api.analyzeRecording.mockRejectedValue({
@@ -242,9 +242,16 @@ it.each(['AnalysisPitchUncertain', 'JobCancelled'])(
     });
     openReturnedAnalysis();
     await waitFor(() => expect(api.analyzeRecording).toHaveBeenCalledOnce());
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-    );
+    if (code === 'AnalysisPitchUncertain') {
+      expect(
+        await screen.findByRole('button', { name: tr('studioMasterCreate') }),
+      ).toBeVisible();
+      expect(document.querySelector('[data-role="analysis-score"]')).toBeNull();
+    } else {
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      );
+    }
     expect(notify).not.toHaveBeenCalled();
   },
 );

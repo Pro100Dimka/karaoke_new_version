@@ -183,7 +183,7 @@ export const PerformanceAnalysisModal = ({
       art={<Planet className="analysisPlanet" />}
     >
       <Stack gap={3}>
-        {!analysis ? (
+        {!analysis && (
           <>
             {viewed?.fileStatus === 'Preparing' && preparingPanel}
             {pending && (
@@ -225,11 +225,12 @@ export const PerformanceAnalysisModal = ({
               />
             )}
           </>
-        ) : (
-          viewed &&
-          practice && (
+        )}
+        {viewed &&
+          (analysis ||
+            (failure && ['Ready', undefined].includes(viewed.fileStatus))) && (
             <>
-              {active && (
+              {active && analysis && practice && (
                 <>
                   <Card
                     border
@@ -429,8 +430,7 @@ export const PerformanceAnalysisModal = ({
                 )}
               </div>
             </>
-          )
-        )}
+          )}
       </Stack>
     </Dialog>
   );

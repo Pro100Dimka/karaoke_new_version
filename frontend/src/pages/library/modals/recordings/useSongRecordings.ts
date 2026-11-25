@@ -149,13 +149,7 @@ export const useSongRecordings = (
         ...items,
         [recordingId]: errorstring(error) ?? 'actionFailed',
       }));
-      if (error.code === 'AnalysisPitchUncertain') {
-        if (request === requests.current.analysis) {
-          setAnalysisRecordId(null);
-          setAnalysisSong(null);
-        }
-        return null;
-      }
+      if (error.code === 'AnalysisPitchUncertain') return null;
       throw failure;
     } finally {
       if (ownsRun())

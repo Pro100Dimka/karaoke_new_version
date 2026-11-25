@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { RecordingDto } from '../../../../contracts/models';
@@ -23,7 +23,9 @@ vi.mock('@neo-ui-kit/react', () => {
     Stack: Panel,
     Typography: Panel,
     Landscape: Panel,
-    Button: ({ label }: { label: string }) => <button>{label}</button>,
+    Button: ({ label, onClick }: { label: string; onClick?: () => void }) => (
+      <button onClick={onClick}>{label}</button>
+    ),
     IconButton: () => null,
     Planet: () => null,
     NeonWaves: () => null,
@@ -41,6 +43,50 @@ vi.mock('../recordings/RecordingPlayer', () => ({
   RecordingPlayer: () => <div data-testid="recording-player" />,
 }));
 afterEach(cleanup);
+
+it.each([false, true])(
+  'keeps mastering available after uncertain pitch analysis, room=%s',
+  (room) => {
+    const recording: RecordingDto = {
+      id: 'take',
+      songId: 'song',
+      filePath: '',
+      displayName: '',
+      createdAt: '',
+      durationSeconds: 30,
+      sizeBytes: 0,
+      analyzed: false,
+      fileStatus: 'Ready',
+      ...(room
+        ? {
+            roomPerformance: {
+              roomId: 'room',
+              performanceId: 1,
+              status: 'unavailable' as const,
+            },
+          }
+        : {}),
+    };
+    const createMaster = vi.fn();
+    render(
+      <PerformanceAnalysisModal
+        analysis={null}
+        recordingId={recording.id}
+        failure="analysisPitchUncertain"
+        recordings={[recording]}
+        onDelete={vi.fn()}
+        onCreateStudioMaster={createMaster}
+        studioMaster={null}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('analysisPitchUncertain')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'studioMasterCreate' }));
+    expect(createMaster).toHaveBeenCalledExactlyOnceWith(recording);
+    expect(screen.getByTestId('recording-player')).toBeTruthy();
+    expect(screen.queryByText('analysisOverall')).toBeNull();
+  },
+);
 
 it.each([
   ['PreparingStudioSources', 'studioMasterPreparingSources'],
