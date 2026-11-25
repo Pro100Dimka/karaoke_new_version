@@ -149,12 +149,12 @@ export const KaraokeScreen = observer(
         await session.finishPerformance();
         return;
       }
+      if (room && !canControlRoom(room)) {
+        notify(tr('errorRoomPermission'), 'warning');
+        return;
+      }
       if (!(await session.confirmExit())) return;
       if (room) {
-        if (!canControlRoom(room)) {
-          notify(tr('errorRoomPermission'), 'warning');
-          return;
-        }
         try {
           if (!roomPlayback) throw new Error('Room session unavailable');
           await roomPlayback.clearSong();
