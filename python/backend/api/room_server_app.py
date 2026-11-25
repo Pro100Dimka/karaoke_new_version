@@ -16,7 +16,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi import Header, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
@@ -57,6 +57,7 @@ _abandoned_room_seconds = 3600.0
 _departure_grace_seconds = 60.0
 _room_path = re.compile(r"^/rooms/([^/]+)")
 _default_relay_port = 40000
+_room_change_payload = TypeAdapter(dict[str, object])
 
 
 class KaggleEndpointDto(ApiModel):
@@ -197,22 +198,29 @@ def _add_kaggle_endpoint_routes(app: FastAPI) -> None:
 
 
 def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> None:
-    @app.get("/rooms/{room_id}/changes")
+    @app.get("/rooms/{room_id}/changes", response_model=dict[str, object])
     async def room_changes(
         room_id: str,
         participant_id: str = Query(alias="participantId", min_length=1, max_length=128),
         after: int = Query(default=0, ge=0),
-    ) -> dict[str, object]:
+    ) -> Response:
         room_id = normalize_room_id(room_id)
         await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
         version = await repository.wait_for_change_async(room_id, after)
-        room = await anyio.to_thread.run_sync(repository.get, room_id)
-        if room is None:
-            return {"version": version, "room": None}
-        return {
-            "version": version,
-            "room": _room(room).model_dump(mode="json", by_alias=True),
-        }
+        return await anyio.to_thread.run_sync(_room_change_response, repository, room_id, version)
+
+
+def _room_change_response(
+    repository: ObservableRoomRepository, room_id: str, version: int
+) -> Response:
+    # Shared libraries can contain thousands of songs. Mapping and final JSON encoding must
+    # stay with the database read on the worker, so waking watches do not block room controls.
+    room = repository.get(room_id)
+    content: dict[str, object] = {
+        "version": version,
+        "room": None if room is None else _room(room).model_dump(mode="json", by_alias=True),
+    }
+    return Response(_room_change_payload.dump_json(content), media_type="application/json")
 
 
 def _configure_room_app(

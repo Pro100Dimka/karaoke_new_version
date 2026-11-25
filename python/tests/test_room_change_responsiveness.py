@@ -1,12 +1,17 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dataclasses import replace
-from threading import Lock
+from threading import Event, Lock
 
 import anyio
 import httpx
 import pytest
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
+from pydantic import TypeAdapter
 
+from backend.api import room_server_app
 from backend.api.room_server_app import _add_change_route
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.infrastructure.observable_rooms import ObservableRoomRepository
@@ -78,3 +83,69 @@ async def test_idle_room_long_polls_leave_workers_for_control_routes(monkeypatch
     assert all(result.status_code == 200 for result in finished)
     assert response is not None, "Idle room watches exhausted the workers used by control requests"
     assert response.json() == {"responsive": True}
+
+
+@pytest.mark.parametrize("stage", ["snapshot-mapping", "json-encoding"])
+def test_room_snapshot_response_does_not_block_control_requests(monkeypatch, stage):
+    repository = ObservableRoomRepository(InMemoryRoomRepository())
+    room = repository.save(_candidate("shared library"))
+    entered, release = Event(), Event()
+
+    def hold_snapshot_work():
+        entered.set()
+        assert release.wait(5)
+
+    if stage == "snapshot-mapping":
+        original_room = room_server_app._room
+
+        def slow_room(snapshot):
+            hold_snapshot_work()
+            return original_room(snapshot)
+
+        monkeypatch.setattr(room_server_app, "_room", slow_room)
+    else:
+        original_render = JSONResponse.render
+        original_dump_json = TypeAdapter.dump_json
+
+        def hold_snapshot_encoding(content):
+            if isinstance(content, dict) and "room" in content and "version" in content:
+                hold_snapshot_work()
+
+        def slow_render(response, content):
+            hold_snapshot_encoding(content)
+            return original_render(response, content)
+
+        def slow_dump_json(adapter, content, **kwargs):
+            hold_snapshot_encoding(content)
+            return original_dump_json(adapter, content, **kwargs)
+
+        # FastAPI can encode response models directly or render an explicit JSONResponse.
+        monkeypatch.setattr(JSONResponse, "render", slow_render)
+        monkeypatch.setattr(TypeAdapter, "dump_json", slow_dump_json)
+
+    with TestClient(_app(repository)) as client, ThreadPoolExecutor(max_workers=2) as callers:
+        watch = callers.submit(
+            client.get, "/rooms/room/changes", params={"participantId": "host", "after": 0}
+        )
+        response = None
+        try:
+            assert entered.wait(2), (
+                "The room snapshot did not reach the injected serialization delay"
+            )
+            probe = callers.submit(client.get, "/probe")
+            try:
+                response = probe.result(timeout=0.3)
+            except TimeoutError:
+                pass
+        finally:
+            release.set()
+        snapshot = watch.result(timeout=2)
+
+    assert response is not None, f"{stage} blocked other requests on the room event loop"
+    assert response.json() == {"responsive": True}
+    assert snapshot.status_code == 200
+    assert snapshot.headers["content-type"] == "application/json"
+    payload = snapshot.json()
+    assert payload["version"] == repository.version("room")
+    assert payload["room"]["snapshotRevision"] == room.snapshot_revision
+    assert payload["room"]["libraryQuery"] == "shared library"
