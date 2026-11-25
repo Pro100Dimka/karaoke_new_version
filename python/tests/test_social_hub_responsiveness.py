@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 
 import pytest
@@ -29,12 +30,22 @@ def connect(hub: SocialHub, name: str, socket: Socket) -> None:
     hub.set_room(name, "room")
 
 
+async def scheduled_callbacks_finished() -> None:
+    # A callback fence runs after every callback already queued by the producer.
+    loop = asyncio.get_running_loop()
+    completed = loop.create_future()
+    loop.call_soon(completed.set_result, None)
+    await completed
+
+
 async def settled(hub: SocialHub) -> None:
-    # Include scheduled callbacks as well as workers already waiting on a socket.
-    await asyncio.sleep(0)
+    await scheduled_callbacks_finished()
     while hub._tasks:
-        await asyncio.gather(*tuple(hub._tasks), return_exceptions=True)
-        await asyncio.sleep(0)
+        results = await asyncio.gather(*tuple(hub._tasks), return_exceptions=True)
+        assert all(
+            result is None or isinstance(result, asyncio.CancelledError) for result in results
+        )
+        await scheduled_callbacks_finished()
 
 
 def test_voice_level_bursts_do_not_queue_a_callback_for_every_update(monkeypatch) -> None:
@@ -137,7 +148,7 @@ def test_slow_socket_receives_latest_levels_without_replaying_the_backlog() -> N
         try:
             for value in range(1, 101):
                 hub.broadcast_room("room", {"type": "voiceLevels", "value": value})
-                await asyncio.sleep(0)
+                await scheduled_callbacks_finished()
         finally:
             socket.release.set()
         await asyncio.wait_for(settled(hub), timeout=2)
@@ -149,18 +160,26 @@ def test_slow_socket_receives_latest_levels_without_replaying_the_backlog() -> N
     asyncio.run(scenario())
 
 
-def test_queued_levels_are_discarded_after_leaving_the_room() -> None:
+def test_queued_levels_are_discarded_after_leaving_the_room(monkeypatch) -> None:
     async def scenario() -> None:
         hub = SocialHub()
         hub.start(lambda account: {"type": "inbox", "account": account})
         socket = Socket(blocked=True)
         connect(hub, "anna", socket)
+        sending_levels = asyncio.Event()
+        send = hub._send
+
+        async def observe_send(socket, message, *, room=None):
+            if room is not None:
+                sending_levels.set()
+            await send(socket, message, room=room)
+
+        monkeypatch.setattr(hub, "_send", observe_send)
         acknowledgement = {"type": "presenceAck", "revision": 1}
         reply = asyncio.create_task(hub.send(socket, acknowledgement))
         await asyncio.wait_for(socket.entered.wait(), timeout=1)
         hub.broadcast_room("room", {"type": "voiceLevels", "value": 0.8})
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await asyncio.wait_for(sending_levels.wait(), timeout=1)
         hub.set_room("anna", None)
         socket.release.set()
         await asyncio.wait_for(reply, timeout=1)
@@ -228,7 +247,7 @@ def test_changes_during_an_inbox_render_trigger_one_fresh_snapshot() -> None:
         try:
             for version in range(1, 101):
                 hub.changed(("anna",))
-                await asyncio.sleep(0)
+                await scheduled_callbacks_finished()
             while_rendering = list(rendered)
         finally:
             release.set()
@@ -262,5 +281,108 @@ def test_a_new_socket_gets_current_inbox_while_an_old_socket_is_stalled(disconne
         finally:
             old.release.set()
             await asyncio.wait_for(settled(hub), timeout=2)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("outcome", ["error", "cancel"])
+def test_failed_or_cancelled_render_releases_notification_ownership(outcome) -> None:
+    async def scenario() -> None:
+        hub = SocialHub()
+        loop = asyncio.get_running_loop()
+        entered, finished = asyncio.Event(), asyncio.Event()
+        release = Event()
+        first = True
+
+        def render(_account: str) -> object:
+            if first:
+                try:
+                    loop.call_soon_threadsafe(entered.set)
+                    if outcome == "error":
+                        raise ValueError("Inbox render failed")
+                    assert release.wait(3)
+                finally:
+                    loop.call_soon_threadsafe(finished.set)
+            return {"type": "inbox", "ready": True}
+
+        hub.start(render)
+        socket = Socket()
+        connect(hub, "anna", socket)
+        hub._changes["anna"] = True
+        worker = asyncio.create_task(hub._push_changes("anna"))
+        try:
+            await asyncio.wait_for(entered.wait(), timeout=1)
+            if outcome == "cancel":
+                worker.cancel()
+                release.set()
+                with pytest.raises(asyncio.CancelledError):
+                    await worker
+            else:
+                with pytest.raises(ValueError, match="Inbox render failed"):
+                    await worker
+        finally:
+            release.set()
+            await asyncio.wait_for(finished.wait(), timeout=1)
+        assert not hub._changes
+        first = False
+        hub.changed(("anna",))
+        await asyncio.wait_for(socket.received.wait(), timeout=1)
+        await asyncio.wait_for(settled(hub), timeout=2)
+        assert socket.messages == [{"type": "inbox", "ready": True}]
+
+    asyncio.run(scenario())
+
+
+def test_idle_worker_cleanup_preserves_a_new_change_from_another_thread(monkeypatch) -> None:
+    async def scenario() -> None:
+        hub = SocialHub()
+        loop = asyncio.get_running_loop()
+        next_render = asyncio.Event()
+        idle, registered = Event(), Event()
+        version = 0
+
+        def render(_account: str) -> object:
+            captured = version
+            if captured == 1:
+                loop.call_soon_threadsafe(next_render.set)
+            return {"type": "inbox", "version": captured}
+
+        hub.start(render)
+        socket = Socket()
+        connect(hub, "anna", socket)
+        lock = hub._lock
+
+        class ObserveIdle:
+            armed = True
+
+            def __enter__(self):
+                lock.acquire()
+
+            def __exit__(self, *_args):
+                notify = self.armed and "anna" not in hub._changes
+                if notify:
+                    self.armed = False
+                lock.release()
+                if notify:
+                    idle.set()
+                    assert registered.wait(3)
+
+        monkeypatch.setattr(hub, "_lock", ObserveIdle())
+
+        def change_after_idle():
+            nonlocal version
+            assert idle.wait(3)
+            version = 1
+            hub.changed(("anna",))
+            registered.set()
+
+        with ThreadPoolExecutor(max_workers=1) as threads:
+            changing = threads.submit(change_after_idle)
+            hub.changed(("anna",))
+            await asyncio.wait_for(next_render.wait(), timeout=3)
+            await asyncio.wait_for(settled(hub), timeout=2)
+            changing.result(timeout=1)
+        assert not hub._changes
+        assert socket.messages[-1] == {"type": "inbox", "version": 1}
 
     asyncio.run(scenario())

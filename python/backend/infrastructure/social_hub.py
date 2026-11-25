@@ -208,20 +208,22 @@ class SocialHub:
         task.add_done_callback(self._tasks.discard)
 
     async def _push_changes(self, account_id: str) -> None:
+        complete = False
         try:
             while True:
                 with self._lock:
                     if not self._changes[account_id] or not self._sockets.get(account_id):
                         self._changes.pop(account_id)
+                        complete = True
                         return
                     self._changes[account_id] = False
                 # Notices are persisted in the inbox. Render a fresh snapshot after changes
                 # during this render, instead of racing a worker and stale payload per change.
                 await self.push(account_id)
-        except BaseException:
-            with self._lock:
-                self._changes.pop(account_id, None)
-            raise
+        finally:
+            if not complete:
+                with self._lock:
+                    self._changes.pop(account_id, None)
 
     async def push(self, account_id: str) -> None:
         render = self._render
