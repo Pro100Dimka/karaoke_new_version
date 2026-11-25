@@ -179,18 +179,22 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
     source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
     start = source.index("function GetTickCount64:")
     check = source[start : source.index("{ An NVIDIA GPU", start)]
+    check = check.replace("GetSHA256OfFile(Target)", "CountedFileHash(Target)")
     script = tmp_path / "probe.iss"
     script.write_text(
         "[Setup]\nAppName=Installer verification\nAppVersion=1\n"
         f"DefaultDirName={installed}\nOutputDir={tmp_path}\nOutputBaseFilename=probe\n"
         "PrivilegesRequired=lowest\nUninstallable=no\nCreateUninstallRegKey=no\n"
         "[CustomMessages]\nUpdateChecking=Checked: %1\n"
-        f'#include "{catalog}"\n[Code]\nvar PayloadChecks: TStringList;\n'
+        f'#include "{catalog}"\n[Code]\nvar PayloadChecks, InstalledPayloadChecks: TStringList;\n'
         "VerificationUpdatedAt: Int64;\n"
         "VerificationPage: TOutputMarqueeProgressWizardPage;\nInstallingPayload: Boolean;\n"
         "procedure InitializeWizard;\nbegin\n"
         "VerificationPage := CreateOutputMarqueeProgressPage('Preparing', 'Checking');\nend;\n"
-        f"{check}",
+        "function CountedFileHash(const Name: string): string;\nbegin\n"
+        "Log('PAYLOAD_HASH_READ'); Result := GetSHA256OfFile(Name);\nend;\n"
+        f"{check}\nprocedure CurStepChanged(Step: TSetupStep);\nbegin\n"
+        "if Step = ssPostInstall then SavePayloadChecks;\nend;\n",
         encoding="utf-8-sig",
     )
     subprocess.run(
@@ -199,7 +203,8 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
     for phase in ("first", "repeat", "repair"):
         log = tmp_path / f"{phase}.log"
         subprocess.run(
-            [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART", f"/LOG={log}"],
+            [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART", f"/LOG={log}",
+             *(["/VERIFYFILES=1"] if phase == "repair" else [])],
             check=True,
             timeout=30,
         )
@@ -210,10 +215,56 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
             (installed / "data/recording.wav").write_bytes(b"keep")
         if phase == "repeat":
             assert "Installing the file." not in log.read_text(encoding="utf-8-sig")
+            assert "PAYLOAD_HASH_READ" not in log.read_text(encoding="utf-8-sig"), (
+                "Normal updates must reuse installed payload metadata without hashing every file"
+            )
             timestamp = target.stat().st_mtime_ns
             target.write_bytes(b"tampered")
             os.utime(target, ns=(timestamp, timestamp))
+        if phase == "repair":
+            assert "PAYLOAD_HASH_READ" in log.read_text(encoding="utf-8-sig")
         assert (installed / "data/recording.wav").read_bytes() == b"keep"
+
+    source_file = payload / "worker.py"
+    timestamp = source_file.stat().st_mtime_ns
+    source_file.write_bytes(b"updated!")
+    os.utime(source_file, ns=(timestamp, timestamp))
+    subprocess.run(
+        [sys.executable, str(ROOT / "installer/generate_config.py"), str(catalog), str(payload)],
+        check=True,
+    )
+    subprocess.run(
+        [compiler, "/Q", f"/DAppSource={payload}", str(script)], check=True, capture_output=True
+    )
+    log = tmp_path / "new-content.log"
+    subprocess.run(
+        [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART", f"/LOG={log}"],
+        check=True,
+        timeout=30,
+    )
+    assert target.read_bytes() == b"updated!", "A new payload hash must override identical metadata"
+    assert "PAYLOAD_HASH_READ" not in log.read_text(encoding="utf-8-sig")
+
+    for problem in ("missing", "changed", "cache"):
+        if problem == "missing":
+            target.unlink()
+        elif problem == "changed":
+            target.write_bytes(b"modified")
+        else:
+            (installed / "resources/payload-checks.txt").write_text("incomplete cache")
+        subprocess.run(
+            [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART"], check=True, timeout=30
+        )
+        assert target.read_bytes() == b"updated!"
+        assert (installed / "data/recording.wav").read_bytes() == b"keep"
+
+    cache = installed / "resources/payload-checks.txt"
+    cache.unlink()
+    cache.mkdir()
+    subprocess.run(
+        [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART"], check=True, timeout=30
+    )
+    assert target.read_bytes() == b"updated!", "An unwritable optional cache must not fail installation"
 
 
 def _entrypoint(name: str) -> str:

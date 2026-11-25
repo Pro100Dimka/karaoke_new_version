@@ -44,7 +44,8 @@ def main() -> None:
         quoted_name = name.replace("'", "''")
         lines.append(
             f'Source: "{{#AppSource}}\\{name}"; DestDir: "{{app}}\\{destination}"; '
-            f"Flags: {flags}; Check: FileNeedsUpdate('{quoted_name}', '{digest}')"
+            f"Flags: {flags}; Check: FileNeedsUpdate('{quoted_name}', '{digest}'); "
+            f"AfterInstall: RecordPayloadFile('{quoted_name}', '{digest}')"
         )
     Path(sys.argv[1]).write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
 

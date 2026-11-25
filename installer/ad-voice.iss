@@ -213,14 +213,57 @@ var
   RemainingData: string;
   CheckedRoots: string;
   PayloadChecks: TStringList;
+  InstalledPayloadChecks: TStringList;
   VerificationUpdatedAt: Int64;
 
 function GetTickCount64: Int64;
   external 'GetTickCount64@kernel32.dll stdcall';
 
+function PayloadSignature(const Target, ExpectedHash: string): string;
+var
+  Info: TFindRec;
+begin
+  Result := '';
+  if not FindFirst(Target, Info) then Exit;
+  try
+    Result := ExpectedHash + ':' + IntToStr(Info.SizeHigh) + ':' + IntToStr(Info.SizeLow) +
+      ':' + IntToStr(Info.LastWriteTime.dwHighDateTime) + ':' +
+      IntToStr(Info.LastWriteTime.dwLowDateTime) + ':' + Target;
+  finally
+    FindClose(Info);
+  end;
+end;
+
+procedure RecordPayloadFile(const RelativeName, ExpectedHash: string);
+var
+  Signature: string;
+begin
+  Signature := PayloadSignature(ExpandConstant('{app}\') + RelativeName, ExpectedHash);
+  if Signature <> '' then PayloadChecks.Add('S:' + Signature);
+end;
+
+procedure SavePayloadChecks;
+var
+  I: Integer;
+  CacheFile: string;
+begin
+  if PayloadChecks = nil then Exit;
+  InstalledPayloadChecks.Clear;
+  for I := 0 to PayloadChecks.Count - 1 do
+    if Copy(PayloadChecks[I], 1, 2) = 'S:' then
+      InstalledPayloadChecks.Add(Copy(PayloadChecks[I], 3, Length(PayloadChecks[I])));
+  CacheFile := ExpandConstant('{app}\resources\payload-checks.txt');
+  if ForceDirectories(ExtractFileDir(CacheFile)) then
+    try
+      InstalledPayloadChecks.SaveToFile(CacheFile);
+    except
+      Log('Payload cache could not be saved; the next update will replace its files.');
+    end;
+end;
+
 function FileNeedsUpdate(const RelativeName, ExpectedHash: string): Boolean;
 var
-  Target: string;
+  Target, Signature: string;
   NowTicks: Int64;
 begin
   Target := ExpandConstant('{app}\') + RelativeName;
@@ -228,6 +271,14 @@ begin
   begin
     PayloadChecks := TStringList.Create;
     PayloadChecks.Sorted := True;
+    InstalledPayloadChecks := TStringList.Create;
+    InstalledPayloadChecks.Sorted := True;
+    if FileExists(ExpandConstant('{app}\resources\payload-checks.txt')) then
+      try
+        InstalledPayloadChecks.LoadFromFile(ExpandConstant('{app}\resources\payload-checks.txt'));
+      except
+        InstalledPayloadChecks.Clear;
+      end;
   end;
   if PayloadChecks.IndexOf('0:' + Target) >= 0 then
   begin
@@ -240,6 +291,16 @@ begin
     Exit;
   end;
   Result := True;
+  { Normal updates match the release hash and installed metadata; explicit repair reads contents. }
+  if ExpandConstant('{param:VERIFYFILES|0}') <> '1' then
+  begin
+    Signature := PayloadSignature(Target, ExpectedHash);
+    Result := (Signature = '') or (InstalledPayloadChecks.IndexOf(Signature) < 0);
+    if not Result then PayloadChecks.Add('S:' + Signature);
+    if Result then PayloadChecks.Add('1:' + Target)
+    else PayloadChecks.Add('0:' + Target);
+    Exit;
+  end;
   if WizardSilent and not InstallingPayload and (VerificationPage <> nil) then
   begin
     NowTicks := GetTickCount64;
@@ -261,7 +322,11 @@ begin
       Log('Cannot verify existing file; replacing: ' + RelativeName);
     end;
   if Result then PayloadChecks.Add('1:' + Target)
-  else PayloadChecks.Add('0:' + Target);
+  else
+  begin
+    PayloadChecks.Add('0:' + Target);
+    RecordPayloadFile(RelativeName, ExpectedHash);
+  end;
 end;
 
 { An NVIDIA GPU with its driver: nvidia-smi lists it. }
@@ -404,6 +469,7 @@ begin
     WizardForm.Show;
   end;
   if CurStep <> ssPostInstall then Exit;
+  SavePayloadChecks;
   ForceDirectories(ExpandConstant('{app}\data'));
   if not Exec(ExpandConstant('{sys}\icacls.exe'),
     AddQuotes(ExpandConstant('{app}\data')) + ' /grant ' +
