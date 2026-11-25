@@ -122,7 +122,7 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     window.clearTimeout(refreshTimers.get(query));
     refreshTimers.delete(query);
   };
-  const refreshJobs = (queryKey: QueryKey) => {
+  const refreshQueries = (queryKey: QueryKey) => {
     for (const query of cache.findAll({ queryKey, type: 'active' })) {
       clearRefresh(query);
       if (query.state.fetchStatus === 'fetching') pendingRefreshes.add(query);
@@ -202,18 +202,23 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     },
   );
   const stopVisibility = subscribeAppVisibility(updateVisibility);
-  const stopEvents = refreshOnJobChanges(() => refreshJobs(['jobs']), 250);
+  const stopEvents = refreshOnJobChanges(() => refreshQueries(['jobs']), 250);
   const stopJobQueries = onJobChange((jobId, job) => {
     jobSnapshots.changed(jobId);
     const queryKey =
       typeof job?.type === 'string' && typeof job.entityId === 'string'
         ? ['job', job.type, job.entityId]
         : ['job'];
-    refreshJobs(queryKey);
+    refreshQueries(queryKey);
   });
   const stopModels = onModelsChange(() => {
-    for (const queryKey of [['models'], ['model-free-space']])
-      void client.invalidateQueries({ queryKey });
+    // Model snapshots already re-read changes during their transport. Keep that
+    // read alive; disk-space snapshots need the ordinary trailing refresh.
+    void client.invalidateQueries(
+      { queryKey: ['models'] },
+      { cancelRefetch: false },
+    );
+    refreshQueries(['model-free-space']);
   });
   const systemMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const applyMotion = () => {
