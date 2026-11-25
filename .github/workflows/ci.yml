@@ -20,7 +20,7 @@ jobs:
     strategy: &python-shards
       fail-fast: false
       matrix:
-        shard: [0, 1, 2]
+        shard: [0, 1, 2, 3]
     env:
       TEST_MARKER: not integration and not slow and not network and not gpu
     steps:
@@ -179,12 +179,19 @@ jobs:
           - os: ubuntu-24.04
             compiler: -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14
     runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     defaults:
       run:
         working-directory: .
     steps:
       - uses: actions/checkout@v4
-      - run: cmake -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON -DAUDIOSERVICE_TEST_SHARD=${{ matrix.shard }} ${{ matrix.compiler }}
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: v0.16.0
+      - run: cmake -G Ninja -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON -DAUDIOSERVICE_TEST_SHARD=${{ matrix.shard }} ${{ matrix.compiler }}
       - run: cmake --build build/native --config Release --parallel 4
       - run: ctest --test-dir build/native -C Release --output-on-failure
 
