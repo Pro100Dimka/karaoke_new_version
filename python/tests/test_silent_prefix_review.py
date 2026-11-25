@@ -222,12 +222,12 @@ def _committed_review(monkeypatch, original, recovered, onset=1.0):
 @pytest.mark.parametrize(
     "text,onset,letters,end,expected",
     [
-        ("вдруг", 1.0, (0.18, 1.12, 1.30, 1.46, 1.62), 1.80, (1.0, 1.10, 1.16, 1.32, 1.48)),
-        ("вдома", 4.0, (3.18, 4.12, 4.30, 4.46, 4.62), 4.80, (4.0, 4.10, 4.16, 4.32, 4.48)),
-        ("шепіт", 1.0, (0.20, 1.30, 1.48, 1.62, 1.78), 1.94, (1.0, 1.16, 1.34, 1.48, 1.64)),
+        ("вдруг", 1.0, (0.18, 1.12, 1.30, 1.46, 1.62), 1.80, (1.0, 1.12, 1.30, 1.46, 1.62)),
+        ("вдома", 4.0, (3.18, 4.12, 4.30, 4.46, 4.62), 4.80, (4.0, 4.12, 4.30, 4.46, 4.62)),
+        ("шепіт", 1.0, (0.20, 1.30, 1.48, 1.62, 1.78), 1.94, (1.0, 1.30, 1.48, 1.62, 1.78)),
     ],
 )
-def test_onset_only_commit_preserves_supported_calibrated_letters(
+def test_onset_only_commit_preserves_measured_interior_letters(
     monkeypatch, text, onset, letters, end, expected
 ):
     original = ctc.AlignedWord(text, letters[0], end, letters, 0.72)
@@ -245,13 +245,13 @@ def test_onset_only_commit_preserves_supported_calibrated_letters(
     assert result[0]["start"] == onset
     assert result[0]["end"] == original.end
     assert result[0]["confidence"] == recovered.score
-    assert "ApproximateLetterTiming" in result[0]["diagnostics"]
-    assert "LetterTimingReviewRequired" in result[0]["diagnostics"]
+    assert "ApproximateLetterTiming" not in result[0]["diagnostics"]
+    assert "LetterTimingReviewRequired" not in result[0]["diagnostics"]
     assert result[1]["start"] == pytest.approx(onset + 1.20)
-    assert result[1]["letters"] == pytest.approx((onset + 1.20, onset + 1.30, onset + 1.40))
+    assert result[1]["letters"] == pytest.approx((onset + 1.20, onset + 1.44, onset + 1.54))
 
 
-def test_a_separately_changed_raw_letter_keeps_its_new_calibrated_anchor(monkeypatch):
+def test_a_separately_changed_raw_letter_keeps_its_new_measured_anchor(monkeypatch):
     original = ctc.AlignedWord("вдома", 0.18, 1.80, (0.18, 1.12, 1.30, 1.46, 1.62), 0.72)
     recovered = replace(
         original,
@@ -262,11 +262,11 @@ def test_a_separately_changed_raw_letter_keeps_its_new_calibrated_anchor(monkeyp
 
     result = _committed_review(monkeypatch, original, recovered)[0]
 
-    assert result["letters"] == pytest.approx((1.0, 1.10, 1.26, 1.32, 1.48))
+    assert result["letters"] == pytest.approx((1.0, 1.12, 1.28, 1.46, 1.62))
 
 
 @pytest.mark.parametrize("changed", [1.338, 1.34, 1.42])
-def test_crossed_or_newly_tied_calibrated_anchors_keep_the_complete_candidate(monkeypatch, changed):
+def test_a_local_entry_does_not_cross_or_tie_nearby_interior_anchors(monkeypatch, changed):
     original = ctc.AlignedWord("вдруг", 0.18, 1.80, (0.18, 1.12, 1.30, 1.46, 1.62), 0.72)
     recovered = replace(
         original,
@@ -277,13 +277,13 @@ def test_crossed_or_newly_tied_calibrated_anchors_keep_the_complete_candidate(mo
 
     result = _committed_review(monkeypatch, original, recovered)[0]
 
-    assert result["letters"] == pytest.approx((1.0, 1.10, changed - 0.02, 1.44, 1.60))
-    assert "ApproximateLetterTiming" in result["diagnostics"]
-    assert "LetterTimingReviewRequired" in result["diagnostics"]
+    assert result["letters"] == pytest.approx((1.0, 1.12, changed, 1.46, 1.62))
+    assert "ApproximateLetterTiming" not in result["diagnostics"]
+    assert "LetterTimingReviewRequired" not in result["diagnostics"]
 
 
 @pytest.mark.parametrize("scope", ["ordinary_review", "changed_end"])
-def test_anchor_preservation_is_limited_to_an_onset_only_recovery(monkeypatch, scope):
+def test_other_reviews_also_keep_measured_interior_anchors(monkeypatch, scope):
     original = ctc.AlignedWord("вдома", 0.18, 1.80, (0.18, 1.12, 1.30, 1.46, 1.62), 0.72)
     recovered = replace(
         original,
@@ -295,7 +295,7 @@ def test_anchor_preservation_is_limited_to_an_onset_only_recovery(monkeypatch, s
 
     result = _committed_review(monkeypatch, original, recovered)[0]
 
-    assert result["letters"] == pytest.approx((1.0, 1.10, 1.28, 1.44, 1.60))
+    assert result["letters"] == pytest.approx((1.0, 1.12, 1.30, 1.46, 1.62))
     assert result["end"] == recovered.end
     assert "ApproximateLetterTiming" not in result.get("diagnostics", [])
 

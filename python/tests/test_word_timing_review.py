@@ -466,7 +466,7 @@ def test_local_onset_repair_does_not_recalibrate_distant_unchanged_words(monkeyp
     result = _isolated_pipeline(
         monkeypatch, original, candidate, activity=_activity((1, 3)), refine_onsets=True
     )
-    assert [word["start"] for word in result[1:]] == [1.5, 1.8, 2.3]
+    assert [word["start"] for word in result[1:]] == [word.start for word in original[1:]]
 
 
 def test_unresolved_acoustic_review_is_exported_without_a_written_rate_warning(monkeypatch):
