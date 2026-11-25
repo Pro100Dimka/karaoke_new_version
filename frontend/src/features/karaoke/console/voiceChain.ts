@@ -21,7 +21,11 @@ type VoiceChainSettings = Pick<
 >;
 const pendingChains = new WeakMap<
   VoiceChainAudioPort,
-  { tail: Promise<void>; revision: number }
+  {
+    tail: Promise<void>;
+    revision: number;
+    parameters: Map<string, number>;
+  }
 >();
 
 /**
@@ -46,6 +50,7 @@ export const applyVoiceChain = (
   const pending = pendingChains.get(audioClient) ?? {
     tail: Promise.resolve(),
     revision: 0,
+    parameters: new Map<string, number>(),
   };
   pendingChains.set(audioClient, pending);
   const revision = ++pending.revision;
@@ -56,9 +61,16 @@ export const applyVoiceChain = (
       await audioClient.setMixer('mic', voiceGain);
       if (pending.revision !== revision) return;
       const results = await Promise.allSettled(
-        parameters.map(([name, value]) =>
-          audioClient.setDspParameter(name, value),
-        ),
+        parameters
+          .filter(([name, value]) => pending.parameters.get(name) !== value)
+          .map(async ([name, value]) => {
+            // A failed write may already have changed native or remembered state.
+            pending.parameters.delete(name);
+            await audioClient.setDspParameter(name, value);
+            // Only acknowledged writes may be skipped. AudioSession replays the
+            // remembered DSP values after a process restart or reconfiguration.
+            pending.parameters.set(name, value);
+          }),
       );
       const failure = results.find((result) => result.status === 'rejected');
       if (failure) throw failure.reason;
