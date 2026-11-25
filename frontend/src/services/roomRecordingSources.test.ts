@@ -122,6 +122,27 @@ it('collects every separate singer once and releases imported downloads', async 
   });
 });
 
+it('stops waiting when an unfinished source makes no transfer progress', async () => {
+  vi.useFakeTimers();
+  desktop.roomRequest.mockResolvedValue(
+    reply({ complete: false, participants: [] }),
+  );
+  const collecting = prepareRoomRecordingSources('stalled');
+  const rejected = expect(collecting).rejects.toThrow(
+    'Room singer source transfer stalled',
+  );
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(desktop.pythonRequest).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      body: {
+        participants: { self: ['own'] },
+        failure: 'Room singer source transfer stalled',
+      },
+    }),
+  );
+  await rejected;
+});
+
 it('releases a rejected source and never marks incomplete inputs ready', async () => {
   const original = desktop.pythonRequest.getMockImplementation()!;
   desktop.pythonRequest.mockImplementation(
@@ -130,7 +151,10 @@ it('releases a rejected source and never marks incomplete inputs ready', async (
         return {
           ok: false,
           status: 409,
-          body: { code: 'RoomVocalSourceUnavailable' },
+          body: {
+            code: 'RoomVocalSourceUnavailable',
+            message: 'Singer source has an invalid room position',
+          },
         };
       return original(request);
     },
@@ -145,7 +169,7 @@ it('releases a rejected source and never marks incomplete inputs ready', async (
     expect.objectContaining({
       body: {
         participants: { self: ['own'] },
-        failure: 'Room source transfer failed',
+        failure: 'Singer source has an invalid room position',
       },
     }),
   );

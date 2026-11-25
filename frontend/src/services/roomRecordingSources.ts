@@ -3,6 +3,7 @@ import type { BackendRecording } from './pythonMappers';
 import { recordingsChanged } from './backendEvents';
 import { bridgedHttp, desktopBridge } from './desktopBridge';
 import { participantId } from './roomMappers';
+import { toAppError } from '../shared/errors';
 
 const collecting = new Map<string, Promise<void>>();
 const sourcePath = (
@@ -180,7 +181,6 @@ const collectSources = async (recordingId: string): Promise<void> => {
       )
         break;
       // Match file transfers: a slow source may continue while its upload is making progress.
-      if (!manifest.complete) movedAt = Date.now();
       if (Date.now() - movedAt >= 60_000)
         throw new Error('Room singer source transfer stalled');
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -202,10 +202,7 @@ const collectSources = async (recordingId: string): Promise<void> => {
         path: `${base}/room-sources`,
         body: {
           participants: sources,
-          failure:
-            error instanceof Error
-              ? error.message
-              : 'Room source transfer failed',
+          failure: toAppError(error).message,
         },
       },
       'Could not save room source status',

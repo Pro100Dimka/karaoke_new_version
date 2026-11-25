@@ -65,6 +65,79 @@ def test_room_source_roundtrip_keeps_only_its_own_lossless_voice_and_timeline(ta
     assert json.loads((imported / "metadata.json").read_text())["participantId"] == "singer"
 
 
+@pytest.mark.parametrize("block_frames", [64, 133])
+@pytest.mark.parametrize("clock_correction", [0, -48])
+def test_room_source_retains_clock_corrections_as_separate_alignment_runs(
+    take, block_frames, clock_correction
+):
+    from backend.recordings.room_source_alignment import _clock_runs
+
+    recording, _ = take
+    timeline = Path(str(recording.file_path) + ".timeline.csv")
+    step = block_frames * 48000 // recording.sample_rate
+    positions = [48000, 48000 + clock_correction, 48000 + clock_correction + step]
+    timeline.write_text(
+        "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,"
+        "captureTimelineFrame,captureEndTimelineFrame,timelineSampleRateHz\n"
+        + "".join(
+            f"{index * block_frames},{position},{block_frames},"
+            f"{recording.sample_rate},1,0,0,48000\n"
+            for index, position in enumerate(positions)
+        )
+    )
+    bundle = export_room_source(recording, "singer")
+    imported = import_room_source(recording, "singer", bundle)
+    assert (imported / "timeline.csv").read_bytes() == timeline.read_bytes()
+    runs = _clock_runs(imported / "timeline.csv", recording.sample_rate * 2, recording.sample_rate)
+    assert len(runs) == 2
+    assert runs[0][0].tolist() == [0, positions[0]]
+    assert runs[1][0].tolist() == [block_frames, positions[1]]
+
+
+@pytest.mark.parametrize("corrected_clock", ["source", "recipient", "both"])
+def test_room_alignment_renders_repeated_clock_positions_without_doubling_voice(
+    tmp_path, corrected_clock
+):
+    from backend.infrastructure.process_runner import ProcessRunner
+    from backend.recordings.room_source_alignment import align_room_source
+    from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+
+    rate, block, frames = 44100, 133, 44100
+    source = tmp_path / "voice.wav"
+    sf.write(source, np.full(frames, 0.1, dtype="float32"), rate, subtype="FLOAT")
+    timelines = []
+    for kind in ["source", "recipient"]:
+        positions = [48000, 48000, 48000 + block * 48000 // rate]
+        if corrected_clock not in [kind, "both"]:
+            positions = [48000 + offset * 48000 // rate for offset in [0, block, block * 2]]
+        path = tmp_path / f"{kind}.csv"
+        path.write_text(
+            "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,timelineSampleRateHz\n"
+            + "".join(
+                f"{offset},{position},{count},{rate},1,48000\n"
+                for offset, position, count in zip(
+                    [0, block, block * 2], positions, [block, block, frames - block * 2]
+                )
+            )
+        )
+        timelines.append(path)
+    target = tmp_path / "aligned.wav"
+    align_room_source(
+        FfmpegStudioMasterRenderer(ProcessRunner()),
+        source,
+        *timelines,
+        target,
+        threading.Event(),
+        frames=frames,
+        rate=rate,
+        channels=1,
+    )
+    actual, actual_rate = sf.read(target)
+    assert actual_rate == rate and actual.shape == (frames,)
+    np.testing.assert_allclose(actual[rate // 10 : -rate // 10], 0.1, atol=1e-5)
+    assert np.max(np.abs(actual)) <= 0.10001
+
+
 @pytest.mark.parametrize("change", ["singer", "performance", "room", "path", "duplicates"])
 def test_import_rejects_foreign_or_ambiguous_room_sources(take, change):
     recording, _ = take

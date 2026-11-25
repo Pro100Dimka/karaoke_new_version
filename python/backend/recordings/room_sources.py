@@ -51,7 +51,6 @@ def _performance(recording: Recording) -> Mapping[str, object]:
 def read_room_timeline(path: Path, frames: int, rate: int) -> list[tuple[int, int, int]]:
     segments = []
     previous_end = 0
-    previous_position = 0
     try:
         with path.open(encoding="utf-8", newline="") as stream:
             for row in csv.DictReader(stream):
@@ -77,10 +76,9 @@ def read_room_timeline(path: Path, frames: int, rate: int) -> list[tuple[int, in
                     raise _invalid("Singer source has an invalid room timeline")
                 previous_end = offset + count
                 if valid == 1:
-                    if position <= previous_position:
+                    if position == 0:
                         raise _invalid("Singer source has an invalid room position")
                     segments.append((offset, position, count))
-                    previous_position = position
                 elif valid != 0:
                     raise _invalid("Singer source has an invalid room clock flag")
     except (OSError, KeyError, ValueError, TypeError) as exc:

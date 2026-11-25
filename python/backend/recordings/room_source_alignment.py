@@ -22,12 +22,14 @@ def _clock_runs(path: Path, frames: int, rate: int) -> list[np.ndarray]:
     points: list[tuple[float, float]] = []
     end = position_end = 0.0
     for offset, position, count in read_room_timeline(path, frames, rate):
-        if points and (offset != end or abs(position - position_end) > VOICE_PACKET_FRAMES):
+        if points and (
+            offset != end
+            or position <= points[-1][1]
+            or abs(position - position_end) > VOICE_PACKET_FRAMES
+        ):
             points.append((end, position_end))
             runs.append(np.asarray(points))
             points = []
-        if points and position <= points[-1][1]:
-            raise ValueError("Room clock must advance within a continuous capture")
         points.append((float(offset), float(position)))
         end = offset + count
         position_end = position + count * VOICE_SAMPLE_RATE_HZ / rate
@@ -124,14 +126,25 @@ class _TimedSourceWriter:
     rate: int
     cancel: threading.Event
     written: bool = False
+    next_position: int = 0
 
     def write(self, samples: np.ndarray, position: int) -> None:
+        # Clock corrections can map two capture blocks onto the same output interval.
+        # Retain that interval once instead of sending overlapping timestamps to the muxer.
+        skipped = max(
+            0, int(np.ceil((self.next_position - position) * self.audio.samplerate / self.rate))
+        )
+        samples = samples[skipped:]
+        if not samples.size:
+            return
+        position += round(skipped * self.rate / self.audio.samplerate)
         frame = av.AudioFrame.from_ndarray(samples.reshape(1, -1), format="flt", layout="mono")
         frame.sample_rate = self.audio.samplerate
         frame.time_base = Fraction(1, self.rate)
         frame.pts = position
         for packet in self.stream.encode(frame):
             self.container.mux(packet)
+        self.next_position = position + round(samples.size * self.rate / self.audio.samplerate)
 
     def mux(self, origin: np.ndarray, destination: np.ndarray, start: float, end: float) -> None:
         _check_cancel(self.cancel)
