@@ -77,14 +77,16 @@ const LibraryActions = observer((props: LibraryActionsProps) => {
           onClick={props.onOpenRoom}
         />
       )}
-      <Button
-        size="lg"
-        variant="secondary"
-        icon="list"
-        label={tr('playlists')}
-        disabled={props.playlistsDisabled}
-        onClick={props.onOpenPlaylists}
-      />
+      {!roomRole && (
+        <Button
+          size="lg"
+          variant="secondary"
+          icon="list"
+          label={tr('playlists')}
+          disabled={props.playlistsDisabled}
+          onClick={props.onOpenPlaylists}
+        />
+      )}
       <Button
         size="lg"
         variant="primary"

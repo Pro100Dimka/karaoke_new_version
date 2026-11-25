@@ -77,7 +77,21 @@
   gap: var(--ad-space-1);
   min-inline-size: 0;
 }
+.roomPerson .ad-avatar[data-ad-size][data-variant] {
+  --ad-avatar: 5.25rem;
+}
 .roomPersonCrown {
+  position: absolute;
+  z-index: 1;
+  inset-block-end: 0.35rem;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  padding: 0.05rem 0.15rem;
+  border: 1px solid var(--ad-warning);
+  border-radius: 999px;
+  background: #140b0d;
   color: var(--ad-warning);
 }
 .roomEffectKnobs {

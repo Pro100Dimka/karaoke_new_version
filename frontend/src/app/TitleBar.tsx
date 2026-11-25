@@ -2,7 +2,7 @@ import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { desktopClient } from '../services/desktopClient';
-import { modalPlacementChanged } from '../shared/ui/modalPlacement';
+import { useTopModal } from '../shared/ui/modalPlacement';
 import { useWindowState } from './useWindowState';
 
 const windowActions = [
@@ -34,42 +34,6 @@ const windowActions = [
 
 /** Screens put their own buttons in this title-bar slot; interactive elements remain outside its drag region. */
 export const titleBarLeadingId = 'titleBarLeading';
-
-const useTopModal = () => {
-  const [modal, setModal] = useState<HTMLDialogElement | null>(null);
-  useLayoutEffect(() => {
-    if (typeof HTMLDialogElement.prototype.showModal !== 'function') return;
-    let stack: HTMLDialogElement[] = [];
-    const update = (records: MutationRecord[] = []) => {
-      if (records.length && !modalPlacementChanged(records)) return;
-      // Attribute records preserve opening order even when it differs from DOM order.
-      for (const { target, attributeName } of records) {
-        if (!(target instanceof HTMLDialogElement) || attributeName !== 'open')
-          continue;
-        stack = stack.filter((dialog) => dialog !== target);
-        if (target.matches(':modal')) stack.push(target);
-      }
-      stack = stack.filter(
-        (dialog) => dialog.isConnected && dialog.matches(':modal'),
-      );
-      for (const dialog of document.querySelectorAll<HTMLDialogElement>(
-        'dialog:modal',
-      ))
-        if (!stack.includes(dialog)) stack.push(dialog);
-      setModal(stack.at(-1) ?? null);
-    };
-    const observer = new MutationObserver(update);
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['open'],
-    });
-    update();
-    return () => observer.disconnect();
-  }, []);
-  return modal;
-};
 
 export const TitleBar = () => {
   useLocale();

@@ -8,10 +8,13 @@ import './styles.css';
 const ThemeConfig = observer(({ children }: PropsWithChildren) => {
   const { library, background } = store.currentTheme;
   const { headingFont, textFont } = store.interface;
+  const light = library === 'light';
   return (
     <ThemeProvider
       theme={library}
-      colorScheme={library === 'light' ? 'light' : 'dark'}
+      colorScheme={light ? 'light' : 'dark'}
+      primary={light ? '#c68f78' : undefined}
+      secondary={light ? '#f2d5c6' : undefined}
       style={{
         '--app-background': `url("${background}")`,
         '--app-font-heading': fonts[headingFont][1],

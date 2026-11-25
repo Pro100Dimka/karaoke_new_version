@@ -21,6 +21,7 @@ import { errorstring, toAppError } from '../../shared/errors';
 
 import { DetachedPanel } from '../../shared/ui/DetachedPanel';
 import { useDetachedPanel } from '../../shared/ui/useDetachedPanel';
+import { useTopModal } from '../../shared/ui/modalPlacement';
 import {
   controlSelector,
   useFloatingPanel,
@@ -69,6 +70,7 @@ export const RoomDock = observer(() => {
     visible,
   );
   const frameRef = useRef<HTMLElement>(null);
+  const modal = useTopModal();
   const grab = useRef<{
     x: number;
     y: number;
@@ -231,20 +233,6 @@ export const RoomDock = observer(() => {
 
   const collapseLabel = tr(collapsed ? 'expandRoom' : 'collapseRoom');
 
-  if (collapsed && !panel.detached) {
-    return (
-      <div className="roomDockCollapsed">
-        <Button
-          icon="window"
-          aria-label={collapseLabel}
-          onClick={() => setCollapsed(false)}
-        >
-          {room.code}
-        </Button>
-      </div>
-    );
-  }
-
   const cancelTransfer = () => {
     runtime.getProject()?.cancelTransfer();
   };
@@ -253,98 +241,112 @@ export const RoomDock = observer(() => {
   };
 
   return (
-    <DetachedPanel panel={panel} keepMounted>
-      <aside
-        className="roomDock"
-        aria-label={tr('onlineRoom')}
-        ref={frameRef}
-        style={
-          !panel.detached && floating.layout
-            ? {
-                left: floating.layout.left,
-                top: floating.layout.top,
-                bottom: 'auto',
-                right: 'auto',
-              }
-            : undefined
-        }
-        onPointerDown={panel.detached ? undefined : beginMove}
-        onPointerMove={panel.detached ? undefined : move}
-        onPointerUp={
-          panel.detached
-            ? undefined
-            : () => {
-                grab.current = null;
-                floating.handleUp();
-              }
-        }
-        onPointerCancel={
-          panel.detached
-            ? undefined
-            : () => {
-                grab.current = null;
-                floating.handleCancel();
-              }
-        }
-      >
-        <RoomHeadCard
-          room={room}
-          actions={{
-            copied,
-            detached: panel.detached,
-            onCopy: () => void handleCopy(),
-            onTogglePanel: panel.detached
-              ? panel.attach
-              : () => setCollapsed(true),
-            onCancelTransfer: cancelTransfer,
-            onRetryTransfer: () => void retryTransfer(),
-            onReplaceProject: replaceProject,
-            onLeave: () => void handleLeave(),
-            onPlaylists: () => setPlaylistsOpen(true),
+    <>
+      <DetachedPanel panel={panel} modal={modal} keepMounted>
+        {collapsed && !panel.detached ? (
+          <div className="roomDockCollapsed">
+            <Button
+              icon="window"
+              aria-label={collapseLabel}
+              onClick={() => setCollapsed(false)}
+            >
+              {room.code}
+            </Button>
+          </div>
+        ) : (
+          <aside
+            className="roomDock"
+            aria-label={tr('onlineRoom')}
+            ref={frameRef}
+            style={
+              !panel.detached && floating.layout
+                ? {
+                    left: floating.layout.left,
+                    top: floating.layout.top,
+                    bottom: 'auto',
+                    right: 'auto',
+                  }
+                : undefined
+            }
+            onPointerDown={panel.detached ? undefined : beginMove}
+            onPointerMove={panel.detached ? undefined : move}
+            onPointerUp={
+              panel.detached
+                ? undefined
+                : () => {
+                    grab.current = null;
+                    floating.handleUp();
+                  }
+            }
+            onPointerCancel={
+              panel.detached
+                ? undefined
+                : () => {
+                    grab.current = null;
+                    floating.handleCancel();
+                  }
+            }
+          >
+            <RoomHeadCard
+              room={room}
+              actions={{
+                copied,
+                detached: panel.detached,
+                onCopy: () => void handleCopy(),
+                onTogglePanel: panel.detached
+                  ? panel.attach
+                  : () => setCollapsed(true),
+                onCancelTransfer: cancelTransfer,
+                onRetryTransfer: () => void retryTransfer(),
+                onReplaceProject: replaceProject,
+                onLeave: () => void handleLeave(),
+                onPlaylists: () => setPlaylistsOpen(true),
+              }}
+            />
+            <ul className="roomPeople" aria-label={tr('participants')}>
+              {room.participants.map((participant) => (
+                <RoomPersonCard
+                  key={participant.id}
+                  participant={participant}
+                  person={people.get(participant.id)}
+                  hostControls={isHost}
+                  onTransferHost={(target) => void transferHost(target)}
+                  onRemove={(target) => void removeParticipant(target)}
+                />
+              ))}
+            </ul>
+          </aside>
+        )}
+      </DetachedPanel>
+      {playlistsOpen && (
+        <PlaylistDialog
+          songs={[
+            ...new Map(
+              (room.sharedSongs ?? []).map((song) => [
+                song.songId,
+                {
+                  id: song.songId,
+                  title: song.title,
+                  artist: song.artist,
+                  status: 'ready' as const,
+                  activeRevision: song.revision,
+                },
+              ]),
+            ).values(),
+          ]}
+          onClose={() => setPlaylistsOpen(false)}
+          disabled={!canControlRoom(room) || Boolean(room.songId)}
+          onPlay={async (playlist, songs) => {
+            await roomLibrary?.startPlaylist(
+              playlist.name,
+              songs.map((song) => ({
+                songId: song.id,
+                revision: song.activeRevision,
+              })),
+            );
           }}
         />
-        <ul className="roomPeople" aria-label={tr('participants')}>
-          {room.participants.map((participant) => (
-            <RoomPersonCard
-              key={participant.id}
-              participant={participant}
-              person={people.get(participant.id)}
-              hostControls={isHost}
-              onTransferHost={(target) => void transferHost(target)}
-              onRemove={(target) => void removeParticipant(target)}
-            />
-          ))}
-        </ul>
-        {playlistsOpen && (
-          <PlaylistDialog
-            songs={[
-              ...new Map(
-                (room.sharedSongs ?? []).map((song) => [
-                  song.songId,
-                  {
-                    id: song.songId,
-                    title: song.title,
-                    artist: song.artist,
-                    status: 'ready' as const,
-                    activeRevision: song.revision,
-                  },
-                ]),
-              ).values(),
-            ]}
-            onClose={() => setPlaylistsOpen(false)}
-            disabled={!canControlRoom(room) || Boolean(room.songId)}
-            onPlay={async (playlist, songs) => {
-              await roomLibrary?.startPlaylist(
-                playlist.name,
-                songs.map((song) => ({
-                  songId: song.id,
-                  revision: song.activeRevision,
-                })),
-              );
-            }}
-          />
-        )}
-      </aside>
-    </DetachedPanel>
+      )}
+    </>
   );
 });

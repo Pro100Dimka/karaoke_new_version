@@ -195,12 +195,17 @@ export const RoomPersonCard = observer(
             live={participant.connected && !muted}
           >
             <Avatar
-              size={host ? 'md' : 'lg'}
-              variant={host ? 'host' : 'initials'}
+              size="lg"
+              variant={participant.self ? 'host' : 'initials'}
               name={participant.name}
               src={photo}
               badge={host ? undefined : tr('guestBadge')}
             />
+            {host && (
+              <span className="roomPersonCrown">
+                <Icon name="crown" size={12} />
+              </span>
+            )}
           </SpeakingBeacon>
           <div className="roomPersonMain">
             <Stack>
@@ -210,9 +215,6 @@ export const RoomPersonCard = observer(
                 truncate
                 title={participant.name}
               >
-                {host && !photo && (
-                  <Icon name="crown" className="roomPersonCrown" />
-                )}
                 {participant.name}
               </Typography>
             </Stack>

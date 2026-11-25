@@ -1,4 +1,10 @@
-import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import type { useDetachedPanel } from './useDetachedPanel';
@@ -12,25 +18,30 @@ export const DetachedPanel = ({
   panel,
   children,
   keepMounted = false,
+  modal,
 }: {
   panel: DetachedPanelState;
   children: ReactNode;
   keepMounted?: boolean;
+  modal?: HTMLDialogElement | null;
 }) => {
   const [content] = useState(() =>
     keepMounted ? document.createElement('div') : null,
   );
+  const homeRef = useRef<HTMLDivElement | null>(null);
   const home = useCallback(
     (element: HTMLDivElement | null) => {
+      homeRef.current = element;
       if (
         element &&
         content &&
         !panel.container &&
+        !modal &&
         content.parentNode !== element
       )
         element.append(content);
     },
-    [content, panel.container],
+    [content, panel.container, modal],
   );
   useLayoutEffect(() => {
     if (!content) return;
@@ -53,6 +64,19 @@ export const DetachedPanel = ({
       context.restore();
     }
   }, [content, panel.container]);
+  useLayoutEffect(() => {
+    if (!content || !modal || panel.container) return;
+    modal.append(content);
+    content.classList.add('detachedPanelOverlay');
+    content.setAttribute('popover', 'manual');
+    content.showPopover();
+    return () => {
+      if (content.matches(':popover-open')) content.hidePopover();
+      content.removeAttribute('popover');
+      content.classList.remove('detachedPanelOverlay');
+      homeRef.current?.appendChild(content);
+    };
+  }, [content, modal, panel.container]);
   return content ? (
     <>
       <div ref={home} />
