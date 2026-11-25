@@ -52,6 +52,7 @@ describe('song waveform IPC', () => {
     await expect(invoke()).resolves.toEqual([0, 0.7, 1]);
     expect(request).toHaveBeenCalledExactlyOnceWith(
       '/songs/imported/waveform?bins=480',
+      { signal: undefined },
     );
     expect(peaks).not.toHaveBeenCalled();
   });
@@ -77,6 +78,7 @@ describe('song waveform IPC', () => {
     expect(peaks).toHaveBeenCalledExactlyOnceWith(
       path.join(revisionRoot, 'minus.mp3'),
       480,
+      undefined,
     );
     expect(request).not.toHaveBeenCalled();
   });

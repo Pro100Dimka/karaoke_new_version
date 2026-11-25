@@ -209,11 +209,27 @@ const desktopApi = {
     songId: string,
     revision: number,
     bins: number,
+    requestId?: string,
   ): Promise<unknown> =>
-    ipcRenderer.invoke(ipcChannels.waveformPeaks, { songId, revision, bins }),
+    ipcRenderer.invoke(ipcChannels.waveformPeaks, {
+      songId,
+      revision,
+      bins,
+      requestId,
+    }),
 
-  recordingPeaks: (recordingId: string, bins: number): Promise<unknown> =>
-    ipcRenderer.invoke(ipcChannels.recordingPeaks, { recordingId, bins }),
+  recordingPeaks: (
+    recordingId: string,
+    bins: number,
+    requestId?: string,
+  ): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.recordingPeaks, {
+      recordingId,
+      bins,
+      requestId,
+    }),
+  cancelWaveform: (requestId: string): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.cancelWaveform, requestId),
 
   resolveProjectArtifacts: (
     songId: string,

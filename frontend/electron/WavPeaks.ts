@@ -58,16 +58,23 @@ const samplesOf = (
 export const waveformPeaks = async (
   filePath: string,
   bins: number,
+  signal?: AbortSignal,
 ): Promise<number[]> => {
+  signal?.throwIfAborted();
   if (!Number.isFinite(bins)) throw new TypeError('bins must be finite');
   const count = Math.max(1, Math.min(maxBins, Math.floor(bins)));
-  if (['.mp3', '.flac'].some((suffix) => filePath.toLowerCase().endsWith(suffix))) {
+  if (
+    ['.mp3', '.flac'].some((suffix) => filePath.toLowerCase().endsWith(suffix))
+  ) {
     const saved: unknown = JSON.parse(
-      await readFile(`${filePath}.peaks.json`, 'utf8'),
+      await readFile(`${filePath}.peaks.json`, { encoding: 'utf8', signal }),
     );
     const file = await stat(filePath);
     const hash = createHash('sha256');
-    for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+    for await (const chunk of createReadStream(filePath, { signal })) {
+      signal?.throwIfAborted();
+      hash.update(chunk);
+    }
     if (
       !saved ||
       typeof saved !== 'object' ||
@@ -116,6 +123,7 @@ export const waveformPeaks = async (
     let scale = 1;
     let frame = 0;
     while (frame < totalFrames) {
+      signal?.throwIfAborted();
       const wanted = Math.min(chunk.length, (totalFrames - frame) * frameBytes);
       const { bytesRead: read } = await file.read(
         chunk,
@@ -123,6 +131,7 @@ export const waveformPeaks = async (
         wanted,
         layout.dataOffset + frame * frameBytes,
       );
+      signal?.throwIfAborted();
       if (read < frameBytes) break;
       const view = samplesOf(chunk, read, layout);
       const { samples, offset } = view;

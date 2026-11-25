@@ -48,6 +48,7 @@ export const ipcChannels = {
   appReady: 'desktop:app-ready',
   waveformPeaks: 'desktop:waveform-peaks',
   recordingPeaks: 'desktop:recording-peaks',
+  cancelWaveform: 'desktop:cancel-waveform',
   pickImageFile: 'desktop:pick-image-file',
   statFile: 'desktop:stat-file',
   toggleFullscreen: 'desktop:toggle-fullscreen',

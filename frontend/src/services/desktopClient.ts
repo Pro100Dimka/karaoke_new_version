@@ -40,6 +40,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   onAudioNotification: () => () => undefined,
   waveformPeaks: async () => [],
   recordingPeaks: async () => [],
+  cancelWaveform: unavailable,
   resolveProjectArtifacts: requireBridge,
   revealProject: unavailable,
   inspectWave: requireBridge,

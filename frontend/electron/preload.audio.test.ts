@@ -34,6 +34,25 @@ beforeEach(() => {
   handlers.clear();
 });
 
+it('forwards each waveform request identity and its matching cancellation', async () => {
+  await import('./preload');
+  const api = exposed.api!;
+  await api.waveformPeaks('song', 1, 480, 'song-request');
+  await api.recordingPeaks('take', 240, 'take-request');
+  await api.cancelWaveform('song-request');
+  expect(invoke.mock.calls).toEqual([
+    [
+      'desktop:waveform-peaks',
+      { songId: 'song', revision: 1, bins: 480, requestId: 'song-request' },
+    ],
+    [
+      'desktop:recording-peaks',
+      { recordingId: 'take', bins: 240, requestId: 'take-request' },
+    ],
+    ['desktop:cancel-waveform', 'song-request'],
+  ]);
+});
+
 it('forwards app-owned window focus and unsubscribes the listener', async () => {
   await import('./preload');
   const api = exposed.api;

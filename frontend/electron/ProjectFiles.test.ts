@@ -140,7 +140,9 @@ describe('recording peaks IPC', () => {
         { songId: 'imported', revision: 1, bins: 32 },
       ),
     ).resolves.toEqual([0, 0.7, 1]);
-    expect(request).toHaveBeenCalledWith('/songs/imported/waveform?bins=32');
+    expect(request).toHaveBeenCalledWith('/songs/imported/waveform?bins=32', {
+      signal: undefined,
+    });
   });
   it('returns no peaks when the recording file no longer exists', async () => {
     const handlers = new Map<string, (...args: unknown[]) => unknown>();

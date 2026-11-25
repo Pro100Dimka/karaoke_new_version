@@ -1,11 +1,10 @@
 import { reportOperationFailure, clearOperationFailure } from '../errors';
 import { useEffect, useState } from 'react';
 import { desktopClient } from '../../services/desktopClient';
-import { pythonClient } from '../../services/pythonClient';
 
 /** Peaks for a waveform, reloaded when `key` changes; null while loading or when they cannot be read. */
 const usePeaks = (
-  load: () => Promise<readonly number[]>,
+  load: (requestId: string) => Promise<readonly number[]>,
   key: string,
 ): readonly number[] | null => {
   const [peaks, setPeaks] = useState<readonly number[] | null>(null);
@@ -14,14 +13,18 @@ const usePeaks = (
     let active = true;
     setPeaks(null);
     if (!key) return;
-    load()
+    const requestId = crypto.randomUUID();
+    let pending = true;
+    load(requestId)
       .then((values) => {
+        pending = false;
         if (active) {
           clearOperationFailure('errors.waveform');
           setPeaks(values.length > 0 ? values : null);
         }
       })
       .catch((error: unknown) => {
+        pending = false;
         if (active) {
           setPeaks(null);
           reportOperationFailure('errors.waveform', error);
@@ -29,6 +32,8 @@ const usePeaks = (
       });
     return () => {
       active = false;
+      if (pending)
+        void desktopClient.cancelWaveform(requestId).catch(() => undefined);
     };
     // `key` identifies what `load` reads; a new closure for the same source must not reload it.
   }, [key]);
@@ -43,7 +48,8 @@ export const useWaveformPeaks = (
   enabled = true,
 ): readonly number[] | null =>
   usePeaks(
-    () => desktopClient.waveformPeaks(songId, revision, 480),
+    (requestId) =>
+      desktopClient.waveformPeaks(songId, revision, 480, requestId),
     enabled ? `${songId}:${revision}` : '',
   );
 
@@ -53,9 +59,9 @@ export const useRecordingPeaks = (
   original = false,
 ): readonly number[] | null =>
   usePeaks(
-    () =>
+    (requestId) =>
       original
-        ? pythonClient.songWaveformPeaks(recordingId, 240)
-        : desktopClient.recordingPeaks(recordingId, 240),
+        ? desktopClient.waveformPeaks(recordingId, 0, 240, requestId)
+        : desktopClient.recordingPeaks(recordingId, 240, requestId),
     `${original ? 'song' : 'recording'}:${recordingId}`,
   );

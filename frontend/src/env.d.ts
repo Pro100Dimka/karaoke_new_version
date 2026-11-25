@@ -112,8 +112,14 @@ interface DesktopApi {
     songId: string,
     revision: number,
     bins: number,
+    requestId?: string,
   ): Promise<number[]>;
-  recordingPeaks(recordingId: string, bins: number): Promise<number[]>;
+  recordingPeaks(
+    recordingId: string,
+    bins: number,
+    requestId?: string,
+  ): Promise<number[]>;
+  cancelWaveform(requestId: string): Promise<void>;
   resolveProjectArtifacts(
     songId: string,
     revision: number,
