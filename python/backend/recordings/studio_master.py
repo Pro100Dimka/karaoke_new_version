@@ -79,6 +79,7 @@ class FfmpegStudioMasterRenderer:
         pitch: PitchAnalyzer | None = None,
         original_mix: Path | None = None,
         workers: int | None = None,
+        room_sources: Mapping[str, Sequence[Path]] | None = None,
     ) -> StudioMasterBalance:
         return MasterRender(
             self,
@@ -97,6 +98,7 @@ class FfmpegStudioMasterRenderer:
             pitch,
             original_mix,
             workers,
+            room_sources,
         ).run()
 
     def _mix_encoded(

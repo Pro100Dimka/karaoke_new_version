@@ -105,11 +105,17 @@ export const useKaraokeRecording = ({
     if (!target) return false;
     recordingRef.current = 'starting';
     setRecording('starting');
-    const result = await recordingWork.start(target, {
+    const adjustment = {
       sourceSeconds: positionRef.current,
       playbackRate: speedRef.current,
       keyShift: keyRef.current,
-    });
+    };
+    const result = await (room?.performanceId
+      ? recordingWork.start(target, adjustment, {
+          roomId: room.code,
+          performanceId: room.performanceId,
+        })
+      : recordingWork.start(target, adjustment));
     if (result.kind === 'cancelled') return false;
     recordingRef.current = result.kind === 'started' ? 'recording' : 'failed';
     if (result.kind === 'insufficientDisk') {
@@ -125,7 +131,14 @@ export const useKaraokeRecording = ({
       notify(tr('recordingFailed'), 'error');
     }
     return result.kind === 'started';
-  }, [ask, notify, openSettings, recordingWork]);
+  }, [
+    ask,
+    notify,
+    openSettings,
+    recordingWork,
+    room?.code,
+    room?.performanceId,
+  ]);
   return {
     recordingWork,
     recording,

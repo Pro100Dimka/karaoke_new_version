@@ -32,6 +32,8 @@ export const ipcChannels = {
   setRoomVoiceParticipantEffect: 'services:set-room-voice-participant-effect',
   uploadRoomProject: 'services:upload-room-project',
   downloadRoomProject: 'services:download-room-project',
+  uploadRoomSource: 'services:upload-room-source',
+  downloadRoomSource: 'services:download-room-source',
   cancelRoomProjectTransfer: 'services:cancel-room-project-transfer',
   releaseRoomProjectDownload: 'services:release-room-project-download',
   roomProjectTransferProgress: 'services:room-project-transfer-progress',

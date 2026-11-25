@@ -95,6 +95,12 @@ interface DesktopApi {
     request: RoomProjectTransferRequest & { path: string },
   ): Promise<void>;
   downloadRoomProject(request: RoomProjectTransferRequest): Promise<string>;
+  uploadRoomSource(
+    request: RoomSourceTransferRequest & { path: string },
+  ): Promise<void>;
+  downloadRoomSource(
+    request: RoomSourceTransferRequest & { sourceParticipantId: string },
+  ): Promise<string>;
   cancelRoomProjectTransfer(transferId: string): Promise<void>;
   releaseRoomProjectDownload(path: string): Promise<void>;
   onRoomProjectTransferProgress(
@@ -194,6 +200,13 @@ interface RoomProjectTransferProgress {
   direction: 'upload' | 'download';
   transferredBytes: number;
   totalBytes: number;
+}
+interface RoomSourceTransferRequest {
+  roomId: string;
+  participantId: string;
+  performanceId: number;
+  captureId?: string;
+  transferId?: string;
 }
 interface WindowState {
   maximized: boolean;

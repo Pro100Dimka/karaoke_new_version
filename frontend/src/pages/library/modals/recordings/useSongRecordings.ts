@@ -22,6 +22,7 @@ import {
   readBackendSnapshot,
 } from '../../../../services/backendEvents';
 import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { prepareRoomRecordingSources } from '../../../../services/roomRecordingSources';
 import {
   clearOperationFailure,
   errorstring,
@@ -392,6 +393,16 @@ export const useSongRecordings = (
         progress: 0,
       });
       try {
+        if (recording.roomSources) {
+          setStudioMaster({
+            recordingId: recording.id,
+            stage: 'PreparingStudioSources',
+            progress: 0,
+          });
+          await prepareRoomRecordingSources(
+            recording.sourceRecordingId ?? recording.id,
+          );
+        }
         const mastered = await catalog.createStudioMaster(
           recording.id,
           (progress) => {

@@ -67,6 +67,7 @@ export interface BackendPage<T> {
   offset: number;
 }
 export interface BackendRecording {
+  roomSources?: RecordingDto['roomSources'];
   roomPerformance?: {
     roomId: string;
     performanceId: number;
@@ -230,6 +231,7 @@ export const mapJob = (
 };
 
 export const mapRecording = (recording: BackendRecording): RecordingDto => ({
+  roomSources: recording.roomSources,
   roomPerformance: recording.roomPerformance
     ? {
         ...recording.roomPerformance,

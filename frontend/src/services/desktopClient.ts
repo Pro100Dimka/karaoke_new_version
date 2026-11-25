@@ -23,6 +23,8 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   roomRequest: requireBridge,
   uploadRoomProject: requireBridge,
   downloadRoomProject: requireBridge,
+  uploadRoomSource: requireBridge,
+  downloadRoomSource: requireBridge,
   cancelRoomProjectTransfer: unavailable,
   releaseRoomProjectDownload: unavailable,
   onRoomProjectTransferProgress: () => () => undefined,

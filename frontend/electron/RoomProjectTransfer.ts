@@ -65,6 +65,25 @@ export const uploadRoomProject = async (
   transferId = `${songId}:${revision}:upload`,
   signal?: AbortSignal,
   progress?: Progress,
+): Promise<void> =>
+  uploadRoomFile(
+    base,
+    projectUrl(base, roomId, songId, revision),
+    participantId,
+    filePath,
+    transferId,
+    signal,
+    progress,
+  );
+
+const uploadRoomFile = async (
+  base: string,
+  url: string,
+  participantId: string,
+  filePath: string,
+  transferId: string,
+  signal?: AbortSignal,
+  progress?: Progress,
 ): Promise<void> => {
   const totalBytes = (await stat(filePath)).size;
   const source = createReadStream(filePath);
@@ -74,7 +93,7 @@ export const uploadRoomProject = async (
     (error) => error,
   );
   try {
-    const response = await fetch(projectUrl(base, roomId, songId, revision), {
+    const response = await fetch(url, {
       method: 'PUT',
       headers: await withRoomKey(
         {
@@ -111,8 +130,27 @@ export const downloadRoomProject = async (
   transferId = `${songId}:${revision}:download`,
   signal?: AbortSignal,
   progress?: Progress,
+): Promise<string> =>
+  downloadRoomFile(
+    base,
+    projectUrl(base, roomId, songId, revision),
+    participantId,
+    targetPath,
+    transferId,
+    signal,
+    progress,
+  );
+
+const downloadRoomFile = async (
+  base: string,
+  url: string,
+  participantId: string,
+  targetPath: string,
+  transferId: string,
+  signal?: AbortSignal,
+  progress?: Progress,
 ): Promise<string> => {
-  const response = await fetch(projectUrl(base, roomId, songId, revision), {
+  const response = await fetch(url, {
     headers: await withRoomKey({ 'X-Participant-Id': participantId }, base),
     redirect: 'error',
     signal,
@@ -169,8 +207,39 @@ export const downloadRoomProject = async (
   }
 };
 
-const requireProject = (raw: unknown) => {
+const requireTransfer = (
+  base: string,
+  raw: unknown,
+  resource: 'project' | 'source-upload' | 'source-download',
+) => {
   const record = requireObject(raw, 'Room project request');
+  const roomId = requireString(record.roomId, 'roomId');
+  const participantId = requireString(record.participantId, 'participantId');
+  if (resource !== 'project') {
+    if (
+      typeof record.performanceId !== 'number' ||
+      !Number.isSafeInteger(record.performanceId) ||
+      record.performanceId < 1
+    )
+      throw new TypeError('performanceId must be a positive integer');
+    const singer =
+      resource === 'source-download'
+        ? requireString(record.sourceParticipantId, 'sourceParticipantId')
+        : participantId;
+    const capture =
+      record.captureId === undefined
+        ? ''
+        : `/captures/${encodeURIComponent(requireString(record.captureId, 'captureId'))}`;
+    return {
+      participantId,
+      path: record.path,
+      url: `${base}/rooms/${encodeURIComponent(roomId)}/performances/${record.performanceId}/sources/${encodeURIComponent(singer)}${capture}`,
+      transferId:
+        typeof record.transferId === 'string'
+          ? record.transferId
+          : `source:${record.performanceId}:${singer}:${resource}`,
+    };
+  }
   if (
     typeof record.revision !== 'number' ||
     !Number.isSafeInteger(record.revision) ||
@@ -182,10 +251,8 @@ const requireProject = (raw: unknown) => {
   if (!isSafePathComponent(songId))
     throw new TypeError('Invalid project identity');
   return {
-    roomId: requireString(record.roomId, 'roomId'),
-    participantId: requireString(record.participantId, 'participantId'),
-    songId,
-    revision: record.revision,
+    participantId,
+    url: projectUrl(base, roomId, songId, record.revision),
     path: record.path,
     transferId:
       typeof record.transferId === 'string'
@@ -303,70 +370,76 @@ export const registerRoomProjectTransferHandlers = (
       downloads.delete(file);
     },
   );
-  ipc.handle(ipcChannels.uploadRoomProject, async (event, raw: unknown) => {
-    const project = requireProject(raw);
-    const controller = begin(project.transferId, event.sender);
-    try {
-      const file = await requireBackendPath(dataRoot(), project.path);
-      controller.signal.throwIfAborted();
-      await uploadRoomProject(
-        base,
-        project.roomId,
-        project.participantId,
-        project.songId,
-        project.revision,
-        file,
-        project.transferId,
-        controller.signal,
-        (progress) => {
-          moved(project.transferId);
-          if (!event.sender.isDestroyed())
-            event.sender.send(
-              ipcChannels.roomProjectTransferProgress,
-              progress,
-            );
-        },
-      );
-    } finally {
-      finish(project.transferId);
-    }
-  });
-  ipc.handle(ipcChannels.downloadRoomProject, async (event, raw: unknown) => {
-    const project = requireProject(raw);
-    const target = path.join(
-      dataRoot(),
-      'temp',
-      'room-downloads',
-      `${randomUUID()}.advoice.zip`,
-    );
-    const controller = begin(project.transferId, event.sender);
-    try {
-      await downloadRoomProject(
-        base,
-        project.roomId,
-        project.participantId,
-        project.songId,
-        project.revision,
-        target,
-        project.transferId,
-        controller.signal,
-        (progress) => {
-          moved(project.transferId);
-          if (!event.sender.isDestroyed())
-            event.sender.send(
-              ipcChannels.roomProjectTransferProgress,
-              progress,
-            );
-        },
-      );
-      if (controller.signal.aborted || event.sender.isDestroyed()) {
-        await rm(target, { force: true });
-        throw new Error('Room project transfer was cancelled');
+  for (const [channel, resource] of [
+    [ipcChannels.uploadRoomProject, 'project'],
+    [ipcChannels.uploadRoomSource, 'source-upload'],
+  ] as const) {
+    ipc.handle(channel, async (event, raw: unknown) => {
+      const project = requireTransfer(base, raw, resource);
+      const controller = begin(project.transferId, event.sender);
+      try {
+        const file = await requireBackendPath(dataRoot(), project.path);
+        controller.signal.throwIfAborted();
+        await uploadRoomFile(
+          base,
+          project.url,
+          project.participantId,
+          file,
+          project.transferId,
+          controller.signal,
+          (progress) => {
+            moved(project.transferId);
+            if (!event.sender.isDestroyed())
+              event.sender.send(
+                ipcChannels.roomProjectTransferProgress,
+                progress,
+              );
+          },
+        );
+      } finally {
+        finish(project.transferId);
       }
-      downloads.set(target, event.sender);
-      return target;
-    } finally {
-      finish(project.transferId);
-    }
-  });
+    });
+  }
+  for (const [channel, resource] of [
+    [ipcChannels.downloadRoomProject, 'project'],
+    [ipcChannels.downloadRoomSource, 'source-download'],
+  ] as const) {
+    ipc.handle(channel, async (event, raw: unknown) => {
+      const project = requireTransfer(base, raw, resource);
+      const target = path.join(
+        dataRoot(),
+        'temp',
+        'room-downloads',
+        `${randomUUID()}.advoice.zip`,
+      );
+      const controller = begin(project.transferId, event.sender);
+      try {
+        await downloadRoomFile(
+          base,
+          project.url,
+          project.participantId,
+          target,
+          project.transferId,
+          controller.signal,
+          (progress) => {
+            moved(project.transferId);
+            if (!event.sender.isDestroyed())
+              event.sender.send(
+                ipcChannels.roomProjectTransferProgress,
+                progress,
+              );
+          },
+        );
+        if (controller.signal.aborted || event.sender.isDestroyed()) {
+          await rm(target, { force: true });
+          throw new Error('Room project transfer was cancelled');
+        }
+        downloads.set(target, event.sender);
+        return target;
+      } finally {
+        finish(project.transferId);
+      }
+    });
+  }
 };

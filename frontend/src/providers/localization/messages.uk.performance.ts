@@ -189,6 +189,8 @@ export const ukPerformance = {
     'Для Studio Master бракує готового запису або доріжок пісні. Дочекайтеся підготовки запису та перевірте обробку пісні.',
   studioMasterTimelineUnavailable:
     'Не вдалося відновити синхронізацію цього запису з музикою. Для Studio Master потрібен новий дубль.',
+  roomVocalSourceUnavailable:
+    'Не вдалося отримати окремі доріжки всіх учасників для Studio Master.',
   studioMasterInvalidAudio:
     'Не вдалося прочитати або поєднати звукові доріжки запису. Перевірте вихідний запис і доріжки пісні.',
   studioMasterSilentTrack:

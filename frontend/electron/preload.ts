@@ -185,6 +185,10 @@ const desktopApi = {
 
   downloadRoomProject: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.downloadRoomProject, request),
+  uploadRoomSource: (request: unknown): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.uploadRoomSource, request),
+  downloadRoomSource: (request: unknown): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.downloadRoomSource, request),
   cancelRoomProjectTransfer: (transferId: string): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.cancelRoomProjectTransfer, transferId),
   releaseRoomProjectDownload: (path: string): Promise<void> =>

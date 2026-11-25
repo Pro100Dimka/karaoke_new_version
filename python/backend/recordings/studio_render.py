@@ -38,6 +38,7 @@ from backend.recordings.studio_parallel import (
 )
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_sources import IDENTITY_TIMELINE, MasterSources, prepare_sources
+from backend.recordings.studio_room import render_room_voices
 from backend.recordings.studio_reference_ambience import (
     ReferenceAmbience,
     prepare_reference_ambience,
@@ -68,6 +69,7 @@ class MasterRender:
     pitch: PitchAnalyzer | None = None
     original_mix: Path | None = None
     workers: int | None = None
+    room_sources: Mapping[str, Sequence[Path]] | None = None
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
     sources: MasterSources = field(init=False)
@@ -296,6 +298,13 @@ class MasterRender:
         # No minimum phrase duration: a short take is still a performance.
 
     def _align(self) -> None:
+        if self.room_sources is not None:
+            self.processing.update(
+                timing={"method": "native-room-recording-clocks", "shiftMs": 0},
+                voiceShiftMs=0,
+                synchronization="native-room-recording-clocks",
+            )
+            return
         target = self.work / "aligned-vocal.wav"
         result = align_voice(self.vocal, self.sources.reference_vocal, target, self.cancel)
         self.processing["timing"] = result
@@ -303,6 +312,9 @@ class MasterRender:
         self.vocal = target
 
     def _prepare_voice(self) -> None:
+        if self.room_sources is not None:
+            self.processing["preparation"] = {"method": "per-singer"}
+            return
         target = self.work / "edited-vocal.wav"
         self.processing["preparation"] = prepare_voice(
             self.renderer,
@@ -318,6 +330,21 @@ class MasterRender:
 
     def _finish_voice(self) -> None:
         target = self.work / "processed-vocal.wav"
+        if self.room_sources is not None:
+            self.processing["roomSingers"] = render_room_voices(
+                self.renderer,
+                self.room_sources,
+                Path(str(self.performance_mix.with_suffix(".wav")) + ".timeline.csv"),
+                target,
+                self.backing,
+                self.sources.reference_vocal,
+                self.sources.reference_backing,
+                self.arrangement,
+                self.cancel,
+            )
+            self.vocal = self.balanced = target
+            self.voice_db = _profile(target, self.cancel)
+            return
         self.processing["vocalChain"] = process_voice(
             self.renderer,
             self.vocal,

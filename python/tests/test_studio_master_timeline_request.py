@@ -114,3 +114,42 @@ def test_studio_master_request_preserves_take_with_same_frame_and_trailing_state
         job = wait_for_job(client, started.json()["jobId"], timeout=30)
         assert job["state"] == "Succeeded", job
         _verify_master(client, job, original_id, metadata, covered)
+
+
+def test_room_master_request_waits_for_separate_sources_then_uses_them(tmp_path):
+    from backend.recordings.room_sources import initialize_room_sources
+
+    source = tmp_path / "song.wav"
+    write_wav(source, seconds=4, frequency=220)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        metadata = _capture_metadata()
+        metadata["roomPerformance"] = {
+            "roomId": "d5e88d4d-2fc3-4480-8217-2d353fcecb16",
+            "performanceId": 1,
+        }
+        original_id = _register_take(client, song, metadata)
+        recording = client.app.state.container.recordings.get.execute(original_id)
+        Path(str(recording.file_path) + ".timeline.csv").write_text(
+            "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,timelineSampleRateHz\n"
+            f"0,480000,{_FRAMES},{_RATE},1,48000\n"
+        )
+        initialize_room_sources(recording)
+        base = f"/recordings/{original_id}"
+        refused = client.post(f"{base}/studio-master")
+        assert refused.status_code == 409, refused.text
+        bundle = client.post(f"{base}/room-source", json={"participantId": "singer"}).json()
+        imported = client.post(
+            f"{base}/room-source/import", json={"participantId": "singer", **bundle}
+        ).json()
+        ready = client.post(
+            f"{base}/room-sources", json={"participants": {"singer": [imported["directory"]]}}
+        )
+        assert ready.status_code == 200, ready.text
+        started = client.post(f"{base}/studio-master")
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"], timeout=30)
+        assert job["state"] == "Succeeded", job
+        processing = job["report"]["balance"]["processing"]
+        assert processing["synchronization"] == "native-room-recording-clocks"
+        assert processing["roomSingers"]["singer"]["captureCount"] == 1

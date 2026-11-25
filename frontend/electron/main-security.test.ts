@@ -165,6 +165,8 @@ it('applies sender validation to room project transfer IPC too', async () => {
   for (const channel of [
     ipcChannels.uploadRoomProject,
     ipcChannels.downloadRoomProject,
+    ipcChannels.uploadRoomSource,
+    ipcChannels.downloadRoomSource,
     ipcChannels.cancelRoomProjectTransfer,
     ipcChannels.releaseRoomProjectDownload,
   ]) {

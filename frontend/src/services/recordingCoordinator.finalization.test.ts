@@ -46,6 +46,54 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
+it('announces a room capture before native Start so reconnects have distinct sources', async () => {
+  const context = await setup();
+  const accepted = deferred();
+  const roomRequest = vi.fn(async () => {
+    await accepted.promise;
+    return { ok: true, status: 204 };
+  });
+  Object.assign(window.desktop ?? {}, { roomRequest });
+  const starting = context.recordingCoordinator.start(
+    song,
+    { sourceSeconds: 0, playbackRate: 1, keyShift: 0 },
+    { roomId: 'room', performanceId: 7 },
+  );
+  await vi.waitFor(() => expect(roomRequest).toHaveBeenCalledOnce());
+  expect(roomRequest.mock.calls[0]).toEqual([
+    expect.objectContaining({
+      method: 'POST',
+      path: expect.stringMatching(
+        /^\/rooms\/room\/performances\/7\/sources\/[^/]+\/captures\/take$/,
+      ),
+    }),
+  ]);
+  expect(
+    context.audioRequest.mock.calls.some(
+      ([request]) => request.command === 'StartRecording',
+    ),
+  ).toBe(false);
+  accepted.resolve();
+  await starting;
+  expect(
+    context.audioRequest.mock.calls.some(
+      ([request]) => request.command === 'StartRecording',
+    ),
+  ).toBe(true);
+  await context.recordingCoordinator.stop();
+  expect(context.pythonRequest).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: 'POST',
+      path: '/recordings',
+      body: expect.objectContaining({
+        sessionMetadata: expect.objectContaining({
+          roomPerformance: { roomId: 'room', performanceId: 7 },
+        }),
+      }),
+    }),
+  );
+});
+
 it.each(['queued-after-start', 'pending-native-stop', 'accepted-native-stop'])(
   'lets a device switch finish during a room stop without a queue cycle: %s',
   async (stage) => {

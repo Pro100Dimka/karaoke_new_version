@@ -226,6 +226,8 @@ export const ruPerformance = {
     'Для Studio Master не хватает готовой записи или дорожек песни. Дождитесь подготовки записи и проверьте обработку песни.',
   studioMasterTimelineUnavailable:
     'Не удалось восстановить синхронизацию этой записи с музыкой. Для Studio Master нужен новый дубль.',
+  roomVocalSourceUnavailable:
+    'Не удалось получить отдельные дорожки всех участников для Studio Master.',
   studioMasterInvalidAudio:
     'Не удалось прочитать или совместить звуковые дорожки записи. Проверьте исходную запись и дорожки песни.',
   studioMasterSilentTrack:

@@ -94,6 +94,7 @@ const knownCodes = {
   RecordingFileMissing: 'recordingFileMissing',
   AiProviderUnavailable: 'errorAiProviderUnavailable',
   StudioMasterUnavailable: 'studioMasterUnavailable',
+  RoomVocalSourceUnavailable: 'roomVocalSourceUnavailable',
   StudioMasterTimelineUnavailable: 'studioMasterTimelineUnavailable',
   StudioMasterInvalidAudio: 'studioMasterInvalidAudio',
   StudioMasterInvalidStems: 'studioMasterInvalidAudio',

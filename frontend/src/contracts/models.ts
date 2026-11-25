@@ -361,6 +361,11 @@ export interface RoomPerformanceCompletion {
 
 export interface RecordingDto {
   roomPerformance?: RoomPerformanceSummary;
+  roomSources?: {
+    status: 'pending' | 'ready' | 'unavailable';
+    participants: Record<string, string[] | null>;
+    reason?: string;
+  } | null;
   id: string;
   filePath: string;
   songId: string;

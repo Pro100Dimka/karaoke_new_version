@@ -1,5 +1,6 @@
 import type {
   RoomPerformanceCompletion,
+  RoomPerformanceSummary,
   SongDto,
 } from '../../contracts/models';
 import type {
@@ -37,6 +38,7 @@ export class KaraokeRecordingCoordinator {
   async start(
     song: SongDto,
     adjustment: PlaybackAdjustment,
+    room?: Pick<RoomPerformanceSummary, 'roomId' | 'performanceId'>,
   ): Promise<RecordingStart> {
     const generation = this.generation;
     try {
@@ -44,7 +46,9 @@ export class KaraokeRecordingCoordinator {
       if (!this.isCurrent(generation)) return { kind: 'cancelled' };
       if (free < minimumRecordingBytes)
         return { kind: 'insufficientDisk', free, generation };
-      await this.recording.start(song, adjustment);
+      await (room
+        ? this.recording.start(song, adjustment, room)
+        : this.recording.start(song, adjustment));
       return this.isCurrent(generation)
         ? { kind: 'started' }
         : { kind: 'cancelled' };

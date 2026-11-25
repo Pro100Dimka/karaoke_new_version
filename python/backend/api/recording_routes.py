@@ -8,12 +8,20 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import Field, ValidationError
 
 from backend.analysis.domain import AnalysisResult
-from backend.domain_errors import ConflictError, NotFoundError
 from backend.api.base_dto import ApiModel, JobRefDto
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
+from backend.domain_errors import ConflictError, NotFoundError
+from backend.infrastructure.paths import ensure_within
 from backend.recordings.domain import Recording, validate_recording_id
 from backend.recordings.register_recording import RegisterRecordingRequest
+from backend.recordings.room_sources import (
+    complete_room_sources,
+    export_room_source,
+    import_room_source,
+    initialize_room_sources,
+    room_source_state,
+)
 
 router = APIRouter(prefix="/recordings")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -51,6 +59,7 @@ class RoomPerformanceDto(ApiModel):
 
 class RecordingDto(ApiModel):
     room_performance: RoomPerformanceDto | None = None
+    room_sources: dict[str, object] | None = None
     recording_id: str
     file_path: str
     duration: float
@@ -129,7 +138,48 @@ def register_recording(
         session_metadata=body.session_metadata,
         idempotency_key=idempotency_key,
     )
-    return _recording(app, app.recordings.register.execute(request))
+    recording = app.recordings.register.execute(request)
+    initialize_room_sources(recording)
+    return _recording(app, recording)
+
+
+class RoomSourceDto(ApiModel):
+    participant_id: str = Field(min_length=1, max_length=128)
+
+
+class ImportRoomSourceDto(RoomSourceDto):
+    file_path: str = Field(min_length=1, max_length=4096)
+
+
+class CompleteRoomSourcesDto(ApiModel):
+    participants: dict[str, list[str] | None] = Field(default_factory=dict, max_length=64)
+    failure: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/{recording_id}/room-source")
+def export_singer_source(
+    recording_id: str, body: RoomSourceDto, app: ContainerDep
+) -> dict[str, str]:
+    recording = app.recordings.get.execute(validate_recording_id(recording_id))
+    return {"filePath": str(export_room_source(recording, body.participant_id))}
+
+
+@router.post("/{recording_id}/room-source/import")
+def import_singer_source(
+    recording_id: str, body: ImportRoomSourceDto, app: ContainerDep
+) -> dict[str, str]:
+    recording = app.recordings.get.execute(validate_recording_id(recording_id))
+    bundle = ensure_within(Path(body.file_path), app.roots.app)
+    directory = import_room_source(recording, body.participant_id, bundle)
+    return {"directory": directory.name}
+
+
+@router.post("/{recording_id}/room-sources")
+def finish_singer_sources(
+    recording_id: str, body: CompleteRoomSourcesDto, app: ContainerDep
+) -> dict[str, object]:
+    recording = app.recordings.get.execute(validate_recording_id(recording_id))
+    return complete_room_sources(recording, body.participants, failure=body.failure)
 
 
 @router.get("", response_model=RecordingPageDto)
@@ -272,6 +322,7 @@ def _recording(
         source_recording_id=source_recording_id,
         size_bytes=size_bytes,
         room_performance=_current_room_performance(app, recording, sources),
+        room_sources=room_source_state(recording),
     )
 
 

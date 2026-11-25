@@ -21,6 +21,7 @@ from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.projects.ports import ProjectStorage
 from backend.recordings.domain import Recording, recording_adjustments
+from backend.recordings.room_sources import room_sources_for_master
 from backend.recordings.ports import RecordingFileInspector, RecordingStorage
 from backend.recordings.register_recording import RegisterRecording, RegisterRecordingRequest
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
@@ -84,6 +85,7 @@ class StartStudioMaster:
             return self._start(recording)
 
     def _start(self, recording: Recording) -> Job:
+        room_sources_for_master(recording)
         song_id, revision = self._project_identity(recording)
         for artifact in ("referenceVocal", "instrumental"):
             if not self._projects.artifact_path(song_id, revision, artifact).is_file():
@@ -154,6 +156,7 @@ class StartStudioMaster:
         context: JobContext,
     ) -> StudioMasterBalance:
         song_id, revision = self._project_identity(recording)
+        room_sources = room_sources_for_master(recording)
         with self._render_budget(recording) as workers, self._pitch_session(context) as pitch:
             return self._renderer.render(
                 *stems,
@@ -163,7 +166,8 @@ class StartStudioMaster:
                 context.cancel,
                 performance_mix=recording.file_path,
                 exact_stems=exact_stems,
-                process_voice=exact_stems and stems[0].name.endswith((".dry.wav", ".dry.flac")),
+                process_voice=room_sources is not None
+                or (exact_stems and stems[0].name.endswith((".dry.wav", ".dry.flac"))),
                 match_recording_loudness=True,
                 adjustments=recording_adjustments(recording),
                 progress=context.progress,
@@ -171,6 +175,7 @@ class StartStudioMaster:
                 pitch=None if "roomPerformance" in (recording.session_metadata or {}) else pitch,
                 original_mix=self._original_mix(song_id, revision),
                 workers=workers,
+                room_sources=room_sources,
             )
 
     @contextmanager

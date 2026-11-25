@@ -223,6 +223,8 @@ export const enPerformance = {
     'Studio Master needs a ready recording and the song tracks. Wait for recording preparation and check that the song is processed.',
   studioMasterTimelineUnavailable:
     'This recording could not be synchronized with the music. Record a new take for Studio Master.',
+  roomVocalSourceUnavailable:
+    'Separate tracks from every participant could not be obtained for Studio Master.',
   studioMasterInvalidAudio:
     'The recording tracks could not be read or matched. Check the source recording and song tracks.',
   studioMasterSilentTrack:

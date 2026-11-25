@@ -4,10 +4,17 @@ import type {
 } from '../application/karaoke/KaraokePorts';
 import { command } from './audioSession';
 import { desktopBridge } from './desktopBridge';
+import {
+  markSilentRoomSource,
+  beginRoomRecordingSource,
+  prepareRoomRecordingSources,
+} from './roomRecordingSources';
+import type { BackendRecording } from './pythonMappers';
 import type {
   KaraokeNoteScore,
   PitchFrame,
   RoomPerformanceCompletion,
+  RoomPerformanceSummary,
   SongDto,
 } from '../contracts/models';
 
@@ -68,6 +75,7 @@ const nativeRecordingResult = (text: string): NativeRecordingResult => {
 let active: {
   interrupted: boolean;
   target: RecordingTarget;
+  room?: Pick<RoomPerformanceSummary, 'roomId' | 'performanceId'>;
   song: SongDto;
   prepared: boolean;
   startedAt: number | null;
@@ -240,8 +248,21 @@ const saveTake = async (
   onCaptured?: () => Promise<void>,
   acceptCapture: () => void = () => undefined,
 ): Promise<RecordingStatus> => {
-  if (!active) return { recording: false };
+  if (!active) {
+    if (roomResult) await markSilentRoomSource(roomResult.summary);
+    return { recording: false };
+  }
   const current = active;
+  const roomPerformance = roomResult?.summary ?? current.room;
+  const publishSilence = () => {
+    if (roomPerformance)
+      void markSilentRoomSource(
+        roomPerformance,
+        current.room ? current.target.recordingId : undefined,
+      ).catch((error: unknown) =>
+        console.error('Could not publish the silent room source', error),
+      );
+  };
   if (current.interrupted) {
     // A transport failure can leave the original writer alive. Close it before recovery.
     // A restarted service has nothing to stop; recovery independently requires an exclusive file lock.
@@ -268,6 +289,7 @@ const saveTake = async (
     await audio('GetRecordingState', { details: true }),
   );
   if (current.nativeResult.durationFrames === 0) {
+    publishSilence();
     await discardTarget(current.target);
     active = null;
     return { recording: false };
@@ -279,6 +301,7 @@ const saveTake = async (
     current.nativeResult.gaps.length === 0 &&
     (await discardTarget(current.target, true))
   ) {
+    publishSilence();
     active = null;
     return { recording: false };
   }
@@ -293,8 +316,7 @@ const saveTake = async (
     throw new Error('Recording metadata does not match the saved audio');
   }
   await onCaptured?.();
-  const roomPerformance = roomResult?.summary;
-  await python({
+  const registered = await python<BackendRecording>({
     method: 'POST',
     path: '/recordings',
     headers: { 'Idempotency-Key': current.target.recordingId },
@@ -326,6 +348,10 @@ const saveTake = async (
     },
   });
   const recordingId = current.target.recordingId;
+  if (registered?.roomSources?.status === 'pending')
+    void prepareRoomRecordingSources(recordingId).catch((error: unknown) =>
+      console.error('Could not collect room singer sources', error),
+    );
   if (roomResult)
     void roomResult.result
       .then((result) =>
@@ -445,6 +471,7 @@ export const recordingCoordinator = {
       playbackRate: 1,
       keyShift: 0,
     },
+    room?: Pick<RoomPerformanceSummary, 'roomId' | 'performanceId'>,
   ) {
     return transition(`start:${song.id}:${song.activeRevision}`, async () => {
       const requestedGeneration = generation;
@@ -467,6 +494,7 @@ export const recordingCoordinator = {
         active = {
           interrupted: current !== generation,
           target,
+          room,
           song,
           prepared: false,
           stopping: false,
@@ -486,6 +514,19 @@ export const recordingCoordinator = {
           throw new Error('Recording audio session was interrupted');
       }
       if (!active.prepared) {
+        if (active.room) {
+          await beginRoomRecordingSource(
+            active.room,
+            active.target.recordingId,
+          ).catch((error: unknown) =>
+            console.error(
+              'Could not register the room microphone capture',
+              error,
+            ),
+          );
+          if (requestedGeneration !== generation)
+            throw new Error('Recording audio session was interrupted');
+        }
         await audio('PrepareRecording', {
           id: active.target.recordingId,
           path: active.target.filePath,

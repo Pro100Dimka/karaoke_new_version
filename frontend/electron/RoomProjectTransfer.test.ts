@@ -115,6 +115,42 @@ const setup = async (dataRoot = (root: string) => root) => {
   return { call, project, sender };
 };
 
+it('exchanges each singer source through its own performance resource', async () => {
+  const { call, project } = await setup();
+  const source = {
+    roomId: project.roomId,
+    participantId: project.participantId,
+    performanceId: 7,
+    captureId: '887c7a1f-1e2b-4edf-82ab-91efc72c3be3',
+    sourceParticipantId: 'other',
+    transferId: 'source',
+  };
+  const file = join(roots.at(-1)!, 'source.zip');
+  await writeFile(file, 'own voice');
+  const fetcher = vi.fn(async (_url: string, options: RequestInit) => {
+    if (options.method === 'PUT') {
+      for await (const _chunk of options.body as AsyncIterable<Buffer>) {
+        /* consume upload */
+      }
+      return new Response(null, { status: 204 });
+    }
+    return new Response('other voice');
+  });
+  vi.stubGlobal('fetch', fetcher);
+  await call(ipcChannels.uploadRoomSource, { ...source, path: file });
+  expect(fetcher).toHaveBeenCalledWith(
+    'https://example.org/rooms/room/performances/7/sources/guest/captures/887c7a1f-1e2b-4edf-82ab-91efc72c3be3',
+    expect.objectContaining({ method: 'PUT' }),
+  );
+  const downloaded = await call(ipcChannels.downloadRoomSource, source);
+  expect(fetcher).toHaveBeenCalledWith(
+    'https://example.org/rooms/room/performances/7/sources/other/captures/887c7a1f-1e2b-4edf-82ab-91efc72c3be3',
+    expect.anything(),
+  );
+  expect(await readFile(downloaded as string, 'utf8')).toBe('other voice');
+  await call(ipcChannels.releaseRoomProjectDownload, downloaded);
+});
+
 it('keeps completed archives independent until their import releases them', async () => {
   const { call, project } = await setup();
   vi.stubGlobal(
