@@ -22,7 +22,9 @@ ROOM_KEY_HEADER = "X-AD-Voice-Room-Key"
 _PARTICIPANT_HEADER = "X-Participant-Id"
 _PARTICIPANT_FIELD = "participantId"
 _PARTICIPANT_SNAKE_FIELD = "participant_id"
-_PROJECT_UPLOAD_PATH = re.compile(r"/rooms/[^/]+/projects/[^/]+/[^/]+")
+_FILE_UPLOAD_PATH = re.compile(
+    r"/rooms/[^/]+/(?:projects/[^/]+/[^/]+|performances/[1-9][0-9]*/sources/[^/]+(?:/captures/[^/]+)?)"
+)
 # Stands for a body that names its actor in a form no participant id can match.
 _UNREADABLE_BODY = object()
 _MINIMUM_KEY_LENGTH = 32
@@ -34,9 +36,9 @@ def participant_id_for(room_key: str) -> str:
     return hashlib.sha256(f"ad-voice-room-participant:{room_key}".encode()).hexdigest()[:32]
 
 
-def _streams_project(request: Request) -> bool:
-    """Project uploads stream gigabytes and name their sender only in the header."""
-    return request.method == "PUT" and _PROJECT_UPLOAD_PATH.fullmatch(request.url.path) is not None
+def _streams_room_file(request: Request) -> bool:
+    """Room files stream their content and name their sender only in the header."""
+    return request.method == "PUT" and _FILE_UPLOAD_PATH.fullmatch(request.url.path) is not None
 
 
 async def _claimed_participant_ids(request: Request) -> set[object]:
@@ -51,7 +53,7 @@ async def _claimed_participant_ids(request: Request) -> set[object]:
         *request.query_params.getlist(_PARTICIPANT_FIELD),
         *request.query_params.getlist(_PARTICIPANT_SNAKE_FIELD),
     }
-    if _streams_project(request):
+    if _streams_room_file(request):
         return claimed
     raw = await request.body()
     if not raw.strip():

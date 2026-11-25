@@ -23,7 +23,7 @@ from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
 from backend.api.room_diagnostics_routes import add_diagnostics_route, add_program_log_route
 from backend.api.room_identity import authenticate_room_participant
-from backend.api.room_project_routes import add_project_routes
+from backend.api.room_project_routes import add_performance_source_routes, add_project_routes
 from backend.api.room_routes import _room, router as room_router
 from backend.api.room_voice_settings_routes import router as voice_settings_router
 from backend.api.room_server_access import room_member
@@ -348,6 +348,7 @@ def _add_service_routes(
     )
     add_voice_routes(app, relay, repository)
     add_project_routes(app, repository, project_root)
+    add_performance_source_routes(app, repository, project_root / "performances")
     add_diagnostics_route(
         app,
         repository,

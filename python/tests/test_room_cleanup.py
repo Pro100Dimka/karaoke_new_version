@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import os
 import time
 from pathlib import Path
 
@@ -36,6 +37,21 @@ def test_songs_of_rooms_that_no_longer_exist_are_swept_away(tmp_path: Path) -> N
     RoomProjectFolders(tmp_path).remove_orphans(lambda: ("alive",))
 
     assert sorted(path.name for path in tmp_path.iterdir()) == ["alive"]
+
+
+def test_finished_room_voice_sources_have_a_bounded_transfer_lifetime(tmp_path):
+    folders = RoomProjectFolders(tmp_path)
+    for performance in ("fresh", "expired"):
+        folder = tmp_path / "performances" / "closed-room" / performance
+        folder.mkdir(parents=True)
+        metadata = folder / "members.json"
+        metadata.write_text('["singer"]')
+        if performance == "expired":
+            expired = time.time() - 25 * 3600
+            os.utime(metadata, (expired, expired))
+    folders.remove_orphans(lambda: ())
+    assert (tmp_path / "performances" / "closed-room" / "fresh").is_dir()
+    assert not (tmp_path / "performances" / "closed-room" / "expired").exists()
 
 
 def test_an_app_closed_without_leaving_is_taken_out_and_its_empty_room_closes() -> None:

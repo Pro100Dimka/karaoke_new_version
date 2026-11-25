@@ -230,6 +230,43 @@ def _share(client: TestClient, room_id: str, participant: str, key: str) -> None
     assert shared.status_code == 200, shared.text
 
 
+@pytest.mark.parametrize("suffix", ["", "/captures/887c7a1f-1e2b-4edf-82ab-91efc72c3be3"])
+def test_room_vocal_source_upload_checks_both_key_owner_and_target_singer(tmp_path, suffix):
+    with TestClient(create_room_server_app(relay_port=0, project_root=tmp_path)) as client:
+        room_id = room_with_guest(client)
+        selected = client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": HOST, "songId": "song", "revision": 1},
+            headers=as_(HOST_KEY),
+        ).json()
+        target = f"/rooms/{room_id}/performances/{selected['performanceId']}/sources/{HOST}{suffix}"
+        for actor, key, status in (
+            (HOST, GUEST_KEY, 403),
+            (GUEST, GUEST_KEY, 403),
+            (HOST, HOST_KEY, 204),
+        ):
+            if suffix:
+                begun = client.post(target, headers={"X-Participant-Id": actor, **as_(key)})
+                assert begun.status_code == status, begun.text
+            result = client.put(
+                target, content=b"source", headers={"X-Participant-Id": actor, **as_(key)}
+            )
+            assert result.status_code == status, result.text
+        assert (
+            client.post(
+                f"/rooms/{room_id}/close", json={"participantId": HOST}, headers=as_(HOST_KEY)
+            ).status_code
+            == 204
+        )
+        for actor, key, status in [
+            (HOST, HOST_KEY, 200),
+            (GUEST, GUEST_KEY, 200),
+            (HOST, GUEST_KEY, 403),
+        ]:
+            result = client.get(target, headers={"X-Participant-Id": actor, **as_(key)})
+            assert result.status_code == status, result.text
+
+
 def test_a_guest_sharing_a_copy_cannot_replace_the_hosts_room_project(tmp_path) -> None:
     with TestClient(create_room_server_app(relay_port=0, project_root=tmp_path)) as client:
         room_id = room_with_guest(client)
