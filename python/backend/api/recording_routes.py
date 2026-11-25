@@ -160,8 +160,9 @@ class CompleteRoomSourcesDto(ApiModel):
 def export_singer_source(
     recording_id: str, body: RoomSourceDto, app: ContainerDep
 ) -> dict[str, str]:
-    recording = app.recordings.get.execute(validate_recording_id(recording_id))
-    return {"filePath": str(export_room_source(recording, body.participant_id))}
+    with app.system.jobs.prepare_submission():
+        recording = app.recordings.get.execute(validate_recording_id(recording_id))
+        return {"filePath": str(export_room_source(recording, body.participant_id))}
 
 
 @router.post("/{recording_id}/room-source/import")

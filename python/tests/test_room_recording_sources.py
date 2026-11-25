@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from backend.domain_errors import DomainError
+from backend.domain_errors import ConflictError, DomainError
 from backend.recordings.domain import Recording
 from backend.recordings.room_sources import (
     complete_room_sources,
@@ -94,8 +94,10 @@ def test_import_rejects_foreign_or_ambiguous_room_sources(take, change):
 
 
 def test_room_source_api_keeps_master_inputs_pending_until_every_source_is_registered(
-    take, tmp_path
+    take, tmp_path, monkeypatch
 ):
+    from backend.api import recording_routes
+
     recording, _ = take
     with app_client(tmp_path / "runtime") as client:
         target = client.post("/recordings/target").json()
@@ -116,8 +118,25 @@ def test_room_source_api_keeps_master_inputs_pending_until_every_source_is_regis
         assert registered.status_code == 201, registered.text
         assert registered.json()["roomSources"]["status"] == "pending"
         base = f"/recordings/{target['recordingId']}"
+        jobs = client.app.state.container.system.jobs
+        retirement = []
+
+        def exporting_while_archive_retires_source(record, participant):
+            dry = Path(str(path) + ".dry-incomplete.wav")
+            try:
+                jobs.run_when_idle(lambda: dry.rename(dry.with_suffix(".retired.wav")))
+                retirement.append(True)
+            except ConflictError:
+                retirement.append(False)
+            return export_room_source(record, participant)
+
+        monkeypatch.setattr(
+            recording_routes, "export_room_source", exporting_while_archive_retires_source
+        )
         exported = client.post(f"{base}/room-source", json={"participantId": "singer"})
         assert exported.status_code == 200, exported.text
+        assert retirement == [False]
+        jobs.run_when_idle(lambda: None)
         imported = client.post(
             f"{base}/room-source/import",
             json={
