@@ -17,6 +17,12 @@ defaults:
 jobs:
   fast:
     runs-on: windows-latest
+    strategy: &python-shards
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    env:
+      TEST_MARKER: not integration and not slow and not network and not gpu
     steps:
       - uses: actions/checkout@v4
       - &python-setup
@@ -83,14 +89,36 @@ jobs:
           & "$mediaBin/ffprobe.exe" -version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Static and architecture gates
+        if: matrix.shard == 0
         run: python scripts/run_checks.py --require-dev-tools --skip-tests
-      - name: Fast tests
+      - &python-tests
+        name: Sequential tests on an isolated runner
+        shell: pwsh
+        env:
+          TEST_SHARD: ${{ matrix.shard }}
+          TEST_SHARDS: ${{ strategy.job-total }}
         run: |
-          New-Item -ItemType Directory -Force -Path ../.dev-data/temp/checks | Out-Null
-          python -m pytest -q -m "not integration and not slow and not network and not gpu" --basetemp=../.dev-data/temp/checks/pytest-fast
+          @'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          files = sorted(Path('tests').rglob('test_*.py'))
+          selected = files[int(os.environ['TEST_SHARD'])::int(os.environ['TEST_SHARDS'])]
+          marker = ['-m', os.environ['TEST_MARKER']] if os.environ.get('TEST_MARKER') else []
+          raise SystemExit(subprocess.call([
+              sys.executable, '-m', 'pytest', '-q', '--durations=15',
+              '--basetemp=../.dev-data/temp/checks/pytest', *marker, *map(str, selected),
+          ]))
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   integration:
     runs-on: windows-latest
+    strategy: *python-shards
+    env:
+      TEST_MARKER: integration or windows
     steps:
       - uses: actions/checkout@v4
       - *python-setup
@@ -99,11 +127,11 @@ jobs:
       - *python-install
       - *media-cache
       - *media-prepare
-      - name: Integration tests
-        run: python -m pytest -q -m "integration or windows"
+      - *python-tests
 
   release:
     runs-on: ubuntu-latest
+    strategy: *python-shards
     steps:
       - uses: actions/checkout@v4
       - *python-setup
@@ -116,8 +144,10 @@ jobs:
           sudo apt-get install --yes ffmpeg
           ffmpeg -version
           ffprobe -version
-      - name: Full release gate
-        run: python scripts/run_checks.py --require-dev-tools
+      - name: Release static and architecture gates
+        if: matrix.shard == 0
+        run: python scripts/run_checks.py --require-dev-tools --skip-tests
+      - *python-tests
 
   frontend:
     runs-on: windows-latest
@@ -140,6 +170,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, ubuntu-24.04]
+        shard: [0, 1, 2]
         include:
           - os: windows-latest
             compiler: ""
@@ -151,8 +183,8 @@ jobs:
         working-directory: .
     steps:
       - uses: actions/checkout@v4
-      - run: cmake -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON ${{ matrix.compiler }}
-      - run: cmake --build build/native --config Release --parallel 2
+      - run: cmake -S AudioService -B build/native -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON -DAUDIOSERVICE_TEST_SHARD=${{ matrix.shard }} ${{ matrix.compiler }}
+      - run: cmake --build build/native --config Release --parallel 4
       - run: ctest --test-dir build/native -C Release --output-on-failure
 
   publish-release:

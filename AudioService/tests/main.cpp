@@ -953,12 +953,20 @@ int main(int argc, char** argv) {
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 #endif
+    const auto sharded = argc == 3 && std::string_view{argv[1]} == "--shard";
+    if ((argc > 2 && !sharded) ||
+        (sharded && (std::string_view{argv[2]}.size() != 1 || argv[2][0] < '0' || argv[2][0] > '2'))) {
+        std::cerr << "Usage: audioservice_tests [test-name | --shard 0..2]\n";
+        return 2;
+    }
     const TestDirectory directory;
     Tests::tempRoot = directory.path();
 
     bool matched = false;
+    std::size_t index = 0;
     for (const auto& [name, run] : tests) {
-        if (argc > 1 && std::string_view{name} != argv[1])
+        if (sharded ? index++ % 3U != static_cast<std::size_t>(argv[2][0] - '0')
+                    : argc > 1 && std::string_view{name} != argv[1])
             continue;
         matched = true;
         const auto failuresBefore = Tests::failures;
