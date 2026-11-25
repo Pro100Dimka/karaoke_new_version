@@ -501,12 +501,15 @@ it('preserves full-timeline ruler/grid seeking and cancels an area without chang
     new DOMRect(64, 0, 1200 * 128, 24),
   );
   await act(async () => pointer(ruler, 'pointerdown', 64 + 2 * 128, 10));
-  expect(audioClient.seek).toHaveBeenLastCalledWith(2);
+  const owner = vi.mocked(audioClient.seek).mock.calls.at(-1)?.[1];
+  expect(audioClient.seek).toHaveBeenLastCalledWith(2, expect.any(Function));
+  expect(owner?.()).toBe(true);
   await act(async () => {
     pointer(view.world, 'pointerdown', 64 + 5 * 128, 100);
     pointer(view.world, 'pointerup', 64 + 5 * 128, 100);
   });
-  expect(audioClient.seek).toHaveBeenLastCalledWith(5);
+  expect(audioClient.seek).toHaveBeenLastCalledWith(5, owner);
+  expect(owner?.()).toBe(true);
   pointer(view.button('n1'), 'pointerdown', 100, 100);
   pointer(view.world, 'pointerup', 100, 100);
   pointer(view.world, 'pointerdown', 64, 0);
@@ -518,4 +521,7 @@ it('preserves full-timeline ruler/grid seeking and cancels an area without chang
     view.world.querySelector<HTMLElement>('.ad-piano-roll-area')?.style.display,
   ).toBe('none');
   expect(screen.getByRole('button', { name: tr('save') })).toBeDisabled();
+  expect(audioClient.seek).toHaveBeenCalledTimes(2);
+  view.unmount();
+  expect(owner?.()).toBe(false);
 });
