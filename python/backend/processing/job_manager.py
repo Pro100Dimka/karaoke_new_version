@@ -205,9 +205,12 @@ class ProcessingJobManager:
             return updated
 
     def recover_interrupted(self) -> int:
-        with self._uow.create() as transaction:
-            count = transaction.jobs.mark_running_interrupted()
-            transaction.commit()
+        with self._state_lock:
+            with self._uow.create() as transaction:
+                count = transaction.jobs.mark_running_interrupted()
+                transaction.commit()
+            self._pending_progress.clear()
+            self._progress_saved_at.clear()
         return count
 
     def _admit(
@@ -290,7 +293,13 @@ class ProcessingJobManager:
         self, job_id: str, stage: str, stage_progress: float, overall_progress: float
     ) -> None:
         with self._state_lock:
-            job = self.get(job_id)
+            previous = self._progress_saved_at.get(job_id)
+            flush = previous is None or monotonic() - previous >= 0.5
+            # Transitions invalidate pending progress under this lock. Between flushes,
+            # reuse that snapshot instead of querying SQLite for every download chunk.
+            # A flush still reads the persisted state before it can publish a new row.
+            pending = None if flush else self._pending_progress.get(job_id)
+            job = pending or self.get(job_id)
             if job.state is not JobState.RUNNING:
                 return
             # Concurrent stages can report out of their usual order (a short one finishing before a longer
@@ -306,8 +315,7 @@ class ProcessingJobManager:
             )
             # Progress is transient. Coalesce disk flushes while keeping API reads
             # and events current; state transitions still commit immediately.
-            previous = self._progress_saved_at.get(job_id)
-            if previous is None or monotonic() - previous >= 0.5:
+            if flush:
                 self._save(updated)
                 self._progress_saved_at[job_id] = monotonic()
             else:
