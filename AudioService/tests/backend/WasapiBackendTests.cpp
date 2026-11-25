@@ -746,7 +746,8 @@ void Tests::wasapiDiagnosticCapturesBoundedFinalPcm() {
         fixture.backend.close();
     }
     {
-        Fixture fixture;
+        Fixture fixture(WasapiMode::Exclusive);
+        fixture.output.client.render.frames = 256;
         (void)fixture.backend.open(fixture.request(256));
         fixture.backend.start(fixture.callback, GenerationId{2});
         expect(fixture.output.client.state.attempted.wait(),
@@ -761,7 +762,20 @@ void Tests::wasapiDiagnosticCapturesBoundedFinalPcm() {
     expect(std::filesystem::exists(queueChanges),
            "diagnostic mode writes a bounded queue-transition timeline");
     expect(std::filesystem::exists(secondPcm) && std::filesystem::exists(secondEvents),
-           "backend replacement must not overwrite the preceding session's PCM evidence");
+           "switching to exclusive retains both sessions' PCM evidence");
+    if (std::filesystem::exists(secondPcm)) {
+        expect(std::filesystem::file_size(secondPcm) == 256 * sizeof(float),
+               "exclusive diagnostics capture the complete endpoint packet within the limit");
+        std::ifstream file(secondPcm, std::ios::binary);
+        float sample = 0.0F;
+        file.read(reinterpret_cast<char*>(&sample), sizeof(sample));
+        expect(sample == 0.125F, "exclusive diagnostics retain the actual submitted sample");
+        std::ifstream metadata(secondEvents);
+        std::string header;
+        std::getline(metadata, header);
+        expect(header.find(",mode=Exclusive") != std::string::npos,
+               "capture metadata identifies the endpoint mode used for these samples");
+    }
     if (std::filesystem::exists(pcm)) {
         expect(std::filesystem::file_size(pcm) > 0 &&
                    std::filesystem::file_size(pcm) <= 256 * sizeof(float),

@@ -626,7 +626,7 @@ struct WasapiBackend::Impl {
         }
     }
     void prepareDiagnosticCapture() {
-        if (mode != WasapiMode::Shared || !outputFormat)
+        if (!outputFormat)
             return;
         std::array<wchar_t, 1024> path{};
         const auto length = GetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_PATH",
@@ -679,7 +679,8 @@ struct WasapiBackend::Impl {
                 << outputFormat->nChannels << ",format=" << formatName << ",blockAlign="
                 << outputFormat->nBlockAlign << ",period=" << runtime.outputPeriodFrames
                 << ",prefillFrames=" << diagnosticPrefillFrames << ",capturedFrames="
-                << diagnosticFrames << '\n';
+                << diagnosticFrames << ",mode="
+                << (mode == WasapiMode::Shared ? "Shared" : "Exclusive") << '\n';
             csv << "offsetFrames,devicePosition,qpc100ns,atNs,starvedTotal,frames,"
                    "paddingBefore,paddingAfter,queueTarget,renderEventGapUs,captureEventGapUs\n";
             for (std::size_t index = 0; index < diagnosticPacketCount; ++index) {
