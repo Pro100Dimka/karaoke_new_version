@@ -334,17 +334,9 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
 
     float bestCorrelation = -1.0F;
     std::uint32_t bestLag = 0;
-    for (auto lag = minimumLag; lag <= maximumLag; ++lag) {
-        double correlation = 0.0;
-        double currentEnergy = 0.0;
-        // The delayed side is always the same ordered prefix; reuse its exact scalar sum.
+    const auto publishCorrelation = [&](std::uint32_t lag, double correlation,
+                                        double currentEnergy) {
         const auto delayedEnergy = energyPrefix[PitchAnalysisFrames - lag];
-        for (std::uint32_t frame = lag; frame < PitchAnalysisFrames; ++frame) {
-            const auto current = centredSamples[frame];
-            const auto delayed = centredSamples[frame - lag];
-            correlation += current * delayed;
-            currentEnergy += current * current;
-        }
         const auto denominator = std::sqrt(currentEnergy * delayedEnergy);
         const auto normalized =
             denominator > 1.0e-12 ? static_cast<float>(correlation / denominator) : 0.0F;
@@ -353,6 +345,39 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
             bestCorrelation = normalized;
             bestLag = lag;
         }
+    };
+    // Independent lag sums can run together while every sum keeps its original sample order.
+    // This avoids reassociation and preserves hard-tune decisions at chromatic boundaries.
+    constexpr std::uint32_t LagsPerBlock = 8;
+    auto correlationLag = minimumLag;
+    for (; correlationLag + LagsPerBlock <= maximumLag + 1U; correlationLag += LagsPerBlock) {
+        std::array<double, LagsPerBlock> correlations{}, currentEnergies{};
+        const auto commonStart = correlationLag + LagsPerBlock - 1U;
+        for (std::uint32_t offset = 0; offset < LagsPerBlock; ++offset)
+            for (auto frame = correlationLag + offset; frame < commonStart; ++frame) {
+                const auto current = centredSamples[frame];
+                correlations[offset] += current * centredSamples[frame - correlationLag - offset];
+                currentEnergies[offset] += current * current;
+            }
+        for (auto frame = commonStart; frame < PitchAnalysisFrames; ++frame) {
+            const auto current = centredSamples[frame];
+            for (std::uint32_t offset = 0; offset < LagsPerBlock; ++offset) {
+                correlations[offset] += current * centredSamples[frame - correlationLag - offset];
+                currentEnergies[offset] += current * current;
+            }
+        }
+        for (std::uint32_t offset = 0; offset < LagsPerBlock; ++offset)
+            publishCorrelation(correlationLag + offset, correlations[offset],
+                               currentEnergies[offset]);
+    }
+    for (; correlationLag <= maximumLag; ++correlationLag) {
+        double correlation = 0.0, currentEnergy = 0.0;
+        for (auto frame = correlationLag; frame < PitchAnalysisFrames; ++frame) {
+            const auto current = centredSamples[frame];
+            correlation += current * centredSamples[frame - correlationLag];
+            currentEnergy += current * current;
+        }
+        publishCorrelation(correlationLag, correlation, currentEnergy);
     }
     if (bestLag == 0 || bestCorrelation < 0.72F)
         return 0.0F;
