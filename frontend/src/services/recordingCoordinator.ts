@@ -310,7 +310,16 @@ const saveTake = async (
       gaps: native.gaps,
       sessionMetadata: {
         ...(roomPerformance ? { roomPerformance } : {}),
-        playbackAdjustments: current.playbackAdjustments,
+        playbackAdjustments: current.playbackAdjustments.map(
+          (adjustment, index) =>
+            index === 0
+              ? {
+                  ...adjustment,
+                  sourceSeconds:
+                    native.startPlaybackPosition / native.sampleRate,
+                }
+              : adjustment,
+        ),
         karaokeNoteScore: current.karaokeNoteScore,
         nativeRecording: native,
       },

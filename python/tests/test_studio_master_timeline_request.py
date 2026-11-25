@@ -18,7 +18,7 @@ _RATE = 44_100
 _FRAMES = _RATE * 2
 
 
-def _capture_metadata():
+def _capture_metadata(origin=0):
     # A paused take can receive several state changes without recording another frame.
     states = (
         (0, 0, 1, 0),
@@ -32,9 +32,15 @@ def _capture_metadata():
         "captureSession": "pause-and-stop-timeline",
         "playbackAdjustments": [
             dict(zip(("elapsedSeconds", "sourceSeconds", "playbackRate", "keyShift"), state))
+            | {"sourceSeconds": state[1] + origin}
             for state in states
         ],
-        "nativeRecording": {"durationFrames": _FRAMES, "sampleRate": _RATE, "channels": 1},
+        "nativeRecording": {
+            "durationFrames": _FRAMES,
+            "sampleRate": _RATE,
+            "channels": 1,
+            "startPlaybackPosition": round(origin * _RATE),
+        },
     }
 
 
@@ -87,8 +93,9 @@ def _verify_master(client, job, original_id, metadata):
     assert original.session_metadata == metadata
 
 
+@pytest.mark.parametrize("origin", [0, 0.5])
 def test_studio_master_request_preserves_take_with_same_frame_and_trailing_states(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, origin
 ) -> None:
     source = tmp_path / "song.wav"
     write_wav(source, seconds=4, frequency=220)
@@ -100,7 +107,7 @@ def test_studio_master_request_preserves_take_with_same_frame_and_trailing_state
             pytest.fail("AD Master must use the synchronized recorded stems")
 
         monkeypatch.setattr(provider, "separate", unexpected_separation)
-        metadata = _capture_metadata()
+        metadata = _capture_metadata(origin)
         original_id = _register_take(client, song, metadata)
         started = client.post(f"/recordings/{original_id}/studio-master")
         assert started.status_code == 202, started.text
