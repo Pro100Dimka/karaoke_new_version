@@ -1,8 +1,6 @@
 # A&D Voice Terms of Use
 
-Draft version: 0.5 dated 26 November 2026.
-
-> DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete every bracketed field, confirm the owner's details and distribution countries, and review the text against applicable law and the actual application version. Remove this editorial note from the published version. This document does not itself grant permission from owners of third-party components or content.
+Version 1.0 dated 26 November 2026.
 
 ## 1. Owner and scope
 
@@ -11,16 +9,19 @@ Draft version: 0.5 dated 26 November 2026.
 1.2. Application owner: Андреєв Дмитро Ігорович (DMYTRO ANDREIEV), referred to as the Owner.
 
 - Legal status: individual.
-- Country of operation and address for legal correspondence: [SPECIFY].
+- Country of operation: Ukraine.
+- Postal address for legal correspondence: 15 Heroiv Kosmosu Street, Kyiv, 03146, Ukraine.
 - Support and terms enquiries: dmytro.andreiev.dev@gmail.com.
-- Official application and documents page: [SPECIFY URL].
-- Effective date: [SPECIFY DATE].
+- Official application and documents page: https://github.com/Pro100Dimka/karaoke_new_version.
+- Effective date: 26 November 2026.
 
 1.3. A&D Voice supports a music library, karaoke preparation, lyrics and note editing, playback, recording and performance processing, and available collaborative features in online rooms. Features depend on the installed version and the description of the product provided.
 
 1.4. Users can read these terms and the Privacy Policy before accepting. Acceptance requires a separate confirmation in the installer or application. Users who do not accept must decline installation or use.
 
-1.5. Users must have the necessary legal capacity. Where law requires involvement of a legal representative, use requires that involvement. This provision does not replace applicable requirements for children's data.
+1.5. The application is for a general audience and does not impose an 18+ content restriction. Users must have the legal capacity required by applicable law; minors use the application with a legal representative where required. If processing a child's data requires verified parental consent or another specific authorisation, network features involving that processing must not be used before those requirements are met. Accepting these terms does not replace that consent.
+
+1.6. Intended distribution markets are Ukraine, the United States and European Union member states. Providing the product in a country must meet its applicable mandatory requirements; these terms do not certify compliance with the Owner's registration, tax or other obligations.
 
 ## 2. Permitted use
 
@@ -33,6 +34,10 @@ Draft version: 0.5 dated 26 November 2026.
 2.4. Users must not impersonate another account, gain unauthorised access, distribute malicious material, deliberately disrupt the service, circumvent resource limits or interfere with others. These restrictions do not prohibit actions expressly permitted by mandatory law or an applicable third-party licence.
 
 2.5. FFmpeg and FFprobe are supplied as separate programs under the GNU GPL version 3 or later. These terms do not restrict their use, study, modification or redistribution under their applicable licenses. License texts, build information and a link to the complete corresponding source are available in the legal documents' Third-party licenses section and in resources/docs/third-party/ffmpeg in the installation; the source archive is published alongside the installer without requiring a purchase or account.
+
+2.6. If a paid licence or subscription is offered, the seller, price and currency, included product, licence duration, payment frequency, renewal, cancellation and refund conditions are disclosed separately before payment. These terms alone do not establish a price, subscription, automatic renewal or payment obligation.
+
+2.7. Withdrawal, refund and remedies for defects follow applicable law and the conditions of the particular purchase. Downloading the application or accepting these terms does not itself waive mandatory consumer rights. If the law permits a withdrawal right to end once digital supply begins, the required separate consent, acknowledgement and information must be obtained before that supply begins.
 
 ## 3. Music, lyrics, images and recordings
 
@@ -114,7 +119,7 @@ Draft version: 0.5 dated 26 November 2026.
 
 8.2. Updates may fix errors or change compatibility and functionality. Material changes to product terms are communicated separately; mandatory user rights remain unaffected.
 
-8.3. Support: dmytro.andreiev.dev@gmail.com. Support scope and response times: [SPECIFY ACTUAL CONDITIONS; DO NOT PROMISE UNAVAILABLE ROUND-THE-CLOCK SUPPORT].
+8.3. Support and complaints: dmytro.andreiev.dev@gmail.com. An initial response is provided within 5 working days, meaning Monday through Friday. Support is not available around the clock. Resolution time depends on the enquiry and is communicated separately; mandatory legal deadlines and user rights remain unaffected.
 
 ## 9. Liability and access restrictions
 
@@ -128,12 +133,12 @@ Draft version: 0.5 dated 26 November 2026.
 
 ## 10. Changes and enquiries
 
-10.1. The current version is published at [URL] and available in the application. Each version states its version number and effective date.
+10.1. The current version is published at https://github.com/Pro100Dimka/karaoke_new_version/blob/main/docs/legal/terms-of-use.en.md and available in the application. Each version states its version number and effective date.
 
 10.2. Material changes are notified before taking effect. New acceptance or separate consent is requested when required. Changes do not retroactively affect existing user claims.
 
 10.3. Enquiries and complaints: dmytro.andreiev.dev@gmail.com. Prior contact does not restrict any legal right to approach a competent authority or court directly.
 
-10.4. Governing law and dispute resolution: [DETERMINE AFTER CONFIRMING THE OWNER'S COUNTRY AND DISTRIBUTION MARKETS]. A choice of law does not deprive consumers of applicable mandatory protections.
+10.4. These terms are governed by Ukrainian law. This choice does not deprive consumers of mandatory protection that would apply without a choice of law, including applicable rules of their habitual residence. Disputes are heard by courts competent under applicable jurisdiction rules; consumers are not required to use Ukrainian courts exclusively.
 
-10.5. The Privacy Policy is published separately at [POLICY URL]. Accepting these terms is not blanket consent to all personal-data processing.
+10.5. The Privacy Policy is published separately at https://github.com/Pro100Dimka/karaoke_new_version/blob/main/docs/legal/privacy-policy.en.md. Accepting these terms is not blanket consent to all personal-data processing.

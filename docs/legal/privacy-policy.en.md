@@ -1,19 +1,19 @@
 # A&D Voice Privacy Policy
 
-Draft version: 0.6 dated 26 November 2026.
-
-> DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete bracketed fields and establish actual retention periods, recipients, processing countries and legal bases. Request handling and deletion procedures must work in practice. Remove this editorial note before publication. Describing current behaviour does not certify compliance with every country's requirements.
+Version 1.0 dated 26 November 2026.
 
 ## 1. Who is responsible
 
 Андреєв Дмитро Ігорович (DMYTRO ANDREIEV), referred to as the Owner, is responsible for personal-data processing within the A&D Voice features provided by the Owner.
 
 - Legal status: individual.
-- Country of operation and contact address: [SPECIFY].
+- Country of operation: Ukraine.
+- Postal address for enquiries: 15 Heroiv Kosmosu Street, Kyiv, 03146, Ukraine.
 - Privacy and deletion enquiries: dmytro.andreiev.dev@gmail.com.
-- Official policy page: [SPECIFY URL].
-- Effective date: [SPECIFY DATE].
-- Data protection representative or officer, if legally required: [SPECIFY OR REMOVE AFTER CHECKING APPLICABILITY].
+- Official policy page: https://github.com/Pro100Dimka/karaoke_new_version/blob/main/docs/legal/privacy-policy.en.md.
+- Effective date: 26 November 2026.
+- Data protection contact: the Owner, dmytro.andreiev.dev@gmail.com.
+- No European Union representative has been appointed as of this version. Contacting the Owner does not replace appointing a representative when required by law.
 
 This policy covers local and network features. It does not replace independent external services' notices; using those services does not remove the Owner's own obligations.
 
@@ -61,11 +61,17 @@ Permission to use music material is limited to the selected functions. This poli
 
 ## 4. Legal bases
 
-Depending on applicable law and the operation, potential bases include performance of a contract or steps requested before entering it, compliance with legal obligations, consent where required, and legitimate interests in security and service maintenance where permitted and after assessing their balance against user rights.
+For users whose data processing is subject to the GDPR, the following legal bases apply. Corresponding bases under applicable law apply to other users.
 
-Optional operations that require consent must request it separately before processing begins, with an option to refuse and withdraw. Reading this policy or accepting the terms does not replace that consent.
+| Processing | Basis and limits |
+| --- | --- |
+| Account and selected library, room, recording and remote processing features | Contract performance or steps requested before a contract, Article 6(1)(b) GDPR; only operations necessary for the selected feature |
+| Optional automatic diagnostics and Discord activity sharing | Separate voluntary consent, Article 6(1)(a); both are off by default and consent can be withdrawn |
+| Access protection and minimal revoked-credential records after erasure | Legitimate interest in preventing unauthorised access and recreation of erased data, Article 6(1)(f); not a reason to retain the deleted profile, audio or material |
+| Support and handling user requests | Performance of relevant contractual duties; for other enquiries, the legitimate interest in responding and resolving a specific dispute |
+| Binding legal requirements and competent-authority orders | The relevant legal obligation, Article 6(1)(c), limited to the applicable requirement |
 
-Optional automatic diagnostics and Discord activity use a separate voluntary user choice. Both remain disabled before that choice. Diagnostic consent records its notice version, time and enabled state locally; withdrawal stops future uploads and clears the local pending queue. Requested account, room and project-transfer operations are needed to provide those online functions. Other bases, recipients and processing countries must be finalised before publication.
+The diagnostics notice version, time and consent status are recorded locally. Withdrawal stops future uploads and clears the device queue; previously received server records are erased under sections 7 and 9. Accepting the terms is not blanket consent. Legitimate interest does not remove the right to object; the Owner considers necessity and proportionality for each retention request.
 
 ## 5. Recipients
 
@@ -87,18 +93,23 @@ The current code supports these external requests:
 | Application updates | GitHub: release and file requests and technical connection information; the application version is used in update-check logic |
 | Model and component downloads | Distribution servers: requests for required files and technical connection information |
 | Discord activity | The installed Discord client: application state, song or radio programme title and room size, depending on the scenario |
+| Enquiries sent to the Gmail support address | Google/Gmail: sender address, message text, attachments and technical email data |
 
 Availability does not imply official endorsement by a provider. Active recipients depend on settings and the application release.
 
-[BEFORE PUBLICATION: identify the legal entities operating the server and worker, current links to external notices, their processing roles and the file providers used.]
+Oracle Cloud Infrastructure provides server infrastructure; provider processing is described in the [Oracle Services Privacy Policy](https://www.oracle.com/legal/privacy/services-privacy-policy.html). The Owner operates the remote processing computer, not a separate contractor.
+
+Independent-service notices describe their own processing: [Apple and Shazam](https://www.apple.com/legal/privacy/), [AudD](https://audd.io/privacy/index.php), [Google and YouTube](https://policies.google.com/privacy), [GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement), [Discord](https://discord.com/privacy). Lyrics searches also contact LRCLIB, Pisni.ua and tekst-pesenok.online; artwork and music information may come from Apple, Deezer and related image servers. Model and dependency distributors receive technical parameters of direct download requests. The app does not disclose the A&D Voice account secret to these services; deleting an application account does not erase their independent history.
 
 ## 6. Processing locations
 
-Local data is processed on the user's device. Network features use server infrastructure and, for remote processing, a separate processing computer.
+The room server and remote processing queue run on Oracle Cloud Infrastructure in `eu-frankfurt-1`, Frankfurt, Germany. The Owner owns and operates the remote processing computer in Ukraine; the Owner's administration and enquiry handling also take place in Ukraine. Local processing runs on the user's device.
 
-Main locations: [SPECIFY COUNTRIES AND REGIONS OF THE SERVER, WORKER AND BACKUPS]. Recipients may be in countries with different data protection rules.
+The current configuration creates no separate backups of user databases, files or logs. Other room participants receive material on their own devices and may be in other countries. Hosting the server in Germany does not mean all processing occurs only in the EU.
 
-Where international transfer requirements apply, legally recognised grounds and safeguards must be used. Actual mechanism and how to obtain information about safeguards: [SPECIFY THE ACTUAL MECHANISM; DO NOT CLAIM AGREEMENTS THAT HAVE NOT BEEN CONCLUDED].
+Oracle's processing and international-access terms are described in its [Data Processing Agreement](https://www.oracle.com/contracts/docs/data-processing-agreement-oracle-services-081425.pdf) and [Data Transfer Annex](https://www.oracle.com/contracts/docs/data-transfer-annex-v060225.pdf), including their BCR-p and standard contractual clauses where applicable. The account's Oracle contract determines the applicable version and safeguards. This policy does not execute separate standard contractual clauses with other recipients.
+
+The Owner remains responsible for processing in Ukraine and compliance with applicable international-transfer requirements. Where GDPR Chapter V applies to separate recipients outside the EEA, an applicable mechanism is required; accepting this policy alone is not such a mechanism. Information about safeguards and available copies may be requested using section 1 contact details, subject to lawful limits protecting other parties' confidential information.
 
 ## 7. Retention
 
@@ -113,7 +124,8 @@ Where international transfer requirements apply, legally recognised grounds and 
 | Separate performance tracks on the server | Cleanup uses 24 hours from the server's performance-activity timestamp; removal occurs during the next cleanup pass |
 | Separate room diagnostic files | Current cleanup policy uses seven days; some messages also enter the general log |
 | General server application log | 7 days from server receipt; cleaned at startup and at least hourly, with an additional size limit |
-| Support enquiries | [SPECIFY RETENTION FOR THE ACTUAL SUPPORT CHANNEL] |
+| Support enquiries | Manually erased no later than 90 calendar days after closure. Minimum information needed for an ongoing legal obligation or specific dispute is retained with restricted access until that basis ends |
+| Minimal revoked-credential records | While the relevant credentials remain supported and preventing their reuse remains necessary; service closure or ending support for that format ends this basis. Records contain no deleted profile, audio or files |
 | Server backups of user data | Not created in the current configuration; code rollback copies contain no user databases, files or logs |
 | Detailed processing-computer logs | Stored separately per owner, until account deletion or 24 hours of owner inactivity; limited to 8 MiB per owner |
 
@@ -149,6 +161,8 @@ Removing only the Windows secret does not delete the server account. Conversely,
 
 ## 10. Security
 
+Access to the local API is protected by a random key for each application launch. The key is not saved in user settings. This protection does not mean room voice is encrypted.
+
 The application uses separate local profiles, access secrets and server-operation restrictions. Public-server control connections use HTTPS/WSS and Windows protects the account secret. These measures do not mean absolute device or service security.
 
 Voice in online rooms is transmitted over UDP without transport encryption. Transmission confidentiality is not guaranteed: audio may be intercepted. Do not share confidential information through rooms.
@@ -159,16 +173,18 @@ Incidents or suspected unauthorised access may be reported to dmytro.andreiev.de
 
 ## 11. Rights and enquiries
 
+The Owner acknowledges enquiries within 5 working days and handles them without undue delay. A substantive response is provided within 30 calendar days and, where the GDPR applies, no later than one calendar month; any shorter legal deadline takes precedence. Lawful extensions, reasons and the new deadline are communicated before the original deadline expires. Identity verification is limited to what is necessary; ordinary enquiries do not require an account secret, password or transfer code.
+
 Depending on applicable law, users may obtain information about processing and access their data, request correction, deletion or restriction, object to particular operations, receive a portable copy, and withdraw consent where it is the processing basis.
 
 Requests go to dmytro.andreiev.dev@gmail.com. Describe the request and provide available nonsecret information sufficient to locate the account. Additional verification is requested only when necessary. Responses follow applicable statutory deadlines; lawful refusals or restrictions are explained.
 
 Users may contact a competent data protection authority or court. For users covered by the GDPR this includes a supervisory authority in applicable cases. In Ukraine, data protection enquiries may be directed to the Ukrainian Parliament Commissioner for Human Rights.
 
-For a child's data or a person requiring a legal representative, verification and handling follow applicable law. [BEFORE PUBLICATION: define the product's age audience and necessary measures.]
+The application is for a general audience and is not specifically directed to children. For minors, the user's country determines legal capacity, legal-representative participation and data-processing consent requirements. US COPPA may require verifiable parental consent for data of children under 13; in the EU, the age of independent consent for relevant online services depends on national law. Such network processing must not take place without the necessary legal basis or verification. If the Owner learns of unlawful processing, the Owner stops it and considers erasure; accepting the terms alone does not replace legally required checks.
 
 ## 12. Policy changes
 
-The current version is available at [URL] and in the application. Material changes to purposes, data categories, recipients or processing conditions are communicated before implementation. Separate consent, where required, is requested before the relevant processing begins.
+The current version is available at https://github.com/Pro100Dimka/karaoke_new_version/blob/main/docs/legal/privacy-policy.en.md and in the application. Material changes to purposes, data categories, recipients or processing conditions are communicated before implementation. Separate consent, where required, is requested before the relevant processing begins.
 
 A new policy version does not automatically constitute consent to all new operations.
