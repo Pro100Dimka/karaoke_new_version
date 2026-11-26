@@ -10,6 +10,8 @@ from yt_dlp import YoutubeDL, parse_options
 from yt_dlp.extractor.youtube import YoutubeIE
 from yt_dlp.utils import DownloadError, ExtractorError
 
+from backend.infrastructure.youtube_sources import record_source
+
 
 class VisionYoutubeIE(YoutubeIE):
     @classmethod
@@ -27,6 +29,8 @@ class VisionYoutubeIE(YoutubeIE):
             query = parse_qs(urlsplit(item.get("url") or "").query, keep_blank_values=True)
             if item.get("signatureCipher") or item.get("cipher") or "n" in query:
                 raise ExtractorError("Player challenges are not supported", expected=True)
+        details = (response or {}).get("videoDetails") or {}
+        record_source(str(details.get("videoId") or ""), str(details.get("channelId") or ""))
         return response if isinstance(response, dict) else None
 
     def _load_player(self, *args: Any, **kwargs: Any) -> NoReturn:

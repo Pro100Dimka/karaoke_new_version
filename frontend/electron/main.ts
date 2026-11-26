@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu } from 'electron';
+import { app, BrowserWindow, dialog, Menu, session } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -54,6 +54,7 @@ import { createTrustedIpc } from './TrustedIpc';
 import { applyGpuSwitches } from './GpuSwitches';
 import { startAutoUpdate } from './AutoUpdate';
 import { startRadioNowPlaying } from './RadioNowPlaying';
+import { startSourceRegistry } from './SourceRegistry';
 import { startDesktopLaunch } from './DesktopLaunch';
 import {
   commandsFromArguments,
@@ -543,8 +544,33 @@ app
       return;
     }
     setSplashStatus('');
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      (details, callback) => {
+        const headers = details.requestHeaders;
+        for (const name of Object.keys(headers)) {
+          if (name.toLowerCase() === 'x-ad-voice-local-token')
+            delete headers[name];
+        }
+        const url = new URL(details.url);
+        if (
+          url.origin === backendEndpoint.current()?.origin &&
+          mainWindow &&
+          !mainWindow.isDestroyed() &&
+          details.webContentsId === mainWindow.webContents.id &&
+          details.frame === mainWindow.webContents.mainFrame &&
+          trustedIpc.isRendererUrl(details.frame.url) &&
+          details.method === 'GET' &&
+          ['image', 'media'].includes(details.resourceType) &&
+          /^\/songs\/[^/]+\/(cover|clip)$/.test(url.pathname)
+        ) {
+          headers['X-AD-Voice-Local-Token'] = backendEndpoint.accessToken;
+        }
+        callback({ requestHeaders: headers });
+      },
+    );
     registerSceneProtocol(projectRoot());
     startManagedServices();
+    startSourceRegistry(backendDataRoot);
     appLogs.start();
     socialSocket.start();
     streamBackendEvents(

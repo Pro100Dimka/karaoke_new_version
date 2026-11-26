@@ -1,0 +1,25 @@
+[Unit]
+Description=A&D Voice official source registry refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/ad-voice-source-registry
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=TMPDIR=/opt/ad-voice-source-registry/cache
+ExecStart=/opt/ad-voice-source-registry/.venv/bin/python -B /opt/ad-voice-source-registry/source-registry.py
+Nice=15
+IOSchedulingClass=idle
+CPUQuota=25%
+MemoryMax=768M
+TimeoutStartSec=6h
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ad-voice-source-registry/state /opt/ad-voice-source-registry/cache /opt/ad-voice-source-registry/public
+
+[Install]
+WantedBy=multi-user.target
