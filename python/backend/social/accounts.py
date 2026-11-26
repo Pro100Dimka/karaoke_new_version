@@ -45,17 +45,21 @@ class Accounts:
         ids: IdGenerator,
         clock: Clock,
         revoke: Callable[[tuple[str, ...]], None],
+        remove_data: Callable[[tuple[str, ...]], None] = lambda _: None,
     ) -> None:
         self._store = store
         self._visits = visits
         self._ids = ids
         self._clock = clock
         self._revoke = revoke
+        self._remove_data = remove_data
         self._lock = RLock()
 
     def identify(self, device_secret: str) -> Account:
         key = device_key(device_secret)
         with self._lock:
+            if self._store.revoked(key):
+                raise ForbiddenError("AccountDeleted", "This account has been deleted")
             known = self._store.by_device(key)
             if known is not None:
                 return known
@@ -69,6 +73,40 @@ class Accounts:
             )
             self._store.add(account, key)
             return account
+
+    def delete(self, device_secret: str, account_id: str) -> tuple[str, ...]:
+        with self._lock:
+            account = self._store.by_device(device_key(device_secret))
+            if account is None:
+                if self._store.revoked(device_key(device_secret)):
+                    return ()
+                raise ForbiddenError("AccountNotFound", "This device has no account")
+            if account.account_id != account_id:
+                raise ForbiddenError(
+                    "AccountOwnershipRequired", "The account owner must confirm deletion"
+                )
+            participants = tuple(
+                dict.fromkeys(
+                    (*self._store.participant_ids(account_id), device_participant_id(device_secret))
+                )
+            )
+            self._revoke((account_id,))
+            self._remove_data(participants)
+            return self._store.delete(account_id, participants)
+
+    def participant_revoked(self, participant_id: str) -> bool:
+        return self._store.participant_revoked(participant_id)
+
+    def storage_owner(self, participant_id: str) -> tuple[str, tuple[str, ...]]:
+        with self._lock:
+            if self.participant_revoked(participant_id):
+                raise ForbiddenError("AccountDeleted", "This account has been deleted")
+            account_id = self.owners((participant_id,)).get(participant_id)
+            return (
+                (account_id, self._store.participant_ids(account_id))
+                if account_id
+                else (participant_id, (participant_id,))
+            )
 
     def person(self, account_id: str) -> Account:
         account = self._store.by_id(account_id)

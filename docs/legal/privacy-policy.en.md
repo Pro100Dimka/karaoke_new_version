@@ -1,6 +1,6 @@
 # A&D Voice Privacy Policy
 
-Draft version: 0.3 dated 26 November 2026.
+Draft version: 0.4 dated 26 November 2026.
 
 > DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete bracketed fields and establish actual retention periods, recipients, processing countries and legal bases. Request handling and deletion procedures must work in practice. Remove this editorial note before publication. Describing current behaviour does not certify compliance with every country's requirements.
 
@@ -45,7 +45,7 @@ Depending on the selected recording and subsequent processing scenario, individu
 
 Network operations may process IP addresses, client and room identifiers, timestamps, application and operating system versions, audio-device information, errors, latency, packet loss and processing state.
 
-The current version automatically sends application and service text logs to the server. Messages may include filenames, paths, job information and error content. Some secrets and usernames in paths are masked, but not every message is fully anonymised.
+Application and service text logs are sent to the server only after a separate voluntary choice to enable automatic diagnostics. Messages may contain filenames, paths, job details and errors. Some secrets and usernames are masked, but logs are not considered fully anonymous. Diagnostic logs do not include audio or file contents.
 
 Ordinary text diagnostics are not continuous audio recording. Audio and file transfers for rooms, recording and remote processing are described separately above.
 
@@ -65,7 +65,7 @@ Depending on applicable law and the operation, potential bases include performan
 
 Optional operations that require consent must request it separately before processing begins, with an option to refuse and withdraw. Reading this policy or accepting the terms does not replace that consent.
 
-[BEFORE PUBLICATION: assign a specific basis to each operation, separately assess automatic diagnostic uploads and the Discord integration enabled by default. If consent is required, change application behaviour before publication rather than declaring consent obtained through this text.]
+Optional automatic diagnostics and Discord activity use a separate voluntary user choice. Both remain disabled before that choice. Diagnostic consent records its notice version, time and enabled state locally; withdrawal stops future uploads and clears the local pending queue. Requested account, room and project-transfer operations are needed to provide those online functions. Other bases, recipients and processing countries must be finalised before publication.
 
 ## 5. Recipients
 
@@ -106,13 +106,13 @@ Where international transfer requirements apply, legally recognised grounds and 
 | --- | --- |
 | Local songs, projects, recordings and settings | Until user deletion or uninstallation according to its warning; exported copies may remain elsewhere |
 | Windows account secret | Kept independently of the application folder for subsequent access until removed from the credential store or Windows user data is lost |
-| Account, friends and room history | Kept to provide and restore the account until deletion; inactive-account retention and request procedure: [DEFINE AND IMPLEMENT] |
+| Account, friends and room history | Until the user deletes the account in settings; deletion revokes connections and removes the profile, photo, relationships, requests, invitations and history |
 | Files on the remote-processing server | Current implementation expires them 24 hours after job creation and removes them during the next cleanup; cancelled jobs may be deleted sooner |
 | Temporary worker data | The full job's temporary library is removed after sending results; reusable partial-reprocessing sessions are cleaned under a 24-hour and size-limit policy when cleanup runs |
 | Room project material | Removed when the room is deleted or orphaned files are found during cleanup |
 | Separate performance tracks on the server | Cleanup uses 24 hours from the server's performance-activity timestamp; removal occurs during the next cleanup pass |
 | Separate room diagnostic files | Current cleanup policy uses seven days; some messages also enter the general log |
-| General server application log | Currently size-limited and rotated, without a fixed time-based deletion period. Before publication: [SET A PERIOD AND IMPLEMENT CLEANUP] |
+| General server application log | 7 days from server receipt; cleaned at startup and at least hourly, with an additional size limit |
 | Support enquiries and backups | [SPECIFY RETENTION PERIODS AND CRITERIA, INCLUDING REMOVAL OF DELETED DATA FROM BACKUPS] |
 
 Temporary-file expiry does not guarantee deletion at the exact second: it depends on cleanup services. The Owner must keep them running and address retention failures.
@@ -123,9 +123,9 @@ Where law requires longer retention of specific information, only the necessary 
 
 Users may choose local or available remote processing, avoid joining rooms, mute the microphone through relevant controls, delete local material and manage microphone access through Windows.
 
-Discord activity is controlled by the setting for showing singing activity in Discord. In the current version it is enabled by default and may operate when Discord is running. A separate setting controls automatic update installation.
+Discord activity is controlled by its display setting and is off by default. The old automatically enabled value is not treated as a new consent choice. Disabling the setting stops activity updates. Automatic update installation has a separate setting.
 
-Current server log uploads can be disabled with `AD_VOICE_DISABLE_SERVER_LOGS`; there is no separate user-facing toggle yet. Instructions are available from dmytro.andreiev.dev@gmail.com. Disabling logs does not disable data needed for deliberately used network functions.
+Automatic diagnostics can be enabled and disabled in Settings → Advanced → Privacy and online account. It is off by default. Withdrawal stops new requests, cancels unfinished uploads and clears pending reports. `AD_VOICE_DISABLE_SERVER_LOGS` additionally prohibits uploads regardless of consent. Data transfers required for explicitly requested online functions are controlled separately.
 
 Consent-based processing must provide an accessible withdrawal method. Withdrawal does not invalidate lawful processing before withdrawal or prevent operations that have another lawful basis.
 
@@ -133,7 +133,9 @@ Consent-based processing must provide an accessible withdrawal method. Withdrawa
 
 Uninstalling A&D Voice may remove local files but does not request server-account deletion. The access secret remains in Windows to restore the account after reinstallation under the same Windows user.
 
-Account deletion requests go to dmytro.andreiev.dev@gmail.com. Proportionate proof of account control may be needed to prevent deletion of someone else's account. Do not email the Windows secret or transfer code in an ordinary message.
+To delete an account, open Settings → Advanced → Privacy and online account → Delete online account and confirm. The server verifies the current owner credential. Deletion removes the profile, photo, relationships, invitations, history, uploaded projects, separate singer sources and associated diagnostic logs; hosted rooms close. Active uploads must finish before retrying deletion. Local songs and recordings stay on the device. The app restarts with online features disabled; a new empty account requires a separate explicit action.
+
+After deletion the server retains only revoked credential hashes and revoked participant identifiers without a profile link, to prevent old clients from signing in again. The device retains an account-disabled marker. Participant-held copies, external recipients and separately managed backups are not erased by this action; their retention and procedures must be defined separately.
 
 Removing only the Windows secret does not delete the server account. Conversely, server deletion cannot itself remove files from disconnected or other people's devices. Full deletion methods and loss-of-access consequences must be explained when handling requests.
 

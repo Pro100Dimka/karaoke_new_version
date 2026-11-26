@@ -9,6 +9,8 @@ from typing import Iterable
 from backend.social.domain import Account
 
 _SCHEMA = (
+    "CREATE TABLE IF NOT EXISTS revoked_devices (device_key TEXT PRIMARY KEY)",
+    "CREATE TABLE IF NOT EXISTS revoked_participants (participant_id TEXT PRIMARY KEY)",
     "CREATE TABLE IF NOT EXISTS accounts (account_id TEXT PRIMARY KEY, device_key TEXT UNIQUE,"
     " display_name TEXT NOT NULL, friend_code TEXT NOT NULL UNIQUE,"
     " transfer_code TEXT NOT NULL UNIQUE, avatar_version INTEGER NOT NULL,"
@@ -62,6 +64,7 @@ class SocialDatabase:
             ":memory:" if path is None else path, timeout=10, check_same_thread=False
         )
         with self._lock, self._connection:
+            self._connection.execute("PRAGMA secure_delete=ON")
             if path is not None:
                 self._connection.execute("PRAGMA journal_mode=WAL")
             for statement in _SCHEMA:
@@ -88,6 +91,10 @@ class SocialDatabase:
         with self._lock, self._connection:
             for sql, parameters in statements:
                 self._connection.execute(sql, parameters)
+
+    def checkpoint(self) -> None:
+        with self._lock:
+            self._connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
 
 _ACCOUNT_COLUMNS = (
@@ -119,6 +126,78 @@ class SqliteAccountStore:
 
     def by_device(self, device_key: str) -> Account | None:
         return self._one("device_key", device_key)
+
+    def revoked(self, device_key: str) -> bool:
+        return bool(
+            self._db.rows("SELECT 1 FROM revoked_devices WHERE device_key = ?", (device_key,))
+        )
+
+    def participant_ids(self, account_id: str) -> tuple[str, ...]:
+        return tuple(
+            str(row[0])
+            for row in self._db.rows(
+                "SELECT participant_id FROM participant_accounts WHERE account_id = ?",
+                (account_id,),
+            )
+        )
+
+    def participant_revoked(self, participant_id: str) -> bool:
+        return bool(
+            self._db.rows(
+                "SELECT 1 FROM revoked_participants WHERE participant_id = ?", (participant_id,)
+            )
+        )
+
+    def delete(self, account_id: str, participants: tuple[str, ...]) -> tuple[str, ...]:
+        affected = self._db.rows(
+            "SELECT CASE WHEN first_id = ? THEN second_id ELSE first_id END FROM friendships"
+            " WHERE first_id = ? OR second_id = ?",
+            (account_id, account_id, account_id),
+        )
+        statements: list[tuple[str, tuple[object, ...]]] = [
+            ("INSERT OR IGNORE INTO revoked_participants VALUES (?)", (participant,))
+            for participant in participants
+        ]
+        statements.extend(
+            [
+                (
+                    "INSERT OR IGNORE INTO revoked_devices SELECT device_key FROM accounts"
+                    " WHERE account_id = ? AND device_key IS NOT NULL",
+                    (account_id,),
+                ),
+                (
+                    "DELETE FROM visits WHERE account_id = ? OR participant_id IN"
+                    " (SELECT participant_id FROM participant_accounts WHERE account_id = ?)",
+                    (account_id, account_id),
+                ),
+            ]
+        )
+        for table, columns in {
+            "friendships": ("first_id", "second_id"),
+            "friend_requests": ("from_id", "to_id"),
+            "invites": ("from_id", "to_id"),
+            "notices": ("account_id", "other_id"),
+            "avatars": ("account_id",),
+            "participant_accounts": ("account_id",),
+            "accounts": ("account_id",),
+        }.items():
+            predicate = " OR ".join(f"{column} = ?" for column in columns)
+            if len(columns) == 2:
+                affected.extend(
+                    (str(value),)
+                    for row in self._db.rows(
+                        f"SELECT {','.join(columns)} FROM {table} WHERE {predicate}",
+                        (account_id,) * len(columns),
+                    )
+                    for value in row
+                    if value != account_id
+                )
+            statements.append(
+                (f"DELETE FROM {table} WHERE {predicate}", (account_id,) * len(columns))
+            )
+        self._db.write_all(statements)
+        self._db.checkpoint()
+        return tuple(dict.fromkeys(str(row[0]) for row in affected))
 
     def by_id(self, account_id: str) -> Account | None:
         return self._one("account_id", account_id)

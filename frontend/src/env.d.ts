@@ -44,6 +44,14 @@ interface ProjectArtifacts {
 }
 
 interface DesktopApi {
+  getPrivacySettings?(): Promise<
+    import('../electron/ipcChannels').PrivacyState
+  >;
+  setDiagnosticUploads?(
+    enabled: boolean,
+  ): Promise<import('../electron/ipcChannels').PrivacyState>;
+  deleteOnlineAccount?(accountId: string): Promise<void>;
+  createOnlineAccount?(): Promise<void>;
   onLegalDocuments?(listener: () => void): () => void;
   getLegalDocuments?(): Promise<
     import('../electron/ipcChannels').LegalDocumentState

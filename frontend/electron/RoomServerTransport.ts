@@ -45,10 +45,12 @@ const roomServerRelayPort = Number(
   process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? '40000',
 );
 
-let profileServerLogsDisabled = false;
+let profileServerLogsDisabled = true;
+const logUploads = new Set<AbortController>();
 
 export const setServerLogUploadsDisabled = (disabled: boolean): void => {
   profileServerLogsDisabled = disabled;
+  if (disabled) for (const request of logUploads) request.abort();
 };
 
 export const serverLogUploadsDisabled = (): boolean =>
@@ -67,6 +69,11 @@ export const roomServerRequest = async (
     return { status: 204, ok: true, body: null };
 
   const controller = new AbortController();
+  const diagnosticUpload =
+    request.method.toUpperCase() === 'POST' &&
+    (/^\/app-logs(?:\?|$)/.test(request.path) ||
+      /^\/rooms\/[^/?]+\/diagnostics(?:\?|$)/.test(request.path));
+  if (diagnosticUpload) logUploads.add(controller);
   // Room changes use a 25-second server long poll; ordinary control requests should fail sooner.
   const timeoutMs = /\/changes(?:\?|$)/.test(request.path) ? 35_000 : 10_000;
   const timeout = setTimeout(
@@ -102,6 +109,7 @@ export const roomServerRequest = async (
       body: { code: 'RoomServerUnavailable', message },
     };
   } finally {
+    logUploads.delete(controller);
     clearTimeout(timeout);
   }
 };
@@ -296,14 +304,22 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   }
 };
 
-export const setRoomVoiceParticipantGain = (participantId: string, gain: number): Promise<void> =>
-  setRoomVoiceParticipantControl(participantId, 'gain', gain);
+export const setRoomVoiceParticipantGain = (
+  participantId: string,
+  gain: number,
+): Promise<void> => setRoomVoiceParticipantControl(participantId, 'gain', gain);
 
-export const setRoomVoiceParticipantEffect = (participantId: string, effect: RoomVoiceEffect, value: number): Promise<void> =>
+export const setRoomVoiceParticipantEffect = (
+  participantId: string,
+  effect: RoomVoiceEffect,
+  value: number,
+): Promise<void> =>
   setRoomVoiceParticipantControl(participantId, effect, value);
 
 const setRoomVoiceParticipantControl = (
-  sourceParticipantId: string, control: 'gain' | RoomVoiceEffect, value: number,
+  sourceParticipantId: string,
+  control: 'gain' | RoomVoiceEffect,
+  value: number,
 ): Promise<void> => {
   const session = activeVoice;
   if (!session)
@@ -341,7 +357,9 @@ const setRoomVoiceParticipantControl = (
             participantId: session.participantId,
             sourceParticipantId,
             voiceToken: session.voiceToken,
-            ...(kind === 'gain' ? {gain: next} : {effect: control, value: next}),
+            ...(kind === 'gain'
+              ? { gain: next }
+              : { effect: control, value: next }),
           },
         });
         if (activeVoice !== session || voiceGeneration !== session.generation)
@@ -352,8 +370,7 @@ const setRoomVoiceParticipantControl = (
         }
       }
     } finally {
-      if (pendingControls.get(key) === pending)
-        pendingControls.delete(key);
+      if (pendingControls.get(key) === pending) pendingControls.delete(key);
     }
   })();
   return pending.promise;

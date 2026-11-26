@@ -83,6 +83,17 @@ async def authenticate_room_participant(
 ) -> Response:
     """Rejects a room or voice request that names a participant other than its key's owner."""
     path = request.url.path
+    owner = _key_owner(request)
+    social = getattr(getattr(request.app.state, "container", None), "social", None)
+    if (
+        owner
+        and social is not None
+        and path.startswith(("/rooms", "/voice/", "/app-logs"))
+        and social.accounts.participant_revoked(owner)
+    ):
+        return domain_error_response(
+            request, ForbiddenError("AccountDeleted", "This account has been deleted")
+        )
     if path.startswith(("/rooms", "/voice/")):
         claimed = await _claimed_participant_ids(request)
         if claimed and claimed != {_key_owner(request)}:

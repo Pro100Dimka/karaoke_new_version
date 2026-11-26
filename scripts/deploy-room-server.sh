@@ -55,6 +55,7 @@ g++ -std=c++20 -O3 -DNDEBUG -pthread -I "$stage/AudioService/src" \
     "$stage/AudioService/src/relay/NativeVoiceRelayMain.cpp" \
     "$stage/AudioService/src/dsp/DspChain.cpp" \
     "$stage/AudioService/src/dsp/BasicProcessors.cpp" \
+    "$stage/AudioService/src/analysis/PitchEstimator.cpp" \
     -o "$stage/NativeVoiceRelay"
 test -x "$stage/NativeVoiceRelay"
 (
@@ -101,6 +102,18 @@ for index in "${!restore_paths[@]}"; do
         sudo cp -p "${restore_paths[$index]}" "${restore_backups[$index]}"
     fi
 done
+"$root/.venv/bin/python" - "$root/data/rooms.sqlite3" <<'PY'
+import sqlite3
+import sys
+from pathlib import Path
+
+database = Path(sys.argv[1])
+if not database.is_file():
+    raise SystemExit("Room database was not found; deployment was not activated")
+with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+    if connection.execute("SELECT COUNT(*) FROM rooms").fetchone()[0]:
+        raise SystemExit("Active rooms exist; deployment was not activated")
+PY
 rollback_armed=true
 sudo systemctl stop karaoke-room-server.service
 sudo mv "$root/backend" "$backup"

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./SocialIdentity', () => ({
   deviceSecret: async () => 'secret-of-this-computer',
+  onlineAccountEnabled: async () => true,
 }));
 
 describe('renderer social subscription', () => {

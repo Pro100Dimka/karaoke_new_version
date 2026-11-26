@@ -42,27 +42,51 @@ def _project_path(root: Path, room_id: str, song_id: str, revision: int, uploade
 
 
 async def store_project(
-    request: Request, target: Path, on_progress: Callable[[int], None] | None = None
+    request: Request,
+    target: Path,
+    on_progress: Callable[[int], None] | None = None,
 ) -> None:
-    await anyio.to_thread.run_sync(partial(target.parent.mkdir, parents=True, exist_ok=True))
     temporary = target.with_name(f".{target.name}.{UuidGenerator().new()}.upload")
+    storage = getattr(request.app.state, "upload_storage", None) if "app" in request.scope else None
+    declared = request.headers.get("content-length") if "headers" in request.scope else None
+    expected = int(declared) if declared is not None else None
+    if storage is not None:
+        participant_id = request.headers["X-Participant-Id"]
+        accounts = request.app.state.container.social.accounts
+        owner, participants = await anyio.to_thread.run_sync(accounts.storage_owner, participant_id)
+        await anyio.to_thread.run_sync(storage.reserve, target, owner, participants, expected or 0)
     received = 0
     try:
+        await anyio.to_thread.run_sync(partial(target.parent.mkdir, parents=True, exist_ok=True))
         async with await anyio.open_file(temporary, "wb") as output:
             async for chunk in request.stream():
                 received += len(chunk)
                 if received > _maximum_project_bytes:
                     raise DomainError("ProjectTooLarge", "Room project exceeds size limit", 413)
+                if expected is not None and received > expected:
+                    raise DomainError("UploadSizeMismatch", "Upload exceeds declared size", 400)
+                if storage is not None:
+                    await anyio.to_thread.run_sync(storage.grow, target, received)
                 await output.write(chunk)
                 if on_progress:
                     on_progress(received)
-        await anyio.to_thread.run_sync(os.replace, temporary, target)
+        if expected is not None and received != expected:
+            raise DomainError("UploadSizeMismatch", "Upload does not match declared size", 400)
+        if storage is None:
+            await anyio.to_thread.run_sync(os.replace, temporary, target)
+        else:
+            await anyio.to_thread.run_sync(storage.commit, target, temporary)
     finally:
-        await anyio.to_thread.run_sync(temporary.unlink, True)
+        with anyio.CancelScope(shield=True):
+            await anyio.to_thread.run_sync(temporary.unlink, True)
+            if storage is not None:
+                await anyio.to_thread.run_sync(storage.release, target)
 
 
 async def _tracked_upload(
-    request: Request, target: Path, uploads: dict[Path, tuple[object, int, int]]
+    request: Request,
+    target: Path,
+    uploads: dict[Path, tuple[object, int, int]],
 ) -> None:
     try:
         total = int(request.headers.get("content-length", "0"))
@@ -70,6 +94,8 @@ async def _tracked_upload(
         raise DomainError("ValidationError", "Invalid project content length", 422) from exc
     if total < 0 or total > _maximum_project_bytes:
         raise DomainError("ProjectTooLarge", "Room project exceeds size limit", 413)
+    if target in uploads:
+        raise DomainError("UploadInProgress", "This file is already being uploaded", 409)
     token = object()
     uploads[target] = (token, 0, total)
 
@@ -100,7 +126,9 @@ def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> 
         if project_source(room, song_id, revision) != participant_id:
             raise ForbiddenError("RoomPermissionDenied", "Only the song owner may upload it")
         await _tracked_upload(
-            request, _project_path(root, room_id, song_id, revision, participant_id), uploads
+            request,
+            _project_path(root, room_id, song_id, revision, participant_id),
+            uploads,
         )
         return Response(status_code=204)
 

@@ -1,5 +1,5 @@
 import { createHash, createHmac } from 'node:crypto';
-import { deviceSecret } from './SocialIdentity';
+import { deviceSecret, onlineAccountEnabled } from './SocialIdentity';
 
 /**
  * Who this app profile is in a room. The participant id everyone sees is a hash of a key that never
@@ -45,5 +45,7 @@ export const withRoomKey = async (
   url: string,
 ): Promise<Record<string, string>> => {
   requireSecureRoomUrl(url);
+  if (!(await onlineAccountEnabled()))
+    throw new Error('Online account is disabled');
   return { ...headers, [roomKeyHeader]: await roomKey() };
 };

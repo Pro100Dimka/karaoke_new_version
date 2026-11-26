@@ -74,7 +74,8 @@ export class AppLogUploader {
 
   start(): void {
     if (this.timer || this.stopping) return;
-    if (this.queuePath) {
+    if (serverLogUploadsDisabled()) void this.discard();
+    if (this.queuePath && !serverLogUploadsDisabled()) {
       try {
         const saved: unknown = JSON.parse(readFileSync(this.queuePath, 'utf8'));
         if (Array.isArray(saved)) {
@@ -226,7 +227,7 @@ export class AppLogUploader {
       level: level.slice(0, 16),
       message: redact(message).slice(0, maximumMessage),
     };
-    this.queue.push(entry);
+    if (!serverLogUploadsDisabled()) this.queue.push(entry);
     if (this.persisting && !this.reportingPersistenceFailure)
       this.persistAgain = true;
     this.recent.push(entry);
@@ -289,6 +290,7 @@ export class AppLogUploader {
   }
 
   async flush(): Promise<void> {
+    if (serverLogUploadsDisabled()) return this.discard();
     if (this.uploading) return this.inFlight;
     for (const [key, line] of this.lines) {
       if (!line.pending) continue;
@@ -326,7 +328,7 @@ export class AppLogUploader {
       try {
         await this.send(batch);
         this.queue.splice(0, count);
-        this.dropped -= dropped;
+        this.dropped = Math.max(0, this.dropped - dropped);
         if (this.persistenceStarted) await this.persist();
       } catch {
         // Upload failures stay local. The next interval retries the same entries.
@@ -337,5 +339,14 @@ export class AppLogUploader {
       }
     })();
     await this.inFlight;
+  }
+
+  async discard(): Promise<void> {
+    this.queue.length = 0;
+    this.dropped = 0;
+    this.recent.length = 0;
+    this.lines.clear();
+    await this.inFlight;
+    await this.persist();
   }
 }

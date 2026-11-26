@@ -38,6 +38,7 @@ def build_social_cases(
     clock: Clock,
     room_exists: RoomExists,
     room_host_participant: RoomHostParticipant = lambda _room_id: None,
+    remove_data: Callable[[tuple[str, ...]], None] = lambda _: None,
 ) -> SocialCases:
     database = SocialDatabase(database_path)
     accounts = SqliteAccountStore(database)
@@ -45,7 +46,7 @@ def build_social_cases(
     events = SqliteEventStore(database)
     visits = SqliteVisitStore(database)
     hub = SocialHub()
-    account_cases = Accounts(accounts, visits, ids, clock, hub.revoke)
+    account_cases = Accounts(accounts, visits, ids, clock, hub.revoke, remove_data)
 
     def is_room_host(account_id: str, room_id: str) -> bool:
         participant_id = room_host_participant(room_id)

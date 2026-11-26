@@ -28,15 +28,19 @@ const machineGuid = (): Promise<string> =>
     );
   });
 
-let secret: Promise<string> | undefined;
+interface AccountIdentity {
+  secret: string;
+  enabled: boolean;
+}
+let identity: Promise<AccountIdentity> | undefined;
 
-export const deviceSecret = (): Promise<string> => {
-  secret ??= machineGuid()
+const readIdentity = (action = 'read'): Promise<AccountIdentity> =>
+  machineGuid()
     .then((guid) => {
       const legacySecret = createHmac('sha256', guid || `host:${hostname()}`)
         .update(`ad-voice-account:${process.env.AD_VOICE_PROFILE ?? 'default'}`)
         .digest('hex');
-      return new Promise<string>((resolve, reject) => {
+      return new Promise<AccountIdentity>((resolve, reject) => {
         const child = execFile(
           pythonExecutable(),
           ['-B', '-X', 'utf8', '-m', 'backend.infrastructure.account_identity'],
@@ -47,15 +51,26 @@ export const deviceSecret = (): Promise<string> => {
             maxBuffer: 8192,
           },
           (error, stdout) => {
-            const value = stdout.trim();
+            let value: Partial<AccountIdentity> = {};
+            try {
+              value = JSON.parse(stdout);
+            } catch {
+              /* Handled as an unavailable identity. */
+            }
             // Never attach child output to an error: it may contain the credential.
-            if (error || !/^[a-f0-9]{64}$/.test(value))
+            if (
+              error ||
+              !value ||
+              typeof value.secret !== 'string' ||
+              !/^[a-f0-9]{64}$/.test(value.secret) ||
+              typeof value.enabled !== 'boolean'
+            )
               reject(
                 new Error(
                   'Windows account identity is unavailable; retry when connected',
                 ),
               );
-            else resolve(value);
+            else resolve({ secret: value.secret, enabled: value.enabled });
           },
         );
         child.stdin?.on('error', () => undefined);
@@ -64,15 +79,25 @@ export const deviceSecret = (): Promise<string> => {
             profile: process.env.AD_VOICE_PROFILE ?? 'default',
             server: roomServerApiBase,
             legacySecret,
+            action,
           }),
         );
       });
     })
     .catch((error: unknown) => {
-      secret = undefined;
+      identity = undefined;
       throw error;
     });
-  return secret;
+
+export const deviceSecret = async (): Promise<string> =>
+  (await (identity ??= readIdentity())).secret;
+export const onlineAccountEnabled = async (): Promise<boolean> =>
+  (await (identity ??= readIdentity())).enabled;
+export const setOnlineAccountEnabled = async (
+  enabled: boolean,
+): Promise<void> => {
+  identity = readIdentity(enabled ? 'create' : 'disable');
+  await identity;
 };
 
 const deviceHeader = 'X-AD-Voice-Device';
@@ -82,10 +107,13 @@ export const withDevice = async <
   T extends { path: string; headers?: Record<string, string> },
 >(
   request: T,
-): Promise<T> =>
-  request.path.startsWith('/social/')
+): Promise<T> => {
+  if (request.path.startsWith('/social/') && !(await onlineAccountEnabled()))
+    throw new Error('Online account is disabled');
+  return request.path.startsWith('/social/')
     ? {
         ...request,
         headers: { ...request.headers, [deviceHeader]: await deviceSecret() },
       }
     : request;
+};

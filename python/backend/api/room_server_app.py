@@ -6,7 +6,7 @@ import os
 import re
 import time
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Annotated, AsyncIterator, Awaitable, Callable
 from pathlib import Path
@@ -41,6 +41,7 @@ from backend.infrastructure.room_activity import RoomActivity
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
+from backend.infrastructure.room_upload_storage import RoomUploadStorage
 from backend.room.domain import ConnectionState, PlaybackState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
@@ -82,6 +83,7 @@ class _RoomHousekeeping:
     repository: ObservableRoomRepository
     activity: RoomActivity
     projects: RoomProjectFolders
+    cleanup_logs: Callable[[], None] = lambda: None
 
     def sweep_once(self) -> None:
         room_ids = self.repository.list_ids()
@@ -93,6 +95,7 @@ class _RoomHousekeeping:
         for room_id in self.activity.idle(room_ids, _abandoned_room_seconds):
             self.repository.delete(room_id)
         self.projects.remove_orphans(self.repository.list_ids)
+        self.cleanup_logs()
 
     async def run(self) -> None:
         # The sweep reads every stored room, so it runs on a worker thread: on the event loop it
@@ -308,9 +311,66 @@ def create_room_server_app(
         InMemoryRoomRepository() if room_database is None else SqliteRoomRepository(room_database)
     )
     cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
+    uploads = RoomUploadStorage(project_root or Path("./room-projects"))
+    diagnostics = RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
+    program_log = program_log or ProgramLog(
+        program_log_path or (diagnostics_root or Path("./room-diagnostics")) / "program.jsonl"
+    )
+
+    def remove_account_data(participants: tuple[str, ...]) -> None:
+        uploads.erase(participants)
+        for room_id in repository.list_ids():
+            room = repository.get(room_id)
+            if room is None:
+                continue
+            if room.host_id in participants:
+                repository.delete(room_id)
+                continue
+            for participant in participants:
+                if participant in room.participants:
+                    cases.leave.execute(room_id, participant)
+            room = repository.get(room_id)
+            if room is not None:
+                repository.save(
+                    replace(
+                        room,
+                        shared_songs=tuple(
+                            song
+                            for song in room.shared_songs
+                            if song.owner_participant_id not in participants
+                        ),
+                        performance_history={
+                            key: {
+                                singer: score
+                                for singer, score in scores.items()
+                                if singer not in participants
+                            }
+                            for key, scores in room.performance_history.items()
+                        },
+                        playlist=replace(
+                            room.playlist,
+                            finished_participants=tuple(
+                                singer
+                                for singer in room.playlist.finished_participants
+                                if singer not in participants
+                            ),
+                        )
+                        if room.playlist
+                        else None,
+                    )
+                )
+        diagnostics.erase(participants)
+        program_log.erase(participants)
+
+    def cleanup_logs() -> None:
+        diagnostics.cleanup()
+        program_log.cleanup()
+
     # Friends and room history live beside the rooms, in a store of their own.
     social = build_room_server_social(
-        repository, None if room_database is None else room_database.with_name("social.sqlite3")
+        repository,
+        None if room_database is None else room_database.with_name("social.sqlite3"),
+        remove_account_data,
     )
     selected_relay_port = _resolve_relay_port(relay_port)
     native_relay, relay = _voice_relays(native_relay_executable, selected_relay_port)
@@ -321,16 +381,16 @@ def create_room_server_app(
     )
     lifespan = _lifespan_for(
         RoomServerContainer(cases, social, departures, repository),
-        _RoomHousekeeping(cases, repository, activity, projects),
+        _RoomHousekeeping(cases, repository, activity, projects, cleanup_logs),
         relay,
         selected_relay_port,
         native_relay,
     )
     app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
+    app.state.upload_storage = uploads
+    cleanup_logs()
     _configure_room_app(app, repository, activity)
-    _add_service_routes(
-        app, relay, repository, projects.root, diagnostics_root, program_log_path, program_log
-    )
+    _add_service_routes(app, relay, repository, projects.root, diagnostics, program_log)
     return app
 
 
@@ -339,13 +399,9 @@ def _add_service_routes(
     relay: VoiceRelay,
     repository: ObservableRoomRepository,
     project_root: Path,
-    diagnostics_root: Path | None,
-    program_log_path: Path | None,
-    program_log: ProgramLog | None,
+    diagnostics: RoomDiagnosticsLog,
+    program_log: ProgramLog,
 ) -> None:
-    program_log = program_log or ProgramLog(
-        program_log_path or (diagnostics_root or Path("./room-diagnostics")) / "program.jsonl"
-    )
     add_voice_routes(app, relay, repository)
     add_project_routes(app, repository, project_root)
     add_performance_source_routes(app, repository, project_root / "performances")
@@ -353,7 +409,7 @@ def _add_service_routes(
         app,
         repository,
         relay,
-        RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics")),
+        diagnostics,
         program_log,
     )
     add_program_log_route(app, program_log)

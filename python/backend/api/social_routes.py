@@ -23,6 +23,8 @@ from backend.api.social_dto import (
 )
 from backend.bootstrap.social_wiring import SocialCases
 from backend.domain_errors import DomainError
+from backend.api.base_dto import ApiModel
+from pydantic import Field
 
 # One-off actions the user takes; everything the app shows unasked arrives over the socket.
 router = APIRouter(prefix="/social")
@@ -42,6 +44,16 @@ DeviceDep = Annotated[str, Header(alias="X-AD-Voice-Device", min_length=32, max_
 @router.get("/me", response_model=MeDto)
 def me(app: ContainerDep, device: DeviceDep) -> MeDto:
     return me_dto(app.social.accounts.identify(device))
+
+
+class DeleteAccountDto(ApiModel):
+    account_id: str = Field(min_length=1, max_length=128)
+
+
+@router.delete("/me", status_code=204)
+def delete_me(body: DeleteAccountDto, app: ContainerDep, device: DeviceDep) -> None:
+    affected = app.social.accounts.delete(device, body.account_id)
+    app.social.hub.changed(affected)
 
 
 @router.post("/friends/requests", response_model=RelationDto)

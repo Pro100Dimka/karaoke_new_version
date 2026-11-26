@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     observer: ServiceObserver;
   }[],
   packaged: false,
+  consent: true,
   frontendEnv: '',
   files: new Map<string, string>(),
   setServerLogUploadsDisabled: vi.fn(),
@@ -45,6 +46,9 @@ vi.mock('./RoomServerTransport', () => ({
   leaveRoomVoice: vi.fn(),
   setServerLogUploadsDisabled: mocks.setServerLogUploadsDisabled,
 }));
+vi.mock('./PrivacySettings', () => ({
+  diagnosticsConsent: () => ({ enabled: mocks.consent, recordedAt: null }),
+}));
 vi.mock('./AudioServiceTransport', () => ({
   sendAudioRequest: mocks.audioRequest,
 }));
@@ -52,6 +56,7 @@ vi.mock('./AppPaths', () => ({
   audioExecutable: () => 'D:/app/AudioService.exe',
   projectRoot: () => 'D:/app',
   pythonRoot: () => 'D:/app/python',
+  pythonExecutable: () => 'D:/app/python/python.exe',
 }));
 vi.mock('./ServiceProcess', () => ({
   ServiceProcess: class {
@@ -73,6 +78,7 @@ vi.mock('./ServiceProcess', () => ({
 
 afterEach(() => {
   mocks.packaged = false;
+  mocks.consent = true;
   mocks.frontendEnv = '';
   mocks.services.length = 0;
   mocks.files.clear();
@@ -168,5 +174,21 @@ it('sends service output and automatic audio diagnostics without losing backend 
     status: 0,
     diagnostics: 'SessionState: Running\nPlaybackState: 3\n',
   });
+  services.stop();
+});
+
+it('starts with no diagnostic upload or automatic snapshot before consent', async () => {
+  mocks.consent = false;
+  const { ManagedServices } = await import('./ManagedServices');
+  const diagnostics = vi.fn();
+  const services = new ManagedServices(
+    { started: vi.fn(), stopped: vi.fn(), stdout: vi.fn() } as never,
+    vi.fn(),
+    diagnostics,
+  );
+  services.start('D:/data');
+  await services.captureAudioDiagnostics('failure');
+  expect(mocks.setServerLogUploadsDisabled).toHaveBeenCalledWith(true);
+  expect(diagnostics).not.toHaveBeenCalled();
   services.stop();
 });

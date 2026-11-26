@@ -4,6 +4,7 @@ const sendAudioRequest = vi.fn();
 vi.mock('./AudioServiceTransport', () => ({ sendAudioRequest }));
 vi.mock('./SocialIdentity', () => ({
   deviceSecret: async () => 'transport-test-secret',
+  onlineAccountEnabled: async () => true,
 }));
 
 describe('central room voice transport', () => {

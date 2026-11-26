@@ -34,7 +34,9 @@ def _request(server: str, secret: str, code: str | None = None) -> dict[str, str
     return {"accountId": value["accountId"], "transferCode": value["transferCode"]}
 
 
-def account_secret(server: str, profile: str, legacy_secret: str) -> str:
+def account_identity(
+    server: str, profile: str, legacy_secret: str, action: str = "read"
+) -> dict[str, object]:
     url = urlsplit(server)
     if (
         url.scheme not in ["https", "http"]
@@ -50,6 +52,12 @@ def account_secret(server: str, profile: str, legacy_secret: str) -> str:
     scope = hashlib.sha256(f"{server}\n{profile}".encode()).hexdigest()
     credentials = WindowsCredentials(f"ADVoice.Account.v1/{scope}")
     with credentials.locked():
+        if action in ["disable", "create"]:
+            credentials.write(
+                dumps({"secret": secrets.token_hex(32), "disabled": action == "disable"})
+            )
+        elif action != "read":
+            raise ValueError("Invalid account identity action")
         saved = credentials.read()
         if saved is None:
             # Read the previous account before publishing any replacement identity. Offline
@@ -74,7 +82,11 @@ def account_secret(server: str, profile: str, legacy_secret: str) -> str:
             if current["accountId"] != account_id:
                 raise ValueError("Account migration did not preserve the account")
             credentials.write(dumps({"secret": secret}))
-        return secret
+        return {"secret": secret, "enabled": record.get("disabled") is not True}
+
+
+def account_secret(server: str, profile: str, legacy_secret: str) -> str:
+    return str(account_identity(server, profile, legacy_secret)["secret"])
 
 
 if __name__ == "__main__":
@@ -84,7 +96,16 @@ if __name__ == "__main__":
             isinstance(arguments.get(key), str) for key in ["server", "profile", "legacySecret"]
         ):
             raise ValueError("Invalid identity request")
-        print(account_secret(arguments["server"], arguments["profile"], arguments["legacySecret"]))
+        print(
+            dumps(
+                account_identity(
+                    arguments["server"],
+                    arguments["profile"],
+                    arguments["legacySecret"],
+                    str(arguments.get("action", "read")),
+                )
+            )
+        )
     except Exception:
         # The caller receives only a generic error, never credentials or HTTP response bodies.
         sys.stderr.write("Windows account identity is unavailable\n")

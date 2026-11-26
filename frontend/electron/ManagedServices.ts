@@ -15,6 +15,7 @@ import {
 } from './RoomServerTransport';
 import { ServiceProcess } from './ServiceProcess';
 import { gpuRuntimeDir } from './GpuRuntime';
+import { diagnosticsConsent } from './PrivacySettings';
 
 interface EnvironmentFiles {
   project: string | undefined;
@@ -80,6 +81,14 @@ export class ManagedServices {
   private audio: ServiceProcess | null = null;
   private diagnosticsEnabled = false;
   private capturingDiagnostics = false;
+  private dataRoot = '';
+
+  setDiagnosticUploads(enabled: boolean): boolean {
+    const disabled = !enabled || serverLogUploadsDisabled(this.dataRoot);
+    setServerLogUploadsDisabled(disabled);
+    this.diagnosticsEnabled = !disabled && this.diagnostics !== undefined;
+    return !disabled;
+  }
 
   constructor(
     private readonly backendEndpoint: BackendEndpoint,
@@ -126,10 +135,8 @@ export class ManagedServices {
   start(dataRoot: string): void {
     const files = environmentFiles(dataRoot);
     seedEnvironmentFiles(files);
-    const uploadsDisabled = serverLogUploadsDisabled(dataRoot);
-    setServerLogUploadsDisabled(uploadsDisabled);
-    this.diagnosticsEnabled =
-      !uploadsDisabled && this.diagnostics !== undefined;
+    this.dataRoot = dataRoot;
+    this.setDiagnosticUploads(diagnosticsConsent().enabled);
     const tools = app.isPackaged
       ? path.join(process.resourcesPath, 'tools')
       : path.join(projectRoot(), 'vendor', 'ffmpeg', 'bin');

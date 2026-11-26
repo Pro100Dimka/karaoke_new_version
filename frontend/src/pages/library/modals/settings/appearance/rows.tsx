@@ -49,9 +49,14 @@ export const AppearanceFields = observer(
     const p = store.preferences;
     const radio = store.radio;
     const update = <K extends keyof Preferences>(key: K, value: unknown) => {
-      const parsed = parsePreferences({ ...store.preferences, [key]: value });
+      const parsed = parsePreferences({
+        ...store.preferences,
+        [key]: value,
+        ...(key === 'discordPresence' ? { discordConsentVersion: 1 } : {}),
+      });
       store.updatePreferences({
         [key]: parsed[key],
+        ...(key === 'discordPresence' ? { discordConsentVersion: 1 } : {}),
         ...(key === 'reducedMotion' ? { animationQualitySelected: true } : {}),
       });
     };

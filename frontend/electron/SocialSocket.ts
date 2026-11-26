@@ -1,4 +1,4 @@
-import { deviceSecret } from './SocialIdentity';
+import { deviceSecret, onlineAccountEnabled } from './SocialIdentity';
 import { requireSecureRoomUrl } from './RoomIdentity';
 
 export interface SocialPresence {
@@ -59,6 +59,11 @@ export const createSocialSocket = (
     }
     let secret: string;
     try {
+      if (!(await onlineAccountEnabled())) {
+        failPending('Online account is disabled');
+        deliver({ type: 'offline' });
+        return;
+      }
       secret = await deviceSecret();
     } catch {
       failPending('Account identity is unavailable');

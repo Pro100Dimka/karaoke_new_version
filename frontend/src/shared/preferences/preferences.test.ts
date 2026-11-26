@@ -4,6 +4,15 @@ import { defaultAudioRequest, parsePreferences } from './preferences';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('parsePreferences', () => {
+  it('requires an explicit current Discord choice instead of restoring its old implicit default', () => {
+    expect(parsePreferences({ discordPresence: true }).discordPresence).toBe(
+      false,
+    );
+    expect(
+      parsePreferences({ discordPresence: true, discordConsentVersion: 1 })
+        .discordPresence,
+    ).toBe(true);
+  });
   it('restores playlist order and removes duplicate and invalid song identifiers', () => {
     expect(
       parsePreferences({

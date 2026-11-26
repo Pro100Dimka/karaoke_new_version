@@ -1,6 +1,6 @@
 # A&D Voice Terms of Use
 
-Draft version: 0.3 dated 26 November 2026.
+Draft version: 0.4 dated 26 November 2026.
 
 > DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete every bracketed field, confirm the owner's details and distribution countries, and review the text against applicable law and the actual application version. Remove this editorial note from the published version. This document does not itself grant permission from owners of third-party components or content.
 
@@ -66,19 +66,21 @@ Draft version: 0.3 dated 26 November 2026.
 
 5.2. The application does not promise zero latency or uninterrupted network availability. Maintenance and failures may temporarily restrict access. Material limitations known before purchase must be communicated before payment.
 
-5.3. Lyrics search, song recognition, clip downloads, radio, updates and integrations may depend on external services. Their availability and terms may change. The Owner grants no additional rights to those services.
+### Third-party services and use of content
+
+5.3. Lyrics search, song recognition, clip downloads, radio, updates and integrations may depend on external services. Their availability, terms and technical interfaces may change. The Owner grants no additional rights to those services.
 
 5.4. Changes or discontinuation of an integration do not waive mandatory user rights if the product consequently fails to meet agreed conditions.
 
-5.5. Radio and YouTube clip retrieval features are intended exclusively for personal, noncommercial use. Saving material requires the right holder's permission or an applicable statutory exception, with all its conditions met. A personal purpose alone does not establish the lawfulness of the source or access method.
+5.5. Users independently select material. Radio and YouTube clip retrieval features are intended exclusively for personal, noncommercial use. Saving material requires the right holder's permission or an applicable statutory exception, with all its conditions met. A personal purpose alone does not establish the lawfulness of the source or access method. Room participation alone does not make the use personal.
 
-5.6. Radio and clips are retrieved from the external service directly by the user's device. Clips retain video and audio without re-encoding; their audio is muted in the player during karaoke playback. When preparing a project for a room, the client excludes the clip from the outgoing archive: participants retrieve it independently using the original link. Without an available source, that clip cannot be prepared for the room. Each participant's independent retrieval does not itself establish the lawfulness of sharing other project material.
+5.6. Radio and clip retrieval through the VISIONOS client run locally on the user's device. Radio and clips are retrieved from the external service directly by the user's device; the Owner does not store or transmit that media as part of these features. Clips retain video and audio without re-encoding; their audio is muted in the player during karaoke playback. When preparing a project for a room, the client excludes the clip from the outgoing archive: participants retrieve it independently using the original link, without transfer of the clip through Room Server. Without an available source, that clip cannot be prepared for the room. Each participant's independent retrieval does not itself establish the lawfulness of sharing other project material.
 
 5.7. These features must not be used for unauthorised circumvention of technological protection measures, authentication, paywalls or other access restrictions. Unavailability of material does not authorise circumvention. These rules define permitted use; they are not a technical guarantee that every request involves no circumvention or a legal assessment of the client protocol used.
 
-5.8. Purchasing the application grants no rights to music, videos, lyrics or performances. These terms do not authorise public performance, commercial use, distribution or transfer of retrieved material to others. Such acts require an independent lawful basis.
+5.8. Purchasing the application grants no rights to music, videos, lyrics or performances. Use of retrieved material, including public performance, commercial use, distribution and transfer to others, is subject to clauses 3.2 and 3.6.
 
-5.9. Users must comply with applicable law and external service terms that bind them. The application is not an official YouTube client; use of a client identifier does not imply YouTube's approval or permission. These terms do not replace necessary permissions or exempt the Owner from liability for the Owner's own conduct.
+5.9. Users must comply with applicable law and external service terms that bind them. A&D Voice is not an official product of YouTube or Apple; use of the VISIONOS designation and client identifier does not imply those companies' approval or permission. These terms do not replace necessary permissions. Users' liability for their own unlawful conduct and the Owner's liability are governed by section 9.
 
 ## 6. Remote processing
 
@@ -102,7 +104,7 @@ Draft version: 0.3 dated 26 November 2026.
 
 7.5. Uninstalling may remove the local library, recordings, models and settings as described in the uninstaller warning. Account recovery does not restore deleted local files.
 
-7.6. Requests to delete the server account and associated personal data may be sent to dmytro.andreiev.dev@gmail.com. The Privacy Policy describes request handling. Before publishing this method, the Owner must ensure requests can actually be fulfilled.
+7.6. To delete the server account, open Settings → Advanced → Privacy and online account → Delete online account and confirm. Associated server data is removed as described in the Privacy Policy; local songs and recordings remain on the device.
 
 ## 8. Updates and support
 

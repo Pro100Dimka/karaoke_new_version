@@ -97,6 +97,7 @@ export interface Preferences {
   animationQualitySelected: boolean;
   /** Show on the singer's Discord profile what they sing or listen to (Rich Presence). */
   discordPresence: boolean;
+  discordConsentVersion: number;
   /** Install new versions by themselves at start-up; off, the Library offers them instead. */
   autoUpdate: boolean;
   librarySort: LibrarySort;
@@ -160,7 +161,8 @@ export const defaultPreferences = (): Preferences => ({
   language: oneOf(window.desktop?.initialLanguage, ['uk', 'ru', 'en'], 'ru'),
   reducedMotion: false,
   animationQualitySelected: false,
-  discordPresence: true,
+  discordPresence: false,
+  discordConsentVersion: 1,
   autoUpdate: true,
   librarySort: 'recent',
   librarySortDirection: 'desc',
@@ -380,7 +382,9 @@ export const parsePreferences = (raw: unknown): Preferences => {
       value.animationQualitySelected,
       value.reducedMotion === true,
     ),
-    discordPresence: booleanValue(value.discordPresence, base.discordPresence),
+    discordPresence:
+      value.discordConsentVersion === 1 && value.discordPresence === true,
+    discordConsentVersion: 1,
     autoUpdate: booleanValue(value.autoUpdate, base.autoUpdate),
     librarySort: oneOf(
       value.librarySort,

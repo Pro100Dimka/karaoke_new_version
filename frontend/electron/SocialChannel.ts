@@ -4,6 +4,7 @@ import { createSocialSocket, type SocialPresence } from './SocialSocket';
 import { acceptRoomVoiceLevels } from './RoomServerTransport';
 import { requireObject } from './RequestValidation';
 import type { IpcRegistrar } from './TrustedIpc';
+import { onlineAccountEnabled } from './SocialIdentity';
 
 const optionalId = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 && value.length <= 128
@@ -47,8 +48,10 @@ export const registerSocialChannel = (
       getWindow()?.webContents.send(ipcChannels.socialInbox, message);
     },
   );
-  ipc.handle(ipcChannels.socialPresence, (_event, raw) =>
-    socket.setPresence(requirePresence(raw)),
+  ipc.handle(ipcChannels.socialPresence, async (_event, raw) =>
+    (await onlineAccountEnabled())
+      ? socket.setPresence(requirePresence(raw))
+      : undefined,
   );
   ipc.handle(ipcChannels.socialLatest, () => latest);
   return socket;

@@ -1,4 +1,20 @@
-import { Grid, MessageBar, tr } from '@neo-ui-kit/react';
+import {
+  Button,
+  Card,
+  Grid,
+  MessageBar,
+  Stack,
+  Switch,
+  tr,
+  Typography,
+} from '@neo-ui-kit/react';
+import { useEffect, useState } from 'react';
+import { observer } from 'mobx-react-lite';
+import type { PrivacyState } from '../../../../../../electron/ipcChannels';
+import { desktopClient } from '../../../../../services/desktopClient';
+import { store } from '../../../../../providers/store';
+import { ask } from '../../../../../providers/dialog';
+import { useNotify } from '../../../../../providers/notifications';
 import { AboutPanel } from './about/index';
 import { DiagnosticsPanel } from './diagnostics/index';
 import { HistoryPanel } from './history/index';
@@ -30,8 +46,116 @@ export const AdvancedSettings = () => {
         <AboutPanel health={health} />
       </Grid>
       <Grid span={{ base: 'full' }}>
+        <PrivacyPanel />
+      </Grid>
+      <Grid span={{ base: 'full' }}>
         <HistoryPanel />
       </Grid>
     </Grid>
   );
 };
+
+const PrivacyPanel = observer(() => {
+  const [privacy, setPrivacy] = useState<PrivacyState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const notify = useNotify();
+  useEffect(() => {
+    let active = true;
+    void desktopClient
+      .getPrivacySettings?.()
+      .then((value) => {
+        if (active) setPrivacy(value);
+      })
+      .catch(() => notify(tr('settingsApplyFailed'), 'error'));
+    return () => {
+      active = false;
+    };
+  }, [notify]);
+
+  const changeDiagnostics = async (enabled: boolean) => {
+    if (busy || !desktopClient.setDiagnosticUploads) return;
+    setBusy(true);
+    try {
+      setPrivacy(await desktopClient.setDiagnosticUploads(enabled));
+    } catch {
+      notify(tr('settingsApplyFailed'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const changeAccount = async () => {
+    if (busy || !privacy) return;
+    const deleting = privacy.accountEnabled;
+    const confirmed = await ask({
+      title: tr(deleting ? 'privacyDeleteAccount' : 'privacyCreateAccount'),
+      body: tr(deleting ? 'privacyDeleteConfirm' : 'privacyCreateConfirm'),
+      tone: 'warning',
+      actions: [
+        { id: 'cancel', label: tr('cancel') },
+        {
+          id: 'confirm',
+          label: tr(deleting ? 'privacyDeleteAccount' : 'privacyCreateAccount'),
+          appearance: 'primary',
+        },
+      ],
+    });
+    if (confirmed !== 'confirm') return;
+    setBusy(true);
+    try {
+      if (deleting) {
+        if (store.inbox.type !== 'inbox' || !desktopClient.deleteOnlineAccount)
+          return;
+        await desktopClient.deleteOnlineAccount(store.inbox.me.accountId);
+        store.updatePreferences({
+          profilePhoto: '',
+          displayName: '',
+          discordPresence: false,
+        });
+        store.setInbox({ type: 'offline' });
+      } else {
+        await desktopClient.createOnlineAccount?.();
+      }
+      const next = await desktopClient.getPrivacySettings?.();
+      if (next) setPrivacy(next);
+      await desktopClient.relaunchApp();
+    } catch {
+      notify(tr('privacyAccountFailed'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card border title={tr('privacySettings')} icon="shield">
+      <Stack gap={3}>
+        <Switch
+          label={tr('privacyDiagnostics')}
+          checked={privacy?.diagnosticsEnabled ?? false}
+          disabled={busy || !privacy}
+          onValueChange={(enabled) => void changeDiagnostics(enabled)}
+        />
+        <Typography variant="caption">
+          {tr('privacyDiagnosticsHint')}
+        </Typography>
+        <Typography variant="caption">{tr('privacyRetentionHint')}</Typography>
+        <Button
+          label={tr(
+            privacy?.accountEnabled === false
+              ? 'privacyCreateAccount'
+              : 'privacyDeleteAccount',
+          )}
+          disabled={
+            busy ||
+            !privacy ||
+            !!store.online.room ||
+            (privacy.accountEnabled && store.inbox.type !== 'inbox')
+          }
+          onClick={() => void changeAccount()}
+        />
+        <Typography variant="caption">
+          {tr(store.online.room ? 'privacyLeaveRoom' : 'privacyAccountHint')}
+        </Typography>
+      </Stack>
+    </Card>
+  );
+});

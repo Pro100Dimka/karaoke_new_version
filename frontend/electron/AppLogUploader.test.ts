@@ -89,16 +89,42 @@ it('bounds a stalled shutdown and restores the redacted queue on the next start'
 const transport = vi.hoisted(() => ({
   request: vi.fn(),
   participantId: vi.fn(async () => 'profile-1'),
+  disabled: false,
 }));
 vi.mock('./RoomServerTransport', () => ({
   roomServerRequest: transport.request,
-  serverLogUploadsDisabled: () => false,
+  serverLogUploadsDisabled: () => transport.disabled,
 }));
 vi.mock('./RoomIdentity', () => ({
   roomParticipantId: transport.participantId,
 }));
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  transport.disabled = false;
+});
+
+it('never queues or uploads diagnostics while consent is absent or withdrawn', async () => {
+  const send = vi.fn().mockResolvedValue(undefined);
+  const logs = new AppLogUploader(send);
+  transport.disabled = true;
+  logs.add('python', 'error', 'before consent');
+  await logs.flush();
+  expect(send).not.toHaveBeenCalled();
+  transport.disabled = false;
+  logs.add('python', 'error', 'after consent');
+  await logs.flush();
+  expect(
+    send.mock.calls.flatMap(([batch]) => batch).map((entry) => entry.message),
+  ).toEqual(['after consent']);
+  logs.add('python', 'error', 'pending at withdrawal');
+  transport.disabled = true;
+  await logs.discard();
+  transport.disabled = false;
+  send.mockClear();
+  await logs.flush();
+  expect(send).not.toHaveBeenCalled();
+});
 
 it('uploads timestamped service lines in order and retries a failed batch', async () => {
   vi.useFakeTimers();
@@ -289,6 +315,27 @@ it('uses Uvicorn severity prefixes from Python stderr without changing other err
       message: 'INFO: Native device failure',
     }),
   ]);
+});
+
+it('withdraws consent while an overflowing batch is still in flight', async () => {
+  let complete!: () => void;
+  const send = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      }),
+  );
+  const logs = new AppLogUploader(send);
+  for (let index = 0; index < 1_001; index++)
+    logs.add('python', 'info', `entry ${index}`);
+  const sending = logs.flush();
+  transport.disabled = true;
+  const discarded = logs.discard();
+  complete();
+  await Promise.all([sending, discarded]);
+  transport.disabled = false;
+  await logs.flush();
+  expect(send).toHaveBeenCalledTimes(1);
 });
 
 it('sends logs to the common server outside a room under this profile identity', async () => {

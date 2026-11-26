@@ -1,4 +1,4 @@
-import type { RoomVoiceEffect } from './ipcChannels';
+import type { PrivacyState, RoomVoiceEffect } from './ipcChannels';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { ipcChannels, roomParticipantArgument } from './ipcChannels';
 
@@ -63,6 +63,18 @@ ipcRenderer.on(
 );
 
 const desktopApi = {
+  getPrivacySettings: (): Promise<PrivacyState> =>
+    ipcRenderer.invoke(ipcChannels.privacySettings, 'read'),
+  setDiagnosticUploads: (enabled: boolean): Promise<PrivacyState> =>
+    ipcRenderer.invoke(ipcChannels.privacySettings, 'diagnostics', enabled),
+  deleteOnlineAccount: (accountId: string): Promise<void> =>
+    ipcRenderer.invoke(
+      ipcChannels.privacySettings,
+      'delete-account',
+      accountId,
+    ),
+  createOnlineAccount: (): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.privacySettings, 'create-account'),
   onLegalDocuments: (listener: () => void): (() => void) => {
     ipcRenderer.on(ipcChannels.showLegalDocuments, listener);
     return () =>

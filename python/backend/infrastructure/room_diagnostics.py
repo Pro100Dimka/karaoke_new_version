@@ -9,9 +9,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
-from backend.serialization import dumps
+from backend.serialization import dumps, loads_object
 
 _safe_room_component = frozenset("0123456789abcdefghijklmnopqrstuvwxyz-")
+
+
+def _filter_log(path: Path, keep: Callable[[dict[str, object]], bool]) -> None:
+    if not path.is_file():
+        return
+    temporary = path.with_suffix(".cleaning")
+    previous = path.stat()
+    try:
+        with (
+            path.open("r", encoding="utf-8") as source,
+            temporary.open("w", encoding="utf-8", newline="\n") as output,
+        ):
+            for line in source:
+                try:
+                    entry = loads_object(line)
+                except ValueError:
+                    continue
+                if keep(entry):
+                    output.write(line.rstrip("\r\n") + "\n")
+        os.replace(temporary, path)
+        os.utime(path, ns=(previous.st_atime_ns, previous.st_mtime_ns))
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 class RoomDiagnosticsLog:
@@ -36,6 +59,7 @@ class RoomDiagnosticsLog:
         self._retention_seconds = retention_days * 86_400
         self._now = now
         self._lock = threading.Lock()
+        self._blocked: set[str] = set()
 
     def append(self, room_id: str, participant_id: str, values: Mapping[str, str]) -> bool:
         """Records one upload; False when the room id is unsafe or today's file is full."""
@@ -47,6 +71,8 @@ class RoomDiagnosticsLog:
         )
         target = self._root / room_id / f"{moment:%Y-%m-%d}.jsonl"
         with self._lock:
+            if participant_id in self._blocked:
+                return False
             if not target.exists():
                 self._remove_expired_rooms()  # a new day: the natural moment to clean up
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -70,6 +96,16 @@ class RoomDiagnosticsLog:
             if not any(room.iterdir()):
                 room.rmdir()
 
+    def cleanup(self) -> None:
+        with self._lock:
+            self._remove_expired_rooms()
+
+    def erase(self, participants: tuple[str, ...]) -> None:
+        with self._lock:
+            self._blocked.update(participants)
+            for file in self._root.glob("*/*.jsonl"):
+                _filter_log(file, lambda entry: entry.get("participantId") not in participants)
+
 
 class ProgramLog:
     """One bounded, append-only JSONL view of client, room and server events."""
@@ -83,6 +119,7 @@ class ProgramLog:
         max_uploads_per_minute: int = 1200,
         max_peer_upload_bytes_per_minute: int = 32 * 1024 * 1024,
         max_upload_bytes_per_minute: int = 64 * 1024 * 1024,
+        retention_days: int = 7,
         now: Callable[[], float] = time.time,
     ) -> None:
         self._path = path
@@ -92,7 +129,10 @@ class ProgramLog:
         self._max_peer_upload_bytes = max_peer_upload_bytes_per_minute
         self._max_upload_bytes = max_upload_bytes_per_minute
         self._now = now
+        self._retention_seconds = retention_days * 86_400
+        self._last_cleanup = 0.0
         self._lock = threading.Lock()
+        self._blocked: set[str] = set()
         self._window_start = time.monotonic()
         self._peer_uploads: dict[str, tuple[int, int]] = {}
         self._total_uploads = 0
@@ -113,6 +153,8 @@ class ProgramLog:
         if not payload or len(payload) > self._max_bytes:
             return False
         with self._lock:
+            if client_id in self._blocked:
+                return False
             if rate_key is not None:
                 elapsed = time.monotonic() - self._window_start
                 if elapsed >= 60:
@@ -150,6 +192,32 @@ class ProgramLog:
             shutil.copyfileobj(previous, output)
             output.write(payload)
         os.replace(temporary, self._path)
+
+    def cleanup(self) -> None:
+        with self._lock:
+            if self._now() - self._last_cleanup < 3600:
+                return
+            cutoff = self._now() - self._retention_seconds
+
+            def recent(entry: dict[str, object]) -> bool:
+                try:
+                    return datetime.fromisoformat(str(entry.get("at", ""))).timestamp() >= cutoff
+                except ValueError:
+                    return False
+
+            _filter_log(self._path, recent)
+            self._last_cleanup = self._now()
+
+    def erase(self, participants: tuple[str, ...]) -> None:
+        with self._lock:
+            self._blocked.update(participants)
+            _filter_log(
+                self._path,
+                lambda entry: (
+                    entry.get("clientId") not in participants
+                    and not any(value in dumps(entry) for value in participants)
+                ),
+            )
 
 
 class ProgramLogHandler(logging.Handler):

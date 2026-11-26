@@ -17,7 +17,17 @@ import { ManagedServices } from './ManagedServices';
 import { registerProjectFileHandlers } from './ProjectFiles';
 import { roomParticipantId } from './RoomIdentity';
 import { registerRoomProjectTransferHandlers } from './RoomProjectTransfer';
-import { roomServerApiBase } from './RoomServerTransport';
+import {
+  roomServerApiBase,
+  roomServerRequest,
+  serverLogUploadsDisabled,
+} from './RoomServerTransport';
+import { diagnosticsConsent, saveDiagnosticsConsent } from './PrivacySettings';
+import {
+  onlineAccountEnabled,
+  setOnlineAccountEnabled,
+  withDevice,
+} from './SocialIdentity';
 import { configureRuntimeIdentity } from './RuntimeIdentity';
 import { registerSceneProtocol } from './SceneProtocol';
 import { registerServiceIpc } from './ServiceIpc';
@@ -46,12 +56,7 @@ import { createShellNotifier, registerShellIpc } from './ShellIpc';
 import { createTaskbarIntegration } from './TaskbarIntegration';
 import { createTrayRadio } from './TrayRadio';
 import { configureNotificationIdentity } from './NotificationIdentity';
-import {
-  takeLegalStartupWindow,
-  registerLegalViewer,
-  legalAcknowledged,
-  showLegalDocuments,
-} from './LegalDocuments';
+import { takeLegalStartupWindow, registerLegalViewer } from './LegalDocuments';
 
 const startupFailed: Readonly<Record<string, string>> = {
   ru: 'Не удалось запустить приложение.',
@@ -118,11 +123,8 @@ const scheduleRelaunch = (args?: string[]): void => {
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
 const backendEventsStop = new AbortController();
-let legalAccessAllowed = legalAcknowledged();
 const appLogs = new AppLogUploader(
-  async (entries) => {
-    if (legalAccessAllowed) await sendAppLogs(entries);
-  },
+  sendAppLogs,
   path.join(app.getPath('userData'), 'pending-app-logs.json'),
 );
 appLogs.captureConsole(console);
@@ -146,6 +148,51 @@ const socialSocket = registerSocialChannel(
   roomServerApiBase,
   () => mainWindow,
   trustedIpc,
+);
+trustedIpc.handle(
+  ipcChannels.privacySettings,
+  async (_event, action: unknown, input: unknown) => {
+    if (action === 'diagnostics') {
+      if (typeof input !== 'boolean')
+        throw new TypeError('Diagnostic consent must be a boolean');
+      saveDiagnosticsConsent(input);
+      if (!services.setDiagnosticUploads(input)) await appLogs.discard();
+    } else if (action === 'delete-account') {
+      const request = await withDevice({
+        method: 'DELETE',
+        path: '/social/me',
+        body: {
+          accountId: requireString(input, 'accountId'),
+        },
+      });
+      socialSocket.stop();
+      const response = await roomServerRequest(request);
+      if (!response.ok) {
+        socialSocket.start();
+        throw new Error(
+          `Account deletion failed (${response.status}). Retry when uploads have finished and the server is available.`,
+        );
+      }
+      saveDiagnosticsConsent(false);
+      services.setDiagnosticUploads(false);
+      await appLogs.discard();
+      await setOnlineAccountEnabled(false);
+      mainWindow?.webContents.send(ipcChannels.socialInbox, {
+        type: 'offline',
+      });
+      return;
+    } else if (action === 'create-account') {
+      await setOnlineAccountEnabled(true);
+      return;
+    } else if (action !== 'read') {
+      throw new TypeError('Unknown privacy action');
+    }
+    return {
+      diagnosticsEnabled: !serverLogUploadsDisabled(),
+      diagnosticsRecordedAt: diagnosticsConsent().recordedAt,
+      accountEnabled: await onlineAccountEnabled(),
+    };
+  },
 );
 
 // The desktop shell: taskbar, tray, jump list, invitation links, mute hotkey, Discord and updates.
@@ -336,7 +383,6 @@ let earlyStartupError: unknown;
 try {
   if (
     isPrimaryInstance &&
-    legalAccessAllowed &&
     !hasPendingStorageMigration() &&
     !updater.requiresLaunchCheck()
   )
@@ -372,17 +418,6 @@ app
     // menu's hidden shortcuts (developer tools, reload) that would otherwise still respond to keys.
     if (app.isPackaged) Menu.setApplicationMenu(null);
     if (!isPrimaryInstance) return;
-    if (!legalAccessAllowed) {
-      legalAccessAllowed = await showLegalDocuments(
-        rendererUrl,
-        process.env.AD_VOICE_LANGUAGE ?? app.getLocale().slice(0, 2),
-        true,
-      );
-      if (!legalAccessAllowed) {
-        app.quit();
-        return;
-      }
-    }
     openSplash(
       themeIconPath(readSavedTheme()),
       path.join(__dirname, '..', 'electron', 'splash.html'),

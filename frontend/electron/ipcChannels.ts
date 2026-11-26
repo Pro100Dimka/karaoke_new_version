@@ -7,6 +7,11 @@ export const roomVoiceEffects = [
   'autoTune',
 ] as const;
 export type RoomVoiceEffect = (typeof roomVoiceEffects)[number];
+export interface PrivacyState {
+  diagnosticsEnabled: boolean;
+  diagnosticsRecordedAt: string | null;
+  accountEnabled: boolean;
+}
 export interface LegalDocumentState {
   language: 'ru' | 'uk' | 'en';
   requireAcknowledgement: boolean;
@@ -18,6 +23,7 @@ export interface LegalDocumentState {
   }[];
 }
 export const ipcChannels = {
+  privacySettings: 'desktop:privacy-settings',
   legalDocumentRequest: 'desktop:legal-document-request',
   roomParticipantId: 'desktop:room-participant-id',
   minimize: 'desktop:minimize',

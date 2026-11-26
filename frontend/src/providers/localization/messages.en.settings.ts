@@ -1,4 +1,21 @@
 export const enSettings = {
+  privacySettings: 'Privacy and online account',
+  privacyDiagnostics: 'Allow automatic diagnostic uploads',
+  privacyDiagnosticsHint:
+    'Optional. Sends text logs and technical diagnostics to help investigate failures. Logs may contain file names and paths, but no audio or file contents. Off by default; turning it off stops uploads and clears pending reports on this device.',
+  privacyRetentionHint:
+    'Server diagnostic logs are retained for 7 days and checked for expiry at least hourly. Separate room recordings are retained for 24 hours. The default shared account quota for project uploads is 10 GiB.',
+  privacyDeleteAccount: 'Delete online account',
+  privacyCreateAccount: 'Create a new online account',
+  privacyDeleteConfirm:
+    'Permanently delete your server profile, photo, friends, invitations, room history, uploaded projects, singer sources and associated diagnostic logs? Hosted rooms will close. Other people may retain copies they already downloaded. Local songs and recordings stay on this computer. The app will restart with online features disabled.',
+  privacyCreateConfirm:
+    'Create a new empty account and restart the app? Deleted friends, history and uploads cannot be restored.',
+  privacyAccountFailed:
+    'The account action failed. Check the connection and let active uploads finish, then retry.',
+  privacyLeaveRoom: 'Leave the room before deleting your account.',
+  privacyAccountHint:
+    'Deletion disables automatic sign-in. You can continue locally or explicitly create a new empty account.',
   legalDocuments: 'Legal documents and licenses',
   legalTitle: 'Legal documents',
   legalTerms: 'Terms of use',

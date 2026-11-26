@@ -36,7 +36,9 @@ def _follow_rooms(social: SocialCases) -> Callable[[str, Room | None], None]:
 
 
 def build_room_server_social(
-    repository: ObservableRoomRepository, database_path: Path | None
+    repository: ObservableRoomRepository,
+    database_path: Path | None,
+    remove_data: Callable[[tuple[str, ...]], None] = lambda _: None,
 ) -> SocialCases:
     social = build_social_cases(
         database_path,
@@ -44,6 +46,7 @@ def build_room_server_social(
         UtcClock(),
         lambda room_id: repository.get(room_id) is not None,
         lambda room_id: room.host_id if (room := repository.get(room_id)) is not None else None,
+        remove_data,
     )
     repository.listen(_follow_rooms(social))
     return social
