@@ -47,8 +47,7 @@ def split_artist_title(stem: str) -> tuple[str, str] | None:
 def with_filename_fallback(metadata: MediaMetadata, source: Path) -> MediaMetadata:
     """Fills the fields the file's own tags left empty from ``Artist - Title`` in its name.
 
-    Embedded tags always win: the file name is used only for a missing artist and for a title that is
-    itself just the file stem.
+    Embedded tags win; the file name also confirms legacy Cyrillic tag encoding repairs.
     """
     parts = split_artist_title(source.stem)
     if parts is not None:
@@ -62,10 +61,24 @@ def with_filename_fallback(metadata: MediaMetadata, source: Path) -> MediaMetada
         )
     return replace(
         metadata,
-        title=clean_site_tags(metadata.title),
-        artist=clean_site_tags(metadata.artist),
+        title=clean_site_tags(_restore_tag_encoding(metadata.title, source.stem)),
+        artist=clean_site_tags(_restore_tag_encoding(metadata.artist, source.stem)),
         album=clean_site_tags(metadata.album) if metadata.album else metadata.album,
     )
+
+
+def _restore_tag_encoding(value: str, filename: str) -> str:
+    words = set(re.findall(r"[А-Яа-яЁёІіЇїЄєҐґ]{3,}", filename.casefold()))
+
+    def restore(match: re.Match[str]) -> str:
+        word = match[0]
+        try:
+            decoded = word.encode("latin1").decode("cp1251")
+        except UnicodeError:
+            return word
+        return decoded if decoded.casefold() in words else word
+
+    return re.sub(r"[A-Za-z\x80-\xff]+", restore, value)
 
 
 def conflicts_with_filename(filename: str, artist: str, title: str) -> bool:

@@ -86,3 +86,33 @@ def test_site_addresses_are_dropped_from_title_artist_and_album() -> None:
     )
     result = with_filename_fallback(metadata, Path("x.mp3"))
     assert (result.title, result.artist, result.album) == ("Song", "Band", "Album")
+
+
+@pytest.mark.parametrize(
+    ("title", "artist", "filename", "expected_title", "expected_artist"),
+    [
+        (
+            "Меланхолия (Feat. Alextyle of -deTach-)".encode("cp1251").decode("latin1"),
+            "Take It All",
+            "Detach - Меланхолия.mp3",
+            "Меланхолия (Feat. Alextyle of -deTach-)",
+            "Take It All",
+        ),
+        (
+            "Пісня".encode("cp1251").decode("latin1"),
+            "Виконавець".encode("cp1251").decode("latin1"),
+            "Виконавець - Пісня.mp3",
+            "Пісня",
+            "Виконавець",
+        ),
+        ("Меланхолия", "Detach", "Detach - Меланхолия.mp3", "Меланхолия", "Detach"),
+        ("Déjà vu", "Björk", "Björk - Déjà vu.mp3", "Déjà vu", "Björk"),
+        ("Übermäßig", "Édith", "Édith - Übermäßig.mp3", "Übermäßig", "Édith"),
+        ("Ìåëàíõîëèÿ", "Take It All", "track02.mp3", "Ìåëàíõîëèÿ", "Take It All"),
+    ],
+)
+def test_legacy_tag_encoding_requires_filename_confirmation(
+    title: str, artist: str, filename: str, expected_title: str, expected_artist: str
+) -> None:
+    result = with_filename_fallback(_metadata(title, artist), Path(filename))
+    assert (result.title, result.artist) == (expected_title, expected_artist)
