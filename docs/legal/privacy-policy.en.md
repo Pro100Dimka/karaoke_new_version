@@ -1,6 +1,6 @@
 # A&D Voice Privacy Policy
 
-Draft version: 0.4 dated 26 November 2026.
+Draft version: 0.5 dated 26 November 2026.
 
 > DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete bracketed fields and establish actual retention periods, recipients, processing countries and legal bases. Request handling and deletion procedures must work in practice. Remove this editorial note before publication. Describing current behaviour does not certify compliance with every country's requirements.
 
@@ -82,7 +82,7 @@ The current code supports these external requests:
 | Feature | Possible recipient and data |
 | --- | --- |
 | Song identification | Shazam: acoustic features and technical request data; AudD, if configured: the submitted audio file and request information |
-| Lyrics search | LRCLIB: song title, artist and search parameters |
+| Lyrics search | LRCLIB, Pisni.ua, tekst-pesenok.online: song title, artist and search parameters |
 | Video search and retrieval, radio | YouTube/Google and media providers: requests, content identifiers and connection information |
 | Application updates | GitHub: release and file requests and technical connection information; the application version is used in update-check logic |
 | Model and component downloads | Distribution servers: requests for required files and technical connection information |
@@ -113,7 +113,9 @@ Where international transfer requirements apply, legally recognised grounds and 
 | Separate performance tracks on the server | Cleanup uses 24 hours from the server's performance-activity timestamp; removal occurs during the next cleanup pass |
 | Separate room diagnostic files | Current cleanup policy uses seven days; some messages also enter the general log |
 | General server application log | 7 days from server receipt; cleaned at startup and at least hourly, with an additional size limit |
-| Support enquiries and backups | [SPECIFY RETENTION PERIODS AND CRITERIA, INCLUDING REMOVAL OF DELETED DATA FROM BACKUPS] |
+| Support enquiries | [SPECIFY RETENTION FOR THE ACTUAL SUPPORT CHANNEL] |
+| Server backups of user data | Not created in the current configuration; code rollback copies contain no user databases, files or logs |
+| Detailed processing-computer logs | Stored separately per owner, until account deletion or 24 hours of owner inactivity; limited to 8 MiB per owner |
 
 Temporary-file expiry does not guarantee deletion at the exact second: it depends on cleanup services. The Owner must keep them running and address retention failures.
 
@@ -135,7 +137,13 @@ Uninstalling A&D Voice may remove local files but does not request server-accoun
 
 To delete an account, open Settings → Advanced → Privacy and online account → Delete online account and confirm. The server verifies the current owner credential. Deletion removes the profile, photo, relationships, invitations, history, uploaded projects, separate singer sources and associated diagnostic logs; hosted rooms close. Active uploads must finish before retrying deletion. Local songs and recordings stay on the device. The app restarts with online features disabled; a new empty account requires a separate explicit action.
 
-After deletion the server retains only revoked credential hashes and revoked participant identifiers without a profile link, to prevent old clients from signing in again. The device retains an account-disabled marker. Participant-held copies, external recipients and separately managed backups are not erased by this action; their retention and procedures must be defined separately.
+Deletion also cancels remote processing jobs and erases their inputs, results and saved sessions on the processing computer. If the worker was used, the server waits for its confirmation; an unavailable worker prevents completion and deletion can be retried after the worker is online. Discord activity sharing is turned off. Local songs and recordings remain.
+
+The current server configuration does not create backups of user databases, files or logs. Deployment rollback copies contain only code, dependencies and service configuration. Backups of user data must not be enabled until retention, erasure and restoration without resurrecting deleted accounts are implemented and verified.
+
+After deletion the server retains only revoked credential hashes and revoked participant identifiers without a profile link to prevent old clients from signing in again. Equivalent processing-worker revocation records contain no audio or profile. The device retains an account-disabled marker.
+
+Copies already downloaded by other participants and data held by independent services are not erased by the A&D Voice account button. This includes history and technical data held by Shazam/Apple, AudD, Google/YouTube, GitHub, model distributors and Discord. The A&D Voice account-erasure operation does not administer those accounts or claim to erase their history. Requests to independent services use their own privacy controls. User-enabled features remain available; after account deletion our server makes no new disclosures of that account data.
 
 Removing only the Windows secret does not delete the server account. Conversely, server deletion cannot itself remove files from disconnected or other people's devices. Full deletion methods and loss-of-access consequences must be explained when handling requests.
 

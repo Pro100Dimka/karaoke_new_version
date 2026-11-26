@@ -56,10 +56,12 @@ def account_identity(
             credentials.write(
                 dumps({"secret": secrets.token_hex(32), "disabled": action == "disable"})
             )
-        elif action != "read":
+        elif action not in ["read", "existing"]:
             raise ValueError("Invalid account identity action")
         saved = credentials.read()
         if saved is None:
+            if action == "existing":
+                raise ValueError("An existing online account is required")
             # Read the previous account before publishing any replacement identity. Offline
             # first launches retry later, instead of silently creating an unrelated account.
             previous = _request(server, legacy_secret)

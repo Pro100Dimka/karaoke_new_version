@@ -58,6 +58,7 @@ export const AdvancedSettings = () => {
 const PrivacyPanel = observer(() => {
   const [privacy, setPrivacy] = useState<PrivacyState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const notify = useNotify();
   useEffect(() => {
     let active = true;
@@ -88,7 +89,9 @@ const PrivacyPanel = observer(() => {
     const deleting = privacy.accountEnabled;
     const confirmed = await ask({
       title: tr(deleting ? 'privacyDeleteAccount' : 'privacyCreateAccount'),
-      body: tr(deleting ? 'privacyDeleteConfirm' : 'privacyCreateConfirm'),
+      body: deleting
+        ? `${tr('privacyDeleteConfirm')}\n\n${tr('privacyDeletionScope')}`
+        : tr('privacyCreateConfirm'),
       tone: 'warning',
       actions: [
         { id: 'cancel', label: tr('cancel') },
@@ -101,6 +104,7 @@ const PrivacyPanel = observer(() => {
     });
     if (confirmed !== 'confirm') return;
     setBusy(true);
+    setDeleting(deleting);
     try {
       if (deleting) {
         if (store.inbox.type !== 'inbox' || !desktopClient.deleteOnlineAccount)
@@ -121,6 +125,7 @@ const PrivacyPanel = observer(() => {
     } catch {
       notify(tr('privacyAccountFailed'), 'error');
     } finally {
+      setDeleting(false);
       setBusy(false);
     }
   };
@@ -138,6 +143,8 @@ const PrivacyPanel = observer(() => {
           {tr('privacyDiagnosticsHint')}
         </Typography>
         <Typography variant="caption">{tr('privacyRetentionHint')}</Typography>
+        <Typography variant="caption">{tr('privacyDeletionScope')}</Typography>
+        {deleting && <MessageBar>{tr('privacyDeletionWaiting')}</MessageBar>}
         <Button
           label={tr(
             privacy?.accountEnabled === false

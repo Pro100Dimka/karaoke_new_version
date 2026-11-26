@@ -42,6 +42,7 @@ from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
 from backend.infrastructure.room_upload_storage import RoomUploadStorage
+from backend.infrastructure.processing_erasure import ProcessingErasure
 from backend.room.domain import ConnectionState, PlaybackState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
@@ -305,6 +306,7 @@ def create_room_server_app(
     program_log: ProgramLog | None = None,
     departure_grace_seconds: float = _departure_grace_seconds,
     native_relay_executable: Path | None = None,
+    processing_root: Path | None = None,
 ) -> FastAPI:
     """Build the shared room-only server; songs, recordings and AI stay local."""
     repository = ObservableRoomRepository(
@@ -318,6 +320,9 @@ def create_room_server_app(
     )
 
     def remove_account_data(participants: tuple[str, ...]) -> None:
+        ProcessingErasure(processing_root or Path("/opt/karaoke-processing-server/data")).erase(
+            participants
+        )
         uploads.erase(participants)
         for room_id in repository.list_ids():
             room = repository.get(room_id)

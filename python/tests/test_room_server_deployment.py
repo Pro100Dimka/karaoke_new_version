@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -351,7 +352,10 @@ cp() {
     if [[ "${FAIL_ROLLBACK:-}" == 1 && "${@: -2:1}" == *processing-before-* ]]; then return 1; fi
     command cp "$@"
 }
-python3() { cat >/dev/null; printf 'new site' > "$2"; fail_once patch-site; }
+python3() {
+    if [[ "$2" == */queue.sqlite3 ]]; then "$RC_PYTHON" "$@"; return $?; fi
+    cat >/dev/null; printf 'new site' > "$2"; fail_once patch-site;
+}
 nginx() { fail_once nginx; }
 systemctl() {
     case "$1" in
@@ -381,8 +385,34 @@ curl() {
         "BASH_ENV": _bash_path(mocks),
         "RC_SANDBOX": _bash_path(tmp_path),
         "RC_WINDOWS_SANDBOX": "1" if os.name == "nt" else "0",
+        "RC_PYTHON": _bash_path(Path(sys.executable)),
     }
     return bash_interpreter, script, stage, environment, original
+
+
+@pytest.mark.parametrize("state,legacy", [("running", False), ("done", True)])
+def test_processing_deployment_rejects_active_or_unattributed_jobs(
+    processing_deployment_sandbox, state, legacy
+):
+    import sqlite3
+
+    bash, script, stage, environment, original = processing_deployment_sandbox
+    root = next(iter(original)).parent
+    with sqlite3.connect(root / "data/queue.sqlite3") as db:
+        db.execute("CREATE TABLE jobs (state TEXT" + ("" if legacy else ",owner TEXT") + ")")
+        db.execute("INSERT INTO jobs (state) VALUES (?)", (state,))
+    result = subprocess.run(
+        [str(bash), str(script), _bash_path(stage)], env=environment, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert (
+        "Processing jobs are active" in result.stderr
+        if not legacy
+        else "legacy processing queue" in result.stderr
+    )
+    for target, expected in original.items():
+        assert target.read_text(encoding="utf-8") == expected
+    assert not list(stage.glob("processing-before-*"))
 
 
 @pytest.mark.parametrize(

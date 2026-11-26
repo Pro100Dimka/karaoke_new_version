@@ -51,6 +51,21 @@ trap finish_deployment EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+python3 - "$root/data/queue.sqlite3" <<'PY'
+import sqlite3
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if path.is_file():
+    with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as db:
+        if db.execute("SELECT 1 FROM jobs WHERE state IN ('uploading','queued','running') LIMIT 1").fetchone():
+            raise SystemExit("Processing jobs are active; deployment was not activated")
+        columns = {row[1] for row in db.execute("PRAGMA table_info(jobs)")}
+        if "owner" not in columns and db.execute("SELECT 1 FROM jobs LIMIT 1").fetchone():
+            raise SystemExit("Clear the legacy processing queue before upgrading privacy storage")
+PY
+
 # Preserve the whole replaced configuration before changing any serving file.
 for index in "${!paths[@]}"; do
     [[ ! -e "$stage/processing-before-$index" ]] || exit 2
@@ -70,6 +85,7 @@ sudo install -m 644 "$stage/processing-server.service" /etc/systemd/system/ad-vo
 sudo install -m 644 "$stage/processing-proxy.conf" /etc/nginx/snippets/ad-voice-processing.conf
 sudo python3 - "$site" <<'PY'
 import sys
+import re
 from pathlib import Path
 path = Path(sys.argv[1])
 text = path.read_text()
@@ -78,7 +94,13 @@ if line not in text:
     anchor = '    client_max_body_size 0;'
     if text.count(anchor) != 1:
         raise SystemExit('Expected one room HTTPS server block')
-    path.write_text(text.replace(anchor, anchor + '\n' + line))
+    text = text.replace(anchor, anchor + '\n' + line)
+text = re.sub(
+    r"(?m)^([ \t]*)server\s*\{[ \t]*\n(?![ \t]*access_log off;\n[ \t]*error_log /dev/null crit;)",
+    lambda match: match[0] + match[1] + "    access_log off;\n" + match[1] + "    error_log /dev/null crit;\n",
+    text,
+)
+path.write_text(text)
 PY
 sudo nginx -t
 sudo systemctl daemon-reload

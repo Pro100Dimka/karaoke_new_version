@@ -134,10 +134,11 @@ class ProcessingTransport:
         cancel: threading.Event,
         *,
         progress: Callable[[str, float, float], None] | None = None,
+        device_secret: str = "",
     ) -> None:
         if cancel.is_set():
             raise ConflictError("JobCancelled", "Processing was cancelled")
-        route, headers = self._submit(source)
+        route, headers = self._submit(source, device_secret)
         deadline = time.monotonic() + 2 * 3600
         try:
             while not cancel.is_set():
@@ -162,13 +163,16 @@ class ProcessingTransport:
             except (httpx.HTTPError, DependencyError):
                 pass
 
-    def _submit(self, source: Path) -> tuple[str, dict[str, str]]:
+    def _submit(self, source: Path, device_secret: str = "") -> tuple[str, dict[str, str]]:
         with source.open("rb") as content:
             ticket = self.request(
                 "POST",
                 "/jobs",
                 content=content,
-                headers={"Content-Length": str(source.stat().st_size)},
+                headers={
+                    "Content-Length": str(source.stat().st_size),
+                    "X-AD-Voice-Device": device_secret,
+                },
             ).json()
         return "/jobs/" + ticket["jobId"], {"X-Job-Key": ticket["jobKey"]}
 

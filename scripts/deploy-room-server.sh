@@ -128,6 +128,9 @@ printf '%s\n' '[Service]' \
     'CapabilityBoundingSet=CAP_SYS_NICE' \
     'KillMode=mixed' \
     | sudo tee "$native_config" >/dev/null
+if [[ -d /opt/karaoke-processing-server/data ]]; then
+    printf '%s\n' 'ReadWritePaths=/opt/karaoke-processing-server/data' | sudo tee -a "$native_config" >/dev/null
+fi
 sudo systemctl daemon-reload
 sudo chown -R ubuntu:ubuntu "$root/backend" "$root/pyproject.toml" "$root/bin/NativeVoiceRelay"
 

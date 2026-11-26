@@ -41,6 +41,7 @@ from backend.processing.domain import (
 from backend.serialization import JsonValue
 from backend.settings.domain import is_secure_kaggle_url
 from backend.settings.environment import default_environment_store, room_processing_url
+from backend.infrastructure.account_identity import account_identity
 from backend.songs.domain import Language, Song
 from collections.abc import Callable
 
@@ -121,7 +122,21 @@ class OracleAiProvider:
                 directory = Path(temporary)
                 request, response = directory / "request.zip", directory / "response.zip"
                 write_bundle(request, {"protocolVersion": 1, "action": action, **options}, files)
-                transport.invoke(request, response, cancel, progress=progress)
+                origin = transport.url.removesuffix("/processing")
+                identity = account_identity(
+                    origin, os.getenv("AD_VOICE_PROFILE", "default"), "", "existing"
+                )
+                if not identity["enabled"]:
+                    raise DependencyError(
+                        "OnlineAccountRequired", "Create an online account before remote processing"
+                    )
+                transport.invoke(
+                    request,
+                    response,
+                    cancel,
+                    progress=progress,
+                    device_secret=str(identity["secret"]),
+                )
                 destination = output or directory
                 result = read_bundle(response, destination)
                 if result.get("protocolVersion") != 1:

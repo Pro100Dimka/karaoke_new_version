@@ -24,14 +24,146 @@ def relay(tmp_path, monkeypatch):
     monkeypatch.setenv("AD_VOICE_PROCESSING_DATA", str(tmp_path / "relay"))
     monkeypatch.setenv("AD_VOICE_PROCESSING_TOKEN", "client-key-" * 4)
     monkeypatch.setenv("AD_VOICE_PROCESSING_WORKER_TOKEN", "worker-key-" * 4)
+    import sqlite3
+    from backend.social.codes import device_key
+
+    accounts = tmp_path / "social.sqlite3"
+    with sqlite3.connect(accounts) as db:
+        db.execute("CREATE TABLE accounts (device_key TEXT)")
+        db.execute("INSERT INTO accounts VALUES (?)", (device_key("privacy-device-" * 4),))
+    monkeypatch.setenv("AD_VOICE_PROCESSING_ACCOUNT_DB", str(accounts))
     spec = importlib.util.spec_from_file_location(
         "processing_relay_test", Path(__file__).parents[2] / "scripts/processing-server.py"
     )
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
-    with TestClient(module.app) as client:
+    with TestClient(module.app, headers={"X-AD-Voice-Device": "privacy-device-" * 4}) as client:
         yield module, client
+
+
+def test_account_erasure_waits_for_worker_and_removes_only_owned_processing_data(relay, tmp_path):
+    from backend.infrastructure.processing_erasure import ProcessingErasure
+    from backend.remote_worker import _erase_accounts
+    from backend.social.codes import device_participant_id
+
+    module, client = relay
+    participant = device_participant_id("privacy-device-" * 4)
+    headers = {"X-Processing-Key": module.CLIENT_KEY}
+    ticket = client.post("/processing/jobs", content=b"private song", headers=headers).json()
+    erasure = ProcessingErasure(module.ROOT)
+    with pytest.raises(DomainError, match="processing") as pending:
+        erasure.erase((participant,))
+    assert pending.value.code == "ProcessingErasurePending"
+    worker = {"X-Processing-Key": module.WORKER_KEY}
+    claim = client.post("/processing/worker/claim", headers=worker).json()
+    assert claim["erasures"] == [participant]
+    root = tmp_path / "worker"
+    owned, kept = root / "sessions" / participant, root / "sessions" / ("f" * 32)
+    for directory in [owned, kept]:
+        directory.mkdir(parents=True)
+        (directory / "voice.wav").write_bytes(b"private voice")
+
+    class Transport:
+        def request(self, method, path):
+            response = client.request(method, "/processing" + path, headers=worker)
+            response.raise_for_status()
+            return response
+
+    _erase_accounts(Transport(), root, claim["erasures"])
+    erasure.erase((participant,))
+    assert not owned.exists()
+    assert kept.exists()
+    assert not (module.ROOT / ticket["jobId"]).exists()
+    with module.database() as db:
+        assert db.execute("SELECT count(*) FROM jobs").fetchone()[0] == 0
+    assert (
+        client.post("/processing/jobs", content=b"late upload", headers=headers).status_code == 403
+    )
+
+
+def test_erasure_cannot_be_acknowledged_while_an_upload_can_still_write(relay, monkeypatch):
+    import anyio
+    from concurrent.futures import ThreadPoolExecutor
+    from backend.infrastructure.processing_erasure import ProcessingErasure
+    from backend.social.codes import device_participant_id
+
+    module, client = relay
+    started, release = threading.Event(), threading.Event()
+
+    async def upload(request, path, expected):
+        path.write_bytes(b"private upload")
+        started.set()
+        await anyio.to_thread.run_sync(release.wait)
+
+    monkeypatch.setattr(module, "upload", upload)
+    participant = device_participant_id("privacy-device-" * 4)
+    erasure = ProcessingErasure(module.ROOT)
+    worker = {"X-Processing-Key": module.WORKER_KEY}
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending = executor.submit(
+            client.post,
+            "/processing/jobs",
+            content=b"private upload",
+            headers={"X-Processing-Key": module.CLIENT_KEY},
+        )
+        try:
+            assert started.wait(5)
+            with pytest.raises(DomainError):
+                erasure.erase((participant,))
+            assert (
+                client.post(
+                    "/processing/worker/erasures/" + participant, headers=worker
+                ).status_code
+                == 409
+            )
+        finally:
+            release.set()
+        assert pending.result(timeout=5).status_code == 409
+    assert (
+        client.post("/processing/worker/erasures/" + participant, headers=worker).status_code == 204
+    )
+    erasure.erase((participant,))
+
+
+def test_account_api_does_not_report_deletion_until_processing_acknowledges(relay, tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.api.room_server_app import create_room_server_app
+    from backend.social.codes import device_participant_id
+
+    module, client = relay
+    secret = "privacy-device-" * 4
+    participant = device_participant_id(secret)
+    client.post(
+        "/processing/jobs", content=b"private job", headers={"X-Processing-Key": module.CLIENT_KEY}
+    ).raise_for_status()
+    app = create_room_server_app(
+        relay_port=0,
+        room_database=tmp_path / "accounts/rooms.sqlite3",
+        project_root=tmp_path / "projects",
+        diagnostics_root=tmp_path / "logs",
+        processing_root=module.ROOT,
+    )
+    headers = {"X-AD-Voice-Device": secret}
+    with TestClient(app) as accounts:
+        account = accounts.get("/social/me", headers=headers).json()
+        response = accounts.request(
+            "DELETE", "/social/me", headers=headers, json={"accountId": account["accountId"]}
+        )
+        assert response.status_code == 409
+        assert response.json()["code"] == "ProcessingErasurePending"
+        assert accounts.get("/social/me", headers=headers).status_code == 200
+        client.post(
+            "/processing/worker/erasures/" + participant,
+            headers={"X-Processing-Key": module.WORKER_KEY},
+        ).raise_for_status()
+        assert (
+            accounts.request(
+                "DELETE", "/social/me", headers=headers, json={"accountId": account["accountId"]}
+            ).status_code
+            == 204
+        )
+        assert accounts.get("/social/me", headers=headers).status_code == 403
 
 
 @pytest.mark.parametrize("cancel_running", [False, "ack", "lease", "worker"])

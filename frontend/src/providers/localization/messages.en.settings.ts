@@ -6,6 +6,10 @@ export const enSettings = {
   privacyRetentionHint:
     'Server diagnostic logs are retained for 7 days and checked for expiry at least hourly. Separate room recordings are retained for 24 hours. The default shared account quota for project uploads is 10 GiB.',
   privacyDeleteAccount: 'Delete online account',
+  privacyDeletionScope:
+    'Deletes data on our servers and remote processing sessions after the worker confirms erasure. Local files, copies downloaded by other people and history held by independent services Shazam, AudD, Google, GitHub and Discord follow their own rules. Deleting this account does not delete accounts with those services.',
+  privacyDeletionWaiting:
+    'Erasure is in progress. Waiting for the processing computer to confirm, if it was used. This may take up to two minutes.',
   privacyCreateAccount: 'Create a new online account',
   privacyDeleteConfirm:
     'Permanently delete your server profile, photo, friends, invitations, room history, uploaded projects, singer sources and associated diagnostic logs? Hosted rooms will close. Other people may retain copies they already downloaded. Local songs and recordings stay on this computer. The app will restart with online features disabled.',

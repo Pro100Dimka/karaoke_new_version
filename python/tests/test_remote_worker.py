@@ -8,6 +8,24 @@ import pytest
 
 from backend.domain_errors import DomainError
 from backend.infrastructure.oracle_ai_provider import OracleAiProvider
+
+
+def test_worker_discards_legacy_sessions_without_erasing_current_owner_data(tmp_path):
+    from backend.remote_worker import _clean_sessions
+
+    legacy = tmp_path / "sessions" / ("a" * 32)
+    owner = tmp_path / "sessions" / ("b" * 32)
+    session = owner / ("c" * 32)
+    for directory in [legacy, session]:
+        directory.mkdir(parents=True)
+        (directory / "vocals.wav").write_bytes(b"temporary voice")
+    (owner / "worker.log").write_text("private job diagnostic", encoding="utf-8")
+    _clean_sessions(tmp_path)
+    assert not legacy.exists()
+    assert (session / "vocals.wav").exists()
+    assert (owner / "worker.log").exists()
+
+
 from backend.lyrics.codec import encode_document
 from backend.lyrics.domain import LyricsDocument
 from backend.processing.domain import ProcessingMode, ProcessingOptions

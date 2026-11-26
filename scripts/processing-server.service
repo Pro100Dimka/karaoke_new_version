@@ -9,6 +9,7 @@ Group=ubuntu
 WorkingDirectory=/opt/karaoke-processing-server
 EnvironmentFile=/etc/ad-voice-processing.env
 Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH=/opt/karaoke-room-server
 ExecStart=/opt/karaoke-room-server/.venv/bin/python -B /opt/karaoke-processing-server/processing-server.py
 Restart=on-failure
 RestartSec=10
@@ -18,6 +19,7 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/opt/karaoke-processing-server/data
+ReadWritePaths=/opt/karaoke-room-server/data
 MemoryMax=512M
 CPUQuota=50%
 TasksMax=64

@@ -166,7 +166,19 @@ trustedIpc.handle(
         },
       });
       socialSocket.stop();
-      const response = await roomServerRequest(request);
+      let response = await roomServerRequest(request);
+      const deadline = Date.now() + 120_000;
+      while (
+        !response.ok &&
+        response.body &&
+        typeof response.body === 'object' &&
+        'code' in response.body &&
+        response.body.code === 'ProcessingErasurePending' &&
+        Date.now() < deadline
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        response = await roomServerRequest(request);
+      }
       if (!response.ok) {
         socialSocket.start();
         throw new Error(
@@ -176,6 +188,8 @@ trustedIpc.handle(
       saveDiagnosticsConsent(false);
       services.setDiagnosticUploads(false);
       await appLogs.discard();
+      shell.report({ ...shell.status(), discordPresence: false });
+      discord?.refresh?.();
       await setOnlineAccountEnabled(false);
       mainWindow?.webContents.send(ipcChannels.socialInbox, {
         type: 'offline',

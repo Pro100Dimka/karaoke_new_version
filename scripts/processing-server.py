@@ -17,12 +17,22 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend.infrastructure.processing_erasure import (
+    acknowledge_processing_erasure,
+    processing_privacy_schema,
+)
+from backend.social.codes import device_key, device_participant_id
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 ROOT = Path(os.environ["AD_VOICE_PROCESSING_DATA"]).resolve()
 ROOT.mkdir(parents=True, exist_ok=True)
+ACCOUNT_DB = Path(
+    os.environ.get(
+        "AD_VOICE_PROCESSING_ACCOUNT_DB", "/opt/karaoke-room-server/data/social.sqlite3"
+    )
+)
 CLIENT_KEY = os.environ["AD_VOICE_PROCESSING_TOKEN"]
 WORKER_KEY = os.environ["AD_VOICE_PROCESSING_WORKER_TOKEN"]
 if min(len(CLIENT_KEY), len(WORKER_KEY)) < 32 or CLIENT_KEY == WORKER_KEY:
@@ -35,6 +45,7 @@ MAX_STORAGE = 5 * 1024**3
 MONTHLY_EGRESS = 100 * 1000**3
 TTL = 24 * 3600
 LOCK = threading.RLock()
+UPLOADING: set[str] = set()
 app = FastAPI(title="A&D Voice Processing Queue", docs_url=None, redoc_url=None)
 
 
@@ -42,6 +53,7 @@ app = FastAPI(title="A&D Voice Processing Queue", docs_url=None, redoc_url=None)
 def database() -> Iterator[sqlite3.Connection]:
     with LOCK, sqlite3.connect(ROOT / "queue.sqlite3", timeout=20) as db:
         db.row_factory = sqlite3.Row
+        db.execute("PRAGMA secure_delete=ON")
         yield db
 
 
@@ -60,6 +72,7 @@ with database() as db:
     db.execute(
         "CREATE TABLE IF NOT EXISTS progress (job_id TEXT PRIMARY KEY, data TEXT NOT NULL)"
     )
+    processing_privacy_schema(db)
 
 
 class ProcessingProgress(BaseModel):
@@ -182,11 +195,25 @@ def health(request: Request) -> dict[str, object]:
 @app.post("/processing/jobs", status_code=201)
 async def submit(request: Request) -> dict[str, str]:
     authorize(request)
+    secret = request.headers.get("X-AD-Voice-Device", "")
+    if not 32 <= len(secret) <= 256 or not ACCOUNT_DB.is_file():
+        raise HTTPException(403, "An online account is required for processing")
+    with sqlite3.connect(f"{ACCOUNT_DB.as_uri()}?mode=ro", uri=True) as accounts:
+        if not accounts.execute(
+            "SELECT 1 FROM accounts WHERE device_key=?", (device_key(secret),)
+        ).fetchone():
+            raise HTTPException(403, "Processing account is unavailable")
+    participant = device_participant_id(secret)
     size = content_size(request)
     cleanup()
     reserve_egress()
     job_id, proof = uuid.uuid4().hex, secrets.token_urlsafe(32)
     with database() as db:
+        if db.execute(
+            "SELECT 1 FROM privacy_erasures WHERE participant=?", (participant,)
+        ).fetchone():
+            raise HTTPException(403, "Processing data was erased for this account")
+        db.execute("INSERT OR IGNORE INTO privacy_owners VALUES (?)", (participant,))
         reserved = db.execute("SELECT coalesce(sum(reserved),0) FROM jobs").fetchone()[
             0
         ]
@@ -198,26 +225,38 @@ async def submit(request: Request) -> dict[str, str]:
         if shutil.disk_usage(ROOT).free < size + MAX_FILE + 2 * 1024**3:
             raise HTTPException(507, "Processing relay has insufficient free storage")
         db.execute(
-            "INSERT INTO jobs (id,secret,state,created,lease,deadline,reserved,error) "
-            "VALUES (?,?, 'uploading', ?,NULL,NULL,?,NULL)",
+            "INSERT INTO jobs (id,secret,state,created,lease,deadline,reserved,error,owner) "
+            "VALUES (?,?, 'uploading', ?,NULL,NULL,?,NULL,?)",
             (
                 job_id,
                 hashlib.sha256(proof.encode()).hexdigest(),
                 time.time(),
                 size + MAX_FILE,
+                participant,
             ),
         )
+        UPLOADING.add(job_id)
     directory = ROOT / job_id
-    directory.mkdir()
     try:
+        directory.mkdir()
         await upload(request, directory / "input.zip", size)
         with database() as db:
-            db.execute("UPDATE jobs SET state='queued' WHERE id=?", (job_id,))
+            if (
+                db.execute(
+                    "UPDATE jobs SET state='queued' WHERE id=? AND state='uploading'",
+                    (job_id,),
+                ).rowcount
+                != 1
+            ):
+                raise HTTPException(409, "Processing upload was cancelled")
     except BaseException:
         with database() as db:
             db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
         shutil.rmtree(directory, ignore_errors=True)
         raise
+    finally:
+        with LOCK:
+            UPLOADING.discard(job_id)
     return {"jobId": job_id, "jobKey": proof}
 
 
@@ -268,11 +307,19 @@ def claim(request: Request) -> dict[str, object]:
     reserve_egress()
     with database() as db:
         db.execute("INSERT OR REPLACE INTO worker VALUES (1,?)", (time.time(),))
+        erasures = [
+            row[0]
+            for row in db.execute(
+                "SELECT participant FROM privacy_erasures WHERE completed=0"
+            )
+        ]
+        if erasures:
+            return {"job": None, "erasures": erasures}
         # Only one worker and one model action at a time, including after accidental double launch.
         if db.execute("SELECT 1 FROM jobs WHERE state='running'").fetchone():
             return {"job": None}
         row = db.execute(
-            "SELECT id FROM jobs WHERE state='queued' ORDER BY created LIMIT 1"
+            "SELECT id,owner FROM jobs WHERE state='queued' ORDER BY created LIMIT 1"
         ).fetchone()
         if not row:
             return {"job": None}
@@ -281,7 +328,25 @@ def claim(request: Request) -> dict[str, object]:
             "UPDATE jobs SET state='running',lease=?,deadline=? WHERE id=?",
             (lease, time.time() + 90, row["id"]),
         )
-        return {"job": {"jobId": row["id"], "jobKey": lease}}
+        return {"job": {"jobId": row["id"], "jobKey": lease, "owner": row["owner"]}}
+
+
+@app.post("/processing/worker/erasures/{participant}", status_code=204)
+def acknowledge_erasure(request: Request, participant: str) -> Response:
+    authorize(request, True)
+    if len(participant) != 32 or any(c not in "0123456789abcdef" for c in participant):
+        raise HTTPException(422, "Invalid processing owner")
+    with database() as db:
+        jobs = db.execute(
+            "SELECT id,deadline FROM jobs WHERE owner=?", (participant,)
+        ).fetchall()
+        if any(
+            row["id"] in UPLOADING or (row["deadline"] or 0) > time.time()
+            for row in jobs
+        ):
+            raise HTTPException(409, "Processing is still stopping")
+        acknowledge_processing_erasure(db, ROOT, participant)
+    return Response(status_code=204)
 
 
 @app.get("/processing/worker/jobs/{job_id}/input")
@@ -325,7 +390,8 @@ async def worker_result(request: Request, job_id: str) -> Response:
     with database() as db:
         completed = (
             db.execute(
-                "UPDATE jobs SET state='done' WHERE id=? AND state='running'", (job_id,)
+                "UPDATE jobs SET state='done',deadline=NULL WHERE id=? AND state='running'",
+                (job_id,),
             ).rowcount
             > 0
         )
@@ -349,6 +415,7 @@ def worker_failed(request: Request, job_id: str) -> Response:
         state = db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()
         if state and state["state"] == "cancelled":
             release_cancelled(db, job_id)
+        db.execute("UPDATE jobs SET deadline=NULL WHERE id=?", (job_id,))
     return Response(status_code=204)
 
 

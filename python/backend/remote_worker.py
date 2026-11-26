@@ -271,6 +271,7 @@ def _transfer_job(
     root: Path,
     job_id: str,
     cancel: threading.Event,
+    owner: str,
 ) -> None:
     with tempfile.TemporaryDirectory(prefix="job-", dir=root / "temp") as temporary:
         incoming = Path(temporary)
@@ -280,7 +281,9 @@ def _transfer_job(
         payload["progressPath"] = str(root / "temp" / ("progress-" + job_id + ".json"))
         if shutil.disk_usage(root).free < 4 * 1024**3:
             raise RuntimeError("Processing PC has insufficient free storage")
-        output, files = execute(payload, incoming, root / "sessions", cancel)
+        sessions = root / "sessions" / owner
+        sessions.mkdir(parents=True, exist_ok=True)
+        output, files = execute(payload, incoming, sessions, cancel)
         if cancel.is_set():
             raise DomainError("JobCancelled", "Processing was cancelled", 409)
         response = incoming / "result.zip"
@@ -300,9 +303,21 @@ def run_job(
     job_id = ticket["jobId"]
     if not _identifier.fullmatch(job_id):
         raise ValueError("Invalid processing job id")
+    owner = ticket.get("owner", "")
+    if not _identifier.fullmatch(owner):
+        raise ValueError("Invalid processing owner")
     route = "/worker/jobs/" + job_id
     headers = {"X-Job-Key": ticket["jobKey"]}
     cancel, finished = threading.Event(), threading.Event()
+    private_directory = root / "sessions" / owner
+    private_directory.mkdir(parents=True, exist_ok=True)
+    os.utime(private_directory, None)
+    private_log = RotatingFileHandler(
+        private_directory / "worker.log", maxBytes=4 * 1024**2, backupCount=1, encoding="utf-8"
+    )
+    root_logger = logging.getLogger()
+    system_handlers = root_logger.handlers
+    root_logger.handlers = [private_log]
 
     monitor = run_in_background(
         "processing-heartbeat",
@@ -310,14 +325,21 @@ def run_job(
     )
     try:
         with job_failure(partial(_job_failed, transport, route, headers, job_id), suppress=True):
-            _transfer_job(transport, route, headers, root, job_id, cancel)
+            _transfer_job(transport, route, headers, root, job_id, cancel, owner)
     finally:
         finished.set()
         monitor.join(timeout=65)
         (root / "temp" / ("progress-" + job_id + ".json")).unlink(missing_ok=True)
+        root_logger.handlers = system_handlers
+        private_log.close()
 
 
 def _configure_worker(root: Path, settings: Mapping[str, str | None]) -> str | None:
+    log_version = root / "private-log-version"
+    if not log_version.exists():
+        for name in ["worker.log", "worker.log.1"]:
+            (root / name).unlink(missing_ok=True)
+        log_version.write_text("1", encoding="ascii")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
@@ -353,7 +375,19 @@ def _configure_worker(root: Path, settings: Mapping[str, str | None]) -> str | N
 
 def _clean_sessions(root: Path) -> None:
     cutoff = time.time() - 24 * 3600
+    for directory in (root / "sessions").iterdir():
+        if (
+            directory.is_dir()
+            and any(file.is_file() for file in directory.iterdir())
+            and not (directory / "worker.log").exists()
+        ):
+            shutil.rmtree(directory)
     directories = sorted((root / "sessions").iterdir(), key=lambda p: p.stat().st_mtime)
+    for directory in directories:
+        if directory.is_dir():
+            for session in directory.iterdir():
+                if session.is_dir() and session.stat().st_mtime < cutoff:
+                    shutil.rmtree(session)
     sizes = {
         directory: sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
         for directory in directories
@@ -366,15 +400,27 @@ def _clean_sessions(root: Path) -> None:
             total -= size
 
 
+def _erase_accounts(transport: ProcessingTransport, root: Path, participants: list[str]) -> None:
+    for participant in participants:
+        if not _identifier.fullmatch(participant):
+            raise ValueError("Invalid processing erasure owner")
+        directory = root / "sessions" / participant
+        if directory.exists():
+            shutil.rmtree(directory)
+        transport.request("POST", "/worker/erasures/" + participant)
+
+
 def _poll_jobs(transport: ProcessingTransport, root: Path, stop: threading.Event) -> None:
     while not stop.is_set():
         if (root / "stop.request").exists():
             break
         _clean_sessions(root)
         try:
-            ticket = transport.request("POST", "/worker/claim").json().get("job")
+            claim = transport.request("POST", "/worker/claim").json()
+            _erase_accounts(transport, root, claim.get("erasures", []))
+            ticket = claim.get("job")
             if ticket:
-                logger.info("Starting processing job %s", ticket["jobId"])
+                logger.info("Starting processing job")
                 run_job(transport, ticket, root, stop)
                 continue
         except (httpx.HTTPError, DomainError):
@@ -397,23 +443,25 @@ def main() -> None:
     if sys.argv[1:] == ["--stop"]:
         (root / "stop.request").touch()
         return
-    gpu_name = _configure_worker(root, settings)
     lock = BackendInstanceLock(root / "worker.lock")
     lock.acquire()
-    (root / "stop.request").unlink(missing_ok=True)
-    stop = threading.Event()
-    signal.signal(signal.SIGINT, lambda *_: stop.set())
-    signal.signal(signal.SIGTERM, lambda *_: stop.set())
-    url = settings.get("AD_VOICE_PROCESSING_URL") or "https://130.61.169.61/processing"
-    token = settings.get("AD_VOICE_PROCESSING_WORKER_TOKEN") or ""
-    if not url.startswith("https://") or len(token) < 32:
-        raise RuntimeError("Configure the worker URL and its private access key")
-    transport = ProcessingTransport(url, token)
-    logger.info("Processing worker ready: %s", gpu_name)
     try:
-        _poll_jobs(transport, root, stop)
+        gpu_name = _configure_worker(root, settings)
+        (root / "stop.request").unlink(missing_ok=True)
+        stop = threading.Event()
+        signal.signal(signal.SIGINT, lambda *_: stop.set())
+        signal.signal(signal.SIGTERM, lambda *_: stop.set())
+        url = settings.get("AD_VOICE_PROCESSING_URL") or "https://130.61.169.61/processing"
+        token = settings.get("AD_VOICE_PROCESSING_WORKER_TOKEN") or ""
+        if not url.startswith("https://") or len(token) < 32:
+            raise RuntimeError("Configure the worker URL and its private access key")
+        transport = ProcessingTransport(url, token)
+        logger.info("Processing worker ready: %s", gpu_name)
+        try:
+            _poll_jobs(transport, root, stop)
+        finally:
+            transport.close()
     finally:
-        transport.close()
         lock.release()
 
 
