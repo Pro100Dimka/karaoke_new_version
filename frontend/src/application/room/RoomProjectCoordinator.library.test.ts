@@ -3,6 +3,72 @@ import type { SongDto } from '../../contracts/models';
 import { RoomProjectCoordinator } from './RoomProjectCoordinator';
 import { deferred, setup } from '../../../test-fixtures/roomProject';
 
+it('keeps a declined file declaration stopped until an explicit retry', async () => {
+  vi.useFakeTimers();
+  const { services, coordinator, getRoom, setRoom } = setup();
+  const song: SongDto = {
+    id: 'song',
+    title: 'Tone',
+    artist: 'Tone',
+    activeRevision: 1,
+    status: 'ready',
+    language: 'Auto',
+    coverState: 'Fallback',
+    durationSeconds: 1,
+    createdAt: '',
+    projectFormatVersion: 2,
+  };
+  setRoom({
+    ...getRoom(),
+    songId: song.id,
+    revision: 1,
+    selectionId: 1,
+    participants: [
+      {
+        id: 'guest',
+        name: 'Guest',
+        role: 'participant',
+        self: false,
+        connected: true,
+        readiness: 'missing',
+        muted: false,
+        volume: 1,
+      },
+    ],
+  });
+  services.python.listSongs.mockResolvedValue([song]);
+  services.desktop.uploadRoomProject.mockRejectedValueOnce(
+    new Error('File upload was cancelled'),
+  );
+  const logging = vi
+    .spyOn(console, 'error')
+    .mockImplementation(() => undefined);
+  try {
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(services.desktop.uploadRoomProject).toHaveBeenCalledOnce();
+    expect(services.room.setRoomReadiness).toHaveBeenCalledWith(
+      'room-a',
+      'Failed',
+      1,
+    );
+    expect(getRoom().transferError).toBe(true);
+    await coordinator.reconcileReadiness(getRoom(), [song]);
+    expect(services.room.setRoomReadiness).not.toHaveBeenCalledWith(
+      'room-a',
+      'Preparing',
+      1,
+    );
+    await coordinator.retry();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(services.desktop.uploadRoomProject).toHaveBeenCalledTimes(2);
+  } finally {
+    coordinator.stop();
+    logging.mockRestore();
+    vi.useRealTimers();
+  }
+});
+
 it('does not publish an empty placeholder while the initial library read is pending or retired', async () => {
   vi.useFakeTimers();
   const { services, coordinator } = setup();

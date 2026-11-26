@@ -5,13 +5,81 @@ import os
 import shutil
 import threading
 import time
+import re
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
 from backend.serialization import dumps, loads_object
+from backend.infrastructure.transfer_consent import TransferConsent
+import argparse
 
 _safe_room_component = frozenset("0123456789abcdefghijklmnopqrstuvwxyz-")
+
+
+def technical_message(message: str) -> str:
+    exception = re.search(
+        r"\b(?:TypeError|ValueError|RuntimeError|TimeoutError|ConnectionError|OSError|SyntaxError|Error)\b",
+        message,
+    )
+    status = re.search(r"\b(?:status|code)\s*[=:]\s*(-?\d{1,5})\b", message, re.I)
+    return " ".join(
+        value
+        for value in [
+            exception[0] if exception else "Application event",
+            f"status={status[1]}" if status else "",
+        ]
+        if value
+    )
+
+
+def redact_report(message: str) -> str:
+    for pattern, replacement in [
+        (
+            r"(?i)((?:authorization|token|secret|password|api[_-]?key|X-AD-Voice-[\w-]+)\s*[=:]\s*)(?:Bearer\s+|Basic\s+)?[^\s,;}]+",
+            r"\1<redacted>",
+        ),
+        (r"https?://[^\s\"'<>]+", "<url>"),
+        (r"(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "<email>"),
+        (r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "<address>"),
+        (r"(?i)\b[a-f0-9]{32,64}\b", "<identifier>"),
+        (r"(?i)[A-Z]:[\\/][^\r\n\"'<>]+", "<path>"),
+        (r"/(?:home|Users|opt|tmp)/[^\r\n\"'<>]+", "<path>"),
+    ]:
+        message = re.sub(pattern, replacement, message)
+    return message
+
+
+def diagnostic_metrics(values: Mapping[str, str]) -> dict[str, str]:
+    enums = {
+        "Backend": {
+            "WASAPI",
+            "WASAPI Exclusive",
+            "WASAPI Shared",
+            "ASIO",
+            "Exclusive",
+            "Shared",
+            "None",
+        },
+        "App.BackendSwitchStage": {"before", "after"},
+        "TimingEligibility": {"eligible", "late", "recovering", "unknown"},
+    }
+    result: dict[str, str] = {}
+    for key, value in values.items():
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9.]{0,127}", key) or key.endswith(
+            ("Id", "Name", "Path", "Guid")
+        ):
+            continue
+        try:
+            number = float(value)
+        except ValueError:
+            if value in enums.get(key, set()):
+                result[key] = value
+        else:
+            if math.isfinite(number):
+                result[key] = value[:64]
+    return result
 
 
 def _filter_log(path: Path, keep: Callable[[dict[str, object]], bool]) -> None:
@@ -144,11 +212,14 @@ class ProgramLog:
         entries: Sequence[Mapping[str, str]],
         *,
         rate_key: str | None = None,
+        consent_revision: str = "",
     ) -> bool:
         """Append complete lines, or reject an oversized/rate-limited upload."""
         at = datetime.fromtimestamp(self._now(), timezone.utc).isoformat()
         payload = "".join(
-            dumps({"at": at, "clientId": client_id, **entry}) + "\n" for entry in entries
+            dumps({"at": at, "clientId": client_id, "consentRevision": consent_revision, **entry})
+            + "\n"
+            for entry in entries
         ).encode("utf-8")
         if not payload or len(payload) > self._max_bytes:
             return False
@@ -219,6 +290,51 @@ class ProgramLog:
                 ),
             )
 
+    def export(
+        self, client_id: str, output: Path, revision: str, allowed: Callable[[], str]
+    ) -> int:
+        """Export one currently consenting client's technical events, excluding historical raw text."""
+        allowed()
+        count = 0
+        created = False
+        try:
+            descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            created = True
+            with os.fdopen(descriptor, "w", encoding="utf-8") as target, self._lock:
+                if self._path.is_file():
+                    with self._path.open(encoding="utf-8") as source:
+                        for line in source:
+                            if allowed() != revision:
+                                raise PermissionError("Diagnostic consent changed during export")
+                            try:
+                                entry = loads_object(line)
+                            except ValueError:
+                                continue
+                            if (
+                                entry.get("clientId") != client_id
+                                or entry.get("consentRevision") != revision
+                            ):
+                                continue
+                            target.write(
+                                dumps(
+                                    {
+                                        "at": entry.get("at"),
+                                        "clientId": client_id,
+                                        "level": entry.get("level"),
+                                        "message": technical_message(str(entry.get("message", ""))),
+                                    }
+                                )
+                                + "\n"
+                            )
+                            count += 1
+                if allowed() != revision:
+                    raise PermissionError("Diagnostic consent changed during export")
+        except BaseException:
+            if created:
+                output.unlink(missing_ok=True)
+            raise
+        return count
+
 
 class ProgramLogHandler(logging.Handler):
     """Send the room server's own Python logs through the same serialized writer."""
@@ -228,9 +344,7 @@ class ProgramLogHandler(logging.Handler):
         self._log = log
 
     def emit(self, record: logging.LogRecord) -> None:
-        message = record.getMessage()
-        if record.exc_info:
-            message += "\n" + logging.Formatter().formatException(record.exc_info)
+        message = technical_message(record.getMessage())
         try:
             self._log.append(
                 "room-server",
@@ -247,3 +361,31 @@ class ProgramLogHandler(logging.Handler):
             )
         except OSError:
             self.handleError(record)
+
+
+def _export() -> None:
+    parser = argparse.ArgumentParser(
+        description="Export one consenting participant's technical events"
+    )
+    parser.add_argument("--data", type=Path, required=True)
+    parser.add_argument("--participant", required=True)
+    parser.add_argument(
+        "--purpose", choices=["support-request", "incident-investigation"], required=True
+    )
+    arguments = parser.parse_args()
+    consent = TransferConsent(arguments.data / "transfer-consent.sqlite3")
+
+    def allowed() -> str:
+        return consent.export_revision(arguments.participant, arguments.purpose)
+
+    revision = allowed()
+    consent.record_export(arguments.participant, arguments.purpose)
+    output = consent.export_path(arguments.participant, arguments.purpose)
+    count = ProgramLog(arguments.data / "logs" / "program.jsonl").export(
+        arguments.participant, output, revision, allowed
+    )
+    print(f"Exported {count} technical events for one participant: {output}")
+
+
+if __name__ == "__main__":
+    _export()

@@ -5,7 +5,7 @@ import threading
 import time
 import zipfile
 from pathlib import Path
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Iterable, Iterator
 from typing import BinaryIO
 
 import httpx
@@ -87,7 +87,7 @@ class ProcessingTransport:
         route: str,
         *,
         headers: Mapping[str, str] | None = None,
-        content: BinaryIO | None = None,
+        content: BinaryIO | Iterable[bytes] | None = None,
         json: Mapping[str, object] | None = None,
     ) -> httpx.Response:
         response = self.client.request(
@@ -112,7 +112,13 @@ class ProcessingTransport:
         }
         raise DependencyError(codes.get(response.status_code, "ProcessingUnavailable"), str(detail))
 
-    def download(self, route: str, path: Path, headers: Mapping[str, str]) -> None:
+    def download(
+        self,
+        route: str,
+        path: Path,
+        headers: Mapping[str, str],
+        cancel: threading.Event | None = None,
+    ) -> None:
         with self.client.stream("GET", self.url + route, headers=headers) as response:
             if not response.is_success:
                 response.read()
@@ -120,6 +126,8 @@ class ProcessingTransport:
             total = 0
             with path.open("xb") as output:
                 for block in response.iter_bytes(1024 * 1024):
+                    if cancel is not None and cancel.is_set():
+                        raise ConflictError("JobCancelled", "Processing transfer was cancelled")
                     total += len(block)
                     if total > MAX_FILE:
                         raise DependencyError(
@@ -135,17 +143,18 @@ class ProcessingTransport:
         *,
         progress: Callable[[str, float, float], None] | None = None,
         device_secret: str = "",
+        declaration: str = "",
     ) -> None:
         if cancel.is_set():
             raise ConflictError("JobCancelled", "Processing was cancelled")
-        route, headers = self._submit(source, device_secret)
+        route, headers = self._submit(source, device_secret, declaration, cancel)
         deadline = time.monotonic() + 2 * 3600
         try:
             while not cancel.is_set():
                 state = self.request("GET", route, headers=headers).json()
                 _publish_progress(state.get("progress"), progress)
                 if state["state"] == "done":
-                    self.download(route + "/result", result, headers)
+                    self.download(route + "/result", result, headers, cancel)
                     return
                 if state["state"] in ["failed", "cancelled"]:
                     raise DependencyError(
@@ -163,15 +172,29 @@ class ProcessingTransport:
             except (httpx.HTTPError, DependencyError):
                 pass
 
-    def _submit(self, source: Path, device_secret: str = "") -> tuple[str, dict[str, str]]:
+    def _submit(
+        self,
+        source: Path,
+        device_secret: str = "",
+        declaration: str = "",
+        cancel: threading.Event | None = None,
+    ) -> tuple[str, dict[str, str]]:
         with source.open("rb") as content:
+
+            def chunks() -> Iterator[bytes]:
+                while block := content.read(1024 * 1024):
+                    if cancel is not None and cancel.is_set():
+                        raise ConflictError("JobCancelled", "Processing upload was cancelled")
+                    yield block
+
             ticket = self.request(
                 "POST",
                 "/jobs",
-                content=content,
+                content=chunks(),
                 headers={
                     "Content-Length": str(source.stat().st_size),
                     "X-AD-Voice-Device": device_secret,
+                    "X-AD-Voice-File-Declaration": declaration,
                 },
             ).json()
         return "/jobs/" + ticket["jobId"], {"X-Job-Key": ticket["jobKey"]}

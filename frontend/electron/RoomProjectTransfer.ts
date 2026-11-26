@@ -10,6 +10,8 @@ import { withRoomKey } from './RoomIdentity';
 import type { IpcRegistrar } from './TrustedIpc';
 import { isSafePathComponent } from './PathPolicy';
 import { requireObject, requireString } from './RequestValidation';
+import { requestFileDeclaration } from './TransferPermissions';
+import { transferConsentChanges } from './PrivacySettings';
 
 const projectUrl = (
   base: string,
@@ -84,8 +86,13 @@ const uploadRoomFile = async (
   transferId: string,
   signal?: AbortSignal,
   progress?: Progress,
+  declaration?: string,
 ): Promise<void> => {
   const totalBytes = (await stat(filePath)).size;
+  const ticket =
+    declaration ??
+    (await requestFileDeclaration('online', new URL(url).pathname));
+  signal?.throwIfAborted();
   const source = createReadStream(filePath);
   const meter = progressStream(transferId, 'upload', totalBytes, progress);
   const sending = pipeline(source, meter, { signal }).then(
@@ -100,6 +107,7 @@ const uploadRoomFile = async (
           'X-Participant-Id': participantId,
           'Content-Type': 'application/zip',
           'Content-Length': String(totalBytes),
+          'X-AD-Voice-File-Declaration': ticket,
         },
         base,
       ),
@@ -311,6 +319,10 @@ export const registerRoomProjectTransferHandlers = (
   >();
   const downloads = new Map<string, WebContents>();
   const owners = new WeakSet<WebContents>();
+  transferConsentChanges.on('withdraw', (purpose: string) => {
+    if (purpose === 'online')
+      for (const transfer of transfers.values()) transfer.controller.abort();
+  });
   const begin = (transferId: string, owner: WebContents): AbortController => {
     if (transfers.has(transferId))
       throw new Error('Room project transfer is already active');
@@ -380,6 +392,13 @@ export const registerRoomProjectTransferHandlers = (
       try {
         const file = await requireBackendPath(dataRoot(), project.path);
         controller.signal.throwIfAborted();
+        transfers.get(project.transferId)?.watch.stop();
+        const declaration = await requestFileDeclaration(
+          'online',
+          new URL(project.url).pathname,
+        );
+        controller.signal.throwIfAborted();
+        moved(project.transferId);
         await uploadRoomFile(
           base,
           project.url,
@@ -395,6 +414,7 @@ export const registerRoomProjectTransferHandlers = (
                 progress,
               );
           },
+          declaration,
         );
       } finally {
         finish(project.transferId);

@@ -9,6 +9,7 @@ from backend.bootstrap.social_wiring import SocialCases
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.social.domain import Account
 from backend.domain_errors import DomainError
+from backend.social.codes import device_participant_id
 
 router = APIRouter()
 
@@ -57,6 +58,7 @@ async def social_socket(websocket: WebSocket) -> None:
     await websocket.accept()
     try:
         hello = HelloDto.model_validate(await websocket.receive_json())
+        websocket.app.state.transfer_consent.require(device_participant_id(hello.device), "online")
         me = await anyio.to_thread.run_sync(_arrive, social, hello)
         first = await anyio.to_thread.run_sync(_connect, social, me, hello.device, websocket)
     except (ValidationError, ValueError, WebSocketDisconnect, DomainError):
@@ -70,6 +72,9 @@ async def social_socket(websocket: WebSocket) -> None:
             await anyio.to_thread.run_sync(social.friends.announce, me)
         while True:
             update = PresenceDto.model_validate(await websocket.receive_json())
+            websocket.app.state.transfer_consent.require(
+                device_participant_id(hello.device), "online"
+            )
             me = await anyio.to_thread.run_sync(_report, social, me, update, hello.device)
             presence = update
             social.hub.set_room(me.account_id, me.room_id)

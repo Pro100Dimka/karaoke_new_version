@@ -3,6 +3,16 @@ import type { ShellStatus } from './DesktopShell';
 /** Texts of the desktop surfaces (tray, taskbar, notifications) in the app's own language. */
 const texts = {
   ru: {
+    uploadDataTitle: 'Данные в отправляемых файлах',
+    uploadDataNotice:
+      'Чьи персональные данные содержат файлы этой операции? Выбор относится ко всем её исходникам, текстам, метаданным и результатам.',
+    uploadDataOthers:
+      'Согласие в настройках охватывает только ваши данные. Для чужих данных нужны отдельные документированные разрешения каждого затронутого человека, включая передачу Владельцу в Украину и описанные в политике риски. Для детей учитывайте полномочия законного представителя. Если основания нет, отмените отправку. Для чужих данных выберите сохранённое подтверждение: на сервер уйдёт только его хеш, содержание и действительность документа программа не проверяет. Сохраните оригинал.',
+    uploadDataCancel: 'Отменить',
+    uploadDataOwn: 'Только мои данные',
+    uploadDataNone: 'Нет персональных данных',
+    uploadDataThirdParty: 'Чужие данные: разрешения получены',
+    uploadDataEvidence: 'Выберите подтверждение разрешений',
     play: 'Играть',
     pause: 'Пауза',
     radioOn: 'Включить радио',
@@ -49,6 +59,16 @@ const texts = {
       'Не получен ответ от процесса переноса. Данные сохранены. Запустите установщик повторно, чтобы продолжить перенос.',
   },
   uk: {
+    uploadDataTitle: 'Дані у файлах для надсилання',
+    uploadDataNotice:
+      'Чиї персональні дані містять файли цієї операції? Вибір стосується всіх її джерел, текстів, метаданих і результатів.',
+    uploadDataOthers:
+      'Згода в налаштуваннях охоплює лише ваші дані. Для чужих даних потрібні окремі документовані дозволи кожної особи, зокрема на передачу Власнику в Україну з описаними в політиці ризиками. Для дітей враховуйте повноваження законного представника. Без підстави скасуйте надсилання. Виберіть збережене підтвердження: сервер отримає лише його хеш; зміст і чинність документа програма не перевіряє. Зберігайте оригінал.',
+    uploadDataCancel: 'Скасувати',
+    uploadDataOwn: 'Лише мої дані',
+    uploadDataNone: 'Немає персональних даних',
+    uploadDataThirdParty: 'Чужі дані: дозволи отримані',
+    uploadDataEvidence: 'Виберіть підтвердження дозволів',
     play: 'Грати',
     pause: 'Пауза',
     radioOn: 'Увімкнути радіо',
@@ -94,6 +114,16 @@ const texts = {
       'Не отримано відповіді від процесу перенесення. Дані збережено. Запустіть інсталятор повторно, щоб продовжити перенесення.',
   },
   en: {
+    uploadDataTitle: 'Data in uploaded files',
+    uploadDataNotice:
+      'Whose personal data do the files for this operation contain? This covers all its sources, lyrics, metadata and results.',
+    uploadDataOthers:
+      'Your settings consent covers only your data. Other people require separate documented permissions from each affected person, including transfer to the Owner in Ukraine and the risks described in the privacy policy. For children, account for legal guardian authority. Cancel if no basis exists. Select your saved permission evidence: only its hash is sent; the app does not verify its contents or legal validity. Keep the original.',
+    uploadDataCancel: 'Cancel',
+    uploadDataOwn: 'Only my data',
+    uploadDataNone: 'No personal data',
+    uploadDataThirdParty: 'Others: permissions obtained',
+    uploadDataEvidence: 'Select permission evidence',
     play: 'Play',
     pause: 'Pause',
     radioOn: 'Turn radio on',

@@ -9,6 +9,8 @@ from backend.domain_errors import DomainError
 
 def processing_privacy_schema(db: sqlite3.Connection) -> None:
     db.execute("PRAGMA secure_delete=ON")
+    if "declaration" not in {row[1] for row in db.execute("PRAGMA table_info(jobs)")}:
+        db.execute("ALTER TABLE jobs ADD COLUMN declaration TEXT NOT NULL DEFAULT ''")
     if "owner" not in {row[1] for row in db.execute("PRAGMA table_info(jobs)")}:
         if db.execute("SELECT 1 FROM jobs LIMIT 1").fetchone():
             raise RuntimeError("Clear the legacy processing queue before upgrading privacy storage")
@@ -38,6 +40,12 @@ def acknowledge_processing_erasure(db: sqlite3.Connection, root: Path, participa
 class ProcessingErasure:
     def __init__(self, root: Path) -> None:
         self.root = root
+
+    def cancel(self, participant: str) -> None:
+        database = self.root / "queue.sqlite3"
+        if database.exists():
+            with sqlite3.connect(database, timeout=20) as db:
+                db.execute("UPDATE jobs SET state='cancelled' WHERE owner=?", (participant,))
 
     def erase(self, participants: tuple[str, ...]) -> None:
         database = self.root / "queue.sqlite3"

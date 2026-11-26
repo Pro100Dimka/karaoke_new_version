@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { loadEnvFile } from 'node:process';
 import { configuredStorageRoot, projectRoot, themeIconPath } from './AppPaths';
 import { AppLogUploader, sendAppLogs } from './AppLogUploader';
-import { requireString } from './RequestValidation';
+import { requireObject, requireString } from './RequestValidation';
 import { BackendEndpoint } from './BackendEndpoint';
 import { streamBackendEvents } from './BackendEvents';
 import { registerDesktopIpc } from './DesktopIpc';
@@ -21,10 +21,19 @@ import {
   roomServerApiBase,
   roomServerRequest,
   serverLogUploadsDisabled,
+  leaveRoomVoice,
 } from './RoomServerTransport';
-import { diagnosticsConsent, saveDiagnosticsConsent } from './PrivacySettings';
+import {
+  diagnosticsConsent,
+  saveDiagnosticsConsent,
+  saveTransferConsent,
+  transferConsents,
+  transferPurposes,
+} from './PrivacySettings';
 import {
   onlineAccountEnabled,
+  accountIdentityEnabled,
+  recordTransferConsent,
   setOnlineAccountEnabled,
   withDevice,
 } from './SocialIdentity';
@@ -152,11 +161,67 @@ const socialSocket = registerSocialChannel(
 trustedIpc.handle(
   ipcChannels.privacySettings,
   async (_event, action: unknown, input: unknown) => {
-    if (action === 'diagnostics') {
+    if (action === 'transfer') {
+      const value = requireObject(input, 'transfer consent');
+      const purpose = transferPurposes.find(
+        (purpose) => purpose === value.purpose,
+      );
+      if (!purpose || typeof value.enabled !== 'boolean')
+        throw new TypeError('Invalid transfer choice');
+      if (value.enabled) {
+        if (purpose !== 'online' && !(await onlineAccountEnabled()))
+          throw new Error('Enable online transfers first');
+        if (Object.values(transferConsents()).some((choice) => choice.pending))
+          throw new Error('Synchronize the pending withdrawal first');
+        await recordTransferConsent(purpose, true);
+        saveTransferConsent(purpose, true);
+        if (purpose === 'online') {
+          await onlineAccountEnabled();
+          socialSocket.stop();
+          socialSocket.start();
+        }
+      } else {
+        const stopping: Promise<unknown>[] = [];
+        saveTransferConsent(purpose, false, true);
+        if (['online', 'processing'].includes(purpose))
+          stopping.push(
+            backendEndpoint
+              .request('/settings/transfers/withdraw', { method: 'POST' })
+              .catch(() => undefined),
+          );
+        if (purpose === 'online') {
+          for (const dependent of ['processing', 'diagnostics'] as const)
+            saveTransferConsent(dependent, false);
+          socialSocket.stop();
+          stopping.push(leaveRoomVoice().catch(() => undefined));
+          mainWindow?.webContents.send(ipcChannels.socialInbox, {
+            type: 'offline',
+          });
+        }
+        if (['online', 'diagnostics'].includes(purpose)) {
+          saveDiagnosticsConsent(false);
+          services.setDiagnosticUploads(false);
+          stopping.push(appLogs.discard());
+        }
+        await Promise.all([recordTransferConsent(purpose, false), ...stopping]);
+        saveTransferConsent(purpose, false);
+      }
+      if (purpose === 'diagnostics') {
+        saveDiagnosticsConsent(value.enabled);
+        services.setDiagnosticUploads(value.enabled);
+      }
+    } else if (action === 'diagnostics') {
       if (typeof input !== 'boolean')
         throw new TypeError('Diagnostic consent must be a boolean');
+      if (input && !transferConsents().diagnostics.enabled)
+        throw new Error('Confirm the diagnostic transfer notice first');
       saveDiagnosticsConsent(input);
       if (!services.setDiagnosticUploads(input)) await appLogs.discard();
+      if (!input) {
+        saveTransferConsent('diagnostics', false, true);
+        await recordTransferConsent('diagnostics', false);
+        saveTransferConsent('diagnostics', false);
+      }
     } else if (action === 'delete-account') {
       const request = await withDevice({
         method: 'DELETE',
@@ -186,6 +251,8 @@ trustedIpc.handle(
         );
       }
       saveDiagnosticsConsent(false);
+      for (const purpose of transferPurposes)
+        saveTransferConsent(purpose, false);
       services.setDiagnosticUploads(false);
       await appLogs.discard();
       shell.report({ ...shell.status(), discordPresence: false });
@@ -197,17 +264,34 @@ trustedIpc.handle(
       return;
     } else if (action === 'create-account') {
       await setOnlineAccountEnabled(true);
+      for (const purpose of transferPurposes)
+        if (transferConsents()[purpose].enabled)
+          await recordTransferConsent(purpose, true);
       return;
     } else if (action !== 'read') {
       throw new TypeError('Unknown privacy action');
     }
     return {
+      transfers: transferConsents(),
       diagnosticsEnabled: !serverLogUploadsDisabled(),
       diagnosticsRecordedAt: diagnosticsConsent().recordedAt,
-      accountEnabled: await onlineAccountEnabled(),
+      accountEnabled: await accountIdentityEnabled(),
     };
   },
 );
+
+const retryWithdrawals = setInterval(() => {
+  void (async () => {
+    for (const purpose of transferPurposes) {
+      const choice = transferConsents()[purpose];
+      if (choice.pending && !choice.enabled) {
+        await recordTransferConsent(purpose, false);
+        saveTransferConsent(purpose, false);
+      }
+    }
+  })().catch(() => undefined);
+}, 30_000);
+retryWithdrawals.unref();
 
 // The desktop shell: taskbar, tray, jump list, invitation links, mute hotkey, Discord and updates.
 const shell = new DesktopShell();

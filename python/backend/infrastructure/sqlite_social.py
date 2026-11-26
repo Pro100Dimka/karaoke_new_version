@@ -55,7 +55,7 @@ def stamp(value: datetime | None) -> str | None:
 class SocialDatabase:
     """One SQLite file (or memory, for tests and a server without storage) for accounts and friends."""
 
-    def __init__(self, path: Path | None) -> None:
+    def __init__(self, path: Path | None, *, schema: Iterable[str] = _SCHEMA) -> None:
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -67,7 +67,7 @@ class SocialDatabase:
             self._connection.execute("PRAGMA secure_delete=ON")
             if path is not None:
                 self._connection.execute("PRAGMA journal_mode=WAL")
-            for statement in _SCHEMA:
+            for statement in schema:
                 self._connection.execute(statement)
 
     def rows(self, sql: str, parameters: Iterable[object] = ()) -> list[Row]:

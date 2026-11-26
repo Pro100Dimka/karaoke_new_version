@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from typing import Annotated, Protocol
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 
 from backend.api.dependencies import container
 from backend.api.social_dto import (
@@ -25,6 +25,8 @@ from backend.bootstrap.social_wiring import SocialCases
 from backend.domain_errors import DomainError
 from backend.api.base_dto import ApiModel
 from pydantic import Field
+from backend.infrastructure.transfer_consent import CONSENT_VERSION, TransferConsent
+from backend.social.codes import device_key, device_participant_id
 
 # One-off actions the user takes; everything the app shows unasked arrives over the socket.
 router = APIRouter(prefix="/social")
@@ -41,13 +43,58 @@ ContainerDep = Annotated[SocialContainer, Depends(container)]
 DeviceDep = Annotated[str, Header(alias="X-AD-Voice-Device", min_length=32, max_length=256)]
 
 
+class TransferConsentDto(ApiModel):
+    enabled: bool = Field(strict=True)
+    version: str = Field(max_length=32)
+
+
+class FileDeclarationDto(ApiModel):
+    purpose: str = Field(max_length=32)
+    resource: str = Field(min_length=1, max_length=512)
+    category: str = Field(max_length=32)
+    evidence: str = Field(default="", max_length=512)
+
+
+@router.put("/privacy/{purpose}", status_code=204)
+def transfer_consent(
+    purpose: str, body: TransferConsentDto, request: Request, device: DeviceDep
+) -> None:
+    state = request.app.state
+    revoked = state.container.social.accounts.device_revoked(device_key(device))
+    if revoked and body.enabled:
+        raise DomainError("AccountDeleted", "This account has been deleted", 403)
+    owner = device_participant_id(device)
+    consent: TransferConsent = state.transfer_consent
+    account = state.container.social.accounts.existing_account(device)
+    if revoked or (not body.enabled and account is None):
+        consent.erase((owner,))
+        state.stop_transfers(owner, purpose, None)
+        return
+    consent.record(owner, purpose, body.enabled, body.version)
+    if not body.enabled:
+        if purpose == "online":
+            for dependent in ["processing", "diagnostics"]:
+                consent.record(owner, dependent, False, CONSENT_VERSION)
+        state.stop_transfers(owner, purpose, None if account is None else account.account_id)
+
+
+@router.post("/privacy/files")
+def declare_file(body: FileDeclarationDto, request: Request, device: DeviceDep) -> dict[str, str]:
+    consent: TransferConsent = request.app.state.transfer_consent
+    return {
+        "ticket": consent.declare(
+            device_participant_id(device), body.purpose, body.resource, body.category, body.evidence
+        )
+    }
+
+
 @router.get("/me", response_model=MeDto)
 def me(app: ContainerDep, device: DeviceDep) -> MeDto:
     return me_dto(app.social.accounts.identify(device))
 
 
 class DeleteAccountDto(ApiModel):
-    account_id: str = Field(min_length=1, max_length=128)
+    account_id: str = Field(default="", max_length=128)
 
 
 @router.delete("/me", status_code=204)

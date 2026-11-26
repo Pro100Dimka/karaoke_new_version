@@ -20,6 +20,9 @@ def start_processing(
     app: ContainerDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     correlation_id: Annotated[str | None, Header(alias="X-Correlation-ID")] = None,
+    upload_authorization: Annotated[
+        str, Header(alias="X-AD-Voice-File-Declaration", max_length=128)
+    ] = "",
 ) -> JobRefDto:
     job = app.songs.start_processing.execute(
         song_id,
@@ -27,6 +30,7 @@ def start_processing(
         online_lyrics=body.online_lyrics,
         idempotency_key=idempotency_key,
         correlation_id=correlation_id,
+        upload_authorization=upload_authorization,
     )
     return job_dto(job)
 
@@ -39,12 +43,16 @@ def reprocess_melody(
     request: Request,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     correlation_id: Annotated[str | None, Header(alias="X-Correlation-ID")] = None,
+    upload_authorization: Annotated[
+        str, Header(alias="X-AD-Voice-File-Declaration", max_length=128)
+    ] = "",
 ) -> JobRefDto:
     job = app.songs.reprocess_melody.execute(
         song_id,
         idempotency_key=idempotency_key,
         correlation_id=correlation_id,
         realign_lyrics=request.url.path.endswith("/lyrics"),
+        upload_authorization=upload_authorization,
     )
     return job_dto(job)
 

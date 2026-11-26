@@ -9,6 +9,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+vi.mock('./TransferPermissions', () => ({
+  requestFileDeclaration: async () => 'scoped-report-ticket',
+}));
 
 it('sends explicit error reports with redacted recent logs after periodic flushing', async () => {
   const send = vi.fn().mockResolvedValue(undefined);
@@ -16,7 +19,10 @@ it('sends explicit error reports with redacted recent logs after periodic flushi
   logs.add('python', 'error', 'Authorization: Bearer private-token');
   await logs.flush();
   send.mockClear();
-  const id = await logs.sendReport('Failure details '.repeat(600));
+  const id = await logs.sendReport(
+    'Failure details '.repeat(600) +
+      ' Authorization: Bearer report-token alice@example.com',
+  );
   const entries = send.mock.calls.flatMap(([batch]) => batch);
   expect(
     entries.filter((entry) => entry.source === 'error-report').length,
@@ -24,6 +30,8 @@ it('sends explicit error reports with redacted recent logs after periodic flushi
   expect(entries.every((entry) => entry.message.includes(id))).toBe(true);
   expect(entries.some((entry) => entry.source === 'python')).toBe(true);
   expect(JSON.stringify(entries)).not.toContain('private-token');
+  expect(JSON.stringify(entries)).not.toContain('report-token');
+  expect(JSON.stringify(entries)).not.toContain('alice@example.com');
   send.mockClear();
   logs.addSnapshot(
     'audio-diagnostics',
@@ -40,9 +48,9 @@ it('sends explicit error reports with redacted recent logs after periodic flushi
     ),
   ).toBe(true);
   expect(JSON.stringify(snapshots)).not.toContain('private-token');
-  expect(snapshots.at(-1)?.message).toContain(
-    'LastFailureMessage: output failed',
-  );
+  expect(
+    snapshots.every((entry) => entry.message === 'Application event'),
+  ).toBe(true);
 });
 
 it('does not claim an explicit report was sent when uploading fails', async () => {
@@ -112,11 +120,11 @@ it('never queues or uploads diagnostics while consent is absent or withdrawn', a
   await logs.flush();
   expect(send).not.toHaveBeenCalled();
   transport.disabled = false;
-  logs.add('python', 'error', 'after consent');
+  logs.add('python', 'error', 'Error status=200');
   await logs.flush();
   expect(
     send.mock.calls.flatMap(([batch]) => batch).map((entry) => entry.message),
-  ).toEqual(['after consent']);
+  ).toEqual(['Error status=200']);
   logs.add('python', 'error', 'pending at withdrawal');
   transport.disabled = true;
   await logs.discard();
@@ -135,11 +143,11 @@ it('uploads timestamped service lines in order and retries a failed batch', asyn
     .mockResolvedValue(undefined);
   const logs = new AppLogUploader(send);
   logs.start();
-  logs.write('audio-service', 'error', Buffer.from('WASAPI: GetBuffer'));
+  logs.write('audio-service', 'error', Buffer.from('ValueErr'));
   logs.write(
     'audio-service',
     'error',
-    Buffer.from('Size error\nWASAPI: Start failed\n'),
+    Buffer.from('or status=500\nRuntimeError status=501\n'),
   );
   await vi.advanceTimersByTimeAsync(2_000);
   expect(send).toHaveBeenCalledTimes(1);
@@ -151,13 +159,13 @@ it('uploads timestamped service lines in order and retries a failed batch', asyn
       timestamp: '2026-10-07T12:00:00.000Z',
       source: 'audio-service',
       level: 'error',
-      message: 'WASAPI: GetBufferSize error',
+      message: 'ValueError status=500',
     },
     {
       timestamp: '2026-10-07T12:00:00.000Z',
       source: 'audio-service',
       level: 'error',
-      message: 'WASAPI: Start failed',
+      message: 'RuntimeError status=501',
     },
   ]);
   logs.stop();
@@ -201,7 +209,7 @@ it('records Electron console errors while preserving the original console', asyn
     expect.objectContaining({
       source: 'electron',
       level: 'error',
-      message: expect.stringContaining('ASIO driver missing'),
+      message: 'Error',
     }),
   ]);
 });
@@ -218,7 +226,7 @@ it('keeps an in-flight batch for retry when the queue fills', async () => {
     )
     .mockResolvedValue(undefined);
   const logs = new AppLogUploader(send);
-  logs.add('electron', 'info', 'first');
+  logs.add('electron', 'info', 'Error status=1');
   const uploading = logs.flush();
   for (let index = 0; index < 1_000; index++)
     logs.add('electron', 'info', `later ${index}`);
@@ -226,7 +234,9 @@ it('keeps an in-flight batch for retry when the queue fills', async () => {
   await uploading;
   await logs.flush();
   expect(send.mock.calls[1]?.[0]).toEqual(
-    expect.arrayContaining([expect.objectContaining({ message: 'first' })]),
+    expect.arrayContaining([
+      expect.objectContaining({ message: 'Error status=1' }),
+    ]),
   );
 });
 
@@ -241,7 +251,7 @@ it('redacts JSON credentials and token query parameters', async () => {
   await logs.flush();
   const message = send.mock.calls[0]?.[0][0].message as string;
   expect(message).not.toMatch(/secret[123]/);
-  expect(message).toContain('<redacted>');
+  expect(message).toBe('Application event');
 });
 
 it.each([
@@ -259,7 +269,7 @@ it.each([
     logs.add('electron', 'error', details);
     await logs.flush();
     expect(JSON.stringify(send.mock.calls)).not.toContain('private-');
-    expect(JSON.stringify(send.mock.calls)).toContain('<redacted>');
+    expect(send.mock.calls[0][0][0].message).toBe('Application event');
   },
 );
 
@@ -301,18 +311,18 @@ it('uses Uvicorn severity prefixes from Python stderr without changing other err
       expect.objectContaining({
         source: 'python',
         level: severity.toLowerCase(),
-        message: `${severity}: Uvicorn event`,
+        message: 'Application event',
       }),
     ),
     expect.objectContaining({
       source: 'python',
       level: 'error',
-      message: 'Unclassified Python failure',
+      message: 'Application event',
     }),
     expect.objectContaining({
       source: 'audio-service',
       level: 'error',
-      message: 'INFO: Native device failure',
+      message: 'Application event',
     }),
   ]);
 });
@@ -374,6 +384,11 @@ it('keeps escaped log batches below the server body limit and drains every entry
     ).toBeLessThanOrEqual(512 * 1024);
     sent += entries.length;
   }
-  expect(send).toHaveBeenCalledTimes(2);
+  expect(send).toHaveBeenCalledTimes(1);
   expect(sent).toBe(100);
+  expect(
+    send.mock.calls[0][0].every(
+      (entry: { message: string }) => entry.message === 'Application event',
+    ),
+  ).toBe(true);
 });

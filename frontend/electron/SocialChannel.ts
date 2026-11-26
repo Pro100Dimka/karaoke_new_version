@@ -49,9 +49,7 @@ export const registerSocialChannel = (
     },
   );
   ipc.handle(ipcChannels.socialPresence, async (_event, raw) =>
-    (await onlineAccountEnabled())
-      ? socket.setPresence(requirePresence(raw))
-      : undefined,
+    socket.setPresence(requirePresence(raw), await onlineAccountEnabled()),
   );
   ipc.handle(ipcChannels.socialLatest, () => latest);
   return socket;

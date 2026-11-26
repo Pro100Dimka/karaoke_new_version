@@ -73,14 +73,36 @@ const PrivacyPanel = observer(() => {
     };
   }, [notify]);
 
-  const changeDiagnostics = async (enabled: boolean) => {
-    if (busy || !desktopClient.setDiagnosticUploads) return;
+  const changeTransfer = async (
+    purpose: 'online' | 'processing' | 'diagnostics',
+    enabled: boolean,
+  ) => {
+    if (busy || !desktopClient.setTransferConsent) return;
+    if (
+      enabled &&
+      (await ask({
+        title: tr('privacyTransferTitle'),
+        body: `${tr('privacyTransferNotice')}\n\n${tr(`privacyTransfer.${purpose}`)}\n\n${tr('privacyTransferRisks')}`,
+        tone: 'warning',
+        actions: [
+          { id: 'cancel', label: tr('cancel') },
+          {
+            id: 'consent',
+            label: tr('privacyTransferAgree'),
+            appearance: 'primary',
+          },
+        ],
+      })) !== 'consent'
+    )
+      return;
     setBusy(true);
     try {
-      setPrivacy(await desktopClient.setDiagnosticUploads(enabled));
+      setPrivacy(await desktopClient.setTransferConsent(purpose, enabled));
     } catch {
-      notify(tr('settingsApplyFailed'), 'error');
+      notify(tr('privacyTransferFailed'), 'error');
     } finally {
+      const next = await desktopClient.getPrivacySettings?.().catch(() => null);
+      if (next) setPrivacy(next);
       setBusy(false);
     }
   };
@@ -107,9 +129,10 @@ const PrivacyPanel = observer(() => {
     setDeleting(deleting);
     try {
       if (deleting) {
-        if (store.inbox.type !== 'inbox' || !desktopClient.deleteOnlineAccount)
-          return;
-        await desktopClient.deleteOnlineAccount(store.inbox.me.accountId);
+        if (!desktopClient.deleteOnlineAccount) return;
+        await desktopClient.deleteOnlineAccount(
+          store.inbox.type === 'inbox' ? store.inbox.me.accountId : '',
+        );
         store.updatePreferences({
           profilePhoto: '',
           displayName: '',
@@ -133,12 +156,42 @@ const PrivacyPanel = observer(() => {
   return (
     <Card border title={tr('privacySettings')} icon="shield">
       <Stack gap={3}>
-        <Switch
-          label={tr('privacyDiagnostics')}
-          checked={privacy?.diagnosticsEnabled ?? false}
-          disabled={busy || !privacy}
-          onValueChange={(enabled) => void changeDiagnostics(enabled)}
-        />
+        <Typography variant="caption">{tr('privacyTransferHint')}</Typography>
+        {(['online', 'processing', 'diagnostics'] as const).map((purpose) => (
+          <Stack key={purpose} gap={1}>
+            <Switch
+              label={tr(`privacyTransferLabel.${purpose}`)}
+              checked={privacy?.transfers?.[purpose].enabled ?? false}
+              disabled={
+                busy ||
+                !privacy?.transfers ||
+                (purpose !== 'online' && !privacy.transfers.online.enabled)
+              }
+              onValueChange={(enabled) => void changeTransfer(purpose, enabled)}
+            />
+            <Typography variant="caption">
+              {tr(`privacyTransfer.${purpose}`)}
+            </Typography>
+            {privacy?.transfers?.[purpose].recordedAt && (
+              <Typography variant="caption">
+                {tr('privacyTransferRecorded')}:{' '}
+                {new Date(
+                  privacy.transfers[purpose].recordedAt,
+                ).toLocaleString()}
+              </Typography>
+            )}
+            {privacy?.transfers?.[purpose].pending && (
+              <MessageBar tone="warning">
+                {tr('privacyTransferPending')}
+                <Button
+                  label={tr('privacyTransferRetry')}
+                  disabled={busy}
+                  onClick={() => void changeTransfer(purpose, false)}
+                />
+              </MessageBar>
+            )}
+          </Stack>
+        ))}
         <Typography variant="caption">
           {tr('privacyDiagnosticsHint')}
         </Typography>
@@ -151,12 +204,7 @@ const PrivacyPanel = observer(() => {
               ? 'privacyCreateAccount'
               : 'privacyDeleteAccount',
           )}
-          disabled={
-            busy ||
-            !privacy ||
-            !!store.online.room ||
-            (privacy.accountEnabled && store.inbox.type !== 'inbox')
-          }
+          disabled={busy || !privacy || !!store.online.room}
           onClick={() => void changeAccount()}
         />
         <Typography variant="caption">

@@ -6,6 +6,7 @@ import type { SongDto } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
 import type { ProjectPorts } from './RoomProjectCoordinator';
 import { roomProjectKey, selectedRoomProjectUpload } from './roomLibrary';
+import { roomTransferFailure } from './roomProjectDownload';
 type Library =
   | { type: 'paused' }
   | {
@@ -18,6 +19,7 @@ type Library =
       songs?: readonly SongDto[];
       readAt: number;
       revision: number;
+      failedSelection?: number;
       unsubscribe?: () => void;
     };
 export class RoomLibraryPublisher {
@@ -30,6 +32,15 @@ export class RoomLibraryPublisher {
   ) {}
   private library: Library = { type: 'paused' };
   private publishing?: Promise<void>;
+  uploadDeclined(selectionId: number): boolean {
+    return (
+      this.library.type === 'publishing' &&
+      this.library.failedSelection === selectionId
+    );
+  }
+  retry(): void {
+    if (this.library.type === 'publishing') delete this.library.failedSelection;
+  }
   setPythonReady(ready: boolean): void {
     if (!ready || !this.scope.isCurrent()) {
       const previous = this.library;
@@ -117,6 +128,8 @@ export class RoomLibraryPublisher {
           this.scope.setSnapshot(updated);
         }
         const selected = this.scope.getRoom();
+        const selectionId = selected?.selectionId ?? 0;
+        if (this.uploadDeclined(selectionId)) return;
         const owner = selected?.sharedSongs?.find(
           (song) =>
             song.songId === selected.songId &&
@@ -164,6 +177,7 @@ export class RoomLibraryPublisher {
           const current = () =>
             this.library === library &&
             this.scope.isCurrent() &&
+            (this.scope.getRoom()?.selectionId ?? 0) === selectionId &&
             library.upload === upload;
           try {
             const path = await this.ports.python.exportProject(
@@ -184,6 +198,15 @@ export class RoomLibraryPublisher {
             library.uploaded.add(roomProjectKey(this.scope.code, song));
           } catch (error) {
             if (!current()) return;
+            if (String(error).includes('File upload was cancelled')) {
+              library.failedSelection = selectionId;
+              const failed = await this.ports.room
+                .setRoomReadiness(this.scope.code, 'Failed', selectionId)
+                .catch(() => this.scope.getRoom());
+              if (failed && current())
+                this.scope.setSnapshot(roomTransferFailure(failed));
+              return;
+            }
             console.error('Room project export/upload failed', error);
             const failed = this.scope.getRoom();
             if (failed?.transferId === upload.id)

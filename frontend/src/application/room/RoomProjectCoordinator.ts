@@ -85,6 +85,7 @@ export class RoomProjectCoordinator {
   async retry(): Promise<void> {
     const selected = this.scope.getRoom();
     if (!selected) return;
+    this.library.retry();
     if (this.transfer.type === 'cancelled') {
       await this.transfer.publication;
       if (this.scope.getRoom()?.selectionId !== selected.selectionId) return;
@@ -240,6 +241,7 @@ export class RoomProjectCoordinator {
     if (
       !snapshot.songId ||
       snapshot.revision === undefined ||
+      this.library.uploadDeclined(snapshot.selectionId ?? 0) ||
       !this.scope.isCurrent()
     )
       return;

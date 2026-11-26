@@ -43,6 +43,7 @@ from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
 from backend.infrastructure.room_upload_storage import RoomUploadStorage
 from backend.infrastructure.processing_erasure import ProcessingErasure
+from backend.infrastructure.transfer_consent import TransferConsent
 from backend.room.domain import ConnectionState, PlaybackState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
@@ -318,8 +319,13 @@ def create_room_server_app(
     program_log = program_log or ProgramLog(
         program_log_path or (diagnostics_root or Path("./room-diagnostics")) / "program.jsonl"
     )
+    consent = TransferConsent(
+        None if room_database is None else room_database.with_name("transfer-consent.sqlite3")
+    )
 
     def remove_account_data(participants: tuple[str, ...]) -> None:
+        for participant in participants:
+            relay.forget(participant)
         ProcessingErasure(processing_root or Path("/opt/karaoke-processing-server/data")).erase(
             participants
         )
@@ -366,10 +372,12 @@ def create_room_server_app(
                 )
         diagnostics.erase(participants)
         program_log.erase(participants)
+        consent.erase(participants)
 
     def cleanup_logs() -> None:
         diagnostics.cleanup()
         program_log.cleanup()
+        consent.cleanup()
 
     # Friends and room history live beside the rooms, in a store of their own.
     social = build_room_server_social(
@@ -393,6 +401,25 @@ def create_room_server_app(
     )
     app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
     app.state.upload_storage = uploads
+    app.state.transfer_consent = consent
+
+    def stop_transfers(owner: str, purpose: str, account_id: str | None) -> None:
+        if purpose == "online":
+            relay.forget(owner)
+            accounts = (
+                (account_id,) if account_id else tuple(social.accounts.owners((owner,)).values())
+            )
+            social.hub.revoke(accounts)
+            for room_id in repository.list_ids():
+                room = repository.get(room_id)
+                if room is not None and owner in room.participants:
+                    cases.leave.execute(room_id, owner)
+        if purpose in ["online", "processing"]:
+            ProcessingErasure(
+                processing_root or Path("/opt/karaoke-processing-server/data")
+            ).cancel(owner)
+
+    app.state.stop_transfers = stop_transfers
     cleanup_logs()
     _configure_room_app(app, repository, activity)
     _add_service_routes(app, relay, repository, projects.root, diagnostics, program_log)

@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from backend.infrastructure.windows_credentials import WindowsCredentials
 from backend.serialization import dumps, loads_object
+from backend.infrastructure.transfer_consent import CONSENT_VERSION, PURPOSES
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -18,7 +19,22 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         raise ValueError("Account requests must not redirect")
 
 
-def _request(server: str, secret: str, code: str | None = None) -> dict[str, str]:
+def _choice(server: str, secret: str, purpose: str, enabled: bool) -> None:
+    request = urllib.request.Request(
+        f"{server}/social/privacy/{purpose}",
+        method="PUT",
+        data=dumps({"enabled": enabled, "version": CONSENT_VERSION}).encode(),
+        headers={"X-AD-Voice-Device": secret, "Content-Type": "application/json"},
+    )
+    with urllib.request.build_opener(_NoRedirect()).open(request, timeout=10):
+        pass
+
+
+def _request(
+    server: str, secret: str, code: str | None = None, consents: tuple[str, ...] = ()
+) -> dict[str, str]:
+    for purpose in consents:
+        _choice(server, secret, purpose, True)
     data = None if code is None else dumps({"transferCode": code}).encode()
     request = urllib.request.Request(
         f"{server}/social/{'me' if code is None else 'transfer'}",
@@ -35,7 +51,11 @@ def _request(server: str, secret: str, code: str | None = None) -> dict[str, str
 
 
 def account_identity(
-    server: str, profile: str, legacy_secret: str, action: str = "read"
+    server: str,
+    profile: str,
+    legacy_secret: str,
+    action: str = "read",
+    consents: tuple[str, ...] = (),
 ) -> dict[str, object]:
     url = urlsplit(server)
     if (
@@ -56,33 +76,55 @@ def account_identity(
             credentials.write(
                 dumps({"secret": secrets.token_hex(32), "disabled": action == "disable"})
             )
-        elif action not in ["read", "existing"]:
+        elif action not in ["read", "existing", "local"]:
             raise ValueError("Invalid account identity action")
         saved = credentials.read()
         if saved is None:
+            if action == "local":
+                record = {"secret": secrets.token_hex(32), "legacy": legacy_secret}
+                credentials.write(dumps(record))
+                return {"secret": record["secret"], "enabled": True}
             if action == "existing":
                 raise ValueError("An existing online account is required")
             # Read the previous account before publishing any replacement identity. Offline
             # first launches retry later, instead of silently creating an unrelated account.
-            previous = _request(server, legacy_secret)
-            record = {"secret": secrets.token_hex(32), **previous}
+            previous = _request(server, legacy_secret, consents=consents)
+            record = {"secret": secrets.token_hex(32), "legacy": legacy_secret, **previous}
             credentials.write(dumps(record))
         else:
             record = loads_object(saved)
         secret = record.get("secret")
         if not isinstance(secret, str) or re.fullmatch(r"[a-f0-9]{64}", secret) is None:
             raise ValueError("Invalid stored account credential")
-        if "transferCode" in record:
+        if (
+            "legacy" in record
+            and "transferCode" not in record
+            and action not in ["local", "existing"]
+        ):
+            previous_secret = record["legacy"]
+            if not isinstance(previous_secret, str):
+                raise ValueError("Invalid pending account migration")
+            record = {
+                "secret": secret,
+                "legacy": previous_secret,
+                **_request(server, previous_secret, consents=consents),
+            }
+            credentials.write(dumps(record))
+        if action == "existing" and any(key in record for key in ["legacy", "transferCode"]):
+            raise ValueError("Complete the account migration in the application first")
+        if "transferCode" in record and action != "local":
             account_id, code = record.get("accountId"), record["transferCode"]
             if not isinstance(account_id, str) or not isinstance(code, str):
                 raise ValueError("Invalid pending account migration")
             # A prior transfer may have succeeded before its response or final local write
             # was lost. Check ownership first: transfer codes rotate after every transfer.
-            current = _request(server, secret)
+            current = _request(server, secret, consents=consents)
             if current["accountId"] != account_id:
-                current = _request(server, secret, code)
+                current = _request(server, secret, code, consents)
             if current["accountId"] != account_id:
                 raise ValueError("Account migration did not preserve the account")
+            if isinstance(record.get("legacy"), str):
+                _choice(server, record["legacy"], "online", False)
             credentials.write(dumps({"secret": secret}))
         return {"secret": secret, "enabled": record.get("disabled") is not True}
 
@@ -105,6 +147,12 @@ if __name__ == "__main__":
                     arguments["profile"],
                     arguments["legacySecret"],
                     str(arguments.get("action", "read")),
+                    tuple(
+                        purpose
+                        for purpose in PURPOSES
+                        if purpose in arguments.get("consents", [])
+                        and arguments.get("consentVersion") == CONSENT_VERSION
+                    ),
                 )
             )
         )

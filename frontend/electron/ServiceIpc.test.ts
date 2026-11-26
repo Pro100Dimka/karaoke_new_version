@@ -7,12 +7,88 @@ import { ipcChannels } from './ipcChannels';
 import type { TrustedIpc } from './TrustedIpc';
 
 const { subscribe } = vi.hoisted(() => ({ subscribe: vi.fn() }));
+const declaration = vi.hoisted(() => vi.fn());
+vi.mock('./TransferPermissions', () => ({
+  requestFileDeclaration: declaration,
+}));
 vi.mock('./AudioServiceTransport', () => ({
   subscribeAudioNotifications: subscribe,
   sendAudioRequest: vi.fn(),
 }));
 vi.mock('./RoomServerTransport', () => ({}));
 vi.mock('./SocialIdentity', () => ({}));
+
+it.each([
+  '/songs/song/processing',
+  '/songs/song/processing/melody',
+  '/songs/song/processing/lyrics',
+])('requires a file declaration before forwarding remote %s', async (path) => {
+  const handlers = new Map<string, Parameters<TrustedIpc['handle']>[1]>();
+  const ipc: TrustedIpc = {
+    handle: (channel, listener) => {
+      handlers.set(channel, listener);
+    },
+    isRendererUrl: () => true,
+  };
+  const backend = {
+    request: vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        body: { processingBackend: 'Oracle' },
+      })
+      .mockResolvedValueOnce({ ok: true }),
+  };
+  declaration.mockReset().mockResolvedValue('scoped-ticket');
+  registerServiceIpc(
+    ipc,
+    backend as Parameters<typeof registerServiceIpc>[1],
+    {} as Parameters<typeof registerServiceIpc>[2],
+    vi.fn(),
+  );
+  await handlers.get(ipcChannels.pythonRequest)!(
+    { sender: new EventEmitter() } as IpcMainInvokeEvent,
+    { method: 'POST', path, body: {} },
+  );
+  expect(declaration).toHaveBeenCalledWith('processing', path);
+  expect(backend.request).toHaveBeenLastCalledWith(
+    path,
+    expect.objectContaining({
+      headers: expect.objectContaining({
+        'X-AD-Voice-File-Declaration': 'scoped-ticket',
+      }),
+    }),
+  );
+});
+
+it('does not forward a remote job after the declaration is declined', async () => {
+  const handlers = new Map<string, Parameters<TrustedIpc['handle']>[1]>();
+  const ipc: TrustedIpc = {
+    handle: (channel, listener) => {
+      handlers.set(channel, listener);
+    },
+    isRendererUrl: () => true,
+  };
+  const backend = {
+    request: vi
+      .fn()
+      .mockResolvedValue({ ok: true, body: { processingBackend: 'Oracle' } }),
+  };
+  declaration.mockReset().mockRejectedValue(new Error('declined'));
+  registerServiceIpc(
+    ipc,
+    backend as Parameters<typeof registerServiceIpc>[1],
+    {} as Parameters<typeof registerServiceIpc>[2],
+    vi.fn(),
+  );
+  await expect(
+    handlers.get(ipcChannels.pythonRequest)!(
+      { sender: new EventEmitter() } as IpcMainInvokeEvent,
+      { method: 'POST', path: '/songs/song/processing', body: {} },
+    ),
+  ).rejects.toThrow('declined');
+  expect(backend.request).toHaveBeenCalledTimes(1);
+});
 
 it('keeps audio streams through hash navigation and reports only audio command failures', async () => {
   const handlers = new Map<string, Parameters<TrustedIpc['handle']>[1]>();
@@ -91,9 +167,7 @@ it('releases audio notification streams when a renderer crashes before a reload 
   const event = { sender } as unknown as IpcMainInvokeEvent;
   const stopSpectrum = vi.fn();
   const stopPlayback = vi.fn();
-  subscribe
-    .mockReturnValueOnce(stopSpectrum)
-    .mockReturnValueOnce(stopPlayback);
+  subscribe.mockReturnValueOnce(stopSpectrum).mockReturnValueOnce(stopPlayback);
   registerServiceIpc(
     ipc,
     {} as Parameters<typeof registerServiceIpc>[1],

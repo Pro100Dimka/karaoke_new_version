@@ -130,8 +130,9 @@ export const createSocialSocket = (
       void connect();
     },
     /** Sent at once when connected, and with the greeting of every later connection. */
-    setPresence(next: SocialPresence): Promise<void> {
+    setPresence(next: SocialPresence, transmit = true): Promise<void> {
       presence = next;
+      if (!transmit) return Promise.resolve();
       revision += 1;
       const requested = revision;
       const applied = new Promise<void>((resolve, reject) => {

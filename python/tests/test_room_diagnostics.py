@@ -147,7 +147,7 @@ def test_program_logs_from_two_computers_share_one_ordered_file(tmp_path: Path) 
     app = create_room_server_app(relay_port=0, program_log_path=tmp_path / "program.jsonl")
     keys = ("a" * 64, "b" * 64)
     with TestClient(app) as client:
-        for key, source in zip(keys, ("frontend", "AudioService")):
+        for index, (key, source) in enumerate(zip(keys, ("frontend", "AudioService"))):
             response = client.post(
                 "/app-logs",
                 headers={ROOM_KEY_HEADER: key},
@@ -158,7 +158,7 @@ def test_program_logs_from_two_computers_share_one_ordered_file(tmp_path: Path) 
                             "timestamp": "2026-10-07T15:00:00.000Z",
                             "source": source,
                             "level": "ERROR",
-                            "message": f"problem on {source}",
+                            "message": f"Error status={200 + index}",
                         }
                     ],
                 },
@@ -168,8 +168,8 @@ def test_program_logs_from_two_computers_share_one_ordered_file(tmp_path: Path) 
     assert [line["clientId"] for line in lines] == [participant_id_for(key) for key in keys]
     assert [line["source"] for line in lines] == ["frontend", "AudioService"]
     assert [line["message"] for line in lines] == [
-        "problem on frontend",
-        "problem on AudioService",
+        "Error status=200",
+        "Error status=201",
     ]
     assert all(line["at"] for line in lines)
 
@@ -216,7 +216,7 @@ def test_program_log_upload_rejects_other_identity_and_unbounded_input(tmp_path:
 def test_program_log_preserves_prior_entries_after_server_restart(tmp_path: Path) -> None:
     target = tmp_path / "program.jsonl"
     key = "a" * 64
-    for message in ("before restart", "after restart"):
+    for message in ("Error status=200", "Error status=201"):
         app = create_room_server_app(relay_port=0, program_log_path=target)
         with TestClient(app) as client:
             assert (
@@ -238,8 +238,8 @@ def test_program_log_preserves_prior_entries_after_server_restart(tmp_path: Path
                 == 204
             )
     assert [line["message"] for line in _program_lines(tmp_path)] == [
-        "before restart",
-        "after restart",
+        "Error status=200",
+        "Error status=201",
     ]
 
 
@@ -333,13 +333,15 @@ def test_room_metrics_and_server_errors_are_visible_in_program_log(tmp_path: Pat
         )
     handler = ProgramLogHandler(ProgramLog(target))
     handler.handle(
-        logging.LogRecord("room.server", logging.ERROR, __file__, 1, "server failed", (), None)
+        logging.LogRecord(
+            "room.server", logging.ERROR, __file__, 1, "RuntimeError status=500", (), None
+        )
     )
     lines = _program_lines(tmp_path)
     assert lines[0]["source"] == "room-diagnostics"
     assert json.loads(lines[0]["message"])["Backend"] == "ASIO"
     assert lines[1]["source"] == "room.server"
-    assert lines[1]["message"] == "server failed"
+    assert lines[1]["message"] == "RuntimeError status=500"
 
 
 def test_room_server_runtime_logs_uvicorn_errors_in_program_file(
@@ -355,7 +357,7 @@ def test_room_server_runtime_logs_uvicorn_errors_in_program_file(
     def fake_run(_app, **options):
         assert options["log_config"] is None
         assert options["timeout_graceful_shutdown"] == 5
-        logging.getLogger("uvicorn.error").error("server startup failed")
+        logging.getLogger("uvicorn.error").error("RuntimeError status=503")
 
     monkeypatch.setattr(room_server_main.uvicorn, "run", fake_run)
     try:
@@ -365,6 +367,6 @@ def test_room_server_runtime_logs_uvicorn_errors_in_program_file(
         root_logger.setLevel(previous_level)
 
     assert any(
-        line["source"] == "uvicorn.error" and line["message"] == "server startup failed"
+        line["source"] == "uvicorn.error" and line["message"] == "RuntimeError status=503"
         for line in _program_lines(tmp_path / "logs")
     )

@@ -12,15 +12,19 @@ import sqlite3
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import anyio
+from backend.api.room_server_access import ConsentedFileResponse
+from backend.domain_errors import DomainError
 from backend.infrastructure.processing_erasure import (
     acknowledge_processing_erasure,
     processing_privacy_schema,
 )
+from backend.infrastructure.transfer_consent import TransferConsent
 from backend.social.codes import device_key, device_participant_id
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
@@ -33,6 +37,7 @@ ACCOUNT_DB = Path(
         "AD_VOICE_PROCESSING_ACCOUNT_DB", "/opt/karaoke-room-server/data/social.sqlite3"
     )
 )
+CONSENTS = TransferConsent(ACCOUNT_DB.with_name("transfer-consent.sqlite3"))
 CLIENT_KEY = os.environ["AD_VOICE_PROCESSING_TOKEN"]
 WORKER_KEY = os.environ["AD_VOICE_PROCESSING_WORKER_TOKEN"]
 if min(len(CLIENT_KEY), len(WORKER_KEY)) < 32 or CLIENT_KEY == WORKER_KEY:
@@ -119,7 +124,7 @@ def cleanup() -> None:
             (now,),
         )
         cancelled = db.execute(
-            "SELECT id FROM jobs WHERE state='cancelled' AND reserved>0 AND deadline<?",
+            "SELECT id FROM jobs WHERE state='cancelled' AND reserved>0 AND (deadline IS NULL OR deadline<?)",
             (now,),
         ).fetchall()
         for row in cancelled:
@@ -144,6 +149,15 @@ def job_for(request: Request, job_id: str, worker: bool = False) -> sqlite3.Row:
     ):
         raise HTTPException(404, "Processing job not found")
     assert isinstance(row, sqlite3.Row)
+    if request.method != "DELETE" and not request.url.path.endswith("/failed"):
+        try:
+            CONSENTS.require_file(row["declaration"], row["owner"], "processing")
+        except DomainError:
+            with database() as db:
+                db.execute("UPDATE jobs SET state='cancelled' WHERE id=?", (job_id,))
+                row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row is None:
+                raise HTTPException(404, "Processing job was removed")
     return row
 
 
@@ -157,11 +171,14 @@ def content_size(request: Request) -> int:
     return size
 
 
-async def upload(request: Request, path: Path, expected: int) -> None:
+async def upload(
+    request: Request, path: Path, expected: int, allowed: Callable[[], object]
+) -> None:
     written = 0
     try:
         with path.open("xb") as output:
             async for block in request.stream():
+                await anyio.to_thread.run_sync(allowed)
                 written += len(block)
                 if written > expected:
                     raise HTTPException(413, "Processing file exceeds declared size")
@@ -204,6 +221,13 @@ async def submit(request: Request) -> dict[str, str]:
         ).fetchone():
             raise HTTPException(403, "Processing account is unavailable")
     participant = device_participant_id(secret)
+    declaration = request.headers.get("X-AD-Voice-File-Declaration", "")
+    try:
+        CONSENTS.require_file(declaration, participant, "processing")
+    except DomainError as error:
+        raise HTTPException(
+            403, "Confirm the processing consent and file declaration"
+        ) from error
     size = content_size(request)
     cleanup()
     reserve_egress()
@@ -225,21 +249,28 @@ async def submit(request: Request) -> dict[str, str]:
         if shutil.disk_usage(ROOT).free < size + MAX_FILE + 2 * 1024**3:
             raise HTTPException(507, "Processing relay has insufficient free storage")
         db.execute(
-            "INSERT INTO jobs (id,secret,state,created,lease,deadline,reserved,error,owner) "
-            "VALUES (?,?, 'uploading', ?,NULL,NULL,?,NULL,?)",
+            "INSERT INTO jobs (id,secret,state,created,lease,deadline,reserved,error,owner,declaration) "
+            "VALUES (?,?, 'uploading', ?,NULL,NULL,?,NULL,?,?)",
             (
                 job_id,
                 hashlib.sha256(proof.encode()).hexdigest(),
                 time.time(),
                 size + MAX_FILE,
                 participant,
+                declaration,
             ),
         )
         UPLOADING.add(job_id)
     directory = ROOT / job_id
     try:
         directory.mkdir()
-        await upload(request, directory / "input.zip", size)
+        await upload(
+            request,
+            directory / "input.zip",
+            size,
+            lambda: CONSENTS.require_file(declaration, participant, "processing"),
+        )
+        CONSENTS.require_file(declaration, participant, "processing")
         with database() as db:
             if (
                 db.execute(
@@ -297,7 +328,10 @@ def result(request: Request, job_id: str) -> FileResponse:
         raise HTTPException(409, "Processing result is not ready")
     path = ROOT / job_id / "result.zip"
     reserve_egress(path.stat().st_size + 4096)
-    return FileResponse(path, media_type="application/zip")
+    return ConsentedFileResponse(
+        path,
+        lambda: CONSENTS.require_file(row["declaration"], row["owner"], "processing"),
+    )
 
 
 @app.post("/processing/worker/claim")
@@ -319,9 +353,14 @@ def claim(request: Request) -> dict[str, object]:
         if db.execute("SELECT 1 FROM jobs WHERE state='running'").fetchone():
             return {"job": None}
         row = db.execute(
-            "SELECT id,owner FROM jobs WHERE state='queued' ORDER BY created LIMIT 1"
+            "SELECT id,owner,declaration FROM jobs WHERE state='queued' ORDER BY created LIMIT 1"
         ).fetchone()
         if not row:
+            return {"job": None}
+        try:
+            CONSENTS.require_file(row["declaration"], row["owner"], "processing")
+        except DomainError:
+            db.execute("UPDATE jobs SET state='cancelled' WHERE id=?", (row["id"],))
             return {"job": None}
         lease = secrets.token_urlsafe(32)
         db.execute(
@@ -356,7 +395,10 @@ def worker_input(request: Request, job_id: str) -> FileResponse:
         raise HTTPException(409, "Processing job is no longer running")
     path = ROOT / job_id / "input.zip"
     reserve_egress(path.stat().st_size + 4096)
-    return FileResponse(path, media_type="application/zip")
+    return ConsentedFileResponse(
+        path,
+        lambda: CONSENTS.require_file(row["declaration"], row["owner"], "processing"),
+    )
 
 
 @app.post("/processing/worker/jobs/{job_id}/heartbeat")
@@ -386,7 +428,13 @@ async def worker_result(request: Request, job_id: str) -> Response:
         raise HTTPException(409, "Processing job is no longer running")
     size = content_size(request)
     reserve_egress()
-    await upload(request, ROOT / job_id / "result.zip", size)
+    await upload(
+        request,
+        ROOT / job_id / "result.zip",
+        size,
+        lambda: CONSENTS.require_file(row["declaration"], row["owner"], "processing"),
+    )
+    CONSENTS.require_file(row["declaration"], row["owner"], "processing")
     with database() as db:
         completed = (
             db.execute(

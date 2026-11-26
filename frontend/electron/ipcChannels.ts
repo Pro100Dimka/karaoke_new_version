@@ -8,6 +8,10 @@ export const roomVoiceEffects = [
 ] as const;
 export type RoomVoiceEffect = (typeof roomVoiceEffects)[number];
 export interface PrivacyState {
+  transfers: Record<
+    'online' | 'processing' | 'diagnostics',
+    { enabled: boolean; recordedAt: string | null; pending: boolean }
+  >;
   diagnosticsEnabled: boolean;
   diagnosticsRecordedAt: string | null;
   accountEnabled: boolean;

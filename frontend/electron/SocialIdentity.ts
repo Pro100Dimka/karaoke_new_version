@@ -3,6 +3,12 @@ import { createHmac } from 'node:crypto';
 import { hostname } from 'node:os';
 import { pythonExecutable, pythonRoot } from './AppPaths';
 import { roomServerApiBase } from './RoomServerTransport';
+import { requireSecureRoomUrl } from './RoomIdentity';
+import {
+  transferConsents,
+  transferConsentVersion,
+  type TransferPurpose,
+} from './PrivacySettings';
 
 /**
  * Legacy identity is used only to migrate the existing account to a random Windows credential.
@@ -80,6 +86,10 @@ const readIdentity = (action = 'read'): Promise<AccountIdentity> =>
             server: roomServerApiBase,
             legacySecret,
             action,
+            consents: Object.entries(transferConsents())
+              .filter(([, choice]) => choice.enabled && !choice.pending)
+              .map(([purpose]) => purpose),
+            consentVersion: transferConsentVersion,
           }),
         );
       });
@@ -90,9 +100,40 @@ const readIdentity = (action = 'read'): Promise<AccountIdentity> =>
     });
 
 export const deviceSecret = async (): Promise<string> =>
-  (await (identity ??= readIdentity())).secret;
+  (
+    await (transferConsents().online.enabled
+      ? (identity ??= readIdentity())
+      : readIdentity('local'))
+  ).secret;
 export const onlineAccountEnabled = async (): Promise<boolean> =>
+  transferConsents().online.enabled &&
+  !transferConsents().online.pending &&
   (await (identity ??= readIdentity())).enabled;
+export const accountIdentityEnabled = async (): Promise<boolean> =>
+  (await readIdentity('local')).enabled;
+
+export const recordTransferConsent = async (
+  purpose: TransferPurpose,
+  enabled: boolean,
+): Promise<void> => {
+  requireSecureRoomUrl(roomServerApiBase);
+  const secret = (await readIdentity('local')).secret;
+  const response = await fetch(
+    `${roomServerApiBase}/social/privacy/${purpose}`,
+    {
+      method: 'PUT',
+      redirect: 'error',
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-AD-Voice-Device': secret,
+      },
+      body: JSON.stringify({ enabled, version: transferConsentVersion }),
+    },
+  );
+  if (!response.ok)
+    throw new Error('Transfer consent could not be synchronized');
+};
 export const setOnlineAccountEnabled = async (
   enabled: boolean,
 ): Promise<void> => {
@@ -104,11 +145,16 @@ const deviceHeader = 'X-AD-Voice-Device';
 
 /** Requests about friends and the profile say which computer asks; room requests need not. */
 export const withDevice = async <
-  T extends { path: string; headers?: Record<string, string> },
+  T extends { path: string; method?: string; headers?: Record<string, string> },
 >(
   request: T,
 ): Promise<T> => {
-  if (request.path.startsWith('/social/') && !(await onlineAccountEnabled()))
+  const erasure = request.path === '/social/me' && request.method === 'DELETE';
+  if (
+    request.path.startsWith('/social/') &&
+    !erasure &&
+    !(await onlineAccountEnabled())
+  )
     throw new Error('Online account is disabled');
   return request.path.startsWith('/social/')
     ? {

@@ -273,7 +273,25 @@ export const roomClient: RoomClient = {
   async publishDiagnostics(code, values) {
     await request('POST', `/rooms/${roomPath(code)}/diagnostics`, {
       participantId,
-      values,
+      values: Object.fromEntries(
+        Object.entries(values).filter(
+          ([key, value]) =>
+            !/(?:Id|Name|Path|Guid)$/.test(key) &&
+            ((value.trim() !== '' && Number.isFinite(Number(value))) ||
+              (key === 'Backend' &&
+                [
+                  'WASAPI',
+                  'WASAPI Exclusive',
+                  'WASAPI Shared',
+                  'ASIO',
+                  'Exclusive',
+                  'Shared',
+                  'None',
+                ].includes(value)) ||
+              (key === 'App.BackendSwitchStage' &&
+                ['before', 'after'].includes(value))),
+        ),
+      ),
     });
   },
 

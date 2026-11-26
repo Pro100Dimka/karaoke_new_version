@@ -17,6 +17,8 @@ from fastapi import Request, Response
 from backend.api.errors import domain_error_response
 from backend.domain_errors import ForbiddenError
 from backend.serialization import loads_value
+from backend.social.codes import device_participant_id
+from backend.infrastructure.transfer_consent import TransferConsent
 
 ROOM_KEY_HEADER = "X-AD-Voice-Room-Key"
 _PARTICIPANT_HEADER = "X-Participant-Id"
@@ -103,4 +105,19 @@ async def authenticate_room_participant(
                     "RoomIdentityInvalid", "The request may act only as its own room participant"
                 ),
             )
+    consent: TransferConsent = request.app.state.transfer_consent
+    protected = path.startswith(("/rooms", "/voice/", "/app-logs", "/social/"))
+    privacy = path.startswith("/social/privacy/")
+    erasure = path == "/social/me" and request.method == "DELETE"
+    if protected and not privacy and not erasure:
+        actor = owner
+        if path.startswith("/social/"):
+            secret = request.headers.get("X-AD-Voice-Device", "")
+            actor = device_participant_id(secret) if 32 <= len(secret) <= 256 else None
+        try:
+            consent.require(actor or "", "online")
+            if path == "/app-logs" or path.endswith("/diagnostics"):
+                consent.require(actor or "", "diagnostics")
+        except ForbiddenError as error:
+            return domain_error_response(request, error)
     return await call_next(request)

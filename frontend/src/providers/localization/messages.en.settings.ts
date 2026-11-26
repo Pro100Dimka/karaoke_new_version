@@ -1,8 +1,31 @@
 export const enSettings = {
+  privacyTransferTitle: 'Separate consent to transfer data to Ukraine',
+  privacyTransferHint:
+    'Online transfers are off until you make a separate choice. Read the notice before enabling each purpose. You can withdraw here without deleting your account. Withdrawal stops the corresponding online function; local functions remain available.',
+  privacyTransferNotice:
+    'Recipient: Dmytro Andreiev (Андреєв Дмитро Ігорович), Ukraine, dmytro.andreiev.dev@gmail.com. Oracle hosts the relay in Frankfurt, Germany. The Owner administers it from Ukraine and runs remote processing on his own PC in Ukraine. Your choice covers the selected purpose and its corresponding transfers, including server access from Ukraine.',
+  'privacyTransferLabel.online': 'Allow profile and room transfers',
+  'privacyTransferLabel.processing': 'Allow remote processing transfers',
+  'privacyTransferLabel.diagnostics': 'Allow optional diagnostic transfers',
+  'privacyTransfer.online':
+    'Profile, photo, friends, invitations, room activity, microphone audio, shared projects and recordings go to the room server and other participants. Room voice is unencrypted. Participants may retain copies. Include only your own voice or separately authorized material; warn anyone who may be captured by the microphone.',
+  'privacyTransfer.processing':
+    "Source audio, lyrics, project metadata and processing results pass through Oracle in Germany to the Owner's PC in Ukraine. The consent covers the files for processing operations you separately choose to start. File uploads require a separate declaration of whose data is included.",
+  'privacyTransfer.diagnostics':
+    'Optional text reports, application failures and technical room metrics are sent to help investigate failures and may be accessed by the Owner in Ukraine. Avoid personal information in reports. This permission is separate from room and processing access.',
+  privacyTransferRisks:
+    'Ukraine has no EU adequacy decision. An applicable Article 46 safeguard for this return has not been confirmed. Potential risks include weaker enforceability of your rights, public authority access and difficulty obtaining redress. I explicitly consent under Article 49(1)(a) for the selected purpose and my own personal data. I can refuse or withdraw in these settings; future corresponding transfers stop, and prior lawful processing is unaffected. My choice is not consent on behalf of anyone else. For a child, applicable legal guardian authorization must be obtained.',
+  privacyTransferAgree: 'I explicitly consent',
+  privacyTransferRecorded: 'Choice recorded',
+  privacyTransferPending:
+    'Transfers are disabled on this device. Server withdrawal is pending; remote work may continue until the server receives it. The app retries every 30 seconds while open.',
+  privacyTransferRetry: 'Retry withdrawal',
+  privacyTransferFailed:
+    'The choice could not be synchronized. Check the pending status and connection.',
   privacySettings: 'Privacy and online account',
   privacyDiagnostics: 'Allow automatic diagnostic uploads',
   privacyDiagnosticsHint:
-    'Optional. Sends text logs and technical diagnostics to help investigate failures. Logs may contain file names and paths, but no audio or file contents. Off by default; turning it off stops uploads and clears pending reports on this device.',
+    'Optional and off by default. Automatic uploads contain technical event classes, status codes and numeric room metrics. Explicit text reports require a separate data declaration. No audio or binary file contents are included. Withdrawal stops uploads and clears pending reports on this device.',
   privacyRetentionHint:
     'Server diagnostic logs are retained for 7 days and checked for expiry at least hourly. Separate room recordings are retained for 24 hours. The default shared account quota for project uploads is 10 GiB.',
   privacyDeleteAccount: 'Delete online account',

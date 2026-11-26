@@ -18,6 +18,9 @@ vi.mock('./RoomServerTransport', () => ({
 vi.mock('./RoomIdentity', () => ({ roomParticipantId: vi.fn() }));
 
 import { AppLogUploader } from './AppLogUploader';
+vi.mock('./TransferPermissions', () => ({
+  requestFileDeclaration: async () => 'scoped-report-ticket',
+}));
 
 const deferred = () => {
   let resolve!: () => void;
@@ -77,12 +80,12 @@ it('includes logs accepted during a pending disk write before shutdown completes
   const logs = new AppLogUploader(async () => {
     throw new Error('offline');
   }, '/profile/queue.json');
-  logs.add('python', 'error', 'first');
+  logs.add('python', 'error', 'Error status=1');
   const finished = vi.fn();
   const stopped = logs.stop().then(finished);
   await vi.advanceTimersByTimeAsync(0);
   expect(disk.writeFile).toHaveBeenCalledOnce();
-  logs.add('python', 'error', 'accepted during the save');
+  logs.add('python', 'error', 'Error status=2');
   writing.resolve();
   await vi.advanceTimersByTimeAsync(0);
   expect(disk.writeFile).toHaveBeenCalledTimes(2);
@@ -90,7 +93,7 @@ it('includes logs accepted during a pending disk write before shutdown completes
     JSON.parse(disk.writeFile.mock.calls[1]![1]).map(
       (entry: { message: string }) => entry.message,
     ),
-  ).toEqual(['first', 'accepted during the save']);
+  ).toEqual(['Error status=1', 'Error status=2']);
   expect(finished).not.toHaveBeenCalled();
   replacement.resolve();
   await stopped;

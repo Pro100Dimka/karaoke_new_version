@@ -1,6 +1,6 @@
 # A&D Voice Privacy Policy
 
-Version 1.0 dated 26 November 2026.
+Version 1.1 dated 27 November 2026.
 
 ## 1. Who is responsible
 
@@ -11,7 +11,7 @@ Version 1.0 dated 26 November 2026.
 - Postal address for enquiries: 15 Heroiv Kosmosu Street, Kyiv, 03146, Ukraine.
 - Privacy and deletion enquiries: dmytro.andreiev.dev@gmail.com.
 - Official policy page: https://github.com/Pro100Dimka/karaoke_new_version/blob/main/docs/legal/privacy-policy.en.md.
-- Effective date: 26 November 2026.
+- Effective date: 27 November 2026.
 - Data protection contact: the Owner, dmytro.andreiev.dev@gmail.com.
 - No European Union representative has been appointed as of this version. Contacting the Owner does not replace appointing a representative when required by law.
 
@@ -45,7 +45,7 @@ Depending on the selected recording and subsequent processing scenario, individu
 
 Network operations may process IP addresses, client and room identifiers, timestamps, application and operating system versions, audio-device information, errors, latency, packet loss and processing state.
 
-Application and service text logs are sent to the server only after a separate voluntary choice to enable automatic diagnostics. Messages may contain filenames, paths, job details and errors. Some secrets and usernames are masked, but logs are not considered fully anonymous. Diagnostic logs do not include audio or file contents.
+Automatic diagnostics require a separate choice. Routine application messages are reduced to technical event classes and status codes before upload and again on the server. Room metrics retain numbers and a limited set of technical states; device names, paths and other free text are excluded. A user can still send an explicit text report after declaring whose data it contains. Known credential, URL, email, address and path patterns are masked, but arbitrary text is not guaranteed anonymous. Diagnostics do not include audio or binary file contents.
 
 Ordinary text diagnostics are not continuous audio recording. Audio and file transfers for rooms, recording and remote processing are described separately above.
 
@@ -72,6 +72,20 @@ For users whose data processing is subject to the GDPR, the following legal base
 | Binding legal requirements and competent-authority orders | The relevant legal obligation, Article 6(1)(c), limited to the applicable requirement |
 
 The diagnostics notice version, time and consent status are recorded locally. Withdrawal stops future uploads and clears the device queue; previously received server records are erased under sections 7 and 9. Accepting the terms is not blanket consent. Legitimate interest does not remove the right to object; the Owner considers necessity and proportionality for each retention request.
+
+### 4.1. Separate transfer choices and evidence
+
+Before profile and room access, remote processing or optional diagnostics, the current client asks for a separate, explicit choice for that purpose in Settings > Advanced > Privacy and online account. The notice identifies the Owner in Ukraine, the Oracle relay in Frankfurt and the processing PC in Ukraine, describes the selected data and recipients, and warns of the absence of an EU adequacy decision and an unconfirmed applicable Article 46 safeguard for the return to Ukraine. It describes risks to enforceability of rights, public authority access and obtaining redress. This concerns Article 49(1)(a), independently of the Article 6 basis for processing. Accepting the terms alone does not enable these transfers.
+
+Refusal leaves local functions available. Withdrawal stops the corresponding online function without deleting the account or local library. New operations are rejected, active transfers are cancelled and processing is stopped through existing cancellation and worker heartbeat mechanisms. Withdrawing profile and room permission also withdraws processing and diagnostics and leaves the room. If the server is unavailable, the device disables its transfers immediately and displays the pending server withdrawal; remote work may continue until that request reaches the server. While open, the app retries every 30 seconds. Prior lawful processing is unaffected; deletion remains a separate action.
+
+The server keeps purpose, decision, notice version and hash, server timestamp and derived participant identifier. The canonical notice is preserved separately. Active evidence is retained while the choice applies; superseded receipts are removed after 365 days, subject to hourly cleanup. Minimal current choice state remains until account deletion. Local records also contain the server origin, decision time and pending synchronization status. Deleting the account removes the associated consent receipts and file declarations.
+
+Before a file operation, the uploader declares whether the sources, lyrics, metadata and results contain only their own personal data, no personal data, or other people's data. The third option requires selecting previously obtained documentary permission evidence, including the disclosed transfer to Ukraine. Only its SHA-256 hash is recorded, not the document. Keep the original. The app does not verify that it is legally sufficient or that the declaration matches every person in the material. A copyright licence alone does not establish personal-data consent. Each affected person and any required legal guardian needs an appropriate basis; the uploader's consent is not theirs. File authorization lasts 24 hours and is invalidated by withdrawal; declaration records are cleaned up seven days after expiry.
+
+The supported administrative diagnostic export requires one participant, a support or incident-investigation purpose and current diagnostic consent. It excludes other participants, older unconsented records and raw message text. Export audit records and managed exports are retained for seven days; account deletion also removes its managed exports. The Owner retains server administration, including root/SSH powers; these application restrictions do not technically prevent an administrator from making an independent copy. Such access requires its own justified scope and handling, and is not authorized by another person's consent.
+
+These controls do not by themselves establish that consent is freely given in every commercial offering, verify a child's legal guardian or close the legal assessment of all international transfers.
 
 ## 5. Recipients
 

@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import ExitStack, contextmanager
+from collections.abc import Iterator, Sequence
+import threading
 
 from backend.ai.domain import AiCapability
-from backend.ai.ports import AiProvider
+from backend.ai.ports import AiProvider, TransferAuthorizedProvider
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.settings.domain import BackendSettings
 from backend.settings.domain import ProcessingBackend
+
+
+@contextmanager
+def authorize_upload(
+    providers: Sequence[AiProvider], ticket: str, cancel: threading.Event
+) -> Iterator[None]:
+    with ExitStack() as scopes:
+        seen: set[int] = set()
+        for provider in providers:
+            if id(provider) not in seen and isinstance(provider, TransferAuthorizedProvider):
+                seen.add(id(provider))
+                scopes.enter_context(provider.authorize_upload(ticket, cancel))
+        yield
 
 
 @dataclass(frozen=True, slots=True)

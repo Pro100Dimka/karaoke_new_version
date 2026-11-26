@@ -22,6 +22,16 @@ import {
   downloadRoomProject,
 } from './RoomProjectTransfer';
 import { ipcChannels } from './ipcChannels';
+import { transferConsentChanges } from './PrivacySettings';
+const fileDeclaration = vi.hoisted(() =>
+  vi.fn(async () => 'scoped-file-ticket'),
+);
+vi.mock('./TransferPermissions', () => ({
+  requestFileDeclaration: fileDeclaration,
+}));
+vi.mock('./RoomIdentity', () => ({
+  withRoomKey: async (headers: Record<string, string>) => headers,
+}));
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -34,6 +44,7 @@ vi.mock('node:fs', async (importOriginal) => {
 });
 
 afterEach(() => {
+  transferConsentChanges.removeAllListeners('withdraw');
   vi.unstubAllGlobals();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -454,6 +465,42 @@ const fakeClock = () => {
   // Progress reports are paced by performance.now(); it follows the fake clock here.
   vi.spyOn(performance, 'now').mockImplementation(() => Date.now());
 };
+
+it('does not count time reading the data declaration as a stalled upload', async () => {
+  const { call, project } = await setup();
+  const file = join(roots.at(-1)!, 'upload.zip');
+  await writeFile(file, 'archive');
+  let entered!: () => void;
+  let confirm!: (ticket: string) => void;
+  const opened = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  fileDeclaration.mockImplementationOnce(() => {
+    entered();
+    return new Promise<string>((resolve) => {
+      confirm = resolve;
+    });
+  });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (_url, options: RequestInit) => {
+      for await (const _chunk of options.body as AsyncIterable<Buffer>) {
+        /* consume upload */
+      }
+      return new Response(null, { status: 204 });
+    }),
+  );
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  const uploading = call(ipcChannels.uploadRoomProject, {
+    ...project,
+    path: file,
+  }).catch((error) => error);
+  await opened;
+  await vi.advanceTimersByTimeAsync(inactivityTimeoutMilliseconds + 1);
+  confirm('scoped-file-ticket');
+  expect(await uploading).toBeUndefined();
+  expect(vi.getTimerCount()).toBe(0);
+});
 
 it('keeps a transfer alive for as long as data keeps moving, however long it takes', () => {
   vi.useFakeTimers();

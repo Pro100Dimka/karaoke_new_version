@@ -13,7 +13,13 @@ from pydantic import Field, ValidationError
 from backend.api.base_dto import ApiModel
 from backend.api.room_identity import ROOM_KEY_HEADER, participant_id_for
 from backend.api.room_server_access import room_member
-from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
+from backend.infrastructure.room_diagnostics import (
+    ProgramLog,
+    RoomDiagnosticsLog,
+    diagnostic_metrics,
+    redact_report,
+    technical_message,
+)
 from backend.infrastructure.voice_relay import VoiceRelay
 from backend.room.domain import Room
 from backend.room.identifiers import normalize_room_id
@@ -70,6 +76,7 @@ class ProgramLogEntryDto(ApiModel):
     source: str = Field(min_length=1, max_length=64)
     level: str = Field(min_length=1, max_length=16)
     message: str = Field(max_length=4096)
+    declaration: str = Field(default="", max_length=128)
 
 
 class ProgramLogUploadDto(ApiModel):
@@ -100,10 +107,49 @@ def add_program_log_route(app: FastAPI, log: ProgramLog) -> None:
         ):
             raise HTTPException(status_code=403, detail="Program log identity is invalid")
         peer = request.client.host if request.client else "unknown"
+        entries = []
+        for entry in body.entries:
+            if entry.declaration:
+                request.app.state.transfer_consent.require_file(
+                    entry.declaration, body.client_id, "diagnostics", "/app-logs"
+                )
+            timestamp = datetime.now(timezone.utc).isoformat()
+            try:
+                timestamp = datetime.fromisoformat(entry.timestamp).isoformat()
+            except ValueError:
+                pass
+            entries.append(
+                {
+                    "timestamp": timestamp,
+                    "source": entry.source
+                    if entry.source
+                    in [
+                        "electron",
+                        "python",
+                        "audio-service",
+                        "audio-diagnostics",
+                        "error-report",
+                        "frontend",
+                        "AudioService",
+                        "backend",
+                        "renderer",
+                    ]
+                    else "client",
+                    "level": entry.level.lower()
+                    if entry.level.lower() in ["debug", "info", "warning", "error", "critical"]
+                    else "info",
+                    "message": redact_report(entry.message)
+                    if entry.declaration
+                    else technical_message(entry.message),
+                }
+            )
         if not log.append(
             body.client_id,
-            [entry.model_dump() for entry in body.entries],
+            entries,
             rate_key=peer,
+            consent_revision=request.app.state.transfer_consent.require(
+                body.client_id, "diagnostics"
+            ),
         ):
             raise HTTPException(status_code=429, detail="Program log upload limit reached")
         return Response(status_code=204)
@@ -117,11 +163,11 @@ def add_diagnostics_route(
     program_log: ProgramLog,
 ) -> None:
     @app.post("/rooms/{room_id}/diagnostics", status_code=204)
-    def room_diagnostics(room_id: str, body: RoomDiagnosticsDto) -> Response:
+    def room_diagnostics(room_id: str, body: RoomDiagnosticsDto, request: Request) -> Response:
         """A room member's audio numbers, logged so every computer of a room can be compared."""
         room_id = normalize_room_id(room_id)
         room = room_member(repository, room_id, body.participant_id)
-        values = {key[:128]: value[:256] for key, value in body.values.items()}
+        values = diagnostic_metrics(body.values)
         server_values = {
             **_server_send_values(relay.recipient_send_metrics(room_id, body.participant_id)),
             **_room_timing_values(room, body.participant_id),
@@ -139,6 +185,9 @@ def add_diagnostics_route(
                     "roomId": room_id,
                 }
             ],
+            consent_revision=request.app.state.transfer_consent.require(
+                body.participant_id, "diagnostics"
+            ),
         )
         return Response(status_code=204)
 

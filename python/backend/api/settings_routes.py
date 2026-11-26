@@ -13,6 +13,7 @@ from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.settings.environment import EnvironmentEntry, default_environment_store
 from backend.infrastructure.oracle_ai_provider import OracleAiProvider
 from backend.domain_errors import DomainError
+from backend.processing.domain import JobState, JobType
 
 router = APIRouter(prefix="/settings")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -78,6 +79,21 @@ def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
 @router.get("", response_model=SettingsDto)
 def get_settings(app: ContainerDep) -> SettingsDto:
     return _settings(app.system.settings())
+
+
+@router.post("/transfers/withdraw", status_code=204)
+def withdraw_processing(app: ContainerDep) -> None:
+    offset = 0
+    while True:
+        jobs = app.system.jobs.list(limit=100, offset=offset, job_type=JobType.SONG_PROCESSING)
+        for job in jobs:
+            if job.state in [JobState.QUEUED, JobState.RUNNING] and str(
+                (job.report or {}).get("processingBackend")
+            ) in ["Oracle", "Kaggle"]:
+                app.system.jobs.cancel(job.job_id)
+        if len(jobs) < 100:
+            break
+        offset += 100
 
 
 @router.get("/environment", response_model=list[EnvironmentEntryDto])

@@ -81,10 +81,11 @@ class Accounts:
                 if self._store.revoked(device_key(device_secret)):
                     return ()
                 raise ForbiddenError("AccountNotFound", "This device has no account")
-            if account.account_id != account_id:
+            if account_id and account.account_id != account_id:
                 raise ForbiddenError(
                     "AccountOwnershipRequired", "The account owner must confirm deletion"
                 )
+            account_id = account.account_id
             participants = tuple(
                 dict.fromkeys(
                     (*self._store.participant_ids(account_id), device_participant_id(device_secret))
@@ -96,6 +97,12 @@ class Accounts:
 
     def participant_revoked(self, participant_id: str) -> bool:
         return self._store.participant_revoked(participant_id)
+
+    def device_revoked(self, key: str) -> bool:
+        return self._store.revoked(key)
+
+    def existing_account(self, secret: str) -> Account | None:
+        return self._store.by_device(device_key(secret))
 
     def storage_owner(self, participant_id: str) -> tuple[str, tuple[str, ...]]:
         with self._lock:

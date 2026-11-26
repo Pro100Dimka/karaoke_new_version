@@ -38,7 +38,8 @@ from backend.processing.domain import (
     StageReport,
     CancellationPolicy,
 )
-from backend.serialization import JsonValue
+from backend.serialization import JsonValue, loads_object
+from backend.infrastructure.transfer_consent import CONSENT_VERSION
 from backend.settings.domain import is_secure_kaggle_url
 from backend.settings.environment import default_environment_store, room_processing_url
 from backend.infrastructure.account_identity import account_identity
@@ -68,6 +69,21 @@ class OracleAiProvider:
         self._upload_lock = threading.Lock()
         self._sessions: dict[Path, tuple[str, Path | None]] = {}
         self._scopes: dict[threading.Event, str] = {}
+        self._authorizations: dict[threading.Event, str] = {}
+
+    @contextlib.contextmanager
+    def authorize_upload(self, ticket: str, cancel: threading.Event) -> Iterator[None]:
+        if not ticket:
+            raise DependencyError(
+                "FileDeclarationRequired", "Confirm whose data is included before remote processing"
+            )
+        with self._lock:
+            self._authorizations[cancel] = ticket
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._authorizations.pop(cancel, None)
 
     @property
     def descriptor(self) -> AiProviderDescriptor:
@@ -115,6 +131,31 @@ class OracleAiProvider:
         output: Path | None = None,
         progress: Callable[[str, float, float], None] | None = None,
     ) -> dict[str, JsonValue]:
+        try:
+            choice = loads_object(
+                Path(os.environ["AD_VOICE_TRANSFER_CONSENT_FILE"]).read_text(encoding="utf-8")
+            )
+            choices = choice["choices"]
+            permitted = (
+                choice["version"] == CONSENT_VERSION
+                and choice.get("origin") == processing_connection()[0].removesuffix("/processing")
+                and isinstance(choices, dict)
+                and all(
+                    isinstance(choices.get(purpose), dict)
+                    and choices[purpose].get("enabled") is True
+                    and choices[purpose].get("pending") is not True
+                    for purpose in ["online", "processing"]
+                )
+            )
+        except (KeyError, OSError, ValueError):
+            permitted = False
+        with self._lock:
+            ticket = self._authorizations.get(cancel, "")
+        if not permitted or not ticket:
+            raise DependencyError(
+                "TransferConsentRequired",
+                "Enable the separate processing transfer consent in Privacy settings",
+            )
         self._temp.mkdir(parents=True, exist_ok=True)
         transport = ProcessingTransport(*processing_connection())
         try:
@@ -136,6 +177,7 @@ class OracleAiProvider:
                     cancel,
                     progress=progress,
                     device_secret=str(identity["secret"]),
+                    declaration=ticket,
                 )
                 destination = output or directory
                 result = read_bundle(response, destination)

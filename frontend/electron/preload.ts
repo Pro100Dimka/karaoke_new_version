@@ -65,6 +65,14 @@ ipcRenderer.on(
 const desktopApi = {
   getPrivacySettings: (): Promise<PrivacyState> =>
     ipcRenderer.invoke(ipcChannels.privacySettings, 'read'),
+  setTransferConsent: (
+    purpose: 'online' | 'processing' | 'diagnostics',
+    enabled: boolean,
+  ): Promise<PrivacyState> =>
+    ipcRenderer.invoke(ipcChannels.privacySettings, 'transfer', {
+      purpose,
+      enabled,
+    }),
   setDiagnosticUploads: (enabled: boolean): Promise<PrivacyState> =>
     ipcRenderer.invoke(ipcChannels.privacySettings, 'diagnostics', enabled),
   deleteOnlineAccount: (accountId: string): Promise<void> =>

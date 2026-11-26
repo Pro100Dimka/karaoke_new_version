@@ -38,7 +38,22 @@ def relay(tmp_path, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
-    with TestClient(module.app, headers={"X-AD-Voice-Device": "privacy-device-" * 4}) as client:
+    from backend.infrastructure.transfer_consent import CONSENT_VERSION
+    from backend.social.codes import device_participant_id
+
+    participant = device_participant_id("privacy-device-" * 4)
+    for purpose in ["online", "processing"]:
+        module.CONSENTS.record(participant, purpose, True, CONSENT_VERSION)
+    declaration = module.CONSENTS.declare(
+        participant, "processing", "processing-test", "nonpersonal", ""
+    )
+    with TestClient(
+        module.app,
+        headers={
+            "X-AD-Voice-Device": "privacy-device-" * 4,
+            "X-AD-Voice-File-Declaration": declaration,
+        },
+    ) as client:
         yield module, client
 
 
@@ -91,7 +106,8 @@ def test_erasure_cannot_be_acknowledged_while_an_upload_can_still_write(relay, m
     module, client = relay
     started, release = threading.Event(), threading.Event()
 
-    async def upload(request, path, expected):
+    async def upload(request, path, expected, allowed):
+        allowed()
         path.write_bytes(b"private upload")
         started.set()
         await anyio.to_thread.run_sync(release.wait)
@@ -221,7 +237,7 @@ def test_relay_separates_credentials_and_returns_result_only_after_completion(
                 lambda *args: SimpleNamespace(join=lambda **kwargs: None),
             )
             transport = SimpleNamespace(
-                download=lambda path, output, headers: write_bundle(output, {}, {}),
+                download=lambda path, output, headers, cancel: write_bundle(output, {}, {}),
                 request=lambda method, path, **kwargs: client.request(
                     method, "/processing" + path, headers=worker
                 ),
@@ -253,6 +269,116 @@ def test_relay_enforces_free_transfer_limit_before_upload(relay, monkeypatch):
     assert response.status_code == 429
     with module.database() as db:
         assert db.execute("SELECT count(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_processing_requires_current_consent_and_a_fresh_declaration_after_withdrawal(relay):
+    from backend.infrastructure.transfer_consent import CONSENT_VERSION
+    from backend.social.codes import device_participant_id
+
+    module, client = relay
+    owner = device_participant_id("privacy-device-" * 4)
+    headers = {"X-Processing-Key": module.CLIENT_KEY}
+    module.CONSENTS.record(owner, "processing", False, CONSENT_VERSION)
+    assert (
+        client.post("/processing/jobs", headers=headers, content=b"not admitted").status_code == 403
+    )
+    module.CONSENTS.record(owner, "processing", True, CONSENT_VERSION)
+    assert (
+        client.post("/processing/jobs", headers=headers, content=b"old declaration").status_code
+        == 403
+    )
+    with module.database() as db:
+        assert db.execute("SELECT count(*) FROM jobs").fetchone()[0] == 0
+    declaration = module.CONSENTS.declare(owner, "processing", "new-operation", "nonpersonal", "")
+    ticket = client.post(
+        "/processing/jobs",
+        headers={**headers, "X-AD-Voice-File-Declaration": declaration},
+        content=b"admitted",
+    ).json()
+    worker = {"X-Processing-Key": module.WORKER_KEY}
+    claim = client.post("/processing/worker/claim", headers=worker).json()["job"]
+    worker["X-Job-Key"] = claim["jobKey"]
+    route = "/processing/worker/jobs/" + ticket["jobId"]
+    module.CONSENTS.record(owner, "processing", False, CONSENT_VERSION)
+    assert client.get(route + "/input", headers=worker).status_code == 409
+    assert client.post(route + "/heartbeat", headers=worker).json()["state"] == "cancelled"
+    assert client.put(route + "/result", headers=worker, content=b"late result").status_code == 409
+    assert client.post(route + "/failed", headers=worker).status_code == 204
+    assert not (module.ROOT / ticket["jobId"]).exists()
+
+
+def test_withdrawn_queued_job_is_never_claimed(relay):
+    from backend.infrastructure.transfer_consent import CONSENT_VERSION
+    from backend.social.codes import device_participant_id
+
+    module, client = relay
+    owner = device_participant_id("privacy-device-" * 4)
+    ticket = client.post(
+        "/processing/jobs", headers={"X-Processing-Key": module.CLIENT_KEY}, content=b"queued"
+    ).json()
+    module.CONSENTS.record(owner, "processing", False, CONSENT_VERSION)
+    response = client.post(
+        "/processing/worker/claim", headers={"X-Processing-Key": module.WORKER_KEY}
+    )
+    assert response.json()["job"] is None
+    module.cleanup()
+    assert not (module.ROOT / ticket["jobId"]).exists()
+
+
+def test_processing_provider_binds_declaration_to_one_job_and_stops_after_local_withdrawal(
+    tmp_path, monkeypatch
+):
+    import json
+    from backend.infrastructure import oracle_ai_provider as remote
+    from backend.infrastructure.transfer_consent import CONSENT_VERSION
+    from backend.processing.preflight import authorize_upload
+
+    url = "http://127.0.0.1:8081"
+    path = tmp_path / "transfer-consents.json"
+    choices = {purpose: {"enabled": True, "pending": False} for purpose in ["online", "processing"]}
+    path.write_text(
+        json.dumps({"version": CONSENT_VERSION, "origin": url, "choices": choices}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AD_VOICE_TRANSFER_CONSENT_FILE", str(path))
+    monkeypatch.setattr(remote, "processing_connection", lambda: (url + "/processing", "key" * 16))
+    monkeypatch.setattr(
+        remote, "account_identity", lambda *_: {"secret": "a" * 64, "enabled": True}
+    )
+    sent = []
+
+    class Transport:
+        def __init__(self, url, token):
+            self.url = url
+
+        def invoke(self, source, result, cancel, **kwargs):
+            sent.append(kwargs["declaration"])
+            write_bundle(result, {"protocolVersion": 1}, {})
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(remote, "ProcessingTransport", Transport)
+    provider = remote.OracleAiProvider(tmp_path / "temp")
+    cancel = threading.Event()
+    with authorize_upload((provider, provider), "current-job-ticket", cancel):
+        assert provider._invoke("prepare", {}, {}, cancel)["protocolVersion"] == 1
+        choices["processing"]["enabled"] = False
+        path.write_text(
+            json.dumps({"version": CONSENT_VERSION, "origin": url, "choices": choices}),
+            encoding="utf-8",
+        )
+        with pytest.raises(DomainError) as refused:
+            provider._invoke("prepare", {}, {}, cancel)
+        assert refused.value.code == "TransferConsentRequired"
+    assert sent == ["current-job-ticket"]
+    choices["processing"]["enabled"] = True
+    path.write_text(
+        json.dumps({"version": CONSENT_VERSION, "origin": url, "choices": choices}),
+        encoding="utf-8",
+    )
+    with pytest.raises(DomainError):
+        provider._invoke("prepare", {}, {}, cancel)
 
 
 @pytest.mark.parametrize("cancelled", [False, True])

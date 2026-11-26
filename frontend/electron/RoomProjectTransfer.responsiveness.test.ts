@@ -4,6 +4,10 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, expect, it, vi } from 'vitest';
 import { registerRoomProjectTransferHandlers } from './RoomProjectTransfer';
 import { ipcChannels } from './ipcChannels';
+import { transferConsentChanges } from './PrivacySettings';
+vi.mock('./TransferPermissions', () => ({
+  requestFileDeclaration: async () => 'scoped-file-ticket',
+}));
 
 const io = vi.hoisted(() => ({
   realpath: vi.fn(),
@@ -26,6 +30,7 @@ vi.mock('./RoomIdentity', () => ({
 }));
 
 afterEach(() => {
+  transferConsentChanges.removeAllListeners('withdraw');
   vi.restoreAllMocks();
   vi.clearAllMocks();
   vi.unstubAllGlobals();

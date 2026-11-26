@@ -21,7 +21,7 @@ from backend.processing.compute_policy import ExecutionContext
 from backend.processing.job_manager import JobContext, JobWork, ProcessingJobManager
 from backend.processing.orchestrator import PipelineOrchestrator
 from backend.processing.persistence import ProcessingPersistence
-from backend.processing.preflight import ProcessingPreflight, ProcessingProviders
+from backend.processing.preflight import ProcessingPreflight, ProcessingProviders, authorize_upload
 from backend.processing.reporting import report_payload
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.projects.operations import SongOperation, SongOperationRegistry
@@ -92,12 +92,13 @@ class StartProcessing:
         online_lyrics: bool,
         idempotency_key: str | None,
         correlation_id: str | None,
+        upload_authorization: str = "",
     ) -> Job:
         request_hash = _request_hash(song_id, mode, online_lyrics)
         repeated = self._persistence.repeated_job("StartProcessing", idempotency_key, request_hash)
         if repeated:
             return repeated
-        job = self._launch(song_id, mode, online_lyrics, correlation_id)
+        job = self._launch(song_id, mode, online_lyrics, correlation_id, upload_authorization)
         self._persistence.save_idempotency(
             "StartProcessing", idempotency_key, request_hash, job.job_id
         )
@@ -109,6 +110,7 @@ class StartProcessing:
         mode: ProcessingMode,
         online_lyrics: bool,
         correlation_id: str | None,
+        upload_authorization: str,
     ) -> Job:
         song = self._load_processable(song_id)
         self._operations.claim(song_id, SongOperation.PROCESSING)
@@ -129,6 +131,7 @@ class StartProcessing:
                 compute_mode,
                 settings.processing_backend,
                 correlation_id,
+                upload_authorization,
             )
             submitted = True
             return job
@@ -148,13 +151,16 @@ class StartProcessing:
         compute_mode: ComputeMode,
         processing_backend: ProcessingBackend,
         correlation_id: str | None,
+        upload_authorization: str,
     ) -> Job:
         source_bytes = self._source_size(song)
         admission = _Admission(
             ready_revision=song.active_revision if song.status is SongStatus.READY else None
         )
         self._persistence.set_status(song.song_id, SongStatus.QUEUED)
-        work, finalize = self._processing_work(song, mode, online_lyrics, providers, admission)
+        work, finalize = self._processing_work(
+            song, mode, online_lyrics, providers, admission, upload_authorization
+        )
 
         # Register the turn in the same order in which workers receive their jobs.
         with self._admission_changed, ExitStack() as pending:
@@ -186,6 +192,7 @@ class StartProcessing:
         online_lyrics: bool,
         providers: ProcessingProviders,
         admission: _Admission,
+        upload_authorization: str,
     ) -> tuple[JobWork, Callable[[], None]]:
         cleanup = ExitStack()
         cleanup.callback(self._finish, song.song_id, admission)
@@ -193,7 +200,14 @@ class StartProcessing:
         def process(context: JobContext) -> dict[str, object]:
             # Completion must not invite a retry while this job still owns its budget.
             # close() remains a one-shot fallback for jobs cancelled before work begins.
-            with cleanup:
+            with (
+                cleanup,
+                authorize_upload(
+                    (providers.separation, providers.asr, providers.alignment, providers.pitch),
+                    upload_authorization,
+                    context.cancel,
+                ),
+            ):
                 return self._run(
                     song.song_id, mode, online_lyrics, providers, context, admission.execution()
                 )

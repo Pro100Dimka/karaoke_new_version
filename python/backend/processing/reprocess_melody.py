@@ -12,7 +12,7 @@ from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_pipeline import MelodyInputs, MelodyPipeline
 from backend.processing.persistence import ProcessingPersistence
-from backend.processing.preflight import ProcessingPreflight, provider_backend
+from backend.processing.preflight import ProcessingPreflight, provider_backend, authorize_upload
 from backend.processing.reporting import report_payload
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.projects.operations import SongOperation, SongOperationRegistry
@@ -47,6 +47,7 @@ class ReprocessMelody:
         idempotency_key: str | None,
         correlation_id: str | None,
         realign_lyrics: bool = False,
+        upload_authorization: str = "",
     ) -> Job:
         request_hash = _request_hash(song_id, "lyrics" if realign_lyrics else "melody")
         repeated = self._persistence.repeated_job("ReprocessMelody", idempotency_key, request_hash)
@@ -74,7 +75,7 @@ class ReprocessMelody:
             cpu_threads=settings.cpu_threads,
             additional_providers=(alignment,) if alignment else (),
         )
-        job = self._start(inputs, provider, alignment, lease, correlation_id)
+        job = self._start(inputs, provider, alignment, lease, correlation_id, upload_authorization)
         self._persistence.save_idempotency(
             "ReprocessMelody", idempotency_key, request_hash, job.job_id
         )
@@ -87,6 +88,7 @@ class ReprocessMelody:
         alignment: AiProvider | None,
         lease: ResourceLease,
         correlation_id: str | None,
+        upload_authorization: str,
     ) -> Job:
         song_id = inputs.song.song_id
         claimed = submitted = False
@@ -95,7 +97,9 @@ class ReprocessMelody:
             claimed = True
             job = self._jobs.start(
                 JobType.SONG_PROCESSING,
-                lambda context: self._run(inputs, provider, alignment, context, lease.execution),
+                lambda context: self._run(
+                    inputs, provider, alignment, context, lease.execution, upload_authorization
+                ),
                 entity_id=song_id,
                 correlation_id=correlation_id,
                 initial_report={
@@ -121,12 +125,20 @@ class ReprocessMelody:
         alignment: AiProvider | None,
         context: JobContext,
         execution: ExecutionContext,
+        upload_authorization: str,
     ) -> dict[str, object]:
         self._persistence.record_started(
             inputs.song.song_id,
             kind="LyricsRealignment" if alignment else "MelodyReprocess",
         )
-        return report_payload(self._pipeline.run(inputs, provider, context, execution, alignment))
+        with authorize_upload(
+            (provider, alignment) if alignment else (provider,),
+            upload_authorization,
+            context.cancel,
+        ):
+            return report_payload(
+                self._pipeline.run(inputs, provider, context, execution, alignment)
+            )
 
     def _finish(self, song_id: str, lease: ResourceLease) -> None:
         try:

@@ -44,6 +44,10 @@ interface ProjectArtifacts {
 }
 
 interface DesktopApi {
+  setTransferConsent?(
+    purpose: 'online' | 'processing' | 'diagnostics',
+    enabled: boolean,
+  ): Promise<import('../electron/ipcChannels').PrivacyState>;
   getPrivacySettings?(): Promise<
     import('../electron/ipcChannels').PrivacyState
   >;

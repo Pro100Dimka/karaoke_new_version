@@ -276,7 +276,7 @@ def _transfer_job(
     with tempfile.TemporaryDirectory(prefix="job-", dir=root / "temp") as temporary:
         incoming = Path(temporary)
         request = incoming / "request.zip"
-        transport.download(route + "/input", request, headers)
+        transport.download(route + "/input", request, headers, cancel)
         payload = read_bundle(request, incoming)
         payload["progressPath"] = str(root / "temp" / ("progress-" + job_id + ".json"))
         if shutil.disk_usage(root).free < 4 * 1024**3:

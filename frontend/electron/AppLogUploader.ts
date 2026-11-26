@@ -8,12 +8,14 @@ import {
   serverLogUploadsDisabled,
 } from './RoomServerTransport';
 import { randomUUID } from 'node:crypto';
+import { requestFileDeclaration } from './TransferPermissions';
 
 interface AppLogEntry {
   timestamp: string;
   source: string;
   level: string;
   message: string;
+  declaration?: string;
 }
 
 const uploadMilliseconds = 2_000;
@@ -27,6 +29,11 @@ const uploadEnvelopeBytes = Buffer.byteLength(
 
 const redact = (message: string): string =>
   message
+    .replace(/https?:\/\/[^\s"'<>]+/gi, '<url>')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '<email>')
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '<address>')
+    .replace(/\b[a-f0-9]{32,64}\b/gi, '<identifier>')
+    .replace(/[A-Z]:[\\/][^\r\n"'<>]+/gi, '<path>')
     .replace(/([A-Z]:(?:\\{1,2}|\/)Users(?:\\{1,2}|\/))[^\\/\s]+/gi, '$1<user>')
     .replace(/(\/(?:home|Users)\/)[^/\s]+/g, '$1<user>')
     .replace(
@@ -37,6 +44,17 @@ const redact = (message: string): string =>
       /([?&](?:token|key|secret|authorization|auth|access_token)=)[^&\s]+/gi,
       '$1<redacted>',
     );
+
+const technicalMessage = (message: string): string => {
+  const exception =
+    /\b(?:TypeError|ValueError|RuntimeError|TimeoutError|ConnectionError|OSError|SyntaxError|Error)\b/.exec(
+      message,
+    )?.[0];
+  const status = /\b(?:status|code)\s*[=:]\s*(-?\d{1,5})\b/i.exec(message)?.[1];
+  return [exception ?? 'Application event', status ? `status=${status}` : '']
+    .filter(Boolean)
+    .join(' ');
+};
 
 export const sendAppLogs = async (entries: AppLogEntry[]): Promise<void> => {
   const response = await roomServerRequest({
@@ -225,7 +243,7 @@ export class AppLogUploader {
       timestamp: new Date().toISOString(),
       source: source.slice(0, 64),
       level: level.slice(0, 16),
-      message: redact(message).slice(0, maximumMessage),
+      message: technicalMessage(message),
     };
     if (!serverLogUploadsDisabled()) this.queue.push(entry);
     if (this.persisting && !this.reportingPersistenceFailure)
@@ -252,6 +270,10 @@ export class AppLogUploader {
       throw new Error('Server log uploads are disabled');
     if (!text.trim() || text.length > 128_000)
       throw new TypeError('Invalid error report size');
+    const declaration = await requestFileDeclaration(
+      'diagnostics',
+      '/app-logs',
+    );
     const id = randomUUID();
     const report = redact(text);
     const timestamp = new Date().toISOString();
@@ -261,6 +283,7 @@ export class AppLogUploader {
       source: 'error-report',
       level: 'error',
       message: `${id} (${index + 1}/${parts})\n${report.slice(index * 3_000, (index + 1) * 3_000)}`,
+      declaration,
     }));
     const logs = this.recent.map((entry) => ({
       ...entry,

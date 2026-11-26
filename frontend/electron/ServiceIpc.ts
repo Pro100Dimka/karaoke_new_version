@@ -19,6 +19,7 @@ import {
   setRoomVoiceParticipantEffect,
 } from './RoomServerTransport';
 import { withDevice } from './SocialIdentity';
+import { requestFileDeclaration } from './TransferPermissions';
 import type { TrustedIpc } from './TrustedIpc';
 
 interface BackendRequest {
@@ -118,6 +119,23 @@ const registerBackendRequests = (
   });
   trustedIpc.handle(ipcChannels.pythonRequest, async (event, raw: unknown) => {
     const request = requireBackendRequest(raw);
+    if (
+      request.method === 'POST' &&
+      /^\/songs\/[^/]+\/processing(?:\/(?:melody|lyrics))?$/.test(request.path)
+    ) {
+      const settings = await backendEndpoint.request('/settings', {
+        method: 'GET',
+      });
+      if (!settings.ok) throw new Error('Processing settings are unavailable');
+      const value = requireObject(settings.body, 'processing settings');
+      if (value.processingBackend !== 'Local') {
+        const ticket = await requestFileDeclaration('processing', request.path);
+        request.headers = {
+          ...request.headers,
+          'X-AD-Voice-File-Declaration': ticket,
+        };
+      }
+    }
     // A replaced station must release its HTTP request and backend resolver work.
     const radio =
       request.method === 'GET' && /^\/radio\/youtube(?:\?|$)/.test(request.path)
@@ -209,13 +227,21 @@ const registerRoomRequests = (trustedIpc: TrustedIpc) => {
       );
     },
   );
-  trustedIpc.handle(ipcChannels.setRoomVoiceParticipantEffect, async (_event, raw: unknown) => {
-    const request = requireObject(raw, 'participant effect');
-    const effect = roomVoiceEffects.find((name) => name === request.effect);
-    const value = Number(request.value);
-    if (!effect || !Number.isFinite(value)) throw new TypeError('Invalid voice effect');
-    await setRoomVoiceParticipantEffect(requireString(request.participantId, 'participantId'), effect, value);
-  });
+  trustedIpc.handle(
+    ipcChannels.setRoomVoiceParticipantEffect,
+    async (_event, raw: unknown) => {
+      const request = requireObject(raw, 'participant effect');
+      const effect = roomVoiceEffects.find((name) => name === request.effect);
+      const value = Number(request.value);
+      if (!effect || !Number.isFinite(value))
+        throw new TypeError('Invalid voice effect');
+      await setRoomVoiceParticipantEffect(
+        requireString(request.participantId, 'participantId'),
+        effect,
+        value,
+      );
+    },
+  );
 };
 
 const registerKeyboardLighting = (

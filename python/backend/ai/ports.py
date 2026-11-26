@@ -22,6 +22,13 @@ TranscriptionSource = Callable[[threading.Event], Iterable[tuple[Path, float]]]
 
 
 @runtime_checkable
+class TransferAuthorizedProvider(Protocol):
+    def authorize_upload(
+        self, ticket: str, cancel: threading.Event
+    ) -> AbstractContextManager[None]: ...
+
+
+@runtime_checkable
 class SongProcessingProvider(Protocol):
     def process_song(
         self,

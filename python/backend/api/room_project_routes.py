@@ -16,7 +16,7 @@ from fastapi import FastAPI, Header, Request, Response
 from fastapi.responses import FileResponse
 
 from backend.serialization import dumps, loads_list
-from backend.api.room_server_access import room_member
+from backend.api.room_server_access import room_member, ConsentedFileResponse
 from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.atomic_files import atomic_write_text
@@ -50,6 +50,12 @@ async def store_project(
     storage = getattr(request.app.state, "upload_storage", None) if "app" in request.scope else None
     declared = request.headers.get("content-length") if "headers" in request.scope else None
     expected = int(declared) if declared is not None else None
+    consent = request.app.state.transfer_consent
+    participant = request.headers.get("X-Participant-Id", "")
+    declaration = request.headers.get("X-AD-Voice-File-Declaration", "")
+    await anyio.to_thread.run_sync(
+        partial(consent.require_file, declaration, participant, "online", request.url.path)
+    )
     if storage is not None:
         participant_id = request.headers["X-Participant-Id"]
         accounts = request.app.state.container.social.accounts
@@ -60,6 +66,11 @@ async def store_project(
         await anyio.to_thread.run_sync(partial(target.parent.mkdir, parents=True, exist_ok=True))
         async with await anyio.open_file(temporary, "wb") as output:
             async for chunk in request.stream():
+                await anyio.to_thread.run_sync(
+                    partial(
+                        consent.require_file, declaration, participant, "online", request.url.path
+                    )
+                )
                 received += len(chunk)
                 if received > _maximum_project_bytes:
                     raise DomainError("ProjectTooLarge", "Room project exceeds size limit", 413)
@@ -72,6 +83,9 @@ async def store_project(
                     on_progress(received)
         if expected is not None and received != expected:
             raise DomainError("UploadSizeMismatch", "Upload does not match declared size", 400)
+        await anyio.to_thread.run_sync(
+            partial(consent.require_file, declaration, participant, "online", request.url.path)
+        )
         if storage is None:
             await anyio.to_thread.run_sync(os.replace, temporary, target)
         else:
@@ -137,6 +151,7 @@ def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> 
         room_id: str,
         song_id: str,
         revision: int,
+        request: Request,
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
     ) -> FileResponse:
         room_id = normalize_room_id(room_id)
@@ -144,7 +159,11 @@ def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> 
         source = project_source(room, song_id, revision)
         target = None if source is None else _project_path(root, room_id, song_id, revision, source)
         target = await _downloadable_project(target, uploads)
-        return FileResponse(target, media_type="application/zip", filename=target.name)
+        return ConsentedFileResponse(
+            target,
+            lambda: request.app.state.transfer_consent.require(participant_id, "online"),
+            filename=target.name,
+        )
 
 
 async def _downloadable_project(
@@ -356,6 +375,7 @@ class _PerformanceSources:
         room_id: str,
         performance_id: int,
         singer: str,
+        request: Request,
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
         capture_id: str | None = None,
     ) -> FileResponse:
@@ -366,7 +386,11 @@ class _PerformanceSources:
             _performance_source_path(self.root, room_id, performance_id, singer, capture_id),
             self.uploads,
         )
-        return FileResponse(target, media_type="application/zip", filename="room-source.zip")
+        return ConsentedFileResponse(
+            target,
+            lambda: request.app.state.transfer_consent.require(participant_id, "online"),
+            filename="room-source.zip",
+        )
 
 
 def add_performance_source_routes(app: FastAPI, repository: RoomRepository, root: Path) -> None:

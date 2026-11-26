@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-27",
+  "updatedAtUtc": "2026-11-26T22:28:11.096889+00:00",
+  "timezone": "Europe/Kiev",
+  "status": "partial",
+  "consentNoticeVersion": "2026-11-26.1",
+  "checks": {
+    "baselineProfileWithoutConsent": "reproduced-200-instead-of-403",
+    "backendTestsPassed": 64,
+    "frontendTestsPassed": 139,
+    "frontendTestFiles": 13,
+    "ruff": "passed",
+    "pythonTypecheckFiles": 23,
+    "pythonTypecheck": "passed",
+    "rendererBuild": "passed",
+    "electronBuild": "passed",
+    "publishedMainTypecheck": "passed",
+    "singleWindowNoticeAndDecline": "passed",
+    "loopbackHealthStatus": 200,
+    "loopbackWithoutConsentStatus": 403,
+    "productionConsentRouteStatus": 404,
+    "productionDeployment": "not-performed",
+    "twoWindowRoomScenario": "privacy-controls-passed-loopback",
+    "successfulArchiveTransfer": "not-verified-through-ui",
+    "withdrawalDuringArchiveBytes": "not-verified-through-ui",
+    "remoteProcessingThroughUi": "not-verified",
+    "verificationProcessesStopped": true,
+    "normalPrivacySettingsRestored": true
+  },
+  "constraints": {
+    "workerLocation": "owners-pc-ukraine",
+    "serverAdministration": "owner",
+    "newPaidServices": false,
+    "audioTransportChanged": false,
+    "latencySettingsChanged": false,
+    "latencyMeasured": false
+  },
+  "uiEvidence": {
+    "capturedAt": "2026-11-26T22:26:08.592Z",
+    "server": "loopback",
+    "profiles": [
+      {
+        "profile": "p1",
+        "roomVisible": false,
+        "choices": [
+          {
+            "label": "Разрешить передачи для профиля и комнат",
+            "enabled": false,
+            "disabled": false
+          },
+          {
+            "label": "Разрешить передачи для удалённой обработки",
+            "enabled": false,
+            "disabled": true
+          },
+          {
+            "label": "Разрешить необязательные передачи диагностики",
+            "enabled": false,
+            "disabled": true
+          }
+        ]
+      },
+      {
+        "profile": "p2",
+        "roomVisible": false,
+        "choices": [
+          {
+            "label": "Разрешить передачи для профиля и комнат",
+            "enabled": false,
+            "disabled": false
+          },
+          {
+            "label": "Разрешить передачи для удалённой обработки",
+            "enabled": false,
+            "disabled": true
+          },
+          {
+            "label": "Разрешить необязательные передачи диагностики",
+            "enabled": false,
+            "disabled": true
+          }
+        ]
+      }
+    ]
+  },
+  "serverEvidence": {
+    "consent_receipts": 14,
+    "file_declarations": 0,
+    "export_audit": 0,
+    "enabledCurrentChoices": 0,
+    "uploadedArchives": 0
+  },
+  "localLibraryCounts": {
+    "developer": 4,
+    "guest": 6
+  },
+  "screenshots": [
+    "2026-11-27-transfer-refusal-dev.png",
+    "2026-11-27-transfer-refusal-guest.png",
+    "2026-11-27-transfer-withdrawal-dev.png",
+    "2026-11-27-transfer-withdrawal-guest.png"
+  ]
+}

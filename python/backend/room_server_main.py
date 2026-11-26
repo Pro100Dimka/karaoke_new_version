@@ -17,6 +17,7 @@ _THREAD_SWITCH_SECONDS = 0.001
 
 
 def main() -> None:
+    os.umask(0o077)
     sys.setswitchinterval(_THREAD_SWITCH_SECONDS)
     roots = StorageRoots.under(Path(os.getenv("AD_VOICE_ROOM_SERVER_DATA", "./room-server-data")))
     program_log = ProgramLog(roots.logs / "program.jsonl")
