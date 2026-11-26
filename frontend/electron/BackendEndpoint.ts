@@ -1,5 +1,6 @@
 import type { ServiceObserver } from './ServiceProcess';
 import { EventEmitter, once } from 'node:events';
+import { randomBytes } from 'node:crypto';
 
 const maximumAnnouncementBytes = 128;
 const requestTimeoutMilliseconds = 30_000;
@@ -7,6 +8,7 @@ const kaggleDeploymentTimeoutMilliseconds = 16 * 60_000;
 
 /** The child announces its actual listening socket after Uvicorn startup. */
 export class BackendEndpoint implements ServiceObserver {
+  readonly accessToken = randomBytes(32).toString('hex');
   private port: number | null = null;
   private pending = '';
   private oversized = false;
@@ -87,8 +89,12 @@ export class BackendEndpoint implements ServiceObserver {
       await once(this.readiness, 'ready', { signal });
     if (this.port === null)
       throw new Error('Python backend is starting or stopped');
+    const headers = new Headers(init.headers);
+    headers.set('X-AD-Voice-Local-Token', this.accessToken);
     const response = await fetch(`http://127.0.0.1:${this.port}${path}`, {
       ...init,
+      headers,
+      redirect: 'error',
       signal,
     });
     const text = await response.text();

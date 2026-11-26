@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 import backend.api.room_identity as room_identity
 from backend.ai.ports import AiProvider
 from backend.api.app import create_app
+from backend.api.middleware import LOCAL_API_TOKEN_HEADER
 from backend.bootstrap.config import BackendConfig
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
@@ -62,7 +63,10 @@ def room_keys_equal_participant_ids(
         )
         if claimed and room_identity.ROOM_KEY_HEADER not in headers:
             headers[room_identity.ROOM_KEY_HEADER] = claimed
-            kwargs["headers"] = headers
+        local_token = getattr(getattr(self.app, "state", None), "local_api_token", None)
+        if local_token is not None:
+            headers.setdefault(LOCAL_API_TOKEN_HEADER, local_token)
+        kwargs["headers"] = headers
         return original(self, method, url, **kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr(TestClient, "request", request_with_room_key)

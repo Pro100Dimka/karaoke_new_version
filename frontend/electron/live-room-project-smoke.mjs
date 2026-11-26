@@ -8,19 +8,27 @@ const developerBackend =
   process.env.AD_VOICE_SMOKE_DEVELOPER_BACKEND ?? 'http://127.0.0.1:8767';
 const installedBackend =
   process.env.AD_VOICE_SMOKE_INSTALLED_BACKEND ?? 'http://127.0.0.1:8765';
+const localApiTokens = {
+  [developerBackend]: process.env.AD_VOICE_SMOKE_DEVELOPER_API_TOKEN,
+  [installedBackend]: process.env.AD_VOICE_SMOKE_INSTALLED_API_TOKEN,
+};
 const roomServer =
   process.env.AD_VOICE_ROOM_SERVER_API ?? 'https://130.61.169.61';
 const identities = roomSmokeIdentities();
 
 const json = async (base, route, init = {}) => {
+  const localToken = localApiTokens[base];
+  if (base !== roomServer && !localToken)
+    throw new Error('Set the local API token for each backend before this check');
   const response = await fetch(`${base}${route}`, {
     ...init,
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       ...init.headers,
       ...(base === roomServer
         ? identities.headers(base, JSON.parse(init.body).participantId)
-        : {}),
+        : { 'X-AD-Voice-Local-Token': localToken }),
     },
   });
   if (!response.ok)

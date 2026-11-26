@@ -150,6 +150,7 @@ export class ManagedServices {
         AD_VOICE_DATA: dataRoot,
         AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? '0',
         AD_VOICE_MANAGED: '1',
+        AD_VOICE_LOCAL_API_TOKEN: this.backendEndpoint.accessToken,
         PYTHONIOENCODING: 'utf-8',
         AD_VOICE_PROJECT_ENV_FILE: files.project,
         AD_VOICE_ENV_FILE: files.python,

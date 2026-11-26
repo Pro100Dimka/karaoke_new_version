@@ -60,7 +60,11 @@ export const streamBackendEvents = (
         const signal = AbortSignal.any([stop, backend.lifetime]);
         const response = await fetch(`${backend.origin}/events`, {
           signal,
-          headers: { accept: 'text/event-stream' },
+          headers: {
+            accept: 'text/event-stream',
+            'X-AD-Voice-Local-Token': endpoint.accessToken,
+          },
+          redirect: 'error',
         });
         if (!response.ok || !response.body)
           throw new Error(`Backend events: HTTP ${response.status}`);

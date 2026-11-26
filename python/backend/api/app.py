@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
+import re
+import secrets
 from contextlib import asynccontextmanager
 from collections.abc import Sequence
 from typing import AsyncIterator
@@ -11,7 +14,7 @@ from fastapi.responses import JSONResponse
 
 from backend.ai.ports import AiProvider
 from backend.api.errors import domain_error_response
-from backend.api.middleware import RequestIdentityMiddleware
+from backend.api.middleware import LocalApiAuthMiddleware, RequestIdentityMiddleware
 from backend.api.model_routes import router as model_router
 from backend.api.package_routes import router as package_router
 from backend.api.recording_routes import router as recording_router
@@ -54,8 +57,16 @@ def create_app(
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
     recognition_provider: SongRecognitionProvider | None = None,
     catalog_lookup: SongCatalogLookup | None = None,
+    api_token: str | None = None,
 ) -> FastAPI:
     resolved = config or BackendConfig.load()
+    token = api_token if api_token is not None else os.environ.get("AD_VOICE_LOCAL_API_TOKEN")
+    if token is None:
+        token = secrets.token_hex(32)
+    if re.fullmatch(r"[0-9a-f]{64}", token) is None:
+        raise ValueError(
+            "AD_VOICE_LOCAL_API_TOKEN must contain 64 lowercase hexadecimal characters"
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -73,7 +84,9 @@ def create_app(
             container.shutdown()
 
     app = FastAPI(title="A&D Voice Backend", version=BACKEND_VERSION, lifespan=lifespan)
+    app.state.local_api_token = token
     app.add_middleware(RequestIdentityMiddleware, ids=UuidGenerator())
+    app.add_middleware(LocalApiAuthMiddleware, token=token)
     app.add_exception_handler(DomainError, _domain_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(Exception, _internal_error)
