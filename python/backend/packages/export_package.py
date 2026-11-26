@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 from typing import Callable
+from threading import Event
 
 from backend.history.domain import HistoryEvent
+from backend.domain_errors import DomainError
 from backend.packages.codec import encode_manifest
 from backend.packages.domain import PackageArtifact, PackageManifest, PackageSongIdentity
 from backend.packages.ports import PackageArchive, PackageFileHasher, PackageOutputStorage
@@ -13,7 +15,7 @@ from backend.projects.domain import ArtifactCategory, ProjectManifest, ProjectRe
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.runtime import Clock, IdGenerator
 from backend.songs.domain import Song
-from backend.songs.prepare_clip import LOCAL_CLIP
+from backend.songs.prepare_clip import LOCAL_CLIP, PrepareSongClip
 from backend.storage.ports import WorkStorage
 from backend.version import PACKAGE_FORMAT_VERSION
 
@@ -30,6 +32,7 @@ class ExportPackage:
         hasher: PackageFileHasher,
         clock: Clock,
         ids: IdGenerator,
+        clip: PrepareSongClip | None = None,
     ) -> None:
         self._uow = uow
         self._snapshot = snapshot
@@ -40,6 +43,7 @@ class ExportPackage:
         self._hasher = hasher
         self._clock = clock
         self._ids = ids
+        self._clip = clip
 
     def execute(
         self,
@@ -47,8 +51,16 @@ class ExportPackage:
         revision: int | None = None,
         *,
         ensure_not_cancelled: Callable[[], None] = lambda: None,
+        for_room: bool = False,
+        cancel: Event | None = None,
     ) -> Path:
         ensure_not_cancelled()
+        if for_room and self._clip is not None:
+            with self._uow.create() as transaction:
+                song = transaction.songs.get(song_id)
+            if song is not None:
+                self._clip.execute(song, cancel, required=True)
+            ensure_not_cancelled()
         with self._operations.acquire(song_id, SongOperation.PACKAGE_EXPORT):
             workspace = self._workspaces.allocate(f"export-{song_id}")
             try:
@@ -57,10 +69,12 @@ class ExportPackage:
                 )
                 ensure_not_cancelled()
                 package, files = self._package(
-                    song, revision_meta, project, snapshot, ensure_not_cancelled
+                    song, revision_meta, project, snapshot, ensure_not_cancelled, for_room
                 )
                 ensure_not_cancelled()
                 output = self._outputs.path_for_export(song_id, revision_meta.revision)
+                if for_room:
+                    output = output.with_name(f"{output.stem}.room{output.suffix}")
                 self._archive.build(
                     output,
                     files,
@@ -79,10 +93,23 @@ class ExportPackage:
         project: ProjectManifest,
         snapshot: Path,
         ensure_not_cancelled: Callable[[], None],
+        for_room: bool = False,
     ) -> tuple[PackageManifest, dict[PurePosixPath, Path]]:
         files, artifacts = self._project_files(project, snapshot, ensure_not_cancelled)
+        if for_room and song.video_url == LOCAL_CLIP and not song.video_source_url:
+            raise DomainError("ClipSourceMissing", "A room clip requires its original URL", 422)
+        if for_room:
+            for artifact in project.artifacts:
+                if artifact.logical_name == "video" or artifact.relative_path == Path(
+                    "media/clip.mp4"
+                ):
+                    raise DomainError(
+                        "ClipTransferUnsupported",
+                        "Embedded project video cannot be sent to a room",
+                        422,
+                    )
         local_clip = snapshot / "media/clip.mp4"
-        if song.video_url == LOCAL_CLIP and local_clip.is_file():
+        if not for_room and song.video_url == LOCAL_CLIP and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip
             artifacts.append(
@@ -149,6 +176,7 @@ def _song_identity(song: Song) -> PackageSongIdentity:
         genre=song.genre,
         artwork_url=song.artwork_url,
         video_url=song.video_url,
+        video_source_url=song.video_source_url,
         recognition_provider=song.recognition_provider,
         recognition_external_id=song.recognition_external_id,
         custom_cover=custom_cover_path(song),

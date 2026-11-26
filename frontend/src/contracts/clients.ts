@@ -169,7 +169,7 @@ export interface PythonClient {
     metadata?: ImportMetadata,
     options?: ImportOptions,
   ): Promise<SongDto>;
-  exportProject(songId: string, revision: number): Promise<string>;
+  exportProject(songId: string, revision: number, forRoom?: boolean): Promise<string>;
   exportLibrary(onProgress?: (job: ProcessingJobDto) => void): Promise<string>;
   importLibrary(
     path: string,

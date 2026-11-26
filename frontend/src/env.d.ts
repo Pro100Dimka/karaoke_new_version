@@ -44,6 +44,13 @@ interface ProjectArtifacts {
 }
 
 interface DesktopApi {
+  onLegalDocuments?(listener: () => void): () => void;
+  getLegalDocuments?(): Promise<
+    import('../electron/ipcChannels').LegalDocumentState
+  >;
+  acceptLegalDocuments?(language: string): Promise<void>;
+  closeLegalDocuments?(): Promise<void>;
+  showLegalDocuments?(): Promise<boolean>;
   readonly initialLanguage?: 'uk' | 'ru' | 'en';
   readonly fixedStorageRoot?: boolean;
   readonly roomE2e?: boolean;

@@ -110,6 +110,7 @@ class UpdateSong:
             artist=request.artist if request.artist is not None else song.artist,
             language=request.language if request.language is not None else song.language,
             video_url=video_url,
+            video_source_url=None if request.video_path is not None else song.video_source_url,
             cover_path=cover_path,
             cover_state=cover_state,
             metadata_provenance=provenance,

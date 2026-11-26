@@ -3,8 +3,14 @@ import '@neo-ui-kit/react/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 
-import App from './pages';
+import { lazy, Suspense } from 'react';
 import './styles.css';
+
+const App = lazy(() =>
+  window.location.hash === '#legal'
+    ? import('./app/LegalDocuments')
+    : import('./pages'),
+);
 
 setMotionFrameRate(60);
 
@@ -22,6 +28,8 @@ if (!root) {
 
 createRoot(root).render(
   <QueryClientProvider client={queryClient}>
-    <App />
+    <Suspense>
+      <App />
+    </Suspense>
   </QueryClientProvider>,
 );

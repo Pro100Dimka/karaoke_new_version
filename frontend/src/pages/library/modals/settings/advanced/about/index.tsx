@@ -1,5 +1,6 @@
 import {
   Card,
+  Button,
   Equalizer,
   KeyValueList,
   Planet,
@@ -9,7 +10,9 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { version } from '../../../../../../../package.json';
+import ffmpeg from '../../../../../../../../docs/third-party/ffmpeg/distribution.json';
 import type { SubsystemHealth } from '../useSubsystemHealth';
+import { desktopClient } from '../../../../../../services/desktopClient';
 
 export const frontendVersion: string = version;
 
@@ -27,6 +30,7 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
         : unavailable,
     ],
     [tr('audioServiceVersion'), audioVersion || unavailable],
+    ['FFmpeg', `${ffmpeg.version} (GPLv3)`],
     [
       tr('pipelineVersion'),
       backend
@@ -62,6 +66,18 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
         </div>
       </Planet>
       <KeyValueList className="advancedAboutVersions" items={rows} />
+      <Button onClick={() => void desktopClient.showLegalDocuments?.()}>
+        {tr('legalDocuments')}
+      </Button>
+      <Button
+        onClick={() =>
+          void desktopClient.openExternal(
+            `https://github.com/Pro100Dimka/karaoke_new_version/releases/download/v${version}/${ffmpeg.sourceArchive.name}`,
+          )
+        }
+      >
+        {tr('ffmpegSources')}
+      </Button>
     </Card>
   );
 };

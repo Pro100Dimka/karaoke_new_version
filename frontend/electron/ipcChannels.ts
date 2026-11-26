@@ -7,7 +7,19 @@ export const roomVoiceEffects = [
   'autoTune',
 ] as const;
 export type RoomVoiceEffect = (typeof roomVoiceEffects)[number];
+export interface LegalDocumentState {
+  language: 'ru' | 'uk' | 'en';
+  requireAcknowledgement: boolean;
+  draft: boolean;
+  documents: {
+    language: 'ru' | 'uk' | 'en';
+    name: 'terms-of-use' | 'privacy-policy' | 'third-party-licenses';
+    text: string;
+  }[];
+}
 export const ipcChannels = {
+  legalDocumentRequest: 'desktop:legal-document-request',
+  roomParticipantId: 'desktop:room-participant-id',
   minimize: 'desktop:minimize',
   toggleMaximize: 'desktop:toggle-maximize',
   close: 'desktop:close',
@@ -21,6 +33,7 @@ export const ipcChannels = {
   setStorageRoot: 'desktop:set-storage-root',
   reveal: 'desktop:reveal',
   openExternal: 'desktop:open-external',
+  showLegalDocuments: 'desktop:show-legal-documents',
   copyText: 'desktop:copy-text',
   sendErrorReport: 'desktop:send-error-report',
   pythonRequest: 'services:python-request',

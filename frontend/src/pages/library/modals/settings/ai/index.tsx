@@ -125,6 +125,16 @@ const AIPanel = () => {
               />
             </Grid>
           </Grid>
+          <MessageBar
+            action={
+              <Button
+                label={tr('legalDocuments')}
+                onClick={() => void desktopClient.showLegalDocuments?.()}
+              />
+            }
+          >
+            {tr('legalRemoteNotice')}
+          </MessageBar>
         </Card>
       </Grid>
       <LibraryArchive />

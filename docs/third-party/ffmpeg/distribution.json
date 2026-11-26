@@ -1,0 +1,17 @@
+{
+  "version": "8.1.2-advoice1",
+  "license": "GPL-3.0-or-later",
+  "upstreamUrl": "https://ffmpeg.org/",
+  "binaries": {
+    "ffmpeg.exe": "1b859e1b7f347e9f8d5b445820940d4252e07a912bf92a30446950d0fd275ed2",
+    "ffprobe.exe": "f5032fd921891750749673a7ed5ec3ce9b88a8e5073799e48866cbac4e994b37"
+  },
+  "sourceArchive": {
+    "name": "FFmpeg-8.1.2-advoice1-corresponding-source.zip",
+    "sha256": "7d192836f692a6b1c1b5b9c7cdd903160e7b3831a00083a6c91ded740c1b6d2e"
+  },
+  "thirdPartyNotices": {
+    "name": "FFmpeg-8.1.2-advoice1-THIRD-PARTY-NOTICES.txt",
+    "sha256": "e898e86999bb8d0f93d0636eee545ad7562e687791cfd79ba2fa063d1ef6e532"
+  }
+}

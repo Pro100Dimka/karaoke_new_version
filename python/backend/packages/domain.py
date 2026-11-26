@@ -48,6 +48,7 @@ class PackageSongIdentity:
     genre: str | None = None
     artwork_url: str | None = None
     video_url: str | None = None
+    video_source_url: str | None = None
     recognition_provider: str | None = None
     recognition_external_id: str | None = None
     custom_cover: PurePosixPath | None = None

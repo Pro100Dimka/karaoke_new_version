@@ -230,7 +230,16 @@ class ImportPackage:
             active_revision=revision,
             project_format_version=project_format_version,
             status=SongStatus.READY,
-            video_url=identity.video_url,
+            video_url=(
+                identity.video_source_url
+                if identity.video_source_url
+                and not any(
+                    item.path.as_posix() == "media/clip.mp4"
+                    for item in inspection.manifest.artifacts
+                )
+                else identity.video_url
+            ),
+            video_source_url=identity.video_source_url,
             user_overrides=song.user_overrides - {"video"},
             updated_at=now,
         )

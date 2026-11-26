@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, ipcMain, type IpcMainEvent } from 'electron';
 import type { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { themeIconPath } from './AppPaths';
@@ -14,6 +14,7 @@ import {
 } from './WindowState';
 
 interface MainWindowOptions {
+  existingWindow?: BrowserWindow;
   rendererUrl: string;
   trustedIpc: TrustedIpc;
   roomParticipant: string;
@@ -116,31 +117,45 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   const state = loadWindowState();
   const theme = readSavedTheme();
   const icon = themeIconPath(theme) ?? undefined;
-  const window = new BrowserWindow({
-    width: state.width,
-    height: state.height,
-    x: state.x,
-    y: state.y,
-    frame: false,
-    backgroundColor: themeWindowBackground[theme],
-    show: false,
-    icon,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      // Song titles, lyrics and names are not prose: no red underlines, and no Hunspell dictionaries
-      // downloaded from Google's servers on first use.
-      spellcheck: false,
-      // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
-      // timers; they must keep running while this window is minimised or covered.
-      backgroundThrottling: false,
-      additionalArguments: [
-        `${roomParticipantArgument}${options.roomParticipant}`,
-      ],
-    },
-  });
+  const window =
+    options.existingWindow ??
+    new BrowserWindow({
+      width: state.width,
+      height: state.height,
+      x: state.x,
+      y: state.y,
+      frame: false,
+      backgroundColor: themeWindowBackground[theme],
+      show: false,
+      icon,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        // Song titles, lyrics and names are not prose: no red underlines, and no Hunspell dictionaries
+        // downloaded from Google's servers on first use.
+        spellcheck: false,
+        // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
+        // timers; they must keep running while this window is minimised or covered.
+        backgroundThrottling: false,
+        additionalArguments: [
+          `${roomParticipantArgument}${options.roomParticipant}`,
+        ],
+      },
+    });
+  const participant = (event: IpcMainEvent) => {
+    event.returnValue =
+      event.sender === window.webContents &&
+      event.senderFrame === event.sender.mainFrame &&
+      options.trustedIpc.isRendererUrl(event.senderFrame?.url ?? '')
+        ? options.roomParticipant
+        : '';
+  };
+  ipcMain.on(ipcChannels.roomParticipantId, participant);
+  window.once('closed', () =>
+    ipcMain.removeListener(ipcChannels.roomParticipantId, participant),
+  );
   // The window opens the way it was closed: full screen over the taskbar, maximized, or as saved.
   if (state.fullscreen) window.once('show', () => window.setFullScreen(true));
   else if (state.maximized) window.once('show', () => window.maximize());

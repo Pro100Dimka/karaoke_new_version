@@ -16,6 +16,8 @@ from backend.packages.security import PackageSecurityValidator
 from backend.packages.library_archive import LibraryArchive
 from backend.packages.policy import PackagePolicy
 from backend.packages.snapshot_package import SnapshotPackage
+from backend.songs.prepare_clip import PrepareSongClip
+from backend.infrastructure.youtube_clip import YoutubeClipDownloader
 
 
 def build_package_cases(
@@ -51,7 +53,7 @@ def build_package_cases(
     return PackageCases(
         inspect,
         _start_export(runtime, project, processing, export),
-        _start_import(runtime, processing, inspect, importer),
+        _start_import(runtime, project, processing, inspect, importer),
         _library_archive(runtime, project, processing),
     )
 
@@ -95,6 +97,7 @@ def _package_export(
         sha256_file,
         runtime.clock,
         runtime.ids,
+        _clip_preparation(runtime, project),
     )
 
 
@@ -116,6 +119,7 @@ def _start_export(
 
 def _start_import(
     runtime: RuntimeWiring,
+    project: ProjectWiring,
     processing: ProcessingWiring,
     inspect: InspectPackage,
     importer: ImportPackage,
@@ -133,4 +137,15 @@ def _start_import(
         runtime.hasher,
         runtime.clock,
         preflight,
+        _clip_preparation(runtime, project),
+    )
+
+
+def _clip_preparation(runtime: RuntimeWiring, project: ProjectWiring) -> PrepareSongClip:
+    return PrepareSongClip(
+        runtime.database,
+        YoutubeClipDownloader(processes=runtime.processes),
+        runtime.clock,
+        project.locks,
+        project.projects,
     )

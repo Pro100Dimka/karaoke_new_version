@@ -12,6 +12,16 @@ export const pythonRoot = (): string =>
     ? path.join(process.resourcesPath, 'python-app')
     : path.join(projectRoot(), 'python');
 
+export const pythonExecutable = (): string => {
+  const configured = process.env.AD_VOICE_PYTHON;
+  if (configured !== undefined) return configured;
+  if (app.isPackaged)
+    return path.join(process.resourcesPath, 'python-runtime', 'python.exe');
+  const venvPython = path.join(pythonRoot(), '.venv', 'Scripts', 'python.exe');
+  if (fs.existsSync(venvPython)) return venvPython;
+  return process.platform === 'win32' ? 'python' : 'python3';
+};
+
 const storageRootFile = (): string =>
   path.join(app.getPath('userData'), 'storage-root.txt');
 

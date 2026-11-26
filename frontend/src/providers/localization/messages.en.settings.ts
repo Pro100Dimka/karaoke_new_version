@@ -1,4 +1,23 @@
 export const enSettings = {
+  legalDocuments: 'Legal documents and licenses',
+  legalTitle: 'Legal documents',
+  legalTerms: 'Terms of use',
+  legalPrivacy: 'Privacy policy',
+  legalThirdParty: 'Third-party licenses',
+  ffmpegSources: 'FFmpeg source code',
+  legalIntro:
+    'Read the terms of use, privacy policy and third-party licenses before network features start. Accepting the terms does not replace separate consent to optional data processing.',
+  legalDraftNotice:
+    'These documents are drafts. Continuing acknowledges reading them, but does not accept a final agreement. Publication will require a new confirmation.',
+  legalDraftContinue: 'Continue with drafts',
+  legalAccept: 'Accept the terms',
+  legalExit: 'Exit',
+  legalError:
+    'Could not load the documents or save confirmation. Try again. Network services do not start before confirmation.',
+  legalRemoteNotice:
+    'Remote processing sends source files to a server and processing computer. Local processing does not disable online search or diagnostics. Make sure you have the necessary rights before sending material.',
+  legalRoomNotice:
+    'Room voice is sent through a server to other participants. Voice traffic is currently unencrypted. Participants may retain shared material and recordings. Obtain necessary permissions before recording or publishing another person’s voice.',
   karaokeLyricsLayout: 'Karaoke text movement',
   'karaokeLyricsLayout.classic': 'Classic',
   'karaokeLyricsLayout.credits': 'Scrolling credits',

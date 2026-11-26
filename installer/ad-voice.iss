@@ -42,9 +42,9 @@ RestartApplications=no
 SetupIconFile={#AppIcon}
 
 [Messages]
-en.ConfirmUninstall=Remove %1, including all processed songs, recordings, models and application settings? This cannot be undone.
-ru.ConfirmUninstall=Удалить %1 вместе со всеми обработанными песнями, записями, моделями и настройками? Это действие нельзя отменить.
-uk.ConfirmUninstall=Видалити %1 разом з усіма обробленими піснями, записами, моделями й налаштуваннями? Цю дію неможливо скасувати.
+en.ConfirmUninstall=Remove %1, including all processed songs, recordings, models and application settings? This cannot be undone. Your online account will remain available after reinstalling under the same Windows user.
+ru.ConfirmUninstall=Удалить %1 вместе со всеми обработанными песнями, записями, моделями и настройками? Это действие нельзя отменить. Онлайн-аккаунт сохранится для повторной установки под тем же пользователем Windows.
+uk.ConfirmUninstall=Видалити %1 разом з усіма обробленими піснями, записами, моделями й налаштуваннями? Цю дію неможливо скасувати. Онлайн-акаунт збережеться для повторного встановлення під тим самим користувачем Windows.
 
 [CustomMessages]
 en.UpdatePreparing=Preparing the update

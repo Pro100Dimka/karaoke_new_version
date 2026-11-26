@@ -16,6 +16,7 @@ from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.runtime import Clock
 from backend.songs.ports import FileHasher
+from backend.songs.prepare_clip import PrepareSongClip
 
 
 class StartPackageExport:
@@ -29,18 +30,24 @@ class StartPackageExport:
         self._export = export
         self._preflight = preflight
 
-    def execute(self, song_id: str, revision: int | None) -> Job:
+    def execute(self, song_id: str, revision: int | None, *, for_room: bool = False) -> Job:
         self._preflight.execute(song_id, revision)
         return self._jobs.start(
             JobType.PACKAGE_EXPORT,
-            lambda context: self._run(song_id, revision, context),
+            lambda context: self._run(song_id, revision, context, for_room),
             entity_id=song_id,
         )
 
-    def _run(self, song_id: str, revision: int | None, context: JobContext) -> dict[str, object]:
+    def _run(
+        self, song_id: str, revision: int | None, context: JobContext, for_room: bool = False
+    ) -> dict[str, object]:
         context.progress("Snapshot", 0.0, 0.1)
         path = self._export.execute(
-            song_id, revision, ensure_not_cancelled=context.ensure_not_cancelled
+            song_id,
+            revision,
+            ensure_not_cancelled=context.ensure_not_cancelled,
+            for_room=for_room,
+            cancel=context.cancel,
         )
         context.progress("Archive", 1.0, 1.0)
         return {"songId": song_id, "path": str(path)}
@@ -55,6 +62,7 @@ class StartPackageImport:
         hasher: FileHasher,
         clock: Clock,
         preflight: PackageImportPreflight,
+        clip: PrepareSongClip | None = None,
     ) -> None:
         self._uow = uow
         self._jobs = jobs
@@ -62,6 +70,7 @@ class StartPackageImport:
         self._hasher = hasher
         self._clock = clock
         self._preflight = preflight
+        self._clip = clip
         self._idempotency_locks = KeyedLockManager()
 
     def execute(
@@ -76,10 +85,13 @@ class StartPackageImport:
             repeated = self._repeat(idempotency_key, request_hash)
             if repeated:
                 return repeated
-            self._preflight.execute(path)
+            inspection = self._preflight.execute(path)
+            download_clip = bool(inspection.manifest.song.video_source_url) and all(
+                item.path.as_posix() != "media/clip.mp4" for item in inspection.manifest.artifacts
+            )
             job = self._jobs.start(
                 JobType.PACKAGE_IMPORT,
-                lambda context: self._run(path, decision, context),
+                lambda context: self._run(path, decision, context, download_clip),
             )
             self._save(idempotency_key, request_hash, job.job_id)
             return job
@@ -89,11 +101,18 @@ class StartPackageImport:
         path: Path,
         decision: PackageImportDecision,
         context: JobContext,
+        download_clip: bool = False,
     ) -> dict[str, object]:
         context.progress("SecurityValidation", 0.0, 0.1)
         result = self._import.execute(
             path, decision=decision, ensure_not_cancelled=context.ensure_not_cancelled
         )
+        if result.song.video_source_url:
+            if self._clip is None:
+                raise DomainError("ClipUnavailable", "Local clip retrieval is unavailable", 422)
+            context.progress("DownloadClip", 0.9, 0.95)
+            self._clip.execute(result.song, context.cancel, required=True, force=download_clip)
+            context.ensure_not_cancelled()
         context.progress("Publish", 1.0, 1.0)
         return {
             "songId": result.song.song_id,

@@ -60,8 +60,9 @@ def export_package(
     song_id: str,
     app: ContainerDep,
     revision: Annotated[int | None, Query(ge=1, le=2**63 - 1)] = None,
+    for_room: bool = False,
 ) -> JobRefDto:
-    job = app.packages.start_export.execute(song_id, revision)
+    job = app.packages.start_export.execute(song_id, revision, for_room=for_room)
     return JobRefDto(job_id=job.job_id, state=job.state.value)
 
 

@@ -1,7 +1,12 @@
 import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { audioExecutable, projectRoot, pythonRoot } from './AppPaths';
+import {
+  audioExecutable,
+  projectRoot,
+  pythonRoot,
+  pythonExecutable,
+} from './AppPaths';
 import { sendAudioRequest } from './AudioServiceTransport';
 import type { BackendEndpoint } from './BackendEndpoint';
 import {
@@ -69,16 +74,6 @@ const seedEnvironmentFiles = (files: EnvironmentFiles): void => {
   }
 };
 
-const pythonExecutable = (): string => {
-  const configured = process.env.AD_VOICE_PYTHON;
-  if (configured !== undefined) return configured;
-  if (app.isPackaged)
-    return path.join(process.resourcesPath, 'python-runtime', 'python.exe');
-  const venvPython = path.join(pythonRoot(), '.venv', 'Scripts', 'python.exe');
-  if (fs.existsSync(venvPython)) return venvPython;
-  return process.platform === 'win32' ? 'python' : 'python3';
-};
-
 /** The Python backend and AudioService this app starts, restarts and stops. */
 export class ManagedServices {
   private python: ServiceProcess | null = null;
@@ -135,9 +130,10 @@ export class ManagedServices {
     setServerLogUploadsDisabled(uploadsDisabled);
     this.diagnosticsEnabled =
       !uploadsDisabled && this.diagnostics !== undefined;
-    const executablePath = app.isPackaged
-      ? `${path.join(process.resourcesPath, 'tools')}${path.delimiter}${process.env.PATH ?? ''}`
-      : process.env.PATH;
+    const tools = app.isPackaged
+      ? path.join(process.resourcesPath, 'tools')
+      : path.join(projectRoot(), 'vendor', 'ffmpeg', 'bin');
+    const executablePath = `${tools}${path.delimiter}${process.env.PATH ?? ''}`;
     this.python = new ServiceProcess(
       pythonExecutable(),
       ['-m', 'backend.main'],

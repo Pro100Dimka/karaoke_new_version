@@ -206,6 +206,7 @@ def _song_preparation(
         YoutubeClipDownloader(processes=runtime.processes),
         runtime.clock,
         project.locks,
+        project.projects,
     )
     return PrepareSong(refresh, clip, ThreadConcurrentRunner())
 

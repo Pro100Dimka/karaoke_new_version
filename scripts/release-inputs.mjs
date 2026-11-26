@@ -55,6 +55,12 @@ const byMetadata = (target) => {
   at("installer"),
   at("release.bat"),
   at("scripts", "sign-release.bat"),
+  at("scripts", "ffmpeg-distribution.mjs"),
+  at("scripts", "build-ffmpeg.sh"),
+  at("scripts", "package-ffmpeg.py"),
+  at("docs", "legal"),
+  at("docs", "third-party", "ffmpeg"),
+  at(".release-cache", "app", "AD Voice", "resources", "docs", "third-party", "ffmpeg"),
   path.join(path.dirname(process.execPath), "LICENSE"),
   ...(process.env.AD_VOICE_SIGN_CERT ? [process.env.AD_VOICE_SIGN_CERT] : []),
 ].forEach(byContent);

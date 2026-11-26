@@ -1,6 +1,6 @@
 import { Router } from '@neo-ui-kit/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { AppShell } from '../app/AppShell';
@@ -20,6 +20,7 @@ import { routePatterns, routes } from '../shared/routes';
 const EditorPage = lazy(() => import('./editor'));
 const LibraryPage = lazy(() => import('./library'));
 const HelpPage = lazy(() => import('./help'));
+const LegalDocuments = lazy(() => import('../app/LegalDocuments'));
 
 const KaraokePage = lazy(() =>
   import('../features/karaoke/KaraokePage').then((module) => ({
@@ -42,6 +43,11 @@ const appRoutes = [
 
 const App = () => {
   const client = useQueryClient();
+  const [legalOpen, setLegalOpen] = useState(false);
+  useEffect(
+    () => desktopClient.onLegalDocuments?.(() => setLegalOpen(true)),
+    [],
+  );
 
   useEffect(() => subscribeApplication(client), [client]);
   useEffect(subscribeCloseRequests, []);
@@ -56,9 +62,16 @@ const App = () => {
             onError={() => void desktopClient.appReady()}
           >
             <DialogView />
+            {legalOpen && (
+              <Suspense>
+                <LegalDocuments onClose={() => setLegalOpen(false)} />
+              </Suspense>
+            )}
             <BootstrapGate>
               <SocialConnection />
-              <Suspense fallback={<div className="libraryCurtain" aria-hidden />}>
+              <Suspense
+                fallback={<div className="libraryCurtain" aria-hidden />}
+              >
                 <Router routes={appRoutes} transition />
               </Suspense>
             </BootstrapGate>

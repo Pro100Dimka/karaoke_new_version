@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { roomSession } from '../../providers/application';
 import { store } from '../../providers/store';
 import { errorstring, toAppError } from '../../shared/errors';
+import { desktopClient } from '../../services/desktopClient';
 import './room-entry.css';
 
 type Busy = 'create' | 'join' | null;
@@ -94,6 +95,16 @@ export const RoomModal = observer(
         }
       >
         <div className="roomEntry">
+          <MessageBar
+            action={
+              <Button
+                label={tr('legalDocuments')}
+                onClick={() => void desktopClient.showLegalDocuments?.()}
+              />
+            }
+          >
+            {tr('legalRoomNotice')}
+          </MessageBar>
           <Stack direction="row" gap={4} align="center">
             <Avatar size="lg" name={name.trim() || '?'} />
             <TextField

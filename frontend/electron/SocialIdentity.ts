@@ -1,12 +1,11 @@
 import { execFile } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { hostname } from 'node:os';
+import { pythonExecutable, pythonRoot } from './AppPaths';
+import { roomServerApiBase } from './RoomServerTransport';
 
 /**
- * Who this computer is to the room server, so friends, room history and the photo come back after
- * the app is removed and installed again. Windows keeps MachineGuid for the life of the Windows
- * installation; the app never stores it. Only a keyed hash of it leaves this computer, and each app
- * profile (the isolated guest of start-multy.bat) is a person of its own.
+ * Legacy identity is used only to migrate the existing account to a random Windows credential.
  */
 const machineGuid = (): Promise<string> =>
   new Promise((resolve) => {
@@ -32,11 +31,47 @@ const machineGuid = (): Promise<string> =>
 let secret: Promise<string> | undefined;
 
 export const deviceSecret = (): Promise<string> => {
-  secret ??= machineGuid().then((guid) =>
-    createHmac('sha256', guid || `host:${hostname()}`)
-      .update(`ad-voice-account:${process.env.AD_VOICE_PROFILE ?? 'default'}`)
-      .digest('hex'),
-  );
+  secret ??= machineGuid()
+    .then((guid) => {
+      const legacySecret = createHmac('sha256', guid || `host:${hostname()}`)
+        .update(`ad-voice-account:${process.env.AD_VOICE_PROFILE ?? 'default'}`)
+        .digest('hex');
+      return new Promise<string>((resolve, reject) => {
+        const child = execFile(
+          pythonExecutable(),
+          ['-B', '-X', 'utf8', '-m', 'backend.infrastructure.account_identity'],
+          {
+            cwd: pythonRoot(),
+            windowsHide: true,
+            timeout: 60_000,
+            maxBuffer: 8192,
+          },
+          (error, stdout) => {
+            const value = stdout.trim();
+            // Never attach child output to an error: it may contain the credential.
+            if (error || !/^[a-f0-9]{64}$/.test(value))
+              reject(
+                new Error(
+                  'Windows account identity is unavailable; retry when connected',
+                ),
+              );
+            else resolve(value);
+          },
+        );
+        child.stdin?.on('error', () => undefined);
+        child.stdin?.end(
+          JSON.stringify({
+            profile: process.env.AD_VOICE_PROFILE ?? 'default',
+            server: roomServerApiBase,
+            legacySecret,
+          }),
+        );
+      });
+    })
+    .catch((error: unknown) => {
+      secret = undefined;
+      throw error;
+    });
   return secret;
 };
 

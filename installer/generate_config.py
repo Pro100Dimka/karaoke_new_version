@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -15,9 +16,19 @@ LANGUAGE_FILES = {
 
 def main() -> None:
     lines = ["[Languages]"]
+    legal = Path(__file__).resolve().parent.parent / "docs" / "legal"
+    exported = Path(sys.argv[1]).resolve().parent / "legal"
+    exported.mkdir(parents=True, exist_ok=True)
     for locale in LANGUAGE_FILES:
+        content = "\n\n".join(
+            (legal / f"{name}.{locale}.md").read_text(encoding="utf-8")
+            for name in ("terms-of-use", "privacy-policy")
+        )
+        terms = exported / f"legal.{locale}.txt"
+        terms.write_text(re.sub(r"(?m)^#{1,3} ", "", content), encoding="utf-8-sig")
         lines.append(
-            f'Name: "{locale}"; MessagesFile: "compiler:{LANGUAGE_FILES[locale]}"'
+            f'Name: "{locale}"; MessagesFile: "compiler:{LANGUAGE_FILES[locale]}"; '
+            f'LicenseFile: "{terms}"'
         )
     payload = Path(sys.argv[2])
     if not payload.is_dir():

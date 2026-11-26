@@ -57,7 +57,21 @@ export const createSocialSocket = (
       deliver({ type: 'offline' });
       return;
     }
-    const secret = await deviceSecret();
+    let secret: string;
+    try {
+      secret = await deviceSecret();
+    } catch {
+      failPending('Account identity is unavailable');
+      deliver({ type: 'offline' });
+      if (!stopped) {
+        retry = setTimeout(() => void connect(), retryMilliseconds);
+        retryMilliseconds = Math.min(
+          maximumRetryMilliseconds,
+          retryMilliseconds * 2,
+        );
+      }
+      return;
+    }
     if (stopped) return;
     const opened = new WebSocket(url);
     socket = opened;

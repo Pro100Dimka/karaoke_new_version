@@ -240,10 +240,10 @@ export const pythonClient: PythonClient = {
     );
   },
 
-  async exportProject(songId, revision) {
+  async exportProject(songId, revision, forRoom = false) {
     const job = await request<BackendJobRef>(
       'POST',
-      `/packages/export/${encodeURIComponent(songId)}?revision=${revision}`,
+      `/packages/export/${encodeURIComponent(songId)}?revision=${revision}${forRoom ? '&for_room=true' : ''}`,
     );
     const report = await waitForPackageReport(job.jobId);
     if (typeof report.path !== 'string' || !report.path)

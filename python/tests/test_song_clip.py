@@ -12,7 +12,7 @@ from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
 from backend.infrastructure.youtube_clip import YoutubeClipDownloader
 
 
-@pytest.mark.parametrize("cancel_stage", ["download", "transcode", "motion"])
+@pytest.mark.parametrize("cancel_stage", ["download", "remux", "motion"])
 def test_clip_cancellation_reaches_each_owned_process_and_never_publishes_partial_media(
     tmp_path: Path, cancel_stage: str
 ) -> None:
@@ -23,8 +23,8 @@ def test_clip_cancellation_reaches_each_owned_process_and_never_publishes_partia
         def run(self, command, **kwargs):
             stage = (
                 "download"
-                if "yt_dlp" in command
-                else ("motion" if command[-1] == "pipe:1" else "transcode")
+                if "backend.infrastructure.youtube_access" in command
+                else ("motion" if command[-1] == "pipe:1" else "remux")
             )
             reached.append(stage)
             assert kwargs.get("cancel") is cancel
@@ -36,7 +36,7 @@ def test_clip_cancellation_reaches_each_owned_process_and_never_publishes_partia
                     b"downloaded-video"
                 )
             else:
-                Path(command[-1]).write_bytes(b"transcoded-video")
+                Path(command[-1]).write_bytes(b"remuxed-video")
             return ProcessResult(0, b"", b"")
 
     destination = tmp_path / "clip.mp4"
@@ -56,7 +56,7 @@ class FakeClipProcesses(ProcessRunner):
         self.motion = motion
 
     def run(self, command, **kwargs):
-        if "yt_dlp" in command:
+        if "backend.infrastructure.youtube_access" in command:
             assert command[-1] == "https://www.youtube.com/watch?v=HVfb25Jq-_A"
             template = command[command.index("--output") + 1]
             Path(template.replace("%(ext)s", "mp4")).write_bytes(b"downloaded-video")
@@ -69,19 +69,16 @@ class FakeClipProcesses(ProcessRunner):
                 b"",
             )
         else:
-            assert "-an" in command
-            assert command[command.index("-vf") + 1] == (
-                "scale=w='min(1280,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:"
-                "force_divisible_by=2,fps=fps='min(source_fps,30)'"
-            )
-            assert command[command.index("-c:v") + 1] == "libx264"
-            assert command[command.index("-pix_fmt") + 1] == "yuv420p"
+            assert "-an" not in command
+            assert "-vf" not in command
+            assert "0:a:0" in command
+            assert command[command.index("-c") + 1] == "copy"
             assert command[command.index("-movflags") + 1] == "+faststart"
             shutil.copyfile(command[command.index("-i") + 1], command[-1])
         return ProcessResult(0, b"", b"")
 
 
-def test_youtube_clip_is_downloaded_and_published_as_local_silent_mp4(tmp_path: Path) -> None:
+def test_youtube_clip_is_downloaded_and_published_without_reencoding(tmp_path: Path) -> None:
     destination = tmp_path / "media" / "clip.mp4"
 
     downloader = YoutubeClipDownloader(processes=FakeClipProcesses())

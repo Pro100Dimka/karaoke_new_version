@@ -57,6 +57,9 @@ test('release fingerprint changes when shipped relay or executable policies chan
     'AudioService/build-release/Release/NativeVoiceRelay.exe',
     'frontend/scripts/harden-electron.mjs',
     'scripts/sign-release.bat',
+    'scripts/ffmpeg-distribution.mjs',
+    'docs/third-party/ffmpeg/distribution.json',
+    'docs/legal/third-party-licenses.en.md',
   ]) {
     await t.test(relative, () => {
       const file = join(root, relative);
@@ -215,6 +218,30 @@ test('the installed app bundles Electron, Python, AudioService and FFmpeg', () =
   assert.match(release, /ffmpeg\.exe/i);
 });
 
+test('release and developer setup use the FFmpeg kit kept inside the project', () => {
+  assert.match(release, /set "FFMPEG_EXE=%ROOT%vendor\\ffmpeg\\bin\\ffmpeg\.exe"/);
+  assert.match(release, /set "FFPROBE_EXE=%ROOT%vendor\\ffmpeg\\bin\\ffprobe\.exe"/);
+  assert.doesNotMatch(release, /Caches\\ffmpeg/i);
+  assert.match(developerSetup, /%ROOT%vendor\\ffmpeg\\bin/);
+  assert.doesNotMatch(developerSetup, /Gyan\.FFmpeg/);
+  for (const file of [
+    'vendor/ffmpeg/bin/ffmpeg.exe',
+    'vendor/ffmpeg/bin/ffprobe.exe',
+    'vendor/ffmpeg/FFmpeg-8.1.2-advoice1-corresponding-source.zip',
+    'vendor/ffmpeg/FFmpeg-8.1.2-advoice1-THIRD-PARTY-NOTICES.txt',
+  ]) {
+    const ignored = spawnSync('git', ['check-ignore', '--no-index', '--quiet', file], {
+      cwd: new URL('../../', import.meta.url),
+    });
+    assert.equal(ignored.status, 1, `${file} must be included in source control`);
+    const attributes = spawnSync('git', ['check-attr', 'text', '--', file], {
+      cwd: new URL('../../', import.meta.url), encoding: 'utf8',
+    });
+    assert.equal(attributes.status, 0, attributes.stderr);
+    assert.ok(attributes.stdout.trim().endsWith(': text: unset'), `${file} must retain its pinned bytes after checkout`);
+  }
+});
+
 test('the installed app bundles the processing backend without the Kaggle payload', () => {
   assert.match(
     release,
@@ -226,13 +253,16 @@ test('the installed app bundles the processing backend without the Kaggle payloa
   );
 });
 
-test('release cleanup leaves only the finished installer', () => {
-  assert.match(release, /Keeping only the finished installer/i);
-  assert.match(
-    release,
-    /for \/d %%D in \("%RELEASE%\\\*"\)[^\r\n]*rmdir \/s \/q/i,
-  );
-  assert.match(release, /if \/i not "%%~nxF"=="AD-Voice-Setup\.exe" del \/q/i);
+test('release preserves corresponding sources and checks them before building or reusing Setup', () => {
+  const prepare = release.indexOf('ffmpeg-distribution.mjs" prepare');
+  const build = release.indexOf('scripts\\build-steps.mjs" release');
+  assert.ok(prepare > 0 && prepare < build);
+  const cached = release.slice(release.indexOf('if exist "%SETUP%" if'), release.indexOf('rem Copy and compress'));
+  assert.match(cached, /ffmpeg-distribution\.mjs" verify-release/);
+  assert.doesNotMatch(release, /for[^\r\n]*%RELEASE%[^\r\n]*(?:del \/q|rmdir)/i);
+  const signed = release.indexOf('sign-release.bat" "%SETUP%"');
+  const sealed = release.indexOf('ffmpeg-distribution.mjs" seal');
+  assert.ok(sealed > signed);
 });
 
 test('a private release bundles the configured environment without printing its values', () => {

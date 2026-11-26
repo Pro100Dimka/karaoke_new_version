@@ -19,12 +19,17 @@ echo ============================================================
 echo.
 
 rem Tools installed by WinGet (now or in an earlier run) are not always on this process's PATH yet.
-set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WindowsApps;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python313;%LOCALAPPDATA%\Programs\Python\Python313\Scripts;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+set "PATH=%ROOT%vendor\ffmpeg\bin;%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WindowsApps;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python313;%LOCALAPPDATA%\Programs\Python\Python313\Scripts;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+
+for %%T in (ffmpeg ffprobe) do if not exist "%ROOT%vendor\ffmpeg\bin\%%T.exe" (
+    echo [error] The project FFmpeg kit is missing from "%ROOT%vendor\ffmpeg". Restore this directory from the project backup or repository.
+    goto :fail
+)
 
 echo [1/5] Checking system prerequisites...
 set "NEED_INSTALL="
 set "NEED_ADMIN="
-for %%T in (python node cmake git ffmpeg inno cpp) do (
+for %%T in (python node cmake git inno cpp) do (
     call :has_%%T
     if errorlevel 1 (
         echo     missing: %%T
@@ -65,7 +70,6 @@ call :ensure_tool python "Python.Python.3.12" "Python 3.12" || goto :fail
 call :ensure_tool node "OpenJS.NodeJS.LTS" "Node.js LTS" || goto :fail
 call :ensure_tool cmake "Kitware.CMake" "CMake" || goto :fail
 call :ensure_tool git "Git.Git" "Git" || goto :fail
-call :ensure_tool ffmpeg "Gyan.FFmpeg" "FFmpeg and FFprobe" || goto :fail
 call :ensure_tool inno "JRSoftware.InnoSetup" "Inno Setup 6" || goto :fail
 call :ensure_cpp_toolchain || goto :fail
 
@@ -161,11 +165,6 @@ exit /b %ERRORLEVEL%
 
 :has_git
 where git.exe >nul 2>&1
-exit /b %ERRORLEVEL%
-
-:has_ffmpeg
-where ffmpeg.exe >nul 2>&1 || exit /b 1
-where ffprobe.exe >nul 2>&1
 exit /b %ERRORLEVEL%
 
 :has_inno

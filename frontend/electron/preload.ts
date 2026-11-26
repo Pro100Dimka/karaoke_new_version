@@ -63,6 +63,17 @@ ipcRenderer.on(
 );
 
 const desktopApi = {
+  onLegalDocuments: (listener: () => void): (() => void) => {
+    ipcRenderer.on(ipcChannels.showLegalDocuments, listener);
+    return () =>
+      ipcRenderer.removeListener(ipcChannels.showLegalDocuments, listener);
+  },
+  getLegalDocuments: () =>
+    ipcRenderer.invoke(ipcChannels.legalDocumentRequest, 'read'),
+  acceptLegalDocuments: (language: string): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.legalDocumentRequest, 'accept', language),
+  closeLegalDocuments: (): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.legalDocumentRequest, 'close'),
   onAudioNotification: (
     command: string,
     intervalMs: number,
@@ -83,6 +94,8 @@ const desktopApi = {
     };
   },
   initialLanguage: process.env.AD_VOICE_LANGUAGE,
+  showLegalDocuments: (): Promise<boolean> =>
+    ipcRenderer.invoke(ipcChannels.showLegalDocuments),
   fixedStorageRoot: process.env.AD_VOICE_FIXED_STORAGE === '1',
   roomE2e: process.env.AD_VOICE_ROOM_E2E === '1',
   minimize: (): Promise<void> => ipcRenderer.invoke(ipcChannels.minimize),
@@ -374,5 +387,8 @@ contextBridge.exposeInMainWorld('desktop', {
   roomParticipantId:
     process.argv
       .find((argument) => argument.startsWith(roomParticipantArgument))
-      ?.slice(roomParticipantArgument.length) ?? '',
+      ?.slice(roomParticipantArgument.length) ??
+    (location.hash === '#legal'
+      ? ''
+      : ipcRenderer.sendSync(ipcChannels.roomParticipantId)),
 });

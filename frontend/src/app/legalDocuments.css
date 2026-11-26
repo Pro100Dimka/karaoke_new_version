@@ -1,0 +1,26 @@
+.legalDialog.ad-dialog {
+  width: min(72rem, calc(100vw - 4rem));
+  max-height: calc(100dvh - 5rem);
+  height: min(54rem, calc(100dvh - 5rem));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.legalStartup.ad-dialog {
+  max-height: calc(100dvh - 2rem);
+  height: min(54rem, calc(100dvh - 2rem));
+}
+.legalWindowDrag {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 16px;
+  -webkit-app-region: drag;
+}
+.legalStartup h2 {
+  -webkit-app-region: drag;
+}
+.legalDocumentText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  user-select: text;
+  -webkit-user-select: text;
+}

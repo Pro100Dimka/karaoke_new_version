@@ -25,6 +25,7 @@ def encode_manifest(manifest: PackageManifest) -> str:
                 "genre": manifest.song.genre,
                 "artworkUrl": manifest.song.artwork_url,
                 "videoUrl": manifest.song.video_url,
+                "videoSourceUrl": manifest.song.video_source_url,
                 "recognitionProvider": manifest.song.recognition_provider,
                 "recognitionExternalId": manifest.song.recognition_external_id,
                 **(
@@ -63,6 +64,7 @@ def decode_manifest(raw: str) -> PackageManifest:
             genre=_optional_text(song_raw.get("genre"), "genre"),
             artwork_url=_optional_text(song_raw.get("artworkUrl"), "artworkUrl"),
             video_url=_optional_text(song_raw.get("videoUrl"), "videoUrl"),
+            video_source_url=_optional_text(song_raw.get("videoSourceUrl"), "videoSourceUrl"),
             recognition_provider=_optional_text(
                 song_raw.get("recognitionProvider"), "recognitionProvider"
             ),

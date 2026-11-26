@@ -6,7 +6,7 @@ from backend.persistence import UnitOfWorkFactory
 from backend.projects.domain import ArtifactCategory, ProjectRevision
 from backend.projects.ports import ProjectStorage
 from backend.songs.domain import CoverState, Song
-from backend.songs.prepare_clip import LOCAL_CLIP
+from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
 from backend.storage.ports import StorageSystem
 from pathlib import Path
 
@@ -66,10 +66,8 @@ class PackageExportPreflight:
                 size += song.cover_path.stat().st_size
             except OSError as exc:
                 raise DependencyError("StorageUnavailable", "Cover size cannot be read") from exc
-        clip = self._projects.video_path(
-            song.song_id, revision, prefer_local="video" in song.user_overrides
-        )
-        if song.video_url != LOCAL_CLIP or not clip.is_file():
+        clip = clip_path(song, self._projects, revision)
+        if song.video_url != LOCAL_CLIP or clip is None or not clip.is_file():
             return size
         manifest = self._projects.load_manifest(song.song_id, revision)
         try:

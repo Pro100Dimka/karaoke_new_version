@@ -60,6 +60,11 @@ class RefreshSongRecognition:
                     else recognized.video_url or song.video_url
                 ),
                 recognition_provider=recognized.provider or song.recognition_provider,
+                video_source_url=(
+                    song.video_source_url
+                    if "video" in song.user_overrides or not recognized.video_url
+                    else recognized.video_url
+                ),
                 recognition_external_id=recognized.external_id or song.recognition_external_id,
                 metadata_provenance=provenance,
                 updated_at=self._clock.now(),

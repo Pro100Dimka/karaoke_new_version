@@ -8,6 +8,7 @@ from threading import Event
 
 from backend.domain_errors import DomainError
 from backend.infrastructure.process_runner import ProcessRunner
+from backend.serialization import loads_object
 
 _YOUTUBE_ID = re.compile(
     r"(?:youtu\.be/|youtube(?:-nocookie)?\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/|live/))"
@@ -17,7 +18,7 @@ _YOUTUBE_ID = re.compile(
 
 
 class YoutubeClipDownloader:
-    """Downloads the recognized clip and publishes a browser-compatible silent MP4."""
+    """Downloads complete audio/video and remuxes MP4 without changing the media."""
 
     def __init__(
         self,
@@ -44,9 +45,7 @@ class YoutubeClipDownloader:
         temporary.unlink(missing_ok=True)
         try:
             source = self._download_source(video_id, destination.parent, cancel)
-            if source is None or not self._transcode_mp4(
-                source, temporary, expected_duration, cancel
-            ):
+            if source is None or not self._remux_mp4(source, temporary, expected_duration, cancel):
                 return False
             if not self._has_motion(temporary, cancel) or (cancel is not None and cancel.is_set()):
                 return False
@@ -63,21 +62,15 @@ class YoutubeClipDownloader:
             [
                 sys.executable,
                 "-m",
-                "yt_dlp",
+                "backend.infrastructure.youtube_access",
                 *self._options(directory / ".clip-download.%(ext)s"),
                 f"https://www.youtube.com/watch?v={video_id}",
             ],
             timeout_seconds=1800,
             cancel=cancel,
         )
-        candidates = [
-            path
-            for path in directory.glob(".clip-download.*")
-            if path.is_file() and path.suffix not in {".part", ".ytdl"}
-        ]
-        if result.exit_code != 0 or not candidates:
-            return None
-        return max(candidates, key=lambda path: path.stat().st_size)
+        source = directory / ".clip-download.mp4"
+        return source if result.exit_code == 0 and source.is_file() else None
 
     @staticmethod
     def _options(template: Path) -> list[str]:
@@ -88,8 +81,12 @@ class YoutubeClipDownloader:
             "--quiet",
             "--no-warnings",
             "--no-progress",
-            "--js-runtimes",
-            "node",
+            "--no-js-runtimes",
+            "--no-plugin-dirs",
+            "--http-chunk-size",
+            "1M",
+            "--merge-output-format",
+            "mp4",
             "--force-overwrites",
             "--continue",
             "--socket-timeout",
@@ -104,12 +101,13 @@ class YoutubeClipDownloader:
             str(template),
             "--format",
             (
-                "bestvideo[vcodec^=avc1][ext=mp4][height<=720][fps<=30]/"
-                "bestvideo[height<=720][fps<=30]/bestvideo[height<=720]/bestvideo/best"
+                "bestvideo[vcodec^=avc1][ext=mp4][height<=720][fps<=30][protocol=https]"
+                "+bestaudio[ext=m4a][protocol=https]/"
+                "best[ext=mp4][vcodec^=avc1][acodec!=none][height<=720][fps<=30][protocol=https]"
             ),
         ]
 
-    def _transcode_mp4(
+    def _remux_mp4(
         self, source: Path, destination: Path, expected_duration: float | None, cancel: Event | None
     ) -> bool:
         timeout = max(180.0, min(1800.0, (expected_duration or 300.0) * 4.0))
@@ -123,20 +121,12 @@ class YoutubeClipDownloader:
                 str(source),
                 "-map",
                 "0:v:0",
-                "-an",
+                "-map",
+                "0:a:0",
                 "-sn",
                 "-dn",
-                "-vf",
-                "scale=w='min(1280,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:"
-                "force_divisible_by=2,fps=fps='min(source_fps,30)'",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
-                "-crf",
-                "23",
-                "-pix_fmt",
-                "yuv420p",
+                "-c",
+                "copy",
                 "-movflags",
                 "+faststart",
                 str(destination),
@@ -145,6 +135,32 @@ class YoutubeClipDownloader:
             cancel=cancel,
         )
         return result.exit_code == 0 and destination.is_file() and destination.stat().st_size > 0
+
+    def is_complete(self, source: Path, cancel: Event | None = None) -> bool:
+        if not source.is_file():
+            return False
+        result = self._processes.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "json",
+                str(source),
+            ],
+            timeout_seconds=15,
+            cancel=cancel,
+        )
+        try:
+            streams = loads_object(result.stdout.decode("utf-8")).get("streams", [])
+            if not isinstance(streams, list):
+                return False
+            kinds = {item.get("codec_type") for item in streams if isinstance(item, dict)}
+            return result.exit_code == 0 and {"audio", "video"}.issubset(kinds)
+        except (ValueError, UnicodeError):
+            return False
 
     def _has_motion(self, source: Path, cancel: Event | None) -> bool:
         frame_size = 32 * 18

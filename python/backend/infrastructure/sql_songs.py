@@ -52,6 +52,7 @@ def _to_domain(row: SongRow) -> Song:
         genre=row.genre,
         artwork_url=row.artwork_url,
         video_url=row.video_url,
+        video_source_url=row.video_source_url,
         recognition_provider=row.recognition_provider,
         recognition_external_id=row.recognition_external_id,
         source_identity=row.source_identity,
@@ -86,6 +87,7 @@ def _apply(row: SongRow, song: Song) -> None:
     row.genre = song.genre
     row.artwork_url = song.artwork_url
     row.video_url = song.video_url
+    row.video_source_url = song.video_source_url
     row.recognition_provider = song.recognition_provider
     row.recognition_external_id = song.recognition_external_id
     row.source_identity = song.source_identity
@@ -157,7 +159,7 @@ class SqlSongRepository:
             "title": {"title": song.title, "title_normalized": normalize_search(song.title)},
             "artist": {"artist": song.artist, "artist_normalized": normalize_search(song.artist)},
             "language": {"language": song.language.value},
-            "video": {"video_url": song.video_url},
+            "video": {"video_url": song.video_url, "video_source_url": song.video_source_url},
             "cover": {
                 "cover_path": str(song.cover_path) if song.cover_path else None,
                 "cover_state": song.cover_state.value,

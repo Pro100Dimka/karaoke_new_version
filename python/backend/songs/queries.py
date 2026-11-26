@@ -9,7 +9,7 @@ from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import Song, SongStatus
 from backend.songs.ports import FileHasher, MediaInspector, SongPage, SongSearch, SongSummary
-from backend.songs.prepare_clip import LOCAL_CLIP
+from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
 from backend.projects.ports import ProjectStorage
 from backend.projects.fingerprint import project_content_fingerprint
 
@@ -35,7 +35,11 @@ class GetSong:
     def project_hash(self, song: Song) -> str | None:
         if song.status is not SongStatus.READY:
             return None
-        video = song.video_url
+        video = song.video_source_url or song.video_url
+        if song.video_source_url and (
+            song.video_url != LOCAL_CLIP or not self.clip_path(song).is_file()
+        ):
+            return None
         if video == LOCAL_CLIP:
             path = self.clip_path(song)
             try:
@@ -50,9 +54,9 @@ class GetSong:
             return None
 
     def clip_path(self, song: Song) -> Path:
-        return self._projects.video_path(
-            song.song_id, song.active_revision, prefer_local="video" in song.user_overrides
-        )
+        path = clip_path(song, self._projects)
+        assert path is not None
+        return path
 
     def execute(self, song_id: str) -> Song:
         with self._uow.create() as transaction:

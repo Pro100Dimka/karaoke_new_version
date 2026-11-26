@@ -22,6 +22,7 @@ class SongRow(Base):
     genre: Mapped[str | None] = mapped_column(String(200))
     artwork_url: Mapped[str | None] = mapped_column(String(2000))
     video_url: Mapped[str | None] = mapped_column(String(2000))
+    video_source_url: Mapped[str | None] = mapped_column(String(2000))
     recognition_provider: Mapped[str | None] = mapped_column(String(100))
     recognition_external_id: Mapped[str | None] = mapped_column(String(300))
     source_identity: Mapped[str] = mapped_column(String(64), unique=True, index=True)

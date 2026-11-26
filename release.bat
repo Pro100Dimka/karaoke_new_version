@@ -45,8 +45,10 @@ if not exist "%PYTHON_EXE%" (
 )
 where npm.cmd >nul 2>&1 || goto :missing_tools
 where cmake.exe >nul 2>&1 || goto :missing_tools
-where ffmpeg.exe >nul 2>&1 || goto :missing_tools
-where ffprobe.exe >nul 2>&1 || goto :missing_tools
+set "FFMPEG_EXE=%ROOT%vendor\ffmpeg\bin\ffmpeg.exe"
+set "FFPROBE_EXE=%ROOT%vendor\ffmpeg\bin\ffprobe.exe"
+if not exist "%FFMPEG_EXE%" goto :missing_ffmpeg
+if not exist "%FFPROBE_EXE%" goto :missing_ffmpeg
 call "%ROOT%scripts\find-iscc.bat"
 if not defined ISCC (
   echo [error] Inno Setup 6 is missing. Install it with: winget install JRSoftware.InnoSetup
@@ -58,17 +60,11 @@ if not exist "%FRONTEND%\node_modules\.bin\tsc.cmd" (
   goto :fail
 )
 
-echo [1/4] Building AudioService and the frontend (in parallel)...
-node.exe "%ROOT%scripts\build-steps.mjs" release
-if errorlevel 1 goto :fail
-
 if not exist "%CACHE%" mkdir "%CACHE%" || goto :fail
 "%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%CACHE%\python-base.txt"
 if errorlevel 1 goto :fail
 set /p PYTHON_BASE=<"%CACHE%\python-base.txt"
 if not defined PYTHON_BASE goto :fail
-for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
-for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"
 for /f "delims=" %%N in ('node.exe -p "process.execPath"') do set "NODE_EXE=%%N"
 for %%N in ("%NODE_EXE%") do set "NODE_LICENSE=%%~dpNLICENSE"
 if not exist "%NODE_LICENSE%" (
@@ -76,12 +72,22 @@ if not exist "%NODE_LICENSE%" (
   goto :fail
 )
 
+rem Require the exact approved binaries, corresponding source and third-party notices before building.
+node.exe "%ROOT%scripts\ffmpeg-distribution.mjs" prepare "%FFMPEG_EXE%" "%FFPROBE_EXE%" "%RESOURCES%"
+if errorlevel 1 goto :fail
+
+echo [1/4] Building AudioService and the frontend (in parallel)...
+node.exe "%ROOT%scripts\build-steps.mjs" release
+if errorlevel 1 goto :fail
+
 rem Nothing the installer is built from changed: keep the installer that already exists.
 for /f "delims=" %%H in ('node.exe "%ROOT%scripts\release-inputs.mjs" "%RELEASE_ENV%" "%PYTHON_BASE%" "%FFMPEG_EXE%" "%FFPROBE_EXE%"') do set "INPUTS=%%H"
 if not defined INPUTS goto :fail
 set "BUILT_INPUTS="
 if exist "%CACHE%\setup.inputs" set /p BUILT_INPUTS=<"%CACHE%\setup.inputs"
 if exist "%SETUP%" if "%INPUTS%"=="%BUILT_INPUTS%" (
+  node.exe "%ROOT%scripts\ffmpeg-distribution.mjs" verify-release
+  if errorlevel 1 goto :fail
   echo [2/4] Nothing changed since the last release: keeping "%SETUP%".
   goto :done
 )
@@ -109,6 +115,8 @@ robocopy "%FRONTEND%\dist-electron" "%RESOURCES%\app\dist-electron" /MIR /MT:%CO
 if errorlevel 8 goto :fail
 copy /y "%FRONTEND%\package.json" "%RESOURCES%\app\package.json" >nul || goto :fail
 copy /y "%FRONTEND%\electron\splash.html" "%RESOURCES%\app\electron\splash.html" >nul || goto :fail
+robocopy "%ROOT%docs\legal" "%RESOURCES%\docs\legal" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+if errorlevel 8 goto :fail
 
 echo [3/4] Bundling Python, AudioService and FFmpeg...
 robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
@@ -135,14 +143,12 @@ mkdir "%RESOURCES%\audio-service" >nul 2>&1
 cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
 if errorlevel 1 goto :fail
 mkdir "%RESOURCES%\tools" "%RESOURCES%\theme-icons" >nul 2>&1
-copy /y "%FFMPEG_EXE%" "%RESOURCES%\tools\ffmpeg.exe" >nul || goto :fail
-copy /y "%FFPROBE_EXE%" "%RESOURCES%\tools\ffprobe.exe" >nul || goto :fail
 copy /y "%NODE_EXE%" "%RESOURCES%\tools\node.exe" >nul || goto :fail
 copy /y "%NODE_LICENSE%" "%RESOURCES%\tools\node-LICENSE.txt" >nul || goto :fail
 robocopy "%FRONTEND%\src\assets\theme-icons" "%RESOURCES%\theme-icons" *.png /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
-ffmpeg.exe -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -vf scale=256:256 "%CACHE%\ad-voice.ico"
+"%RESOURCES%\tools\ffmpeg.exe" -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -vf scale=256:256 "%CACHE%\ad-voice.ico"
 if errorlevel 1 goto :fail
 copy /y "%CACHE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
@@ -171,20 +177,26 @@ if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail
 call "%ROOT%scripts\sign-release.bat" "%SETUP%"
 if errorlevel 1 goto :fail
+node.exe "%ROOT%scripts\ffmpeg-distribution.mjs" seal
+if errorlevel 1 goto :fail
+node.exe "%ROOT%scripts\ffmpeg-distribution.mjs" verify-release
+if errorlevel 1 goto :fail
 > "%CACHE%\setup.inputs" echo %INPUTS%
 
-echo [cleanup] Keeping only the finished installer...
-for /d %%D in ("%RELEASE%\*") do if exist "%%~fD" rmdir /s /q "%%~fD"
-for %%F in ("%RELEASE%\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup.exe" del /q "%%~fF"
+rem Preserve the matching source archive and manifest beside the installer for publication.
 
 :done
 echo.
 echo Ready installer: "%SETUP%"
+echo Publish the installer together with its FFmpeg source archive and ffmpeg-distribution.json.
 endlocal
 exit /b 0
 
 :missing_tools
-echo [error] npm, CMake, FFmpeg and FFprobe are required. Run installer.bat first.
+echo [error] npm and CMake are required. Run installer.bat first.
+goto :fail
+:missing_ffmpeg
+echo [error] The project FFmpeg kit is missing from "%ROOT%vendor\ffmpeg". Restore this directory from the project backup or repository.
 :fail
 echo [error] Release build failed.
 endlocal

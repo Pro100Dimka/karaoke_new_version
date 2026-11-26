@@ -9,7 +9,7 @@ from backend.projects.domain import ProjectManifest, ProjectRevision
 from backend.projects.ports import ProjectStorage
 from backend.songs.domain import CoverState, Song
 from backend.songs.ports import SongStorage
-from backend.songs.prepare_clip import LOCAL_CLIP
+from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
 
 
 class SnapshotPackage:
@@ -59,10 +59,8 @@ class SnapshotPackage:
         ensure_not_cancelled: Callable[[], None] | None,
     ) -> Path:
         supplemental: dict[Path, Path] = {}
-        clip = self._projects.video_path(
-            song.song_id, revision, prefer_local="video" in song.user_overrides
-        )
-        if song.video_url == LOCAL_CLIP and clip.is_file():
+        clip = clip_path(song, self._projects, revision)
+        if song.video_url == LOCAL_CLIP and clip is not None and clip.is_file():
             supplemental[Path("media/clip.mp4")] = clip
         cover = custom_cover_path(song)
         if cover is not None:

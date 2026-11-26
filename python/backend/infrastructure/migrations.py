@@ -142,6 +142,10 @@ class DatabaseMigrator:
                         connection.execute(
                             text("ALTER TABLE songs ADD COLUMN detected_language VARCHAR(32)")
                         )
+                    if columns and all(row[1] != "video_source_url" for row in columns):
+                        connection.execute(
+                            text("ALTER TABLE songs ADD COLUMN video_source_url VARCHAR(2000)")
+                        )
                     _ensure_query_indexes(connection)
                 return version
         except SQLAlchemyError as exc:

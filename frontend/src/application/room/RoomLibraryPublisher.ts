@@ -169,6 +169,7 @@ export class RoomLibraryPublisher {
             const path = await this.ports.python.exportProject(
               song.id,
               song.activeRevision,
+              true,
             );
             if (!current()) return;
             await this.ports.desktop.uploadRoomProject({

@@ -31,8 +31,13 @@ const uploaded = {
 const runPublisher = (t, options = {}) => {
   const root = mkdtempSync(join(tmpdir(), 'ad-voice-publisher-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  for (const directory of ['scripts', 'frontend', 'release'])
-    mkdirSync(join(root, directory));
+  for (const directory of [
+    'scripts',
+    'frontend',
+    'release',
+    'docs/third-party/ffmpeg',
+  ])
+    mkdirSync(join(root, directory), { recursive: true });
   const script = join(root, 'scripts', 'publish-github-release.mjs');
   writeFileSync(
     script,
@@ -41,15 +46,71 @@ const runPublisher = (t, options = {}) => {
     ),
   );
   writeFileSync(
+    join(root, 'scripts/ffmpeg-distribution.mjs'),
+    readFileSync(
+      new URL('../../scripts/ffmpeg-distribution.mjs', import.meta.url),
+    ),
+  );
+  writeFileSync(
     join(root, 'frontend', 'package.json'),
     JSON.stringify({ version: '1.2.3' }),
   );
   writeFileSync(join(root, 'release', uploaded.name), payload);
+  const source = Buffer.from('Complete corresponding source fixture');
+  const sourceName = 'FFmpeg-fixture-corresponding-source.zip';
+  const approved = {
+    version: 'fixture',
+    license: 'GPL-3.0-or-later',
+    upstreamUrl: 'https://example.test/ffmpeg',
+    binaries: { 'ffmpeg.exe': '1'.repeat(64), 'ffprobe.exe': '2'.repeat(64) },
+    sourceArchive: {
+      name: sourceName,
+      sha256: createHash('sha256').update(source).digest('hex'),
+    },
+    thirdPartyNotices: {
+      name: 'THIRD-PARTY-NOTICES.txt',
+      sha256: '3'.repeat(64),
+    },
+  };
+  writeFileSync(
+    join(root, 'docs/third-party/ffmpeg/distribution.json'),
+    JSON.stringify(approved),
+  );
+  const manifest = Buffer.from(
+    JSON.stringify({
+      ...approved,
+      applicationVersion: '1.2.3',
+      sourceUrl: `https://github.com/Pro100Dimka/karaoke_new_version/releases/download/v1.2.3/${sourceName}`,
+      installer: { name: uploaded.name, sha256: digest.slice(7) },
+    }),
+  );
+  if (!options.sourceMissing)
+    writeFileSync(
+      join(root, 'release', sourceName),
+      options.sourceTampered ? 'changed' : source,
+    );
+  writeFileSync(join(root, 'release/ffmpeg-distribution.json'), manifest);
+  const extraAssets = Object.fromEntries(
+    [
+      [sourceName, source],
+      ['ffmpeg-distribution.json', manifest],
+    ].map(([name, bytes], index) => [
+      name,
+      {
+        id: 322 + index,
+        name,
+        size: bytes.length,
+        state: 'uploaded',
+        digest: 'sha256:' + createHash('sha256').update(bytes).digest('hex'),
+      },
+    ]),
+  );
   writeFileSync(join(root, 'release-notes.md'), notes);
   writeFileSync(
     join(root, 'plan.json'),
     JSON.stringify({
       asset: uploaded,
+      extraAssets,
       tagCommit: target,
       ...options,
     }),
@@ -73,7 +134,7 @@ globalThis.fetch = async (url, options = {}) => {
     kind: 'request', url: address.href, method,
     headers: Object.fromEntries(new Headers(options.headers)),
     body: typeof options.body === 'string' ? JSON.parse(options.body) : undefined,
-    binary: options.body instanceof Uint8Array ? Buffer.from(options.body).toString('base64') : undefined,
+    binary: options.body instanceof Blob ? Buffer.from(await options.body.arrayBuffer()).toString('base64') : options.body instanceof Uint8Array ? Buffer.from(options.body).toString('base64') : undefined,
   });
   if (method === 'GET' && address.pathname.endsWith('/releases/tags/v1.2.3'))
     return response({}, plan.existingStatus ?? 404);
@@ -88,8 +149,12 @@ globalThis.fetch = async (url, options = {}) => {
     return response({ sha: plan.tagCommit }, plan.commitStatus ?? 200);
   if (method === 'POST' && address.pathname.endsWith('/releases'))
     return response(release, 201);
-  if (method === 'POST' && address.hostname === 'uploads.github.com' && address.pathname.endsWith('/releases/123/assets'))
-    return response(plan.asset, plan.uploadStatus ?? 201);
+  if (method === 'POST' && address.hostname === 'uploads.github.com' && address.pathname.endsWith('/releases/123/assets')) {
+    const name = address.searchParams.get('name');
+    return name === 'AD-Voice-Setup.exe'
+      ? response(plan.asset, plan.uploadStatus ?? 201)
+      : response(plan.extraAssets[name], plan.sourceUploadStatus ?? 201);
+  }
   if (method === 'GET' && address.pathname.endsWith('/releases/assets/321')) {
     const asset = plan.pollAssets?.[polls++] ?? plan.asset;
     return response(asset, plan.pollStatus ?? 200);
@@ -147,17 +212,23 @@ test('publishes verified bytes from the exact requested commit with UTF-8 releas
     args: ['--target', target, '--notes-file', 'release-notes.md'],
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(creation(result)?.body, {
+  const { body, ...metadata } = creation(result).body;
+  assert.deepEqual(metadata, {
     tag_name: 'v1.2.3',
     target_commitish: target,
     name: 'A&D Voice 1.2.3',
-    body: notes,
     draft: true,
     prerelease: false,
   });
+  assert.ok(body.startsWith(notes + '\n\n'));
+  assert.ok(
+    body.includes(
+      'https://github.com/Pro100Dimka/karaoke_new_version/releases/download/v1.2.3/FFmpeg-fixture-corresponding-source.zip',
+    ),
+  );
   assert.deepEqual(
     result.requests.map((request) => request.method),
-    ['GET', 'GET', 'POST', 'POST', 'POST', 'PATCH'],
+    ['GET', 'GET', 'POST', 'POST', 'POST', 'POST', 'POST', 'PATCH'],
   );
   assert.equal(
     result.requests[1].url,
@@ -191,7 +262,9 @@ test('preserves the default target and inline --notes argument', (t) => {
   });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(Object.hasOwn(creation(result).body, 'target_commitish'), false);
-  assert.equal(creation(result).body.body, 'Inline notes\nSecond line');
+  assert.ok(
+    creation(result).body.body.startsWith('Inline notes\nSecond line\n\n'),
+  );
   assert.equal(
     result.requests.some((request) => /\/(git|commits)\//.test(request.url)),
     false,
@@ -323,7 +396,7 @@ test('waits for an authenticated asset read to confirm a pending digest before p
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(
     result.requests.map((request) => request.method),
-    ['GET', 'POST', 'POST', 'GET', 'GET', 'PATCH'],
+    ['GET', 'POST', 'POST', 'GET', 'GET', 'POST', 'POST', 'PATCH'],
   );
   for (const request of assetReads(result)) {
     assert.equal(
@@ -377,4 +450,18 @@ test('does not overwrite an existing release', (t) => {
   assert.notEqual(result.status, 0);
   assert.equal(result.requests.length, 1);
   assert.equal(creation(result), undefined);
+});
+
+for (const options of [{ sourceMissing: true }, { sourceTampered: true }])
+  test(`rejects incomplete corresponding sources before contacting GitHub: ${JSON.stringify(options)}`, (t) => {
+    const result = runPublisher(t, options);
+    assert.notEqual(result.status, 0);
+    assert.deepEqual(result.requests, []);
+  });
+
+test('never publishes after the corresponding source upload fails', (t) => {
+  const result = runPublisher(t, { sourceUploadStatus: 503 });
+  assert.notEqual(result.status, 0);
+  assert.equal(published(result).length, 0);
+  assert.match(result.stderr, /remains a draft/);
 });

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 const splash = readFileSync(new URL('./splash.html', import.meta.url), 'utf8');
@@ -35,10 +36,10 @@ const roomTransport = readFileSync(
   'utf8',
 );
 
-test('normal startup prepares services before window readiness behind update and migration gates', () => {
+test('normal startup prepares services before window readiness behind legal, update and migration gates', () => {
   assert.match(
     main,
-    /isPrimaryInstance\s*&&\s*!hasPendingStorageMigration\(\)\s*&&\s*!updater\.requiresLaunchCheck\(\)/,
+    /isPrimaryInstance\s*&&\s*legalAccessAllowed\s*&&\s*!hasPendingStorageMigration\(\)\s*&&\s*!updater\.requiresLaunchCheck\(\)/,
   );
   assert.ok(
     main.indexOf('startManagedServices();') < main.indexOf('.whenReady()'),
@@ -81,6 +82,24 @@ test('packaged Electron launches its bundled backend and media tools', () => {
   assert.match(mainProcess, /python-runtime/);
   assert.match(mainProcess, /python-app/);
   assert.match(mainProcess, /process\.resourcesPath,[\s\S]{0,80}["']tools["']/);
+});
+
+test('backend media tools come from the project in development and installed resources in release', () => {
+  const services = readFileSync(new URL('./ManagedServices.ts', import.meta.url), 'utf8');
+  const expression = services.match(/const tools = ([\s\S]*?const executablePath = [^\r\n]+;)/)[0];
+  const root = path.resolve('project with spaces');
+  const resourcesPath = path.resolve('installed resources');
+  const resolvePath = new Function('app', 'path', 'projectRoot', 'process', `${expression} return executablePath;`);
+  for (const packaged of [false, true]) {
+    const actual = resolvePath(
+      { isPackaged: packaged }, path, () => root,
+      { resourcesPath, env: { PATH: 'unrelated-system-tools' } },
+    );
+    const expected = packaged
+      ? path.join(resourcesPath, 'tools')
+      : path.join(root, 'vendor', 'ffmpeg', 'bin');
+    assert.equal(actual, `${expected}${path.delimiter}unrelated-system-tools`);
+  }
 });
 
 test('development and installed apps use isolated profiles and service endpoints', () => {
