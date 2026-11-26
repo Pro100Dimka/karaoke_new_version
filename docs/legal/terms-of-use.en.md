@@ -1,6 +1,6 @@
 # A&D Voice Terms of Use
 
-Draft version: 0.4 dated 26 November 2026.
+Draft version: 0.5 dated 26 November 2026.
 
 > DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete every bracketed field, confirm the owner's details and distribution countries, and review the text against applicable law and the actual application version. Remove this editorial note from the published version. This document does not itself grant permission from owners of third-party components or content.
 
@@ -81,6 +81,8 @@ Draft version: 0.4 dated 26 November 2026.
 5.8. Purchasing the application grants no rights to music, videos, lyrics or performances. Use of retrieved material, including public performance, commercial use, distribution and transfer to others, is subject to clauses 3.2 and 3.6.
 
 5.9. Users must comply with applicable law and external service terms that bind them. A&D Voice is not an official product of YouTube or Apple; use of the VISIONOS designation and client identifier does not imply those companies' approval or permission. These terms do not replace necessary permissions. Users' liability for their own unlawful conduct and the Owner's liability are governed by section 9.
+
+5.10. Voice in online rooms is transmitted over UDP without transport encryption. Transmission confidentiality is not guaranteed: audio may be intercepted. Do not share confidential information through rooms.
 
 ## 6. Remote processing
 

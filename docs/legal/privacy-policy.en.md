@@ -1,6 +1,6 @@
 # A&D Voice Privacy Policy
 
-Draft version: 0.5 dated 26 November 2026.
+Draft version: 0.6 dated 26 November 2026.
 
 > DRAFT FOR PUBLICATION PREPARATION. No effective date has been set. Before publication, complete bracketed fields and establish actual retention periods, recipients, processing countries and legal bases. Request handling and deletion procedures must work in practice. Remove this editorial note before publication. Describing current behaviour does not certify compliance with every country's requirements.
 
@@ -151,7 +151,9 @@ Removing only the Windows secret does not delete the server account. Conversely,
 
 The application uses separate local profiles, access secrets and server-operation restrictions. Public-server control connections use HTTPS/WSS and Windows protects the account secret. These measures do not mean absolute device or service security.
 
-Current room voice UDP traffic is unencrypted. The server accesses audio to mix voices; participant-to-participant end-to-end encryption is not claimed. This notice does not waive the Owner's duty to provide appropriate security under applicable law.
+Voice in online rooms is transmitted over UDP without transport encryption. Transmission confidentiality is not guaranteed: audio may be intercepted. Do not share confidential information through rooms.
+
+The server accesses audio to mix voices; participant-to-participant end-to-end encryption is not claimed. This notice does not waive the Owner's duty to provide appropriate security under applicable law.
 
 Incidents or suspected unauthorised access may be reported to dmytro.andreiev.dev@gmail.com. Response and notification duties follow applicable law.
 
